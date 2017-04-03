@@ -1,0 +1,366 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use 5.020;
+
+use Getopt::Long;
+use IO::Handle;
+use Kratos::DFADriver;
+use List::Util qw(max sum);
+use Time::Progress;
+
+our $VERSION = '0.00';
+my %opt;
+
+GetOptions(
+	\%opt,
+	qw{
+	  exclude-states=s@
+	  ignore-nested-calls
+	  logging!
+	  plot=s
+	  no-cache
+	  no-update
+	  state-duration=i
+	  shunt=f
+	  trace-filter=s@
+	  trace-revisit=i
+	  trigger-pin=i
+	  trigger-port=s
+	  voltage=f
+	  offset=i
+	  zomg-fasta-nao
+	  }
+);
+
+if ( @ARGV < 2 ) {
+	show_usage();
+}
+
+@{ $opt{'exclude-states'} }
+  = split( qr{,}, join( q{,}, @{ $opt{'exclude-states'} // [] } ) );
+
+my ( $command, $xml_file, @data_files ) = @ARGV;
+
+my $driver = Kratos::DFADriver->new(
+	cache => $opt{'no-cache'} ? 0 : 1,
+	data_file       => $data_files[0],
+	excluded_states => $opt{'exclude-states'} // [],
+	fast_analysis   => $opt{'zomg-fasta-nao'} // 0,
+	ignore_nested   => $opt{'ignore-nested-calls'} // 0,
+	logging         => $opt{logging} // 1,
+	state_duration  => $opt{'state-duration'} // 1000,
+	trigger_pin     => $opt{'trigger-pin'},
+	trigger_port    => $opt{'trigger-port'},
+	merge_args      => $opt{'plot'}
+	? [ map { "--$_" } split( qr{,}, $opt{'plot'} ) ]
+	: [],
+	mimosa_offset  => $opt{offset}          // 130,
+	mimosa_shunt   => $opt{shunt}           // 330,
+	mimosa_voltage => $opt{voltage}         // 3.60,
+	trace_filter   => $opt{'trace-filter'}  // [],
+	trace_revisit  => $opt{'trace-revisit'} // 2,
+	xml_file       => $xml_file,
+);
+
+my %action = (
+	clean => sub {
+		$driver->launchpad_log_clean;
+	},
+	enable => sub {
+		$driver->write_acc_files;
+	},
+	disable => sub {
+		$driver->rm_acc_files;
+	},
+	'to-tikz' => sub {
+		say $driver->to_tikz;
+	},
+	'to-dfa' => sub {
+		say join(
+			"\n",
+			map {
+				join( ' -> ', map { "$_->[0]($_->[1],$_->[2])" } @{$_} )
+			} $driver->runs
+		);
+	},
+	flash => sub {
+		say "Compiling Kratos and flashing Launchpad";
+		$driver->launchpad_flash;
+	},
+	maketest => sub {
+		$driver->write_test_files;
+	},
+	rmtest => sub {
+		$driver->rm_test_files;
+	},
+	reset => sub {
+		say "Resetting MSP430";
+		$driver->launchpad_reset;
+	},
+	log => sub {
+		say "Resetting MSP430";
+		$driver->launchpad_reset;
+		say "Connecting to Launchpad";
+		$driver->launchpad_log_init;
+		say "Starting measurement";
+		$driver->mimosa->start;
+		say "Calibrating MIMOSA";
+		$driver->mimosa->calibrate;
+		STDOUT->autoflush(1);
+		print "Waiting for sync";
+
+		while ( not $driver->launchpad_log_is_synced ) {
+			$driver->launchpad_log_read;
+			print q{.};
+		}
+		print "\r\e[2KSynced with DriverEval app\n";
+		my ( $iter, $run, $maxrun ) = $driver->launchpad_log_status;
+		my $timer = Time::Progress->new(
+			min => 0,
+			max => $maxrun
+		);
+		while ( $run < 1 ) {
+			$driver->launchpad_log_read;
+			( $iter, $run, $maxrun ) = $driver->launchpad_log_status;
+		}
+		while ( $driver->launchpad_log_is_synced ) {
+			$driver->launchpad_log_read;
+			( $iter, $run, $maxrun ) = $driver->launchpad_log_status;
+			print $timer->report(
+"\r\e[2K%40b %p (${run}/${maxrun})  %L elapsed  %E remaining  in iteration ${iter}",
+				$run
+			);
+			if ( $run == $maxrun ) {
+				printf( "\r\e[2KIteration %d done after %d seconds\n",
+					$iter - 1, $timer->elapsed($run) );
+				say "Stopping measurement";
+				$driver->mimosa->stop;
+				say "Archiving files";
+				$driver->archive_files;
+				return;
+			}
+
+			if ( my @errors = $driver->launchpad_get_errors ) {
+				say "\r\e[2KErrors in iteration ${iter}, run ${run}";
+				say join( "\n", @errors );
+				say "Aborting measurement. Current run will not be saved.";
+				$driver->mimosa->kill;
+				exit 1;
+			}
+		}
+	},
+	analyze => sub {
+		$driver->analyze(@data_files);
+		$driver->assess_model;
+		if ( not $opt{'no-update'} ) {
+			$driver->update_model;
+		}
+	},
+	'analyze-tex' => sub {
+		$driver->analyze(@data_files);
+		$driver->assess_model_tex;
+	},
+	analyzesingle => sub {
+		if ( $opt{'no-cache'} or not $driver->log->load_cache ) {
+			say "Analyzing DriverEval iterations (this may take a while)";
+			$driver->log->load_archive;
+			$driver->log->preprocess;
+			$driver->log->save_cache;
+		}
+		say "Processing";
+		$driver->log->analyze;
+		$driver->assess_model;
+		if ( not $opt{'no-update'} ) {
+			$driver->update_model;
+		}
+	},
+	validate => sub {
+		$driver->validate_model(@data_files);
+	},
+	crossvalidate => sub {
+		printf("./dfatool crossvalidate %s %s\n",
+			$xml_file,
+			join(q{ }, @data_files)
+		);
+		$driver->crossvalidate_model(@data_files);
+	},
+	ls => sub {
+		for my $file (@data_files) {
+			my $log = $driver->log($file);
+			$log->load_archive;
+			my $setup = $log->setup;
+			say $file;
+			printf(
+				"  %.2fV @ %3dΩ, %dms per state, max revisit %d\n",
+				$setup->{mimosa_voltage}, $setup->{mimosa_shunt},
+				$setup->{state_duration}, $setup->{trace_revisit}
+			);
+			if ( $setup->{excluded_states} and @{ $setup->{excluded_states} } )
+			{
+				printf( "  excluded states: %s\n", $setup->{excluded_states} );
+			}
+			if ( $setup->{trace_filter} and @{ $setup->{trace_filter} } ) {
+				printf( "  trace filter: %s\n",
+					join( q{ | }, @{ $setup->{trace_filter} } ) );
+			}
+		}
+	},
+	list => sub {
+		for my $file (@data_files) {
+			my $log = $driver->log($file);
+			if ( $opt{'no-cache'} or not $driver->log->load_cache ) {
+				$log->load_archive;
+				$log->preprocess;
+				$log->save_cache;
+			}
+			$log->analyze;
+			my $data  = $log->data;
+			my $setup = $log->setup;
+			say $file;
+			printf(
+				"  %.2fV @ %3dΩ, %dms per state, max revisit %d\n",
+				$setup->{mimosa_voltage}, $setup->{mimosa_shunt},
+				$setup->{state_duration}, $setup->{trace_revisit}
+			);
+			if ( $setup->{excluded_states} and @{ $setup->{excluded_states} } )
+			{
+				printf( "  excluded states: %s\n", $setup->{excluded_states} );
+			}
+			if ( $setup->{trace_filter} and @{ $setup->{trace_filter} } ) {
+				printf( "  trace filter: %s\n",
+					join( q{ | }, @{ $setup->{trace_filter} } ) );
+			}
+			printf( "  MIMOSA offset: %5s %5s %5s\n", 'inf', '100k', '1k' );
+			for my $cal ( @{ $data->{calibration} } ) {
+				printf( "                 %5.f %5.f %5.f µW\n",
+					@{$cal}{qw{r0_err_uW r2_err_uW r1_err_uW}},
+				);
+			}
+			for my $state ( sort keys %{ $data->{aggregate}{state} } ) {
+				if ( $state ne 'UNINITIALIZED' ) {
+					my $val = $data->{aggregate}{state}{$state};
+					printf(
+						"  %15s : %.f±%.f = %.f, clip %.f%% ^ %.f%%\n",
+						$state,                   $val->{power}{mean},
+						$val->{power}{std_inner}, $val->{power}{median},
+						$val->{clip}{mean},       $val->{clip}{max}
+					);
+				}
+			}
+		}
+	},
+	show => sub {
+		for my $file (@data_files) {
+			my $log = $driver->log($file);
+			$log->load_archive;
+			if ( $opt{'no-cache'} or not $driver->log->load_cache ) {
+				$log->load_archive;
+				$log->preprocess;
+				$log->save_cache;
+			}
+			$log->analyze;
+			for my $trace ( @{ $log->data->{traces} } ) {
+				my ( @data, @widths );
+				printf( '%3d', $trace->{id} );
+				for my $elem ( @{ $trace->{trace} } ) {
+					if (    $elem->{isa} eq 'state'
+						and $elem->{name} ne 'UNINITIALIZED' )
+					{
+						push( @widths, max (length( $elem->{name} ), 9) );
+						printf(' → %9s', $elem->{name});
+						my @powers
+						  = map { $_->{uW_mean} } @{ $elem->{offline} };
+						push( @data, sum(@powers) / @powers );
+					}
+					elsif ( $elem->{isa} eq 'transition' ) {
+						my $args = join( q{, }, @{ $elem->{args} // [qw[?]] } );
+						my $pstr = "$elem->{name}($args)";
+						push( @widths, max (length($pstr), 9) );
+						printf(' → %9s', $pstr);
+						my @energies
+						  = map { $_->{uW_mean_delta} * ( $_->{us} - 20 ) }
+						  @{ $elem->{offline} };
+						push( @data, sum(@energies) / @energies );
+					}
+				}
+				print "\n   ";
+				for my $i ( 0 .. $#data ) {
+					printf( " → \%$widths[$i]d", $data[$i] );
+				}
+				print "\n";
+			}
+		}
+	},
+	reset => sub {
+		$driver->reset_model;
+	},
+);
+
+$SIG{INT} = $SIG{TERM} = sub {
+	say "\r\e[2KTerminating MIMOSA daemon";
+	$driver->mimosa->kill;
+	say "Goodbye";
+	exit 0;
+};
+
+sub show_usage {
+	say STDERR "Usage: $0 <action> <DFA driver XML file>";
+	say STDERR 'Supported actions: ' . join( q{ }, sort keys %action );
+	exit 1;
+}
+
+if ( exists $action{$command} ) {
+	$action{$command}();
+}
+elsif ( $command eq 'loop' ) {
+	$action{clean}();
+	$action{enable}();
+	$action{maketest}();
+	$action{flash}();
+	while (1) {
+		$action{log}();
+	}
+}
+else {
+	show_usage();
+}
+
+__END__
+
+=head1 NAME
+
+=head1 SYNOPSIS
+
+=head1 VERSION
+
+=head1 DESCRIPTION
+
+=head1 OPTIONS
+
+=over
+
+=back
+
+=head1 EXIT STATUS
+
+=head1 CONFIGURATION
+
+None.
+
+=head1 DEPENDENCIES
+
+=over
+
+=back
+
+=head1 BUGS AND LIMITATIONS
+
+=head1 AUTHOR
+
+Copyright (C) 2016 by Daniel Friesel E<lt>derf@finalrewind.orgE<gt>
+
+=head1 LICENSE
+
+  0. You just DO WHAT THE FUCK YOU WANT TO.

@@ -1,0 +1,24 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use 5.020;
+
+use File::Slurp qw(slurp);
+use IO::Handle;
+
+our $VERSION = '0.00';
+
+STDOUT->autoflush(1);
+
+while (sleep(1)) {
+	if ( -e '/tmp/mimosa/mimosa_scale_100000.tmp' ) {
+		my $raw_data = slurp('/tmp/mimosa/mimosa_scale_100000.tmp');
+		my @data = map { $_ >> 8 } unpack('L*', $raw_data);
+		my @buzzer = map { $_ & 0x0f } unpack('L*', $raw_data);
+
+		if (@data > 8) {
+			printf("\r\e[2K" . ('%8d ' x 8), @data[-8 .. -1]);
+		}
+	}
+}
