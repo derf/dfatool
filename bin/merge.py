@@ -398,7 +398,7 @@ def load_run_elem(index, element, trace, by_name, by_param, by_trace):
     trace_key = (*key, pre_trace)
     name = element['name']
 
-    add_data_to_aggregate(by_name, name, element['isa'], {
+    elem_data = {
         'means' : means,
         'stds' : stds,
         'durations' : durations,
@@ -411,33 +411,10 @@ def load_run_elem(index, element, trace, by_name, by_param, by_trace):
         'param' : [key[1]] * len(means),
         'online_means' : online_means,
         'online_durations' : online_durations,
-    })
-    add_data_to_aggregate(by_param, key, element['isa'], {
-        'means' : means,
-        'stds' : stds,
-        'durations' : durations,
-        'energies' : energies,
-        'rel_energies_prev' : rel_energies_prev,
-        'rel_energies_next' : rel_energies_next,
-        'clip_rate' : clips,
-        'timeouts' : timeouts,
-        'sub_thresholds' : sub_thresholds,
-        'online_means' : online_means,
-        'online_durations' : online_durations,
-    })
-    add_data_to_aggregate(by_trace, trace_key, element['isa'], {
-        'means' : means,
-        'stds' : stds,
-        'durations' : durations,
-        'energies' : energies,
-        'rel_energies_prev' : rel_energies_prev,
-        'rel_energies_next' : rel_energies_next,
-        'clip_rate' : clips,
-        'timeouts' : timeouts,
-        'sub_thresholds' : sub_thresholds,
-        'online_means' : online_means,
-        'online_durations' : online_durations,
-    })
+    }
+    add_data_to_aggregate(by_name, name, element['isa'], elem_data)
+    add_data_to_aggregate(by_param, key, element['isa'], elem_data)
+    add_data_to_aggregate(by_trace, trace_key, element['isa'], elem_data)
 
 def fmap(name, funtype):
     if funtype == 'linear':
@@ -875,6 +852,12 @@ def validate(by_name, by_param, parameters):
                 }
     return aggdata
 
+def analyze_by_param(aggval, by_param, allvalues, name, key1, key2, param, param_idx):
+    aggval[key1]['std_by_param'][param] = mean_std_by_param(
+        by_param, allvalues, name, key2, param_idx)
+    if aggval[key1]['std_by_param'][param] > 0 and aggval[key1]['std_param'] / aggval[key1]['std_by_param'][param] < 0.6:
+        aggval[key1]['fit_guess'][param] = try_fits(name, key2, param_idx, by_param)
+
 def analyze(by_name, by_param, by_trace, parameters):
     aggdata = {
         'state' : {},
@@ -912,32 +895,14 @@ def analyze(by_name, by_param, by_trace, parameters):
             #allvalues = list(set(allvalues))
             if len(values) > 1:
                 if isa == 'state':
-                    aggval['power']['std_by_param'][param] = mean_std_by_param(
-                        by_param, allvalues, name, 'means', i)
-                    if aggval['power']['std_by_param'][param] > 0 and aggval['power']['std_param'] / aggval['power']['std_by_param'][param] < 0.6:
-                        aggval['power']['fit_guess'][param] = try_fits(name, 'means', i, by_param)
+                    analyze_by_param(aggval, by_param, allvalues, name, 'power', 'means', param, i)
                 else:
-                    aggval['duration']['std_by_param'][param] = mean_std_by_param(
-                        by_param, allvalues, name, 'durations', i)
-                    if aggval['duration']['std_by_param'][param] > 0 and aggval['duration']['std_param'] / aggval['duration']['std_by_param'][param] < 0.6:
-                        aggval['duration']['fit_guess'][param] = try_fits(name, 'durations', i, by_param)
-                    aggval['energy']['std_by_param'][param] = mean_std_by_param(
-                        by_param, allvalues, name, 'energies', i)
-                    if aggval['energy']['std_by_param'][param] > 0 and aggval['energy']['std_param'] / aggval['energy']['std_by_param'][param] < 0.6:
-                        aggval['energy']['fit_guess'][param] = try_fits(name, 'energies', i, by_param)
-                    aggval['rel_energy_prev']['std_by_param'][param] = mean_std_by_param(
-                        by_param, allvalues, name, 'rel_energies_prev', i)
-                    if aggval['rel_energy_prev']['std_by_param'][param] > 0 and aggval['rel_energy_prev']['std_param'] / aggval['rel_energy_prev']['std_by_param'][param] < 0.6:
-                        aggval['rel_energy_prev']['fit_guess'][param] = try_fits(name, 'rel_energies_prev', i, by_param)
-                    aggval['rel_energy_next']['std_by_param'][param] = mean_std_by_param(
-                        by_param, allvalues, name, 'rel_energies_next', i)
-                    if aggval['rel_energy_next']['std_by_param'][param] > 0 and aggval['rel_energy_next']['std_param'] / aggval['rel_energy_next']['std_by_param'][param] < 0.6:
-                        aggval['rel_energy_next']['fit_guess'][param] = try_fits(name, 'rel_energies_next', i, by_param)
+                    analyze_by_param(aggval, by_param, allvalues, name, 'duration', 'durations', param, i)
+                    analyze_by_param(aggval, by_param, allvalues, name, 'energy', 'energies', param, i)
+                    analyze_by_param(aggval, by_param, allvalues, name, 'rel_energy_prev', 'rel_energies_prev', param, i)
+                    analyze_by_param(aggval, by_param, allvalues, name, 'rel_energy_next', 'rel_energies_next', param, i)
                 if isa == 'transition' and 'function' in data['model']['transition'][name]['timeout']:
-                    aggval['timeout']['std_by_param'][param] = mean_std_by_param(
-                        by_param, allvalues, name, 'timeouts', i)
-                    if aggval['timeout']['std_by_param'][param] > 0 and aggval['timeout']['std_param'] / aggval['timeout']['std_by_param'][param] < 0.6:
-                        aggval['timeout']['fit_guess'][param] = try_fits(name, 'timeouts', i, by_param)
+                    analyze_by_param(aggval, by_param, allvalues, name, 'timeout', 'timeouts', param, i)
 
         if isa == 'state':
             fguess_to_function(name, 'means', aggval['power'], parameters, by_param,
