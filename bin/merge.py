@@ -858,6 +858,16 @@ def analyze_by_param(aggval, by_param, allvalues, name, key1, key2, param, param
     if aggval[key1]['std_by_param'][param] > 0 and aggval[key1]['std_param'] / aggval[key1]['std_by_param'][param] < 0.6:
         aggval[key1]['fit_guess'][param] = try_fits(name, key2, param_idx, by_param)
 
+def maybe_fit_function(aggval, model, by_param, parameters, name, key1, key2, unit):
+    if 'function' in model[key1] and 'user' in model[key1]['function']:
+        aggval[key1]['function']['user'] = {
+            'raw' : model[key1]['function']['user']['raw'],
+            'params' : model[key1]['function']['user']['params'],
+        }
+        fit_function(
+            aggval[key1]['function']['user'], name, key2, parameters, by_param,
+            yaxis='%s %s [%s]' % (name, key1, unit))
+
 def analyze(by_name, by_param, by_trace, parameters):
     aggdata = {
         'state' : {},
@@ -907,14 +917,7 @@ def analyze(by_name, by_param, by_trace, parameters):
         if isa == 'state':
             fguess_to_function(name, 'means', aggval['power'], parameters, by_param,
                 'estimated %s power [µW]' % name)
-            if 'function' in model['power'] and 'user' in model['power']['function']:
-                aggval['power']['function']['user'] = {
-                    'raw' : model['power']['function']['user']['raw'],
-                    'params' : model['power']['function']['user']['params'],
-                }
-                fit_function(
-                    aggval['power']['function']['user'], name, 'means', parameters, by_param,
-                    yaxis='%s power [µW]' % name)
+            maybe_fit_function(aggval, model, by_param, parameters, name, 'power', 'means', 'µW')
             if aggval['power']['std_param'] > 0 and aggval['power']['std_trace'] / aggval['power']['std_param'] < 0.5:
                 aggval['power']['std_by_trace'] = mean_std_by_trace_part(by_trace, transition_names, name, 'means')
         else:
@@ -926,48 +929,15 @@ def analyze(by_name, by_param, by_trace, parameters):
                 'estimated relative %s energy [pJ]' % name)
             fguess_to_function(name, 'rel_energies_next', aggval['rel_energy_next'], parameters, by_param,
                 'estimated relative %s energy [pJ]' % name)
-            if 'function' in model['duration'] and 'user' in model['duration']['function']:
-                aggval['duration']['function']['user'] = {
-                    'raw' : model['duration']['function']['user']['raw'],
-                    'params' : model['duration']['function']['user']['params'],
-                }
-                fit_function(
-                    aggval['duration']['function']['user'], name, 'durations', parameters, by_param,
-                    yaxis='%s duration [µs]' % name)
-            if 'function' in model['energy'] and 'user' in model['energy']['function']:
-                aggval['energy']['function']['user'] = {
-                    'raw' : model['energy']['function']['user']['raw'],
-                    'params' : model['energy']['function']['user']['params'],
-                }
-                fit_function(
-                    aggval['energy']['function']['user'], name, 'energies', parameters, by_param,
-                    yaxis='%s energy [pJ]' % name)
-            if 'function' in model['rel_energy_prev'] and 'user' in model['rel_energy_prev']['function']:
-                aggval['rel_energy_prev']['function']['user'] = {
-                    'raw' : model['rel_energy_prev']['function']['user']['raw'],
-                    'params' : model['rel_energy_prev']['function']['user']['params'],
-                }
-                fit_function(
-                    aggval['rel_energy_prev']['function']['user'], name, 'rel_energies_prev', parameters, by_param,
-                    yaxis='%s rel_energy_prev [pJ]' % name)
-            if 'function' in model['rel_energy_next'] and 'user' in model['rel_energy_next']['function']:
-                aggval['rel_energy_next']['function']['user'] = {
-                    'raw' : model['rel_energy_next']['function']['user']['raw'],
-                    'params' : model['rel_energy_next']['function']['user']['params'],
-                }
-                fit_function(
-                    aggval['rel_energy_next']['function']['user'], name, 'rel_energies_next', parameters, by_param,
-                    yaxis='%s rel_energy_next [pJ]' % name)
+            maybe_fit_function(aggval, model, by_param, parameters, name, 'duration', 'durations', 'µs')
+            maybe_fit_function(aggval, model, by_param, parameters, name, 'energy', 'energies', 'pJ')
+            maybe_fit_function(aggval, model, by_param, parameters, name, 'rel_energy_prev', 'rel_energies_prev', 'pJ')
+            maybe_fit_function(aggval, model, by_param, parameters, name, 'rel_energy_next', 'rel_energies_next', 'pJ')
             if 'function' in model['timeout'] and 'user' in model['timeout']['function']:
                 fguess_to_function(name, 'timeouts', aggval['timeout'], parameters, by_param,
                     'estimated %s timeout [µs]' % name)
-                aggval['timeout']['function']['user'] = {
-                    'raw' : model['timeout']['function']['user']['raw'],
-                    'params' : model['timeout']['function']['user']['params'],
-                }
-                fit_function(
-                    aggval['timeout']['function']['user'], name, 'timeouts', parameters,
-                    by_param, yaxis='%s timeout [µs]' % name)
+            maybe_fit_function(aggval, model, by_param, parameters, name, 'timeout', 'timeouts', 'µs')
+            if 'function' in model['timeout'] and 'user' in model['timeout']['function']:
                 if aggval['timeout']['std_param'] > 0 and aggval['timeout']['std_trace'] / aggval['timeout']['std_param'] < 0.5:
                     aggval['timeout']['std_by_trace'] = mean_std_by_trace_part(by_trace, transition_names, name, 'timeouts')
 
