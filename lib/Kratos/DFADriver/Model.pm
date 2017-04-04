@@ -117,17 +117,18 @@ sub parse_xml {
 		}
 
 		my $transition = {
-			name        => $transition_node->getAttribute('name'),
-			duration    => { static => 0+($transition_node->getAttribute('duration') // 0) },
-			energy      => { static => 0+($transition_node->getAttribute('energy') // 0) },
-			rel_energy  => { static => 0+($transition_node->getAttribute('rel_energy') // 0) },
-			parameters  => [@parameters],
-			origins     => [@source_states],
-			destination => $dst_node->textContent,
-			level       => $level_node->textContent,
-			id          => $transition_index,
-			affects     => {%affects},
-			node        => $transition_node,
+			name             => $transition_node->getAttribute('name'),
+			duration         => { static => 0+($transition_node->getAttribute('duration') // 0) },
+			energy           => { static => 0+($transition_node->getAttribute('energy') // 0) },
+			rel_energy_prev  => { static => 0+($transition_node->getAttribute('rel_energy_prev') // 0) },
+			rel_energy_next  => { static => 0+($transition_node->getAttribute('rel_energy_next') // 0) },
+			parameters       => [@parameters],
+			origins          => [@source_states],
+			destination      => $dst_node->textContent,
+			level            => $level_node->textContent,
+			id               => $transition_index,
+			affects          => {%affects},
+			node             => $transition_node,
 		};
 
 		for my $fun_node ( $transition_node->findnodes('./timeoutfunction/*') )
@@ -184,18 +185,36 @@ sub parse_xml {
 			}
 		}
 
-		for my $fun_node ( $transition_node->findnodes('./rel_energyfunction/*') )
+		for my $fun_node ( $transition_node->findnodes('./rel_energy_prevfunction/*') )
 		{
 			my $name     = $fun_node->nodeName;
 			my $function = $fun_node->textContent;
 			$function =~ s{^ \n* \s* }{}x;
 			$function =~ s{\s* \n* $}{}x;
-			$transition->{rel_energy}{function}{$name}{raw}  = $function;
-			$transition->{rel_energy}{function}{$name}{node} = $fun_node;
+			$transition->{rel_energy_prev}{function}{$name}{raw}  = $function;
+			$transition->{rel_energy_prev}{function}{$name}{node} = $fun_node;
 			my $attrindex = 0;
 			while ( $fun_node->hasAttribute("param${attrindex}") ) {
 				push(
-					@{ $transition->{rel_energy}{function}{$name}{params} },
+					@{ $transition->{rel_energy_prev}{function}{$name}{params} },
+					$fun_node->getAttribute("param${attrindex}")
+				);
+				$attrindex++;
+			}
+		}
+
+		for my $fun_node ( $transition_node->findnodes('./rel_energy_nextfunction/*') )
+		{
+			my $name     = $fun_node->nodeName;
+			my $function = $fun_node->textContent;
+			$function =~ s{^ \n* \s* }{}x;
+			$function =~ s{\s* \n* $}{}x;
+			$transition->{rel_energy_next}{function}{$name}{raw}  = $function;
+			$transition->{rel_energy_next}{function}{$name}{node} = $fun_node;
+			my $attrindex = 0;
+			while ( $fun_node->hasAttribute("param${attrindex}") ) {
+				push(
+					@{ $transition->{rel_energy_next}{function}{$name}{params} },
 					$fun_node->getAttribute("param${attrindex}")
 				);
 				$attrindex++;
@@ -249,7 +268,8 @@ sub reset {
 	for my $transition (@{$self->{transitions}}) {
 		$transition->{node}->removeAttribute('duration');
 		$transition->{node}->removeAttribute('energy');
-		$transition->{node}->removeAttribute('rel_energy');
+		$transition->{node}->removeAttribute('rel_energy_prev');
+		$transition->{node}->removeAttribute('rel_energy_next');
 		for my $list_node (@{$transition->{node}->findnodes('./timeoutfunction')}) {
 			for my $fun_name (keys %{$transition->{timeout}{function}}) {
 				my $fun_node = $transition->{timeout}{function}{$fun_name}{node};
@@ -366,7 +386,7 @@ sub set_transition_params {
 }
 
 sub set_transition_data {
-	my ( $self, $transition_name, $duration, $energy, $rel_energy ) = @_;
+	my ( $self, $transition_name, $duration, $energy, $rel_energy_prev, $rel_energy_next ) = @_;
 
 	my $transition = $self->get_transition_by_name($transition_name);
 	$duration = sprintf( '%.f', $duration );
@@ -383,17 +403,23 @@ sub set_transition_data {
 	$transition->{energy}{static} = $energy;
 	$transition->{node}->setAttribute( 'energy', $energy );
 
-	if (defined $rel_energy) {
-		$rel_energy = sprintf('%.f', $rel_energy);
-		printf( ", relative energy %d -> %d pJ\n",
-			$transition->{rel_energy}{static}, $rel_energy );
+	if (defined $rel_energy_prev) {
+		$rel_energy_prev = sprintf('%.f', $rel_energy_prev);
+		printf( ", relative_prev energy %d -> %d pJ",
+			$transition->{rel_energy_prev}{static}, $rel_energy_prev );
 
-		$transition->{rel_energy}{static} = $rel_energy;
-		$transition->{node}->setAttribute( 'rel_energy', $rel_energy );
+		$transition->{rel_energy_prev}{static} = $rel_energy_prev;
+		$transition->{node}->setAttribute( 'rel_energy_prev', $rel_energy_prev );
 	}
-	else {
-		print("\n");
+	if (defined $rel_energy_next) {
+		$rel_energy_next = sprintf('%.f', $rel_energy_next);
+		printf( ", relative_next energy %d -> %d pJ",
+			$transition->{rel_energy_next}{static}, $rel_energy_next );
+
+		$transition->{rel_energy_next}{static} = $rel_energy_next;
+		$transition->{node}->setAttribute( 'rel_energy_next', $rel_energy_next );
 	}
+	print("\n");
 }
 
 sub save {
@@ -530,7 +556,7 @@ sub TO_JSON {
 	}
 	for my $val ( values %transition_copy ) {
 		delete $val->{node};
-		for my $key (qw(duration energy rel_energy timeout)) {
+		for my $key (qw(duration energy rel_energy_prev rel_energy_next timeout)) {
 			if ( exists $val->{$key}{function} ) {
 				$val->{$key} = { %{ $val->{$key} } };
 				$val->{$key}{function} = { %{ $val->{$key}{function} } };

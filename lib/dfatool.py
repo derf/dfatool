@@ -21,12 +21,23 @@ def is_numeric(n):
     except ValueError:
         return False
 
+def append_if_set(aggregate, data, key):
+    if key in data:
+        aggregate.append(data[key])
+
+def mean_or_none(arr):
+    if len(arr):
+        return np.mean(arr)
+    return -1
+
 def aggregate_measures(aggregate, actual):
     aggregate_array = np.array([aggregate] * len(actual))
     return regression_measures(aggregate_array, np.array(actual))
 
 def regression_measures(predicted, actual):
     deviations = predicted - actual
+    if len(deviations) == 0:
+        return {}
     measures = {
         'mae' : np.mean(np.abs(deviations), dtype=np.float64),
         'msd' : np.mean(deviations**2, dtype=np.float64),
@@ -281,8 +292,14 @@ class MIMOSA:
             if isa == 'transition':
                 # subtract average power of previous state
                 # (that is, the state from which this transition originates)
-                data['uW_mean_delta'] = data['uW_mean'] - iterdata[-1]['uW_mean']
+                data['uW_mean_delta_prev'] = data['uW_mean'] - iterdata[-1]['uW_mean']
+                # placeholder to avoid extra cases in the analysis
+                data['uW_mean_delta_next'] = data['uW_mean']
                 data['timeout'] = iterdata[-1]['us']
+            elif len(iterdata) > 0:
+                # subtract average power of next state
+                # (the state into which this transition leads)
+                iterdata[-1]['uW_mean_delta_next'] = iterdata[-1]['uW_mean'] - data['uW_mean']
 
             iterdata.append(data)
 

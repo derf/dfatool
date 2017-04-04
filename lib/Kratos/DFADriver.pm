@@ -469,9 +469,15 @@ sub assess_model {
 		$self->printf_aggr( $transition, 'energy', 'pJ' );
 		$self->printf_parameterized( $transition, 'energy' );
 		$self->printf_fit( $transition, 'energy', 'pJ' );
-		$self->printf_aggr( $transition, 'rel_energy', 'pJ' );
-		$self->printf_parameterized( $transition, 'rel_energy' );
-		$self->printf_fit( $transition, 'rel_energy', 'pJ' );
+		$self->printf_aggr( $transition, 'rel_energy_prev', 'pJ' );
+		$self->printf_parameterized( $transition, 'rel_energy_prev' );
+		$self->printf_fit( $transition, 'rel_energy_prev', 'pJ' );
+
+		if ( exists $transition->{rel_energy_next}{median} ) {
+			$self->printf_aggr( $transition, 'rel_energy_next', 'pJ' );
+			$self->printf_parameterized( $transition, 'rel_energy_next' );
+			$self->printf_fit( $transition, 'rel_energy_next', 'pJ' );
+		}
 
 		if ( exists $transition->{timeout}{median} ) {
 			$self->printf_aggr( $transition, 'timeout', 'µs' );
@@ -506,12 +512,14 @@ sub assess_model_tex {
 		printf("\n%20s", $name);
 
 		$self->printf_aggr_tex( $transition, 'energy', '\uJ', 1e6 );
-		$self->printf_aggr_tex( $transition, 'rel_energy', '\uJ', 1e6 );
+		$self->printf_aggr_tex( $transition, 'rel_energy_prev', '\uJ', 1e6 );
+		$self->printf_aggr_tex( $transition, 'rel_energy_next', '\uJ', 1e6 );
 		$self->printf_aggr_tex( $transition, 'duration', 'ms', 1e3 );
 		$self->printf_count_tex( $transition, 'energy' );
 		print " \\\\";
 		$self->printf_eval_tex( $transition, 'energy', '\uJ', 1e6 );
-		$self->printf_eval_tex( $transition, 'rel_energy', '\uJ', 1e6 );
+		$self->printf_eval_tex( $transition, 'rel_energy_prev', '\uJ', 1e6 );
+		$self->printf_eval_tex( $transition, 'rel_energy_next', '\uJ', 1e6 );
 		$self->printf_eval_tex( $transition, 'duration', 'ms', 1e3 );
 		$self->printf_count_tex;
 		print " \\\\";
@@ -548,11 +556,14 @@ sub assess_validation {
 			$self->model->get_transition_by_name($name)->{energy}{static},
 			$transition, 'energy', 'pJ' );
 		$self->printf_goodness(
-			$self->model->get_transition_by_name($name)->{rel_energy}{static},
-			$transition, 'rel_energy', 'pJ' );
+			$self->model->get_transition_by_name($name)->{rel_energy_prev}{static},
+			$transition, 'rel_energy_prev', 'pJ' );
+		if ( exists $transition->{rel_energy_next}{median} ) {
+			$self->printf_goodness(
+				$self->model->get_transition_by_name($name)->{rel_energy_next}{static},
+				$transition, 'rel_energy_next', 'pJ' );
+		}
 		if ( exists $transition->{timeout}{median} ) {
-
-			#$self->printf_goodness('?', $transition, 'timeout', 'µs');
 			$self->printf_fit( $transition, 'timeout', 'µs' );
 		}
 	}
@@ -578,9 +589,10 @@ sub update_model {
 			$name,
 			$transition->{duration}{median},
 			$transition->{energy}{median},
-			$transition->{rel_energy}{median}
+			$transition->{rel_energy_prev}{median},
+			$transition->{rel_energy_next}{median}
 		);
-		for my $key (qw(duration energy rel_energy timeout)) {
+		for my $key (qw(duration energy rel_energy_prev rel_energy_next timeout)) {
 			for my $fname ( keys %{ $transition->{$key}{function} } ) {
 				$self->model->set_transition_params(
 					$name, $key, $fname,
@@ -698,7 +710,7 @@ EOF
 
 		advice ${adv_type}("% ${class_name}::$transition->{name}(...)") ${ignore_nested} : after() {
 			tjp->target()->passTransition(${class_name}::statepower[tjp->target()->state],
-			$transition->{rel_energy}{static}, $transition->{id},
+			$transition->{rel_energy_prev}{static}, $transition->{id},
 			${dest_state_id});
 		};
 
@@ -709,7 +721,7 @@ EOF
 
 		advice execution("% ${class_name}::$transition->{name}(...)") : after() {
 			tjp->target()->passTransition(${class_name}::statepower[tjp->target()->state],
-			$transition->{rel_energy}{static}, $transition->{id},
+			$transition->{rel_energy_prev}{static}, $transition->{id},
 			${dest_state_id});
 		};
 

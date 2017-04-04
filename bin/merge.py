@@ -9,6 +9,7 @@ import sys
 import plotter
 from copy import deepcopy
 from dfatool import aggregate_measures, regression_measures, is_numeric, powerset
+from dfatool import append_if_set, mean_or_none
 from matplotlib.patches import Polygon
 from scipy import optimize
 
@@ -42,17 +43,21 @@ def mimosa_data(elem):
     substate_thresholds = []
     substate_data = []
     timeouts = []
-    rel_energies = []
+    rel_energies_prev = []
+    rel_energies_next = []
     if 'timeout' in elem['offline'][0]:
         timeouts = [x['timeout'] for x in elem['offline']]
-    if 'uW_mean_delta' in elem['offline'][0]:
-        rel_energies = [x['uW_mean_delta'] * (x['us'] - 20) for x in elem['offline']]
+    if 'uW_mean_delta_prev' in elem['offline'][0]:
+        rel_energies_prev = [x['uW_mean_delta_prev'] * (x['us'] - 20) for x in elem['offline']]
+    if 'uW_mean_delta_next' in elem['offline'][0]:
+        rel_energies_next = [x['uW_mean_delta_next'] * (x['us'] - 20) for x in elem['offline']]
     for x in elem['offline']:
         if 'substates' in x:
             substate_thresholds.append(x['substates']['threshold'])
             substate_data.append(x['substates']['states'])
 
-    return means, stds, durations, energies, rel_energies, clips, timeouts, substate_thresholds
+    return (means, stds, durations, energies, rel_energies_prev,
+        rel_energies_next, clips, timeouts, substate_thresholds)
 
 def online_data(elem):
     means = [int(x['power']) for x in elem['online']]
@@ -254,8 +259,8 @@ def xv_assess_function(name, funbase, what, validation, mae, smape):
             mae[name] = []
         if not name in smape:
             smape[name] = []
-        mae[name].append(goodness['mae'])
-        smape[name].append(goodness['smape'])
+        append_if_set(mae, goodness, 'mae')
+        append_if_set(smape, goodness, 'smape')
 
 def xv2_assess_function(name, funbase, what, validation, mae, smape, rmsd):
     goodness = assess_function(funbase, name, what, parameters, validation)
@@ -311,15 +316,19 @@ def fake_add_data_to_aggregate(aggregate, key, isa, database, idx):
     timeout_val = []
     if len(database['timeouts']):
         timeout_val = [database['timeouts'][idx]]
-    rel_energy_val = []
-    if len(database['rel_energies']):
-        rel_energy_val = [database['rel_energies'][idx]]
+    rel_energy_p_val = []
+    if len(database['rel_energies_prev']):
+        rel_energy_p_val = [database['rel_energies_prev'][idx]]
+    rel_energy_n_val = []
+    if len(database['rel_energies_next']):
+        rel_energy_n_val = [database['rel_energies_next'][idx]]
     add_data_to_aggregate(aggregate, key, isa, {
         'means' : [database['means'][idx]],
         'stds' : [database['stds'][idx]],
         'durations' : [database['durations'][idx]],
         'energies' : [database['energies'][idx]],
-        'rel_energies' : rel_energy_val,
+        'rel_energies_prev' : rel_energy_p_val,
+        'rel_energies_next' : rel_energy_n_val,
         'clip_rate' : [database['clip_rate'][idx]],
         'timeouts' : timeout_val,
     })
@@ -377,7 +386,7 @@ def mean_std_by_trace_part(data, transitions, name, what):
 
 
 def load_run_elem(index, element, trace, by_name, by_param, by_trace):
-    means, stds, durations, energies, rel_energies, clips, timeouts, sub_thresholds = mimosa_data(element)
+    means, stds, durations, energies, rel_energies_prev, rel_energies_next, clips, timeouts, sub_thresholds = mimosa_data(element)
 
     online_means = []
     online_durations = []
@@ -394,7 +403,8 @@ def load_run_elem(index, element, trace, by_name, by_param, by_trace):
         'stds' : stds,
         'durations' : durations,
         'energies' : energies,
-        'rel_energies' : rel_energies,
+        'rel_energies_prev' : rel_energies_prev,
+        'rel_energies_next' : rel_energies_next,
         'clip_rate' : clips,
         'timeouts' : timeouts,
         'sub_thresholds' : sub_thresholds,
@@ -407,7 +417,8 @@ def load_run_elem(index, element, trace, by_name, by_param, by_trace):
         'stds' : stds,
         'durations' : durations,
         'energies' : energies,
-        'rel_energies' : rel_energies,
+        'rel_energies_prev' : rel_energies_prev,
+        'rel_energies_next' : rel_energies_next,
         'clip_rate' : clips,
         'timeouts' : timeouts,
         'sub_thresholds' : sub_thresholds,
@@ -419,7 +430,8 @@ def load_run_elem(index, element, trace, by_name, by_param, by_trace):
         'stds' : stds,
         'durations' : durations,
         'energies' : energies,
-        'rel_energies' : rel_energies,
+        'rel_energies_prev' : rel_energies_prev,
+        'rel_energies_next' : rel_energies_next,
         'clip_rate' : clips,
         'timeouts' : timeouts,
         'sub_thresholds' : sub_thresholds,
@@ -487,16 +499,14 @@ def param_measures(name, paramdata, key, fun):
             # Mean ist besseres für SSR. Da least_squares SSR optimiert
             # nutzen wir hier auch Mean.
             goodness = aggregate_measures(fun(pval[key]), pval[key])
-            mae.append(goodness['mae'])
-            rmsd.append(goodness['rmsd'])
-            if 'smape' in goodness:
-                smape.append(goodness['smape'])
+            append_if_set(mae, goodness, 'mae')
+            append_if_set(rmsd, goodness, 'rmsd')
+            append_if_set(smape, goodness, 'smape')
     ret = {
-        'mae' : np.mean(mae),
-        'rmsd' : np.mean(rmsd)
+        'mae' : mean_or_none(mae),
+        'rmsd' : mean_or_none(rmsd),
+        'smape' : mean_or_none(smape)
     }
-    if len(smape):
-        ret['smape'] = np.mean(smape)
 
     return ret
 
@@ -548,10 +558,9 @@ def val_run(aggdata, split_fun, count):
         validation = aggdata[pairs[i][1]]
         median = np.median(training)
         goodness = aggregate_measures(median, validation)
-        mae.append(goodness['mae'])
-        rmsd.append(goodness['rmsd'])
-        if 'smape' in goodness:
-            smape.append(goodness['smape'])
+        append_if_set(mae, goodness, 'mae')
+        append_if_set(rmsd, goodness, 'rmsd')
+        append_if_set(smape, goodness, 'smape')
 
     mae_mean = np.mean(mae)
     rmsd_mean = np.mean(rmsd)
@@ -628,7 +637,8 @@ def crossvalidate(by_name, by_param, by_trace, model, parameters):
         isa = by_name[name]['isa']
         by_name[name]['means'] = np.array(by_name[name]['means'])
         by_name[name]['energies'] = np.array(by_name[name]['energies'])
-        by_name[name]['rel_energies'] = np.array(by_name[name]['rel_energies'])
+        by_name[name]['rel_energies_prev'] = np.array(by_name[name]['rel_energies_prev'])
+        by_name[name]['rel_energies_next'] = np.array(by_name[name]['rel_energies_next'])
         by_name[name]['durations'] = np.array(by_name[name]['durations'])
 
         if isa == 'state':
@@ -641,10 +651,14 @@ def crossvalidate(by_name, by_param, by_trace, model, parameters):
             print('%16s,   static     energy,             Monte Carlo: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['energies'], splitidx_kfold, 10)
             print('%16s,   static     energy,             10-fold sys: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
-            mae_mean, smape_mean, rms_mean = val_run(by_name[name]['rel_energies'], splitidx_srs, 200)
-            print('%16s,   static rel_energy,             Monte Carlo: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
-            mae_mean, smape_mean, rms_mean = val_run(by_name[name]['rel_energies'], splitidx_kfold, 10)
-            print('%16s,   static rel_energy,             10-fold sys: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
+            mae_mean, smape_mean, rms_mean = val_run(by_name[name]['rel_energies_prev'], splitidx_srs, 200)
+            print('%16s,   static rel_energy_p,             Monte Carlo: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
+            mae_mean, smape_mean, rms_mean = val_run(by_name[name]['rel_energies_prev'], splitidx_kfold, 10)
+            print('%16s,   static rel_energy_p,             10-fold sys: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
+            mae_mean, smape_mean, rms_mean = val_run(by_name[name]['rel_energies_next'], splitidx_srs, 200)
+            print('%16s,   static rel_energy_n,             Monte Carlo: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
+            mae_mean, smape_mean, rms_mean = val_run(by_name[name]['rel_energies_next'], splitidx_kfold, 10)
+            print('%16s,   static rel_energy_n,             10-fold sys: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['durations'], splitidx_srs, 200)
             print('%16s,   static   duration,             Monte Carlo: MAE %8.f µs,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['durations'], splitidx_kfold, 10)
@@ -701,11 +715,16 @@ def crossvalidate(by_name, by_param, by_trace, model, parameters):
                 val_run_funs(by_name, by_trace, name, 'energies', 'energy', 'user', 'pJ')
             if 'estimate' in model[isa][name]['energy']['function']:
                 val_run_funs(by_name, by_trace, name, 'energies', 'energy', 'estimate', 'pJ')
-        if 'rel_energy' in model[isa][name] and 'function' in model[isa][name]['rel_energy']:
-            if 'user' in model[isa][name]['rel_energy']['function']:
-                val_run_funs(by_name, by_trace, name, 'rel_energies', 'rel_energy', 'user', 'pJ')
-            if 'estimate' in model[isa][name]['rel_energy']['function']:
-                val_run_funs(by_name, by_trace, name, 'rel_energies', 'rel_energy', 'estimate', 'pJ')
+        if 'rel_energy_prev' in model[isa][name] and 'function' in model[isa][name]['rel_energy_prev']:
+            if 'user' in model[isa][name]['rel_energy_prev']['function']:
+                val_run_funs(by_name, by_trace, name, 'rel_energies_prev', 'rel_energy_prev', 'user', 'pJ')
+            if 'estimate' in model[isa][name]['rel_energy_prev']['function']:
+                val_run_funs(by_name, by_trace, name, 'rel_energies_prev', 'rel_energy_prev', 'estimate', 'pJ')
+        if 'rel_energy_next' in model[isa][name] and 'function' in model[isa][name]['rel_energy_next']:
+            if 'user' in model[isa][name]['rel_energy_next']['function']:
+                val_run_funs(by_name, by_trace, name, 'rel_energies_next', 'rel_energy_next', 'user', 'pJ')
+            if 'estimate' in model[isa][name]['rel_energy_next']['function']:
+                val_run_funs(by_name, by_trace, name, 'rel_energies_next', 'rel_energy_next', 'estimate', 'pJ')
 
     return
     for i, param in enumerate(parameters):
@@ -819,11 +838,18 @@ def validate(by_name, by_param, parameters):
                     'std_inner' : np.std(val['energies']),
                     'function' : {},
                 },
-                'rel_energy' : {
-                    'goodness' : aggregate_measures(model['rel_energy']['static'], val['rel_energies']),
-                    'median' : np.median(val['rel_energies']),
-                    'mean'   : np.mean(val['rel_energies']),
-                    'std_inner' : np.std(val['rel_energies']),
+                'rel_energy_prev' : {
+                    'goodness' : aggregate_measures(model['rel_energy_prev']['static'], val['rel_energies_prev']),
+                    'median' : np.median(val['rel_energies_prev']),
+                    'mean'   : np.mean(val['rel_energies_prev']),
+                    'std_inner' : np.std(val['rel_energies_prev']),
+                    'function' : {},
+                },
+                'rel_energy_next' : {
+                    'goodness' : aggregate_measures(model['rel_energy_next']['static'], val['rel_energies_next']),
+                    'median' : np.median(val['rel_energies_next']),
+                    'mean'   : np.mean(val['rel_energies_next']),
+                    'std_inner' : np.std(val['rel_energies_next']),
                     'function' : {},
                 },
                 'clip' : {
@@ -874,7 +900,8 @@ def analyze(by_name, by_param, by_trace, parameters):
         aggval['power']['std_outer'] = np.mean(val['stds'])
 
         if isa == 'transition':
-            aggval['rel_energy'] = keydata(name, val, by_param, by_trace, 'rel_energies')
+            aggval['rel_energy_prev'] = keydata(name, val, by_param, by_trace, 'rel_energies_prev')
+            aggval['rel_energy_next'] = keydata(name, val, by_param, by_trace, 'rel_energies_next')
 
         if isa == 'transition' and 'function' in data['model']['transition'][name]['timeout']:
             aggval['timeout'] = keydata(name, val, by_param, by_trace, 'timeouts')
@@ -898,10 +925,14 @@ def analyze(by_name, by_param, by_trace, parameters):
                         by_param, allvalues, name, 'energies', i)
                     if aggval['energy']['std_by_param'][param] > 0 and aggval['energy']['std_param'] / aggval['energy']['std_by_param'][param] < 0.6:
                         aggval['energy']['fit_guess'][param] = try_fits(name, 'energies', i, by_param)
-                    aggval['rel_energy']['std_by_param'][param] = mean_std_by_param(
-                        by_param, allvalues, name, 'rel_energies', i)
-                    if aggval['rel_energy']['std_by_param'][param] > 0 and aggval['rel_energy']['std_param'] / aggval['rel_energy']['std_by_param'][param] < 0.6:
-                        aggval['rel_energy']['fit_guess'][param] = try_fits(name, 'rel_energies', i, by_param)
+                    aggval['rel_energy_prev']['std_by_param'][param] = mean_std_by_param(
+                        by_param, allvalues, name, 'rel_energies_prev', i)
+                    if aggval['rel_energy_prev']['std_by_param'][param] > 0 and aggval['rel_energy_prev']['std_param'] / aggval['rel_energy_prev']['std_by_param'][param] < 0.6:
+                        aggval['rel_energy_prev']['fit_guess'][param] = try_fits(name, 'rel_energies_prev', i, by_param)
+                    aggval['rel_energy_next']['std_by_param'][param] = mean_std_by_param(
+                        by_param, allvalues, name, 'rel_energies_next', i)
+                    if aggval['rel_energy_next']['std_by_param'][param] > 0 and aggval['rel_energy_next']['std_param'] / aggval['rel_energy_next']['std_by_param'][param] < 0.6:
+                        aggval['rel_energy_next']['fit_guess'][param] = try_fits(name, 'rel_energies_next', i, by_param)
                 if isa == 'transition' and 'function' in data['model']['transition'][name]['timeout']:
                     aggval['timeout']['std_by_param'][param] = mean_std_by_param(
                         by_param, allvalues, name, 'timeouts', i)
@@ -926,7 +957,9 @@ def analyze(by_name, by_param, by_trace, parameters):
                 'estimated %s duration [µs]' % name)
             fguess_to_function(name, 'energies', aggval['energy'], parameters, by_param,
                 'estimated %s energy [pJ]' % name)
-            fguess_to_function(name, 'rel_energies', aggval['rel_energy'], parameters, by_param,
+            fguess_to_function(name, 'rel_energies_prev', aggval['rel_energy_prev'], parameters, by_param,
+                'estimated relative %s energy [pJ]' % name)
+            fguess_to_function(name, 'rel_energies_next', aggval['rel_energy_next'], parameters, by_param,
                 'estimated relative %s energy [pJ]' % name)
             if 'function' in model['duration'] and 'user' in model['duration']['function']:
                 aggval['duration']['function']['user'] = {
@@ -944,14 +977,22 @@ def analyze(by_name, by_param, by_trace, parameters):
                 fit_function(
                     aggval['energy']['function']['user'], name, 'energies', parameters, by_param,
                     yaxis='%s energy [pJ]' % name)
-            if 'function' in model['rel_energy'] and 'user' in model['rel_energy']['function']:
-                aggval['rel_energy']['function']['user'] = {
-                    'raw' : model['rel_energy']['function']['user']['raw'],
-                    'params' : model['rel_energy']['function']['user']['params'],
+            if 'function' in model['rel_energy_prev'] and 'user' in model['rel_energy_prev']['function']:
+                aggval['rel_energy_prev']['function']['user'] = {
+                    'raw' : model['rel_energy_prev']['function']['user']['raw'],
+                    'params' : model['rel_energy_prev']['function']['user']['params'],
                 }
                 fit_function(
-                    aggval['rel_energy']['function']['user'], name, 'rel_energies', parameters, by_param,
-                    yaxis='%s rel_energy [pJ]' % name)
+                    aggval['rel_energy_prev']['function']['user'], name, 'rel_energies_prev', parameters, by_param,
+                    yaxis='%s rel_energy_prev [pJ]' % name)
+            if 'function' in model['rel_energy_next'] and 'user' in model['rel_energy_next']['function']:
+                aggval['rel_energy_next']['function']['user'] = {
+                    'raw' : model['rel_energy_next']['function']['user']['raw'],
+                    'params' : model['rel_energy_next']['function']['user']['params'],
+                }
+                fit_function(
+                    aggval['rel_energy_next']['function']['user'], name, 'rel_energies_next', parameters, by_param,
+                    yaxis='%s rel_energy_next [pJ]' % name)
             if 'function' in model['timeout'] and 'user' in model['timeout']['function']:
                 fguess_to_function(name, 'timeouts', aggval['timeout'], parameters, by_param,
                     'estimated %s timeout [µs]' % name)

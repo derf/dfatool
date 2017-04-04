@@ -14,7 +14,7 @@ use List::Util qw(sum);
 #use Statistics::Basic::StdDev;
 
 our $VERSION = '0.00';
-my $CACHE_VERSION = 5;
+my $CACHE_VERSION = 6;
 
 sub new {
 	my ( $class, %opt ) = @_;
