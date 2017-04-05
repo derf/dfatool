@@ -331,11 +331,46 @@ __END__
 
 =head1 NAME
 
+dfatool manages energy-aware DFA drivers for kratos and generates and runs
+test programs to assess a device's energy usage.
+
 =head1 SYNOPSIS
+
+B<dfatool> [I<options>] enable|disable|maketest|rmtest|log|loop I<driver.xml>
+
+B<dfatool> [I<options>] analyze|validate|crossvalidate|ls|list|show
+I<driver.xml> I<data.tar> [I<moredata.tar ...>]
 
 =head1 VERSION
 
 =head1 DESCRIPTION
+
+TODO WARNING: rel_energy_next is unusable for transitions which frequently are
+the last transition in a run
+
+=head1 COMMANDS
+
+=over
+
+=item B<enable> I<driver.xml>
+
+Instruments the driver noted in I<driver.xml> for energy accounting and state
+and transition logging. Unconditionally uses static model attributes and only
+relative energy values. Attributes whose power or energy values are not yet
+known are set to zero.
+
+=item B<disable> I<driver.xml>
+
+Removes accounting and logging instrumentation, thus turning the driver back
+into an energy-unaware one. By default, each state may be visited up to two
+times...
+
+=item B<maketest> I<driver.xml>
+
+Creates a kratos application containing a test program for the driver. By
+default, 
+
+=back
 
 =head1 OPTIONS
 
@@ -349,18 +384,93 @@ __END__
 
 None.
 
-=head1 DEPENDENCIES
+=head1 SOFTWARE DEPENDENCIES
+
+As of 2017-04, the following packages (and some more) are required on Debian
+Sid:
+
+    apt install libcarp-assert-more-perl libclass-accessor-perl libdatetime-perl
+    libdevice-serialport-perl libfile-slurp-perl libipc-run-perl libjson-perl
+    liblist-moreutils-perl libmath-cartesian-product-perl
+    libparse-recdescent-perl libtime-progress-perl libxml-libxml-perl
+    python3-matplotlib python3-numpy python3-scipy
+
+Required non-standard perl modules:
 
 =over
+
+=item * Carp::Assert::More
+
+=item * DateTIme
+
+=item * Device::SerialPort
+
+=item * File::Slurp
+
+=item * IPC::Run
+
+=item * List::MoreUtils
+
+=item * Math::Cartesian::Product
+
+=item * Parse::RecDescent
+
+=item * Time::Progress
+
+=item * XML::LibXML
+
+=back
+
+For analysis, the following programs and modules are required:
+
+=over
+
+=item * Python 3.5 with matplotlib, numpy and scipy modules
+
+=item * parallel (either GNU parallel or the one provided by moreutils)
+
+=back
+
+=head1 HARDWARE DEPENDENCIES
+
+Normal driver usage and analyses of generated data requires no external
+hardware. For data collection (C<< dfatool loop >> and C<< dfatool log >>), the
+following pieces are required:
+
+=over
+
+=item * An MSP430 Launchpad with the Device Under Test attached
+
+=item * MIMOSA
+
+=item * MIMOSA-Autocal
 
 =back
 
 =head1 BUGS AND LIMITATIONS
 
+To be determined.
+
 =head1 AUTHOR
 
-Copyright (C) 2016 by Daniel Friesel E<lt>derf@finalrewind.orgE<gt>
+Copyright (C) 2016-2017 by Daniel Friesel E<lt>daniel.friesel@udo.eduE<gt>
 
 =head1 LICENSE
 
-  0. You just DO WHAT THE FUCK YOU WANT TO.
+You may use this program either according to the terms of the Perl license
+(also known as the Artistic license) or under the following terms
+(also knows as the Three-clause BSD License).
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.

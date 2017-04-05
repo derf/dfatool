@@ -317,15 +317,20 @@ sub printf_parameterized {
 	$hash = $hash->{$key};
 
 	my $std_global    = $hash->{std_inner};
+	my $std_ind_arg   = $hash->{std_arg};
 	my $std_ind_param = $hash->{std_param};
 	my $std_ind_trace = $hash->{std_trace};
 	my $std_by_param  = $hash->{std_by_param};
 	my $std_by_trace  = $hash->{std_by_trace} // {};
+	my $arg_ratio;
 	my $param_ratio;
 	my $trace_ratio;
 
 	if ( $std_global > 0 ) {
 		$param_ratio = $std_ind_param / $std_global;
+		if (defined $std_ind_arg) {
+			$arg_ratio = $std_ind_arg / $std_global;
+		}
 	}
 	if ( $std_ind_param > 0) {
 		$trace_ratio = $std_ind_trace / $std_ind_param;
@@ -349,6 +354,26 @@ sub printf_parameterized {
 		printf( "  %s: should not be parameterized (%.2f / %.2f = %.3f)\n",
 			$key, $std_ind_param, $std_global,
 			$param_ratio ? $param_ratio : 0 );
+	}
+
+	if ( defined $std_ind_arg and   $std_global > 10
+		and $arg_ratio < 0.5
+		and not exists $hash->{argfunction}{user} )
+	{
+		printf( "  %s: depends on arguments (%.2f / %.2f = %.3f)\n",
+			$key, $std_ind_arg, $std_global, $arg_ratio );
+	}
+	if ( defined $std_ind_arg and
+		(
+			   $std_global < 10
+			or $arg_ratio > 0.5
+		)
+		and exists $hash->{argfunction}{user}
+	  )
+	{
+		printf( "  %s: should not depend on arguments (%.2f / %.2f = %.3f)\n",
+			$key, $std_ind_arg, $std_global,
+			$arg_ratio ? $arg_ratio : 0 );
 	}
 
 	if ( $std_global > 10 and $trace_ratio < 0.5 ) {
@@ -426,7 +451,7 @@ sub printf_fit {
 	}
 	if ( exists $hash->{param_mean_goodness} ) {
 		printf(
-			"  %s: mean/ssr-fit LUT error: %.2f%% / %.f %s / %.f\n",
+			"  %s: param mean/ssr-fit LUT error: %.2f%% / %.f %s / %.f\n",
 			$key,
 			$hash->{param_mean_goodness}{smape} // -1,
 			$hash->{param_mean_goodness}{mae}, $unit,
@@ -435,11 +460,29 @@ sub printf_fit {
 	}
 	if ( exists $hash->{param_median_goodness} ) {
 		printf(
-			"  %s: median/static LUT error: %.2f%% / %.f %s / %.f\n",
+			"  %s: param median/static LUT error: %.2f%% / %.f %s / %.f\n",
 			$key,
 			$hash->{param_median_goodness}{smape} // -1,
 			$hash->{param_median_goodness}{mae}, $unit,
 			$hash->{param_mean_goodness}{rmsd}
+		);
+	}
+	if ( exists $hash->{arg_mean_goodness} ) {
+		printf(
+			"  %s: arg mean/ssr-fit LUT error: %.2f%% / %.f %s / %.f\n",
+			$key,
+			$hash->{arg_mean_goodness}{smape} // -1,
+			$hash->{arg_mean_goodness}{mae}, $unit,
+			$hash->{arg_mean_goodness}{rmsd}
+		);
+	}
+	if ( exists $hash->{arg_median_goodness} ) {
+		printf(
+			"  %s: arg median/static LUT error: %.2f%% / %.f %s / %.f\n",
+			$key,
+			$hash->{arg_median_goodness}{smape} // -1,
+			$hash->{arg_median_goodness}{mae}, $unit,
+			$hash->{arg_mean_goodness}{rmsd}
 		);
 	}
 }

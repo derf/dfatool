@@ -285,7 +285,21 @@ def param_values(parameters, by_param):
 
     return paramvalues
 
-def param_key(elem):
+# Returns the values used for each function argument in the measurement, e.g.
+# { 'data': [], 'length' : [16, 31, 32] }
+# non-numeric values such as '' or 'long_test_string' are skipped
+def arg_values(name, by_arg):
+    TODO
+    argvalues = dict([[arg, set()] for arg in parameters])
+
+    for _, paramvalue in by_param.keys():
+        for i, param in enumerate(parameters):
+            if is_numeric(paramvalue[i]):
+                paramvalues[param].add(paramvalue[i])
+
+    return paramvalues
+
+def mk_param_key(elem):
     name = elem['name']
     paramtuple = ()
 
@@ -295,12 +309,14 @@ def param_key(elem):
 
     return (name, paramtuple)
 
-#def param_arg_key(elem):
-#    # Argumentbasierte Parametrisierung ist erstmal out of scope
-#    #if 'args' in elem:
-#    #    argtuple = tuple(elem['args'])
-#
-#    return (name, paramtuple, argtuple)
+def mk_arg_key(elem):
+    name = elem['name']
+    argtuple = ()
+
+    if 'args' in elem:
+        argtuple = tuple(elem['args'])
+
+    return (name, argtuple)
 
 def add_data_to_aggregate(aggregate, key, isa, data):
     if not key in aggregate:
@@ -363,6 +379,15 @@ def mean_std_by_param(data, keys, name, what, index):
     return np.mean([np.std(partition) for partition in partitions])
 
 # returns the mean standard deviation of all measurements of 'what'
+# (e.g. energy or duration) for transition 'name' where
+# the 'index'th argumetn is dynamic and all other arguments are fixed.
+# I.e., if arguments are a, b, c ∈ {1,2,3} and 'index' is 1, then
+# this function returns the mean of the standard deviations of (a=1, b=*, c=1),
+# (a=1, b=*, c=2), and so on
+def mean_std_by_arg(data, keys, name, what, index):
+    return mean_std_by_param(data, keys, name, what, index)
+
+# returns the mean standard deviation of all measurements of 'what'
 # (e.g. power consumption or timeout) for state/transition 'name' where the
 # trace of previous transitions is fixed except for a single transition,
 # whose occurence or absence is silently ignored.
@@ -385,7 +410,7 @@ def mean_std_by_trace_part(data, transitions, name, what):
     return ret
 
 
-def load_run_elem(index, element, trace, by_name, by_param, by_trace):
+def load_run_elem(index, element, trace, by_name, by_arg, by_param, by_trace):
     means, stds, durations, energies, rel_energies_prev, rel_energies_next, clips, timeouts, sub_thresholds = mimosa_data(element)
 
     online_means = []
@@ -393,9 +418,10 @@ def load_run_elem(index, element, trace, by_name, by_param, by_trace):
     if element['isa'] == 'state':
         online_means, online_durations = online_data(element)
 
-    key = param_key(element)
+    arg_key   = mk_arg_key(element)
+    param_key = mk_param_key(element)
     pre_trace = tuple(map(lambda x : x['name'], trace[1:index:2]))
-    trace_key = (*key, pre_trace)
+    trace_key = (*param_key, pre_trace)
     name = element['name']
 
     elem_data = {
@@ -408,12 +434,13 @@ def load_run_elem(index, element, trace, by_name, by_param, by_trace):
         'clip_rate' : clips,
         'timeouts' : timeouts,
         'sub_thresholds' : sub_thresholds,
-        'param' : [key[1]] * len(means),
+        'param' : [param_key[1]] * len(means),
         'online_means' : online_means,
         'online_durations' : online_durations,
     }
     add_data_to_aggregate(by_name, name, element['isa'], elem_data)
-    add_data_to_aggregate(by_param, key, element['isa'], elem_data)
+    add_data_to_aggregate(by_arg, arg_key, element['isa'], elem_data)
+    add_data_to_aggregate(by_param, param_key, element['isa'], elem_data)
     add_data_to_aggregate(by_trace, trace_key, element['isa'], elem_data)
 
 def fmap(name, funtype):
@@ -487,7 +514,10 @@ def param_measures(name, paramdata, key, fun):
 
     return ret
 
-def keydata(name, val, paramdata, tracedata, key):
+def arg_measures(name, argdata, key, fun):
+    return param_measures(name, argdata, key, fun)
+
+def keydata(name, val, argdata, paramdata, tracedata, key):
     ret = {
         'count' : len(val[key]),
         'median' : np.median(val[key]),
@@ -503,6 +533,12 @@ def keydata(name, val, paramdata, tracedata, key):
         'fit_guess' : {},
         'function' : {},
     }
+
+    if val['isa'] == 'transition':
+        ret['arg_mean_goodness'] = arg_measures(name, argdata, key, np.mean)
+        ret['arg_median_goodness'] = arg_measures(name, argdata, key, np.median)
+        ret['std_arg'] = np.mean([np.std(argdata[x][key]) for x in argdata.keys() if x[0] == name])
+        ret['std_by_arg'] = {}
 
     return ret
 
@@ -569,7 +605,7 @@ def val_run_fun(aggdata, by_trace, name, key, funtype1, funtype2, splitfun, coun
             fake_add_data_to_aggregate(bpa_validation, bpa_key, isa, aggdata, idx)
 
         fake_by_name = { name : aggdata }
-        ares = analyze(fake_by_name, bpa_training, by_trace, parameters)
+        ares = analyze(fake_by_name, {}, bpa_training, by_trace, parameters)
         if name in ares[isa] and funtype2 in ares[isa][name][funtype1]['function']:
             xv2_assess_function(name, ares[isa][name][funtype1]['function'][funtype2], key, bpa_validation, mae, smape, rmsd)
             if funtype2 == 'estimate':
@@ -597,7 +633,7 @@ def val_run_fun_p(aggdata, by_trace, name, key, funtype1, funtype2, splitfun, co
             for idx in range(0, len(val[key])):
                 fake_add_data_to_aggregate(bna_training, name, isa, val, idx)
 
-        ares = analyze(bna_training, bpa_training, by_trace, parameters)
+        ares = analyze(bna_training, {}, bpa_training, by_trace, parameters)
         if name in ares[isa] and funtype2 in ares[isa][name][funtype1]['function']:
             xv2_assess_function(name, ares[isa][name][funtype1]['function'][funtype2], key, bpa_validation, mae, smape, rmsd)
             if funtype2 == 'estimate':
@@ -718,7 +754,7 @@ def crossvalidate(by_name, by_param, by_trace, model, parameters):
                     to_pop.append(name)
             for name in to_pop:
                 by_name.pop(name, None)
-            ares = analyze(by_name, bpa_training, by_trace, parameters)
+            ares = analyze(by_name, {}, bpa_training, by_trace, parameters)
             for name in sorted(ares['state'].keys()):
                 state = ares['state'][name]
                 if 'function' in state['power']:
@@ -858,6 +894,12 @@ def analyze_by_param(aggval, by_param, allvalues, name, key1, key2, param, param
     if aggval[key1]['std_by_param'][param] > 0 and aggval[key1]['std_param'] / aggval[key1]['std_by_param'][param] < 0.6:
         aggval[key1]['fit_guess'][param] = try_fits(name, key2, param_idx, by_param)
 
+def analyze_by_arg(aggval, by_arg, allvalues, name, key1, key2, arg_name, arg_idx):
+    aggval[key1]['std_by_arg'][arg_name] = mean_std_by_arg(
+        by_arg, allvalues, name, key2, arg_idx)
+    if aggval[key1]['std_by_arg'][arg_name] > 0 and aggval[key1]['std_arg'] / aggval[key1]['std_by_arg'][arg_name] < 0.6:
+        pass # TODO
+
 def maybe_fit_function(aggval, model, by_param, parameters, name, key1, key2, unit):
     if 'function' in model[key1] and 'user' in model[key1]['function']:
         aggval[key1]['function']['user'] = {
@@ -868,7 +910,7 @@ def maybe_fit_function(aggval, model, by_param, parameters, name, key1, key2, un
             aggval[key1]['function']['user'], name, key2, parameters, by_param,
             yaxis='%s %s [%s]' % (name, key1, unit))
 
-def analyze(by_name, by_param, by_trace, parameters):
+def analyze(by_name, by_arg, by_param, by_trace, parameters):
     aggdata = {
         'state' : {},
         'transition' : {},
@@ -879,9 +921,9 @@ def analyze(by_name, by_param, by_trace, parameters):
         model = data['model'][isa][name]
 
         aggdata[isa][name] = {
-            'power' : keydata(name, val, by_param, by_trace, 'means'),
-            'duration' : keydata(name, val, by_param, by_trace, 'durations'),
-            'energy' : keydata(name, val, by_param, by_trace, 'energies'),
+            'power' : keydata(name, val, by_arg, by_param, by_trace, 'means'),
+            'duration' : keydata(name, val, by_arg, by_param, by_trace, 'durations'),
+            'energy' : keydata(name, val, by_arg, by_param, by_trace, 'energies'),
             'clip' : {
                 'mean' : np.mean(val['clip_rate']),
                 'max'  : max(val['clip_rate']),
@@ -893,11 +935,11 @@ def analyze(by_name, by_param, by_trace, parameters):
         aggval['power']['std_outer'] = np.mean(val['stds'])
 
         if isa == 'transition':
-            aggval['rel_energy_prev'] = keydata(name, val, by_param, by_trace, 'rel_energies_prev')
-            aggval['rel_energy_next'] = keydata(name, val, by_param, by_trace, 'rel_energies_next')
+            aggval['rel_energy_prev'] = keydata(name, val, by_arg, by_param, by_trace, 'rel_energies_prev')
+            aggval['rel_energy_next'] = keydata(name, val, by_arg, by_param, by_trace, 'rel_energies_next')
 
         if isa == 'transition' and 'function' in data['model']['transition'][name]['timeout']:
-            aggval['timeout'] = keydata(name, val, by_param, by_trace, 'timeouts')
+            aggval['timeout'] = keydata(name, val, by_arg, by_param, by_trace, 'timeouts')
 
         for i, param in enumerate(sorted(data['model']['parameter'].keys())):
             values = list(set([key[1][i] for key in by_param.keys() if key[0] == name and key[1][i] != '']))
@@ -913,6 +955,11 @@ def analyze(by_name, by_param, by_trace, parameters):
                     analyze_by_param(aggval, by_param, allvalues, name, 'rel_energy_next', 'rel_energies_next', param, i)
                 if isa == 'transition' and 'function' in data['model']['transition'][name]['timeout']:
                     analyze_by_param(aggval, by_param, allvalues, name, 'timeout', 'timeouts', param, i)
+        if 'parameters' in model:
+            for i, arg in enumerate(model['parameters']):
+                values = list(set([key[1][i] for key in by_arg.keys() if key[0] == name and is_numeric(key[1][i])]))
+                allvalues = [(*key[1][:i], *key[1][i+1:]) for key in by_arg.keys() if key[0] == name]
+                analyze_by_arg(aggval, by_arg, allvalues, name, 'power', 'means', arg['name'], i)
 
         if isa == 'state':
             fguess_to_function(name, 'means', aggval['power'], parameters, by_param,
@@ -958,6 +1005,7 @@ except getopt.GetoptError as err:
 
 data = load_json(args[0])
 by_name = {}
+by_arg = {}
 by_param = {}
 by_trace = {}
 parameters = sorted(data['model']['parameter'].keys())
@@ -968,7 +1016,7 @@ for arg in args:
         if 'ignore-trace-idx' not in opts or opts['ignore-trace-idx'] != runidx:
             for i, elem in enumerate(run['trace']):
                 if elem['name'] != 'UNINITIALIZED':
-                    load_run_elem(i, elem, run['trace'], by_name, by_param, by_trace)
+                    load_run_elem(i, elem, run['trace'], by_name, by_arg, by_param, by_trace)
 
 if 'states' in opts:
     if 'params' in opts:
@@ -1001,7 +1049,7 @@ if 'validate' in opts:
 elif 'crossvalidate' in opts:
     crossvalidate(by_name, by_param, by_trace, data['model'], parameters)
 else:
-    data['aggregate'] = analyze(by_name, by_param, by_trace, parameters)
+    data['aggregate'] = analyze(by_name, by_arg, by_param, by_trace, parameters)
 
 # TODO optionally also plot data points for states/transitions which do not have
 # a function, but may depend on a parameter (visualization is always good!)
