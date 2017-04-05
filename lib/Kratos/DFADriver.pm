@@ -615,7 +615,8 @@ sub assess_validation {
 sub update_model {
 	my ($self) = @_;
 
-	while ( my ( $name, $state ) = each %{ $self->{log}{aggregate}{state} } ) {
+	for my $name (sort keys %{ $self->{log}{aggregate}{state} }) {
+		my $state = $self->{log}{aggregate}{state}{$name};
 		$self->model->set_state_power( $name, $state->{power}{median} );
 		for my $fname ( keys %{ $state->{power}{function} } ) {
 			$self->model->set_state_params(
@@ -625,9 +626,8 @@ sub update_model {
 			);
 		}
 	}
-	while ( my ( $name, $transition )
-		= each %{ $self->{log}{aggregate}{transition} } )
-	{
+	for my $name (sort keys %{ $self->{log}{aggregate}{transition} }) {
+		my $transition = $self->{log}{aggregate}{transition}{$name};
 		$self->model->set_transition_data(
 			$name,
 			$transition->{duration}{median},
