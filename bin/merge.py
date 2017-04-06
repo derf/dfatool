@@ -75,6 +75,9 @@ def str_to_param_function(function_string, parameters, variables):
         if rawfunction.find("global(%s)" % (parameters[i])) >= 0:
             dependson[i] = True
             rawfunction = rawfunction.replace("global(%s)" % (parameters[i]), "arg[%d]" % (i))
+        if rawfunction.find("local(%s)" % (parameters[i])) >= 0:
+            dependson[i] = True
+            rawfunction = rawfunction.replace("local(%s)" % (parameters[i]), "arg[%d]" % (i))
     for i in range(len(variables)):
         rawfunction = rawfunction.replace("param(%d)" % (i), "param[%d]" % (i))
     fitfunc = eval("lambda param, arg: " + rawfunction);
@@ -142,9 +145,9 @@ def try_fits(name, datatype, paramidx, paramdata):
         'square' : lambda param, arg: param[0] + param[1] * arg ** 2,
         'fractional' : lambda param, arg: param[0] + param[1] / arg,
         'sqrt' : lambda param, arg: param[0] + param[1] * np.sqrt(arg),
-        #'num0_8' : lambda param, arg: param[0] + param[1] * num0_8(arg),
-        #'num0_16' : lambda param, arg: param[0] + param[1] * num0_16(arg),
-        #'num1' : lambda param, arg: param[0] + param[1] * num1(arg),
+        'num0_8' : lambda param, arg: param[0] + param[1] * num0_8(arg),
+        'num0_16' : lambda param, arg: param[0] + param[1] * num0_16(arg),
+        'num1' : lambda param, arg: param[0] + param[1] * num1(arg),
     }
     results = dict([[key, []] for key in functions.keys()])
     errors = {}
@@ -443,27 +446,27 @@ def load_run_elem(index, element, trace, by_name, by_arg, by_param, by_trace):
     add_data_to_aggregate(by_param, param_key, element['isa'], elem_data)
     add_data_to_aggregate(by_trace, trace_key, element['isa'], elem_data)
 
-def fmap(name, funtype):
+def fmap(reftype, name, funtype):
     if funtype == 'linear':
-        return "global(%s)" % name
+        return "%s(%s)" % (reftype, name)
     if funtype == 'logarithmic':
-        return "np.log(global(%s))" % name
+        return "np.log(%s(%s))" % (reftype, name)
     if funtype == 'logarithmic1':
-        return "np.log(global(%s) + 1)" % name
+        return "np.log(%s(%s) + 1)" % (reftype, name)
     if funtype == 'exponential':
-        return "np.exp(global(%s))" % name
+        return "np.exp(%s(%s))" % (reftype, name)
     if funtype == 'square':
-        return "global(%s)**2" % name
+        return "%s(%s)**2" % (reftype, name)
     if funtype == 'fractional':
-        return "1 / global(%s)" % name
+        return "1 / %s(%s)" % (reftype, name)
     if funtype == 'sqrt':
-        return "np.sqrt(global(%s))" % name
+        return "np.sqrt(%s(%s))" % (reftype, name)
     if funtype == 'num0_8':
-        return "num0_8(global(%s))" % name
+        return "num0_8(%s(%s))" % (reftype, name)
     if funtype == 'num0_16':
-        return "num0_16(global(%s))" % name
+        return "num0_16(%s(%s))" % (reftype, name)
     if funtype == 'num1':
-        return "num1(global(%s))" % name
+        return "num1(%s(%s))" % (reftype, name)
     return "ERROR"
 
 def fguess_to_function(name, datatype, aggdata, parameters, paramdata, yaxis):
@@ -483,7 +486,7 @@ def fguess_to_function(name, datatype, aggdata, parameters, paramdata, yaxis):
             buf += " + param(%d)" % pidx
             pidx += 1
             for fun in elem:
-                buf += " * %s" % fmap(*fun)
+                buf += " * %s" % fmap('global', *fun)
         aggdata['function']['estimate'] = {
             'raw' : buf,
             'params' : list(np.ones((pidx))),
@@ -492,6 +495,33 @@ def fguess_to_function(name, datatype, aggdata, parameters, paramdata, yaxis):
         fit_function(
             aggdata['function']['estimate'], name, datatype, parameters,
             paramdata, yaxis=yaxis)
+
+def arg_fguess_to_function(name, datatype, aggdata, arguments, argdata, yaxis):
+    best_fit = {}
+    fitguess = aggdata['arg_fit_guess']
+    args = list(filter(lambda x : x in fitguess, arguments))
+    if len(args) > 0:
+        for arg in args:
+            best_fit_val = np.inf
+            for func_name, fit_val in fitguess[arg].items():
+                if fit_val['rmsd'] < best_fit_val:
+                    best_fit_val = fit_val['rmsd']
+                    best_fit[arg] = func_name
+        buf = '0'
+        pidx = 0
+        for elem in powerset(best_fit.items()):
+            buf += " + param(%d)" % pidx
+            pidx += 1
+            for fun in elem:
+                buf += " * %s" % fmap('local', *fun)
+        aggdata['arg_function']['estimate'] = {
+            'raw' : buf,
+            'params' : list(np.ones((pidx))),
+            'base' : [best_fit[arg] for arg in args]
+        }
+        fit_function(
+            aggdata['arg_function']['estimate'], name, datatype, arguments,
+            argdata, yaxis=yaxis)
 
 def param_measures(name, paramdata, key, fun):
     mae = []
@@ -539,6 +569,8 @@ def keydata(name, val, argdata, paramdata, tracedata, key):
         ret['arg_median_goodness'] = arg_measures(name, argdata, key, np.median)
         ret['std_arg'] = np.mean([np.std(argdata[x][key]) for x in argdata.keys() if x[0] == name])
         ret['std_by_arg'] = {}
+        ret['arg_fit_guess'] = {}
+        ret['arg_function'] = {}
 
     return ret
 
@@ -898,7 +930,7 @@ def analyze_by_arg(aggval, by_arg, allvalues, name, key1, key2, arg_name, arg_id
     aggval[key1]['std_by_arg'][arg_name] = mean_std_by_arg(
         by_arg, allvalues, name, key2, arg_idx)
     if aggval[key1]['std_by_arg'][arg_name] > 0 and aggval[key1]['std_arg'] / aggval[key1]['std_by_arg'][arg_name] < 0.6:
-        pass # TODO
+        aggval[key1]['arg_fit_guess'][arg_name] = try_fits(name, key2, arg_idx, by_arg)
 
 def maybe_fit_function(aggval, model, by_param, parameters, name, key1, key2, unit):
     if 'function' in model[key1] and 'user' in model[key1]['function']:
@@ -955,11 +987,6 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
                     analyze_by_param(aggval, by_param, allvalues, name, 'rel_energy_next', 'rel_energies_next', param, i)
                 if isa == 'transition' and 'function' in data['model']['transition'][name]['timeout']:
                     analyze_by_param(aggval, by_param, allvalues, name, 'timeout', 'timeouts', param, i)
-        if 'parameters' in model:
-            for i, arg in enumerate(model['parameters']):
-                values = list(set([key[1][i] for key in by_arg.keys() if key[0] == name and is_numeric(key[1][i])]))
-                allvalues = [(*key[1][:i], *key[1][i+1:]) for key in by_arg.keys() if key[0] == name]
-                analyze_by_arg(aggval, by_arg, allvalues, name, 'power', 'means', arg['name'], i)
 
         if isa == 'state':
             fguess_to_function(name, 'means', aggval['power'], parameters, by_param,
@@ -987,6 +1014,23 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
             if 'function' in model['timeout'] and 'user' in model['timeout']['function']:
                 if aggval['timeout']['std_param'] > 0 and aggval['timeout']['std_trace'] / aggval['timeout']['std_param'] < 0.5:
                     aggval['timeout']['std_by_trace'] = mean_std_by_trace_part(by_trace, transition_names, name, 'timeouts')
+
+            for i, arg in enumerate(model['parameters']):
+                values = list(set([key[1][i] for key in by_arg.keys() if key[0] == name and is_numeric(key[1][i])]))
+                allvalues = [(*key[1][:i], *key[1][i+1:]) for key in by_arg.keys() if key[0] == name]
+                analyze_by_arg(aggval, by_arg, allvalues, name, 'duration', 'durations', arg['name'], i)
+                analyze_by_arg(aggval, by_arg, allvalues, name, 'energy', 'energies', arg['name'], i)
+                analyze_by_arg(aggval, by_arg, allvalues, name, 'rel_energy_prev', 'rel_energies_prev', arg['name'], i)
+                analyze_by_arg(aggval, by_arg, allvalues, name, 'rel_energy_next', 'rel_energies_next', arg['name'], i)
+            arguments = list(map(lambda x: x['name'], model['parameters']))
+            arg_fguess_to_function(name, 'durations', aggval['duration'], arguments, by_arg,
+                'estimated %s duration [µs]' % name)
+            arg_fguess_to_function(name, 'energies', aggval['energy'], arguments, by_arg,
+                'estimated %s energy [pJ]' % name)
+            arg_fguess_to_function(name, 'rel_energies_prev', aggval['rel_energy_prev'], arguments, by_arg,
+                'estimated relative %s energy [pJ]' % name)
+            arg_fguess_to_function(name, 'rel_energies_next', aggval['rel_energy_next'], arguments, by_arg,
+                'estimated relative %s energy [pJ]' % name)
 
     return aggdata
 

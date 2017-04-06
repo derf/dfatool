@@ -139,8 +139,11 @@ sub log {
 }
 
 sub assess_fits {
-	my ( $self, $hash, $param ) = @_;
-	my $errmap = $hash->{fit_guess}{$param};
+	my ( $self, $hash, $param, $funtype ) = @_;
+
+	$funtype //= 'fit_guess';
+
+	my $errmap = $hash->{$funtype}{$param};
 	my @errors = map { [ $_, $errmap->{$_} ] } keys %{$errmap};
 	@errors = sort { $a->[1]{rmsd} <=> $b->[1]{rmsd} } @errors;
 
@@ -320,6 +323,7 @@ sub printf_parameterized {
 	my $std_ind_arg   = $hash->{std_arg};
 	my $std_ind_param = $hash->{std_param};
 	my $std_ind_trace = $hash->{std_trace};
+	my $std_by_arg    = $hash->{std_by_arg} // {};
 	my $std_by_param  = $hash->{std_by_param};
 	my $std_by_trace  = $hash->{std_by_trace} // {};
 	my $arg_ratio;
@@ -400,8 +404,28 @@ sub printf_parameterized {
 			$status = 'depends';
 		}
 		if ($fline) {
-			printf( "  %s: %s on %s (%.2f / %.2f = %.3f%s)\n",
+			printf( "  %s: %s on global %s (%.2f / %.2f = %.3f%s)\n",
 				$key, $status, $param, $std_ind_param, $std_this, $ratio,
+				$fline );
+		}
+	}
+
+	for my $arg ( sort keys %{$std_by_arg} ) {
+		my $std_this = $std_by_arg->{$arg};
+		my $ratio    = $std_ind_arg / $std_this;
+		my $status   = 'does not depend';
+		my $fline    = q{};
+		if ( $ratio < 0.6 ) {
+			$status = 'might depend';
+			$fline  = q{, probably };
+			$fline .= join( ' or ', $self->assess_fits( $hash, $arg, 'arg_fit_guess' ) );
+		}
+		if ( $ratio < 0.3 ) {
+			$status = 'depends';
+		}
+		if ($fline) {
+			printf( "  %s: %s on local %s (%.2f / %.2f = %.3f%s)\n",
+				$key, $status, $arg, $std_ind_arg, $std_this, $ratio,
 				$fline );
 		}
 	}
@@ -466,6 +490,34 @@ sub printf_fit {
 			$hash->{param_median_goodness}{mae}, $unit,
 			$hash->{param_mean_goodness}{rmsd}
 		);
+	}
+	if ( exists $hash->{arg_function}{user} ) {
+		if ( exists $hash->{arg_function}{user}{error} ) {
+			printf( "  user-specifed %s argfunction could not be fitted: %s\n",
+				$key, $hash->{arg_function}{user}{error} );
+		}
+		else {
+			printf(
+				"  user-specifed %s argfunction fit error: %.2f%% / %.f %s\n",
+				$key,
+				$hash->{arg_function}{user}{fit}{smape} // -1,
+				$hash->{arg_function}{user}{fit}{mae}, $unit
+			);
+		}
+	}
+	if ( exists $hash->{arg_function}{estimate} ) {
+		if ( exists $hash->{arg_function}{estimate}{error} ) {
+			printf( "  estimated %s argfunction could not be fitted: %s\n",
+				$key, $hash->{arg_function}{estimate}{error} );
+		}
+		else {
+			printf(
+				"  estimated %s argfunction fit error: %.2f%% / %.f %s\n",
+				$key,
+				$hash->{arg_function}{estimate}{fit}{smape} // -1,
+				$hash->{arg_function}{estimate}{fit}{mae}, $unit
+			);
+		}
 	}
 	if ( exists $hash->{arg_mean_goodness} ) {
 		printf(
