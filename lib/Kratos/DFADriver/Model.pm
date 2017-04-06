@@ -32,6 +32,44 @@ sub new {
 	return $self;
 }
 
+sub parse_xml_property {
+	my ($self, $node, $property_name) = @_;
+
+	my $xml = $self->{xml};
+	my $ret = {
+		static => 0
+	};
+
+	my ($property_node) = $node->findnodes("./${property_name}");
+	if (not $property_node) {
+		return $ret;
+	}
+
+	for my $static_node ( $property_node->findnodes('./static') ) {
+		$ret->{static} = 0 + $static_node->textContent;
+	}
+	for my $function_node ( $property_node->findnodes('./function/*') ) {
+		my $name = $function_node->nodeName;
+		my $function = $function_node->textContent;
+		$function =~ s{^ \n* \s* }{}x;
+		$function =~ s{\s* \n* $}{}x;
+		$function =~ s{ [\n\t]+ }{}gx;
+
+		$ret->{function}{$name}{raw} = $function;
+		$ret->{function}{$name}{node} = $function_node;
+
+		my $param_idx = 0;
+		while ( $function_node->hasAttribute("param${param_idx}") ) {
+			push( @{ $ret->{function}{$name}{params} },
+				$function_node->getAttribute("param${param_idx}") );
+			$param_idx++;
+		}
+	}
+
+	return $ret;
+}
+
+
 sub parse_xml {
 	my ($self) = @_;
 
@@ -45,32 +83,10 @@ sub parse_xml {
 		my $name = $state_node->getAttribute('name');
 		my $power = $state_node->getAttribute('power') // 0;
 		$self->{states}{$name} = {
-			power => { static => 0+$power },
+			power => $self->parse_xml_property($state_node, 'power'),
 			id    => $state_index,
 			node  => $state_node,
 		};
-
-		for my $fun_node ( $state_node->findnodes('./powerfunction/*') ) {
-			my $fname         = $fun_node->nodeName;
-			my $powerfunction = $fun_node->textContent;
-			$powerfunction =~ s{^ \n* \s* }{}x;
-			$powerfunction =~ s{\s* \n* $}{}x;
-			$powerfunction =~ s{ [\n\t]+ }{}gx;
-			$self->{states}{$name}{power}{function}{$fname}{raw}
-			  = $powerfunction;
-			$self->{states}{$name}{power}{function}{$fname}{node} = $fun_node;
-			my $attrindex = 0;
-
-			while ( $fun_node->hasAttribute("param${attrindex}") ) {
-				push(
-					@{
-						$self->{states}{$name}{power}{function}{$fname}{params}
-					},
-					$fun_node->getAttribute("param${attrindex}")
-				);
-				$attrindex++;
-			}
-		}
 
 		$state_index++;
 	}
@@ -118,10 +134,11 @@ sub parse_xml {
 
 		my $transition = {
 			name             => $transition_node->getAttribute('name'),
-			duration         => { static => 0+($transition_node->getAttribute('duration') // 0) },
-			energy           => { static => 0+($transition_node->getAttribute('energy') // 0) },
-			rel_energy_prev  => { static => 0+($transition_node->getAttribute('rel_energy_prev') // 0) },
-			rel_energy_next  => { static => 0+($transition_node->getAttribute('rel_energy_next') // 0) },
+			duration         => $self->parse_xml_property($transition_node, 'duration'),
+			energy           => $self->parse_xml_property($transition_node, 'energy'),
+			rel_energy_prev  => $self->parse_xml_property($transition_node, 'rel_energy_prev'),
+			rel_energy_next  => $self->parse_xml_property($transition_node, 'rel_energy_next'),
+			timeout          => $self->parse_xml_property($transition_node, 'timeout'),
 			parameters       => [@parameters],
 			origins          => [@source_states],
 			destination      => $dst_node->textContent,
@@ -130,96 +147,6 @@ sub parse_xml {
 			affects          => {%affects},
 			node             => $transition_node,
 		};
-
-		for my $fun_node ( $transition_node->findnodes('./timeoutfunction/*') )
-		{
-			my $name     = $fun_node->nodeName;
-			my $function = $fun_node->textContent;
-			$function =~ s{^ \n* \s* }{}x;
-			$function =~ s{\s* \n* $}{}x;
-			$transition->{timeout}{function}{$name}{raw}  = $function;
-			$transition->{timeout}{function}{$name}{node} = $fun_node;
-			my $attrindex = 0;
-			while ( $fun_node->hasAttribute("param${attrindex}") ) {
-				push(
-					@{ $transition->{timeout}{function}{$name}{params} },
-					$fun_node->getAttribute("param${attrindex}")
-				);
-				$attrindex++;
-			}
-		}
-
-		for my $fun_node ( $transition_node->findnodes('./durationfunction/*') )
-		{
-			my $name     = $fun_node->nodeName;
-			my $function = $fun_node->textContent;
-			$function =~ s{^ \n* \s* }{}x;
-			$function =~ s{\s* \n* $}{}x;
-			$transition->{duration}{function}{$name}{raw}  = $function;
-			$transition->{duration}{function}{$name}{node} = $fun_node;
-			my $attrindex = 0;
-			while ( $fun_node->hasAttribute("param${attrindex}") ) {
-				push(
-					@{ $transition->{duration}{function}{$name}{params} },
-					$fun_node->getAttribute("param${attrindex}")
-				);
-				$attrindex++;
-			}
-		}
-
-		for my $fun_node ( $transition_node->findnodes('./energyfunction/*') )
-		{
-			my $name     = $fun_node->nodeName;
-			my $function = $fun_node->textContent;
-			$function =~ s{^ \n* \s* }{}x;
-			$function =~ s{\s* \n* $}{}x;
-			$transition->{energy}{function}{$name}{raw}  = $function;
-			$transition->{energy}{function}{$name}{node} = $fun_node;
-			my $attrindex = 0;
-			while ( $fun_node->hasAttribute("param${attrindex}") ) {
-				push(
-					@{ $transition->{energy}{function}{$name}{params} },
-					$fun_node->getAttribute("param${attrindex}")
-				);
-				$attrindex++;
-			}
-		}
-
-		for my $fun_node ( $transition_node->findnodes('./rel_energy_prevfunction/*') )
-		{
-			my $name     = $fun_node->nodeName;
-			my $function = $fun_node->textContent;
-			$function =~ s{^ \n* \s* }{}x;
-			$function =~ s{\s* \n* $}{}x;
-			$transition->{rel_energy_prev}{function}{$name}{raw}  = $function;
-			$transition->{rel_energy_prev}{function}{$name}{node} = $fun_node;
-			my $attrindex = 0;
-			while ( $fun_node->hasAttribute("param${attrindex}") ) {
-				push(
-					@{ $transition->{rel_energy_prev}{function}{$name}{params} },
-					$fun_node->getAttribute("param${attrindex}")
-				);
-				$attrindex++;
-			}
-		}
-
-		for my $fun_node ( $transition_node->findnodes('./rel_energy_nextfunction/*') )
-		{
-			my $name     = $fun_node->nodeName;
-			my $function = $fun_node->textContent;
-			$function =~ s{^ \n* \s* }{}x;
-			$function =~ s{\s* \n* $}{}x;
-			$transition->{rel_energy_next}{function}{$name}{raw}  = $function;
-			$transition->{rel_energy_next}{function}{$name}{node} = $fun_node;
-			my $attrindex = 0;
-			while ( $fun_node->hasAttribute("param${attrindex}") ) {
-				push(
-					@{ $transition->{rel_energy_next}{function}{$name}{params} },
-					$fun_node->getAttribute("param${attrindex}")
-				);
-				$attrindex++;
-			}
-		}
 
 		push( @{ $self->{transitions} }, $transition );
 
@@ -246,61 +173,112 @@ sub parse_xml {
 	return $self;
 }
 
-sub reset {
-	my ($self) = @_;
+sub reset_property {
+	my ($self, $node, $name) = @_;
 
-	for my $state (values %{$self->{states}}) {
-		$state->{node}->removeAttribute('power');
-		for my $list_node (@{$state->{node}->findnodes('./powerfunction')}) {
-			for my $fun_name (keys %{$state->{power}{function}}) {
-				my $fun_node = $state->{power}{function}{$fun_name}{node};
-				if ($fun_node->nodeName eq 'user') {
-					for my $attrnode ($fun_node->attributes) {
+	my ($property_node) = $node->findnodes("./${name}");
+
+	if ($property_node) {
+		for my $static_node ($property_node->findnodes('./static')) {
+			$property_node->removeChild($static_node);
+		}
+		for my $function_parent ($property_node->findnodes('./function')) {
+			for my $function_node ($function_parent->childNodes) {
+				if ($function_node->nodeName eq 'user') {
+					for my $attrnode ($function_node->attributes) {
 						$attrnode->setValue(1);
 					}
 				}
 				else {
-					$list_node->removeChild($fun_node);
+					$function_parent->removeChild($function_node);
 				}
 			}
 		}
 	}
+}
+
+sub reset {
+	my ($self) = @_;
+
+	for my $state (values %{$self->{states}}) {
+		for my $property (qw(power)) {
+			$self->reset_property($state->{node}, $property);
+		}
+	}
+
 	for my $transition (@{$self->{transitions}}) {
-		$transition->{node}->removeAttribute('duration');
-		$transition->{node}->removeAttribute('energy');
-		$transition->{node}->removeAttribute('rel_energy_prev');
-		$transition->{node}->removeAttribute('rel_energy_next');
-		for my $list_node (@{$transition->{node}->findnodes('./timeoutfunction')}) {
-			for my $fun_name (keys %{$transition->{timeout}{function}}) {
-				my $fun_node = $transition->{timeout}{function}{$fun_name}{node};
-				if ($fun_node->nodeName eq 'user') {
-					for my $attrnode ($fun_node->attributes) {
-						$attrnode->setValue(1);
-					}
-				}
-				else {
-					$list_node->removeChild($fun_node);
-				}
-			}
+		for my $property (qw(duration energy rel_energy_prev rel_energy_next timeout)) {
+			$self->reset_property($transition->{node}, $property);
 		}
 	}
 }
 
 sub set_state_power {
 	my ( $self, $state, $power ) = @_;
+	my $state_node = $self->{states}{$state}{node};
 
 	$power = sprintf( '%.f', $power );
+	$self->{states}{$state}{power}{static} = $power;
 
 	printf( "state %-16s: adjust power %d -> %d µW\n",
 		$state, $self->{states}{$state}{power}{static}, $power );
 
-	$self->{states}{$state}{power}{static} = $power;
-	$self->{states}{$state}{node}->setAttribute( 'power', $power );
+	my ($static_parent) = $state_node->findnodes('./power');
+	if (not $static_parent) {
+		$static_parent = XML::LibXML::Element->new('power');
+		$state_node->appendChild($static_parent);
+	}
+
+	for my $static_node ($static_parent->findnodes('./static')) {
+		$static_parent->removeChild($static_node);
+	}
+
+	my $static_node = XML::LibXML::Element->new('static');
+	my $text_node = XML::LibXML::Text->new($power);;
+
+	$text_node->setData($power);
+	$static_node->appendChild($text_node);
+	$static_parent->appendChild($static_node);
+}
+
+sub set_transition_property {
+	my ( $self, $transition_name, $property, $value ) = @_;
+
+	if (not defined $value) {
+		return;
+	}
+
+	my $transition = $self->get_transition_by_name($transition_name);
+	my $transition_node = $transition->{node};
+	$value = sprintf('%.f', $value);
+
+	printf( "transition %-16s: adjust %s %d -> %d\n",
+		$transition->{name}, $property, $transition->{$property}{static}, $value);
+
+	$transition->{$property}{static} = $value;
+
+	my ($static_parent) = $transition_node->findnodes("./${property}");
+	if (not $static_parent) {
+		$static_parent = XML::LibXML::Element->new($property);
+		$transition_node->appendChild($static_parent);
+	}
+
+	for my $static_node ($static_parent->findnodes('./static')) {
+		$static_parent->removeChild($static_node);
+	}
+
+	my $static_node = XML::LibXML::Element->new('static');
+	my $text_node = XML::LibXML::Text->new($value);
+
+	$text_node->setData($value);
+	$static_node->appendChild($text_node);
+	$static_parent->appendChild($static_node);
 }
 
 sub set_state_params {
 	my ( $self, $state, $fun_name, $function, @params ) = @_;
 	my $old_params = 'None';
+	my $state_node = $self->{states}{$state}{node};
 
 	if ( exists $self->{states}{$state}{power}{function}{$fun_name} ) {
 		$old_params = join( q{ },
@@ -310,42 +288,35 @@ sub set_state_params {
 	printf( "state %-16s: adjust %s power function parameters [%s] -> [%s]\n",
 		$state, $fun_name, $old_params, join( q{ }, @params ) );
 
-	if ( not defined $self->{states}{$state}{power}{function}{$fun_name}{node} )
-	{
-		my ($fun_node)
-		  = $self->{states}{$state}{node}->findnodes('./powerfunction');
-		if ($fun_node) {
-			my $new_node = XML::LibXML::Element->new($fun_name);
-			$self->{states}{$state}{power}{function}{$fun_name}{node}
-			  = $new_node;
-			$fun_node->appendChild($new_node);
-		}
-		else {
-			say
-			  '  skipping XML write-back because of missing powerfunction node';
-			return;
-		}
+	my ($function_parent) = $state_node->findnodes('./power/function');
+
+	if (not $function_parent) {
+		my ($power_node) = $state_node->findnodes('./power');
+		$function_parent = XML::LibXML::Element->new('function');
+		$power_node->appendChild($function_parent);
 	}
 
-	if ( defined $function ) {
-		my $cdata_node = XML::LibXML::CDATASection->new($function);
-		$self->{states}{$state}{power}{function}{$fun_name}{node}
-		  ->removeChildNodes;
-		$self->{states}{$state}{power}{function}{$fun_name}{node}
-		  ->appendChild($cdata_node);
+	for my $function_node ($function_parent->findnodes("./${fun_name}")) {
+		$function_parent->removeChild($function_node);
 	}
+
+	my $function_node = XML::LibXML::Element->new($fun_name);
+	my $function_content = XML::LibXML::CDATASection->new($function);
+
+	$function_node->appendChild($function_content);
+	$function_parent->appendChild($function_node);
 
 	for my $i ( 0 .. $#params ) {
 		$self->{states}{$state}{power}{function}{$fun_name}{params}[$i]
 		  = $params[$i];
-		$self->{states}{$state}{power}{function}{$fun_name}{node}
-		  ->setAttribute( "param$i", $params[$i] );
+		$function_node->setAttribute( "param$i", $params[$i] );
 	}
 }
 
 sub set_transition_params {
 	my ( $self, $transition_name, $fun_type, $fun_name, $function, @params ) = @_;
 	my $transition = $self->get_transition_by_name($transition_name);
+	my $transition_node = $transition->{node};
 	my $old_params = 'None';
 
 	if ( exists $transition->{$fun_type}{function}{$fun_name} ) {
@@ -357,69 +328,28 @@ sub set_transition_params {
 		"transition %-16s: adjust %s %s function parameters [%s] -> [%s]\n",
 		$transition_name, $fun_name, $fun_type, $old_params, join( q{ }, @params ) );
 
-	if ( not defined $transition->{$fun_type}{function}{$fun_name}{node} ) {
-		my ($fun_node) = $transition->{node}->findnodes("./${fun_type}function");
-		if ($fun_node) {
-			my $new_node = XML::LibXML::Element->new($fun_name);
-			$transition->{$fun_type}{function}{$fun_name}{node} = $new_node;
-			$fun_node->appendChild($new_node);
-		}
-		else {
-			say
-"  skipping XML write-back because of missing ${fun_type}function node";
-			return;
-		}
+	my ($function_parent) = $transition_node->findnodes("./${fun_type}/function");
+
+	if (not $function_parent) {
+		my ($property_node) = $transition_node->findnodes("./${fun_type}");
+		$function_parent = XML::LibXML::Element->new('function');
+		$property_node->appendChild($function_parent);
 	}
 
-	if ( defined $function ) {
-		my $cdata_node = XML::LibXML::CDATASection->new($function);
-		$transition->{$fun_type}{function}{$fun_name}{node}->removeChildNodes;
-		$transition->{$fun_type}{function}{$fun_name}{node}
-		  ->appendChild($cdata_node);
+	for my $function_node ($function_parent->findnodes("./${fun_name}")) {
+		$function_parent->removeChild($function_node);
 	}
+
+	my $function_node = XML::LibXML::Element->new($fun_name);
+	my $function_content = XML::LibXML::CDATASection->new($function);
+
+	$function_node->appendChild($function_content);
+	$function_parent->appendChild($function_node);
 
 	for my $i ( 0 .. $#params ) {
 		$transition->{$fun_type}{function}{$fun_name}{params}[$i] = $params[$i];
-		$transition->{$fun_type}{function}{$fun_name}{node}
-		  ->setAttribute( "param$i", $params[$i] );
+		$function_node->setAttribute( "param$i", $params[$i] );
 	}
-}
-
-sub set_transition_data {
-	my ( $self, $transition_name, $duration, $energy, $rel_energy_prev, $rel_energy_next ) = @_;
-
-	my $transition = $self->get_transition_by_name($transition_name);
-	$duration = sprintf( '%.f', $duration );
-	$energy = sprintf( '%.f', $energy );
-
-	printf( 'transition %-16s: adjust duration %d -> %d µs',
-		$transition->{name}, $transition->{duration}{static}, $duration);
-	$transition->{duration}{static} = $duration;
-	$transition->{node}->setAttribute('duration', $duration);
-
-	printf( ', absolute energy %d -> %d pJ',
-		$transition->{energy}{static}, $energy );
-
-	$transition->{energy}{static} = $energy;
-	$transition->{node}->setAttribute( 'energy', $energy );
-
-	if (defined $rel_energy_prev) {
-		$rel_energy_prev = sprintf('%.f', $rel_energy_prev);
-		printf( ", relative_prev energy %d -> %d pJ",
-			$transition->{rel_energy_prev}{static}, $rel_energy_prev );
-
-		$transition->{rel_energy_prev}{static} = $rel_energy_prev;
-		$transition->{node}->setAttribute( 'rel_energy_prev', $rel_energy_prev );
-	}
-	if (defined $rel_energy_next) {
-		$rel_energy_next = sprintf('%.f', $rel_energy_next);
-		printf( ", relative_next energy %d -> %d pJ",
-			$transition->{rel_energy_next}{static}, $rel_energy_next );
-
-		$transition->{rel_energy_next}{static} = $rel_energy_next;
-		$transition->{node}->setAttribute( 'rel_energy_next', $rel_energy_next );
-	}
-	print("\n");
 }
 
 sub save {

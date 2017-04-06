@@ -969,8 +969,6 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
         if isa == 'transition':
             aggval['rel_energy_prev'] = keydata(name, val, by_arg, by_param, by_trace, 'rel_energies_prev')
             aggval['rel_energy_next'] = keydata(name, val, by_arg, by_param, by_trace, 'rel_energies_next')
-
-        if isa == 'transition' and 'function' in data['model']['transition'][name]['timeout']:
             aggval['timeout'] = keydata(name, val, by_arg, by_param, by_trace, 'timeouts')
 
         for i, param in enumerate(sorted(data['model']['parameter'].keys())):
@@ -985,7 +983,6 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
                     analyze_by_param(aggval, by_param, allvalues, name, 'energy', 'energies', param, i)
                     analyze_by_param(aggval, by_param, allvalues, name, 'rel_energy_prev', 'rel_energies_prev', param, i)
                     analyze_by_param(aggval, by_param, allvalues, name, 'rel_energy_next', 'rel_energies_next', param, i)
-                if isa == 'transition' and 'function' in data['model']['transition'][name]['timeout']:
                     analyze_by_param(aggval, by_param, allvalues, name, 'timeout', 'timeouts', param, i)
 
         if isa == 'state':
@@ -1003,17 +1000,13 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
                 'estimated relative_prev %s energy by param [pJ]' % name)
             fguess_to_function(name, 'rel_energies_next', aggval['rel_energy_next'], parameters, by_param,
                 'estimated relative_next %s energy by param [pJ]' % name)
+            fguess_to_function(name, 'timeouts', aggval['timeout'], parameters, by_param,
+                'estimated %s timeout by param [µs]' % name)
             maybe_fit_function(aggval, model, by_param, parameters, name, 'duration', 'durations', 'µs')
             maybe_fit_function(aggval, model, by_param, parameters, name, 'energy', 'energies', 'pJ')
             maybe_fit_function(aggval, model, by_param, parameters, name, 'rel_energy_prev', 'rel_energies_prev', 'pJ')
             maybe_fit_function(aggval, model, by_param, parameters, name, 'rel_energy_next', 'rel_energies_next', 'pJ')
-            if 'function' in model['timeout'] and 'user' in model['timeout']['function']:
-                fguess_to_function(name, 'timeouts', aggval['timeout'], parameters, by_param,
-                    'estimated %s timeout by param [µs]' % name)
             maybe_fit_function(aggval, model, by_param, parameters, name, 'timeout', 'timeouts', 'µs')
-            if 'function' in model['timeout'] and 'user' in model['timeout']['function']:
-                if aggval['timeout']['std_param'] > 0 and aggval['timeout']['std_trace'] / aggval['timeout']['std_param'] < 0.5:
-                    aggval['timeout']['std_by_trace'] = mean_std_by_trace_part(by_trace, transition_names, name, 'timeouts')
 
             for i, arg in enumerate(model['parameters']):
                 values = list(set([key[1][i] for key in by_arg.keys() if key[0] == name and is_numeric(key[1][i])]))
@@ -1022,6 +1015,8 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
                 analyze_by_arg(aggval, by_arg, allvalues, name, 'energy', 'energies', arg['name'], i)
                 analyze_by_arg(aggval, by_arg, allvalues, name, 'rel_energy_prev', 'rel_energies_prev', arg['name'], i)
                 analyze_by_arg(aggval, by_arg, allvalues, name, 'rel_energy_next', 'rel_energies_next', arg['name'], i)
+                analyze_by_arg(aggval, by_arg, allvalues, name, 'timeout', 'timeouts', arg['name'], i)
+
             arguments = list(map(lambda x: x['name'], model['parameters']))
             arg_fguess_to_function(name, 'durations', aggval['duration'], arguments, by_arg,
                 'estimated %s duration by arg [µs]' % name)
@@ -1031,6 +1026,8 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
                 'estimated relative_prev %s energy by arg [pJ]' % name)
             arg_fguess_to_function(name, 'rel_energies_next', aggval['rel_energy_next'], arguments, by_arg,
                 'estimated relative_next %s energy by arg [pJ]' % name)
+            arg_fguess_to_function(name, 'timeouts', aggval['timeout'], arguments, by_arg,
+                'estimated %s timeout by arg [µs]' % name)
 
     return aggdata
 

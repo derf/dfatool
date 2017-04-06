@@ -680,14 +680,16 @@ sub update_model {
 	}
 	for my $name (sort keys %{ $self->{log}{aggregate}{transition} }) {
 		my $transition = $self->{log}{aggregate}{transition}{$name};
-		$self->model->set_transition_data(
-			$name,
-			$transition->{duration}{median},
-			$transition->{energy}{median},
-			$transition->{rel_energy_prev}{median},
-			$transition->{rel_energy_next}{median}
-		);
-		for my $key (qw(duration energy rel_energy_prev rel_energy_next timeout)) {
+		my @keys = (qw(duration energy rel_energy_prev rel_energy_next));
+
+		if ($self->model->get_transition_by_name($name)->{level} eq 'epilogue') {
+			push(@keys, 'timeout');
+		}
+
+		for my $key (@keys) {
+			$self->model->set_transition_property(
+				$name, $key, $transition->{$key}{median}
+			);
 			for my $fname ( keys %{ $transition->{$key}{function} } ) {
 				$self->model->set_transition_params(
 					$name, $key, $fname,
