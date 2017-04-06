@@ -75,7 +75,14 @@ def plot_param_fit(function, name, fitfunc, funp, parameters, datatype, index, X
     fig, ax1 = plt.subplots(figsize=(10,6))
     fig.canvas.set_window_title("fit %s" % (function))
     plt.subplots_adjust(left=0.14, right=0.99, top=0.99, bottom=0.14)
-    xsp = np.linspace(X[index].min(), X[index].max(), 100)
+
+    x_range = X[index].max() - X[index].min() + 1
+
+    if x_range > 100 and x_range < 500:
+        xsp = np.linspace(X[index].min(), X[index].max(), x_range)
+    else:
+        xsp = np.linspace(X[index].min(), X[index].max(), 100)
+        x_range = 100
 
     if xaxis != None:
         ax1.set_xlabel(xaxis)
@@ -101,9 +108,9 @@ def plot_param_fit(function, name, fitfunc, funp, parameters, datatype, index, X
 
         plt.plot(X[index][tt], Y[tt], "rx", color=color)
 
-        xarg = [np.array([x] * 100) for x in elem[:index]]
+        xarg = [np.array([x] * x_range) for x in elem[:index]]
         xarg.append(xsp)
-        xarg.extend([np.array([x] * 100) for x in elem[index:]])
+        xarg.extend([np.array([x] * x_range) for x in elem[index:]])
         plt.plot(xsp, fitfunc(funp, xarg), "r-", color=color)
     plt.show()
 
