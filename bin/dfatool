@@ -280,7 +280,7 @@ my %action = (
 						push( @widths, max (length($pstr), 9) );
 						printf(' → %9s', $pstr);
 						my @energies
-						  = map { $_->{uW_mean_delta} * ( $_->{us} - 20 ) }
+						  = map { $_->{uW_mean_delta_prev} * ( $_->{us} - 20 ) }
 						  @{ $elem->{offline} };
 						push( @data, sum(@energies) / @energies );
 					}
