@@ -940,7 +940,7 @@ def maybe_fit_function(aggval, model, by_param, parameters, name, key1, key2, un
         }
         fit_function(
             aggval[key1]['function']['user'], name, key2, parameters, by_param,
-            yaxis='%s %s [%s]' % (name, key1, unit))
+            yaxis='%s %s by param [%s]' % (name, key1, unit))
 
 def analyze(by_name, by_arg, by_param, by_trace, parameters):
     aggdata = {
@@ -990,26 +990,26 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
 
         if isa == 'state':
             fguess_to_function(name, 'means', aggval['power'], parameters, by_param,
-                'estimated %s power [µW]' % name)
+                'estimated %s power by param [µW]' % name)
             maybe_fit_function(aggval, model, by_param, parameters, name, 'power', 'means', 'µW')
             if aggval['power']['std_param'] > 0 and aggval['power']['std_trace'] / aggval['power']['std_param'] < 0.5:
                 aggval['power']['std_by_trace'] = mean_std_by_trace_part(by_trace, transition_names, name, 'means')
         else:
             fguess_to_function(name, 'durations', aggval['duration'], parameters, by_param,
-                'estimated %s duration [µs]' % name)
+                'estimated %s duration by param [µs]' % name)
             fguess_to_function(name, 'energies', aggval['energy'], parameters, by_param,
-                'estimated %s energy [pJ]' % name)
+                'estimated %s energy by param [pJ]' % name)
             fguess_to_function(name, 'rel_energies_prev', aggval['rel_energy_prev'], parameters, by_param,
-                'estimated relative %s energy [pJ]' % name)
+                'estimated relative_prev %s energy by param [pJ]' % name)
             fguess_to_function(name, 'rel_energies_next', aggval['rel_energy_next'], parameters, by_param,
-                'estimated relative %s energy [pJ]' % name)
+                'estimated relative_next %s energy by param [pJ]' % name)
             maybe_fit_function(aggval, model, by_param, parameters, name, 'duration', 'durations', 'µs')
             maybe_fit_function(aggval, model, by_param, parameters, name, 'energy', 'energies', 'pJ')
             maybe_fit_function(aggval, model, by_param, parameters, name, 'rel_energy_prev', 'rel_energies_prev', 'pJ')
             maybe_fit_function(aggval, model, by_param, parameters, name, 'rel_energy_next', 'rel_energies_next', 'pJ')
             if 'function' in model['timeout'] and 'user' in model['timeout']['function']:
                 fguess_to_function(name, 'timeouts', aggval['timeout'], parameters, by_param,
-                    'estimated %s timeout [µs]' % name)
+                    'estimated %s timeout by param [µs]' % name)
             maybe_fit_function(aggval, model, by_param, parameters, name, 'timeout', 'timeouts', 'µs')
             if 'function' in model['timeout'] and 'user' in model['timeout']['function']:
                 if aggval['timeout']['std_param'] > 0 and aggval['timeout']['std_trace'] / aggval['timeout']['std_param'] < 0.5:
@@ -1024,13 +1024,13 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
                 analyze_by_arg(aggval, by_arg, allvalues, name, 'rel_energy_next', 'rel_energies_next', arg['name'], i)
             arguments = list(map(lambda x: x['name'], model['parameters']))
             arg_fguess_to_function(name, 'durations', aggval['duration'], arguments, by_arg,
-                'estimated %s duration [µs]' % name)
+                'estimated %s duration by arg [µs]' % name)
             arg_fguess_to_function(name, 'energies', aggval['energy'], arguments, by_arg,
-                'estimated %s energy [pJ]' % name)
+                'estimated %s energy by arg [pJ]' % name)
             arg_fguess_to_function(name, 'rel_energies_prev', aggval['rel_energy_prev'], arguments, by_arg,
-                'estimated relative %s energy [pJ]' % name)
+                'estimated relative_prev %s energy by arg [pJ]' % name)
             arg_fguess_to_function(name, 'rel_energies_next', aggval['rel_energy_next'], arguments, by_arg,
-                'estimated relative %s energy [pJ]' % name)
+                'estimated relative_next %s energy by arg [pJ]' % name)
 
     return aggdata
 
