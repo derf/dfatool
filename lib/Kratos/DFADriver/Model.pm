@@ -184,7 +184,7 @@ sub reset_property {
 		}
 		for my $function_parent ($property_node->findnodes('./function')) {
 			for my $function_node ($function_parent->childNodes) {
-				if ($function_node->nodeName eq 'user') {
+				if ($function_node->nodeName eq 'user' or $function_node->nodeName eq 'user_arg') {
 					for my $attrnode ($function_node->attributes) {
 						$attrnode->setValue(1);
 					}

@@ -514,13 +514,13 @@ def arg_fguess_to_function(name, datatype, aggdata, arguments, argdata, yaxis):
             pidx += 1
             for fun in elem:
                 buf += " * %s" % fmap('local', *fun)
-        aggdata['arg_function']['estimate'] = {
+        aggdata['function']['estimate_arg'] = {
             'raw' : buf,
             'params' : list(np.ones((pidx))),
             'base' : [best_fit[arg] for arg in args]
         }
         fit_function(
-            aggdata['arg_function']['estimate'], name, datatype, arguments,
+            aggdata['function']['estimate_arg'], name, datatype, arguments,
             argdata, yaxis=yaxis)
 
 def param_measures(name, paramdata, key, fun):
@@ -570,7 +570,6 @@ def keydata(name, val, argdata, paramdata, tracedata, key):
         ret['std_arg'] = np.mean([np.std(argdata[x][key]) for x in argdata.keys() if x[0] == name])
         ret['std_by_arg'] = {}
         ret['arg_fit_guess'] = {}
-        ret['arg_function'] = {}
 
     return ret
 

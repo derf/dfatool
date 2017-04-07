@@ -362,7 +362,7 @@ sub printf_parameterized {
 
 	if ( defined $std_ind_arg and   $std_global > 10
 		and $arg_ratio < 0.5
-		and not exists $hash->{argfunction}{user} )
+		and not exists $hash->{function}{user_arg} )
 	{
 		printf( "  %s: depends on arguments (%.2f / %.2f = %.3f)\n",
 			$key, $std_ind_arg, $std_global, $arg_ratio );
@@ -372,7 +372,7 @@ sub printf_parameterized {
 			   $std_global < 10
 			or $arg_ratio > 0.5
 		)
-		and exists $hash->{argfunction}{user}
+		and exists $hash->{function}{user_arg}
 	  )
 	{
 		printf( "  %s: should not depend on arguments (%.2f / %.2f = %.3f)\n",
@@ -445,97 +445,35 @@ sub printf_fit {
 	my ( $self, $hash, $key, $unit ) = @_;
 	$hash = $hash->{$key};
 
-	if ( exists $hash->{function}{user} ) {
-		if ( exists $hash->{function}{user}{error} ) {
-			printf( "  user-specifed %s function could not be fitted: %s\n",
-				$key, $hash->{function}{user}{error} );
+	for my $funtype (sort keys %{$hash->{function}}) {
+		if ( exists $hash->{function}{$funtype}{error} ) {
+			printf( "  %s: %s function could not be fitted: %s\n",
+				$key, $funtype, $hash->{function}{$funtype}{error} );
 		}
 		else {
 			printf(
-				"  user-specifed %s function fit error: %.2f%% / %.f %s\n",
-				$key,
-				$hash->{function}{user}{fit}{smape} // -1,
-				$hash->{function}{user}{fit}{mae}, $unit
+				"  %s: %s function fit error: %.2f%% / %.f %s\n",
+				$key, $funtype,
+				$hash->{function}{$funtype}{fit}{smape} // -1,
+				$hash->{function}{$funtype}{fit}{mae}, $unit
 			);
 		}
 	}
-	if ( exists $hash->{function}{estimate} ) {
-		if ( exists $hash->{function}{estimate}{error} ) {
-			printf( "  estimated %s function could not be fitted: %s\n",
-				$key, $hash->{function}{estimate}{error} );
-		}
-		else {
+
+	for my $pair (['param_mean_goodness', 'param mean/ssr-fit'],
+			['param_median_goodness', 'param median/static'],
+			['arg_mean_goodness', 'arg mean/ssr-fit'],
+			['arg_median_goodness', 'arg median/static']) {
+		my ($goodness, $desc) = @{$pair};
+		if ( exists $hash->{$goodness} ) {
 			printf(
-				"  estimated %s function fit error: %.2f%% / %.f %s\n",
-				$key,
-				$hash->{function}{estimate}{fit}{smape} // -1,
-				$hash->{function}{estimate}{fit}{mae}, $unit
+				"  %s: %s LUT error: %.2f%% / %.f %s / %.f\n",
+				$key, $desc,
+				$hash->{$goodness}{smape} // -1,
+				$hash->{$goodness}{mae}, $unit,
+				$hash->{$goodness}{rmsd}
 			);
 		}
-	}
-	if ( exists $hash->{param_mean_goodness} ) {
-		printf(
-			"  %s: param mean/ssr-fit LUT error: %.2f%% / %.f %s / %.f\n",
-			$key,
-			$hash->{param_mean_goodness}{smape} // -1,
-			$hash->{param_mean_goodness}{mae}, $unit,
-			$hash->{param_mean_goodness}{rmsd}
-		);
-	}
-	if ( exists $hash->{param_median_goodness} ) {
-		printf(
-			"  %s: param median/static LUT error: %.2f%% / %.f %s / %.f\n",
-			$key,
-			$hash->{param_median_goodness}{smape} // -1,
-			$hash->{param_median_goodness}{mae}, $unit,
-			$hash->{param_mean_goodness}{rmsd}
-		);
-	}
-	if ( exists $hash->{arg_function}{user} ) {
-		if ( exists $hash->{arg_function}{user}{error} ) {
-			printf( "  user-specifed %s argfunction could not be fitted: %s\n",
-				$key, $hash->{arg_function}{user}{error} );
-		}
-		else {
-			printf(
-				"  user-specifed %s argfunction fit error: %.2f%% / %.f %s\n",
-				$key,
-				$hash->{arg_function}{user}{fit}{smape} // -1,
-				$hash->{arg_function}{user}{fit}{mae}, $unit
-			);
-		}
-	}
-	if ( exists $hash->{arg_function}{estimate} ) {
-		if ( exists $hash->{arg_function}{estimate}{error} ) {
-			printf( "  estimated %s argfunction could not be fitted: %s\n",
-				$key, $hash->{arg_function}{estimate}{error} );
-		}
-		else {
-			printf(
-				"  estimated %s argfunction fit error: %.2f%% / %.f %s\n",
-				$key,
-				$hash->{arg_function}{estimate}{fit}{smape} // -1,
-				$hash->{arg_function}{estimate}{fit}{mae}, $unit
-			);
-		}
-	}
-	if ( exists $hash->{arg_mean_goodness} ) {
-		printf(
-			"  %s: arg mean/ssr-fit LUT error: %.2f%% / %.f %s / %.f\n",
-			$key,
-			$hash->{arg_mean_goodness}{smape} // -1,
-			$hash->{arg_mean_goodness}{mae}, $unit,
-			$hash->{arg_mean_goodness}{rmsd}
-		);
-	}
-	if ( exists $hash->{arg_median_goodness} ) {
-		printf(
-			"  %s: arg median/static LUT error: %.2f%% / %.f %s / %.f\n",
-			$key,
-			$hash->{arg_median_goodness}{smape} // -1,
-			$hash->{arg_median_goodness}{mae}, $unit,
-			$hash->{arg_mean_goodness}{rmsd}
-		);
 	}
 }
 
