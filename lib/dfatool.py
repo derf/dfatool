@@ -155,7 +155,12 @@ class MIMOSA:
         ua_r1 = self.voltage / self.r1 * 1000000
         ua_r2 = self.voltage / self.r2 * 1000000
 
-        b_lower = (ua_r2 - 0) / (cal_r2_mean - cal_0_mean)
+        if cal_r2_mean > cal_0_mean:
+            b_lower = (ua_r2 - 0) / (cal_r2_mean - cal_0_mean)
+        else:
+            print("WARNING: 0 uA == 33 uA during calibration")
+            b_lower = 0
+
         b_upper = (ua_r1 - ua_r2) / (cal_r1_mean - cal_r2_mean)
         b_total = (ua_r1 - 0) / (cal_r1_mean - cal_0_mean)
 
