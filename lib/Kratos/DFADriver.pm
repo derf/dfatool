@@ -615,6 +615,9 @@ sub update_model {
 				@{ $state->{power}{function}{$fname}{params} }
 			);
 		}
+		if ($self->{with_lut}) {
+			$self->model->set_state_lut( $name, 'power', $state->{power}{median_by_param} );
+		}
 	}
 	for my $name (sort keys %{ $self->{log}{aggregate}{transition} }) {
 		my $transition = $self->{log}{aggregate}{transition}{$name};
@@ -634,6 +637,9 @@ sub update_model {
 					$transition->{$key}{function}{$fname}{raw},
 					@{ $transition->{$key}{function}{$fname}{params} }
 				);
+			}
+			if ($self->{with_lut}) {
+				$self->model->set_transition_lut( $name, $key, $transition->{$key}{median_by_param} );
 			}
 		}
 	}

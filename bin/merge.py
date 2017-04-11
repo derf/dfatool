@@ -288,6 +288,14 @@ def param_values(parameters, by_param):
 
     return paramvalues
 
+def param_hash(values):
+    ret = {}
+
+    for i, param in enumerate(parameters):
+        ret[param] = values[i]
+
+    return ret
+
 # Returns the values used for each function argument in the measurement, e.g.
 # { 'data': [], 'length' : [16, 31, 32] }
 # non-numeric values such as '' or 'long_test_string' are skipped
@@ -547,11 +555,24 @@ def param_measures(name, paramdata, key, fun):
 def arg_measures(name, argdata, key, fun):
     return param_measures(name, argdata, key, fun)
 
+def lookup_table(name, paramdata, key, fun, keyfun):
+    lut = []
+
+    for pkey, pval in paramdata.items():
+        if pkey[0] == name:
+            lut.append({
+                'key': keyfun(pkey[1]),
+                'value': fun(pval[key]),
+            })
+
+    return lut
+
 def keydata(name, val, argdata, paramdata, tracedata, key):
     ret = {
         'count' : len(val[key]),
         'median' : np.median(val[key]),
         'mean'   : np.mean(val[key]),
+        'median_by_param' : lookup_table(name, paramdata, key, np.median, param_hash),
         'mean_goodness' : aggregate_measures(np.mean(val[key]), val[key]),
         'median_goodness' : aggregate_measures(np.median(val[key]), val[key]),
         'param_mean_goodness' : param_measures(name, paramdata, key, np.mean),
@@ -567,6 +588,7 @@ def keydata(name, val, argdata, paramdata, tracedata, key):
     if val['isa'] == 'transition':
         ret['arg_mean_goodness'] = arg_measures(name, argdata, key, np.mean)
         ret['arg_median_goodness'] = arg_measures(name, argdata, key, np.median)
+        ret['median_by_arg'] = lookup_table(name, argdata, key, np.median, list)
         ret['std_arg'] = np.mean([np.std(argdata[x][key]) for x in argdata.keys() if x[0] == name])
         ret['std_by_arg'] = {}
         ret['arg_fit_guess'] = {}

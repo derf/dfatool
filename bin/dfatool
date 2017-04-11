@@ -29,6 +29,7 @@ GetOptions(
 	  trigger-pin=i
 	  trigger-port=s
 	  voltage=f
+	  with-lut!
 	  offset=i
 	  zomg-fasta-nao
 	  }
@@ -61,6 +62,7 @@ my $driver = Kratos::DFADriver->new(
 	mimosa_voltage => $opt{voltage}         // 3.60,
 	trace_filter   => $opt{'trace-filter'}  // [],
 	trace_revisit  => $opt{'trace-revisit'} // 2,
+	with_lut       => $opt{'with-lut'},
 	xml_file       => $xml_file,
 );
 

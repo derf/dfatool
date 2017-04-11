@@ -179,8 +179,8 @@ sub reset_property {
 	my ($property_node) = $node->findnodes("./${name}");
 
 	if ($property_node) {
-		for my $static_node ($property_node->findnodes('./static')) {
-			$property_node->removeChild($static_node);
+		for my $attr_node ($property_node->findnodes('./static | ./lut')) {
+			$property_node->removeChild($attr_node);
 		}
 		for my $function_parent ($property_node->findnodes('./function')) {
 			for my $function_node ($function_parent->childNodes) {
@@ -218,10 +218,11 @@ sub set_state_power {
 	my $state_node = $self->{states}{$state}{node};
 
 	$power = sprintf( '%.f', $power );
-	$self->{states}{$state}{power}{static} = $power;
 
 	printf( "state %-16s: adjust power %d -> %d µW\n",
 		$state, $self->{states}{$state}{power}{static}, $power );
+
+	$self->{states}{$state}{power}{static} = $power;
 
 	my ($static_parent) = $state_node->findnodes('./power');
 	if (not $static_parent) {
@@ -273,6 +274,62 @@ sub set_transition_property {
 	$text_node->setData($value);
 	$static_node->appendChild($text_node);
 	$static_parent->appendChild($static_node);
+}
+
+sub set_state_lut {
+	my ($self, $state, $property, $lut) = @_;
+	my $state_node = $self->{states}{$state}{node};
+
+	if (not defined $lut) {
+		return;
+	}
+
+	my ($lut_parent) = $state_node->findnodes("./${property}");
+	for my $lut_node ( $lut_parent->findnodes('./lut') ) {
+		$lut_parent->removeChild($lut_node);
+	}
+
+	my $lut_node = XML::LibXML::Element->new('lut');
+	$lut_parent->appendChild($lut_node);
+
+	for my $lut_entry (@{$lut}) {
+		my $entry_node = XML::LibXML::Element->new('entry');
+		my $value_node = XML::LibXML::Text->new($lut_entry->{value});
+		for my $param (sort keys %{$lut_entry->{key}}) {
+			$entry_node->setAttribute($param, $lut_entry->{key}{$param});
+		}
+		$entry_node->appendChild($value_node);
+		$lut_node->appendChild($entry_node);
+	}
+}
+
+sub set_transition_lut {
+	my ($self, $transition_name, $property, $lut) = @_;
+
+	if (not defined $lut) {
+		return;
+	}
+
+	my $transition = $self->get_transition_by_name($transition_name);
+	my $transition_node = $transition->{node};
+
+	my ($lut_parent) = $transition_node->findnodes("./${property}");
+	for my $lut_node ( $lut_parent->findnodes('./lut') ) {
+		$lut_parent->removeChild($lut_node);
+	}
+
+	my $lut_node = XML::LibXML::Element->new('lut');
+	$lut_parent->appendChild($lut_node);
+
+	for my $lut_entry (@{$lut}) {
+		my $entry_node = XML::LibXML::Element->new('entry');
+		my $value_node = XML::LibXML::Text->new($lut_entry->{value});
+		for my $param (sort keys %{$lut_entry->{key}}) {
+			$entry_node->setAttribute($param, $lut_entry->{key}{$param});
+		}
+		$entry_node->appendChild($value_node);
+		$lut_node->appendChild($entry_node);
+	}
 }
 
 sub set_state_params {

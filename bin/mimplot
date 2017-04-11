@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+
+import csv
+import numpy as np
+import os
+import struct
+import sys
+import tarfile
+import matplotlib.pyplot as plt
+from dfatool import running_mean, MIMOSA
+
+voltage = float(sys.argv[1])
+shunt = float(sys.argv[2])
+mimfile = sys.argv[3]
+
+mim = MIMOSA(voltage, shunt)
+
+charges, triggers = mim.load_data(mimfile)
+charges = charges[:3000000]
+
+currents = running_mean(mim.charge_to_current_nocal(charges), 10) * 1e-6
+xr = np.arange(len(currents)) * 1e-5
+plt.plot( xr, currents, "r-")
+plt.xlabel('Zeit [s]')
+plt.ylabel('Strom [A]')
+plt.grid(True)
+plt.show()
