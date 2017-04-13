@@ -1297,12 +1297,14 @@ sub merged_json {
 				if ($online_obj->{isa} ne $plan_obj->{isa}) {
 					printf("Log merge: ISA mismatch (should be %s, is %s) at index %d#%d\n",
 						$plan_obj->{isa}, $online_obj->{isa}, $trace_idx, $idx);
+					$self->mimosa->kill;
 					exit(1);
 				}
 				if ( $plan_obj->{name} ne 'UNINITIALIZED' ) {
 					if ($online_obj->{name} ne $plan_obj->{name}) {
 						printf("Log merge: name mismatch (should be %s, is %s) at index %d#%d\n",
 						$plan_obj->{name}, $online_obj->{name}, $trace_idx, $idx);
+						$self->mimosa->kill;
 						exit(1);
 					}
 				}
