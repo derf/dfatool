@@ -412,6 +412,22 @@ sub set_transition_params {
 	}
 }
 
+sub set_voltage {
+	my ($self, $min_voltage, $max_voltage) = @_;
+
+	my ($data_node) = $self->xml->findnodes('/data');
+
+	for my $voltage_node ($data_node->findnodes('./voltage')) {
+		$data_node->removeChild($voltage_node);
+	}
+
+	my $voltage_node = XML::LibXML::Element->new('voltage');
+	$voltage_node->setAttribute('min', $min_voltage);
+	$voltage_node->setAttribute('max', $max_voltage);
+
+	$data_node->appendChild($voltage_node);
+}
+
 sub save {
 	my ($self) = @_;
 

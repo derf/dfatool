@@ -644,6 +644,8 @@ sub update_model {
 		}
 	}
 
+	$self->model->set_voltage($self->{log}{aggregate}{min_voltage}, $self->{log}{aggregate}{max_voltage});
+
 	$self->model->save;
 }
 

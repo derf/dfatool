@@ -970,6 +970,8 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
     aggdata = {
         'state' : {},
         'transition' : {},
+        'min_voltage' : min_voltage,
+        'max_voltage' : max_voltage,
     }
     transition_names = list(map(lambda x: x[0], filter(lambda x: x[1]['isa'] == 'transition', by_name.items())))
     for name, val in by_name.items():
@@ -1081,12 +1083,20 @@ if 'voltage' in opts:
         'arg_name' : None,
     }
 
+min_voltage = float(data['setup']['mimosa_voltage'])
+max_voltage = float(data['setup']['mimosa_voltage'])
+
 parameters = sorted(data['model']['parameter'].keys())
 
 for arg in args:
     mdata = load_json(arg)
+    this_voltage = float(mdata['setup']['mimosa_voltage'])
+    if this_voltage > max_voltage:
+        max_voltage = this_voltage
+    if this_voltage < min_voltage:
+        min_voltage = this_voltage
     if 'voltage' in opts:
-        opts['voltage'] = float(mdata['setup']['mimosa_voltage'])
+        opts['voltage'] = this_voltage
     for runidx, run in enumerate(mdata['traces']):
         if 'ignore-trace-idx' not in opts or opts['ignore-trace-idx'] != runidx:
             for i, elem in enumerate(run['trace']):
