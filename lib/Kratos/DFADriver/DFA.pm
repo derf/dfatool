@@ -124,6 +124,10 @@ sub traces {
 			$re =~ s{,}{![^:]*:}g;
 			$re =~ s{$}{![^:]*)};
 			$re =~ s{^}{(^};
+			if ($re =~ m{ \$ }x) {
+				$re =~ s{\$}{};
+				$re =~ s{\)$}{\$)};
+			}
 			push( @res, $re );
 		}
 		$filter_re = join( q{|}, @res );
