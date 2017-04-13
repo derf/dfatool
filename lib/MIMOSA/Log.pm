@@ -187,6 +187,7 @@ sub merge {
 			if ($log_elem->{isa} eq 'state'
 					and $trace_elem->{name} ne 'UNINITIALIZED'
 					and $trace_elem->{name} ne 'TX'
+					and $trace_elem->{name} ne 'RX'
 					and $log_elem->{us} < $self->{setup}{state_duration} * 500 ) {
 				return sprintf('State %s (trigger index %d) was %.1f ms shorter than expected',
 					$trace_elem->{name}, $data_idx,
