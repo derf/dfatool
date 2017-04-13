@@ -106,8 +106,8 @@ def mk_function_data(name, paramdata, parameters, dependson, datatype):
                 Ym.append(np.median(val[datatype]))
                 for i in range(len(parameters)):
                     if dependson[i] or is_numeric(key[1][i]):
-                        X[i].extend([int(key[1][i])] * len(val[datatype]))
-                        Xm[i].append(int(key[1][i]))
+                        X[i].extend([float(key[1][i])] * len(val[datatype]))
+                        Xm[i].append(float(key[1][i]))
                     else:
                         X[i].extend([0] * len(val[datatype]))
                         Xm[i].append(0)
@@ -169,16 +169,16 @@ def try_fits(name, datatype, paramidx, paramdata):
                     num_valid += 1
                     Y.extend(val[datatype])
                     Ym.append(np.median(val[datatype]))
-                    X.extend([int(key[1][paramidx])] * len(val[datatype]))
-                    Xm.append(int(key[1][paramidx]))
-                    if int(key[1][paramidx]) == 0:
+                    X.extend([float(key[1][paramidx])] * len(val[datatype]))
+                    Xm.append(float(key[1][paramidx]))
+                    if float(key[1][paramidx]) == 0:
                         functions.pop('fractional', None)
-                    if int(key[1][paramidx]) <= 0:
+                    if float(key[1][paramidx]) <= 0:
                         functions.pop('logarithmic', None)
-                    if int(key[1][paramidx]) < 0:
+                    if float(key[1][paramidx]) < 0:
                         functions.pop('logarithmic1', None)
                         functions.pop('sqrt', None)
-                    if int(key[1][paramidx]) > 64:
+                    if float(key[1][paramidx]) > 64:
                         functions.pop('exponential', None)
 
         # there should be -at least- two values when fitting
@@ -428,6 +428,9 @@ def load_run_elem(index, element, trace, by_name, by_arg, by_param, by_trace):
     online_durations = []
     if element['isa'] == 'state':
         online_means, online_durations = online_data(element)
+
+    if 'voltage' in opts:
+        element['parameter']['voltage'] = opts['voltage']
 
     arg_key   = mk_arg_key(element)
     param_key = mk_param_key(element)
@@ -992,7 +995,7 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
             aggval['rel_energy_next'] = keydata(name, val, by_arg, by_param, by_trace, 'rel_energies_next')
             aggval['timeout'] = keydata(name, val, by_arg, by_param, by_trace, 'timeouts')
 
-        for i, param in enumerate(sorted(data['model']['parameter'].keys())):
+        for i, param in enumerate(parameters):
             values = list(set([key[1][i] for key in by_param.keys() if key[0] == name and key[1][i] != '']))
             allvalues = [(*key[1][:i], *key[1][i+1:]) for key in by_param.keys() if key[0] == name]
             #allvalues = list(set(allvalues))
@@ -1055,7 +1058,7 @@ def analyze(by_name, by_arg, by_param, by_trace, parameters):
 try:
     raw_opts, args = getopt.getopt(sys.argv[1:], "", [
         "fit", "states", "transitions", "params", "clipping", "timing",
-        "histogram", "substates", "validate", "crossvalidate", "ignore-trace-idx="])
+        "histogram", "substates", "validate", "crossvalidate", "ignore-trace-idx=", "voltage"])
     for option, parameter in raw_opts:
         optname = re.sub(r'^--', '', option)
         opts[optname] = parameter
@@ -1070,10 +1073,20 @@ by_name = {}
 by_arg = {}
 by_param = {}
 by_trace = {}
+
+if 'voltage' in opts:
+    data['model']['parameter']['voltage'] = {
+        'default' : float(data['setup']['mimosa_voltage']),
+        'function' : None,
+        'arg_name' : None,
+    }
+
 parameters = sorted(data['model']['parameter'].keys())
 
 for arg in args:
     mdata = load_json(arg)
+    if 'voltage' in opts:
+        opts['voltage'] = float(mdata['setup']['mimosa_voltage'])
     for runidx, run in enumerate(mdata['traces']):
         if 'ignore-trace-idx' not in opts or opts['ignore-trace-idx'] != runidx:
             for i, elem in enumerate(run['trace']):
