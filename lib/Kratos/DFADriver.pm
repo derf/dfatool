@@ -911,6 +911,11 @@ sub to_test_cc {
 
 DeclareThread(DriverEvalThread, driverEvalThread, 256);
 
+EOF
+
+	$buf .= $self->model->heap_code;
+
+	$buf .= <<"EOF";
 void DriverEvalThread::action()
 {
 	Guarded_Buzzer buzzer;

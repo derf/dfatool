@@ -156,6 +156,9 @@ sub parse_xml {
 	if ( my ($node) = $xml->findnodes('/data/startup/code') ) {
 		$self->{startup}{code} = $node->textContent;
 	}
+	if ( my ($node) = $xml->findnodes('/data/heap/code') ) {
+		$self->{heap}{code} = $node->textContent;
+	}
 	if ( my ($node) = $xml->findnodes('/data/after-transition/code') ) {
 		$self->{after_transition}{code} = $node->textContent;
 	}
@@ -451,6 +454,12 @@ sub startup_code {
 	my ($self) = @_;
 
 	return $self->{startup}{code} // q{};
+}
+
+sub heap_code {
+	my ($self) = @_;
+
+	return $self->{heap}{code} // q{};
 }
 
 sub after_transition_code {
