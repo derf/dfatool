@@ -158,7 +158,7 @@ class MIMOSA:
         if cal_r2_mean > cal_0_mean:
             b_lower = (ua_r2 - 0) / (cal_r2_mean - cal_0_mean)
         else:
-            print("WARNING: 0 uA == 33 uA during calibration")
+            print("WARNING: 0 uA == %.f uA during calibration" % (ua_r2))
             b_lower = 0
 
         b_upper = (ua_r1 - ua_r2) / (cal_r1_mean - cal_r2_mean)
