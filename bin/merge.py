@@ -712,14 +712,14 @@ def crossvalidate(by_name, by_param, by_trace, model, parameters):
 
         if isa == 'state':
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['means'], splitidx_srs, 200)
-            print('%16s,   static      power,             Monte Carlo: MAE %8.f µW,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
+            print('%16s,   static        power,             Monte Carlo: MAE %8.f µW,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['means'], splitidx_kfold, 10)
-            print('%16s,   static      power,             10-fold sys: MAE %8.f µW,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
+            print('%16s,   static        power,             10-fold sys: MAE %8.f µW,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
         else:
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['energies'], splitidx_srs, 200)
-            print('%16s,   static     energy,             Monte Carlo: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
+            print('%16s,   static       energy,             Monte Carlo: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['energies'], splitidx_kfold, 10)
-            print('%16s,   static     energy,             10-fold sys: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
+            print('%16s,   static       energy,             10-fold sys: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['rel_energies_prev'], splitidx_srs, 200)
             print('%16s,   static rel_energy_p,             Monte Carlo: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['rel_energies_prev'], splitidx_kfold, 10)
@@ -729,9 +729,9 @@ def crossvalidate(by_name, by_param, by_trace, model, parameters):
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['rel_energies_next'], splitidx_kfold, 10)
             print('%16s,   static rel_energy_n,             10-fold sys: MAE %8.f pJ,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['durations'], splitidx_srs, 200)
-            print('%16s,   static   duration,             Monte Carlo: MAE %8.f µs,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
+            print('%16s,   static     duration,             Monte Carlo: MAE %8.f µs,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
             mae_mean, smape_mean, rms_mean = val_run(by_name[name]['durations'], splitidx_kfold, 10)
-            print('%16s,   static   duration,             10-fold sys: MAE %8.f µs,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
+            print('%16s,   static     duration,             10-fold sys: MAE %8.f µs,  SMAPE %6.2f%%,  RMS %d' % (name, mae_mean, smape_mean, rms_mean))
 
         def print_estimates(estimates, total):
             histogram = {}
@@ -748,19 +748,19 @@ def crossvalidate(by_name, by_param, by_trace, model, parameters):
 
         def val_run_funs(by_name, by_trace, name, key1, key2, key3, unit):
             mae, smape, rmsd, estimates = val_run_fun(by_name, by_trace, name, key1, key2, key3, splitidx_srs, param_mc_count)
-            print('%16s, %8s %10s,             Monte Carlo: MAE %8.f %s,  SMAPE %6.2f%%,  RMS %d' % (
+            print('%16s, %8s %12s,             Monte Carlo: MAE %8.f %s,  SMAPE %6.2f%%,  RMS %d' % (
                 name, key3, key2, np.mean(mae), unit, np.mean(smape), np.mean(rmsd)))
             print_estimates(estimates, param_mc_count)
             mae, smape, rmsd, estimates = val_run_fun(by_name, by_trace, name, key1, key2, key3, splitidx_kfold, 10)
-            print('%16s, %8s %10s,             10-fold sys: MAE %8.f %s,  SMAPE %6.2f%%,  RMS %d' % (
+            print('%16s, %8s %12s,             10-fold sys: MAE %8.f %s,  SMAPE %6.2f%%,  RMS %d' % (
                 name, key3, key2, np.mean(mae), unit, np.mean(smape), np.mean(rmsd)))
             print_estimates(estimates, 10)
             mae, smape, rmsd, estimates = val_run_fun_p(by_param, by_trace, name, key1, key2, key3, splitidx_srs, param_mc_count)
-            print('%16s, %8s %10s, param-aware Monte Carlo: MAE %8.f %s,  SMAPE %6.2f%%,  RMS %d' % (
+            print('%16s, %8s %12s, param-aware Monte Carlo: MAE %8.f %s,  SMAPE %6.2f%%,  RMS %d' % (
                 name, key3, key2, np.mean(mae), unit, np.mean(smape), np.mean(rmsd)))
             print_estimates(estimates, param_mc_count)
             mae, smape, rmsd, estimates = val_run_fun_p(by_param, by_trace, name, key1, key2, key3, splitidx_kfold, 10)
-            print('%16s, %8s %10s, param-aware 10-fold sys: MAE %8.f %s,  SMAPE %6.2f%%,  RMS %d' % (
+            print('%16s, %8s %12s, param-aware 10-fold sys: MAE %8.f %s,  SMAPE %6.2f%%,  RMS %d' % (
                 name, key3, key2, np.mean(mae), unit, np.mean(smape), np.mean(rmsd)))
             print_estimates(estimates, 10)
 
