@@ -670,6 +670,7 @@ sub to_ah {
 
 	my $ignore_nested = q{};
 	my $adv_type      = 'execution';
+	my $pass_function = $self->{logging} ? 'logTransition' : 'passTransition';
 
 	if ( $self->{ignore_nested} ) {
 		$adv_type      = 'call';
@@ -685,8 +686,6 @@ sub to_ah {
 #include "drivers/gpio.h"
 #include "drivers/eUSCI_A/uart/prototype_uart.h"
 #include "${class_header}"
-
-pointcut InnerTransition() = execution("% ${class_name}::%(...)");
 
 EOF
 
@@ -752,7 +751,7 @@ EOF
 				$ah_buf .= <<"EOF";
 
 		advice ${adv_type}("% ${class_name}::$transition->{name}(...)") ${ignore_nested} : after() {
-			tjp->target()->passTransition(${class_name}::statepower[tjp->target()->state],
+			tjp->target()->${pass_function}(${class_name}::statepower[tjp->target()->state],
 			$transition->{rel_energy_prev}{static}, $transition->{id},
 			${dest_state_id});
 		};
@@ -763,7 +762,7 @@ EOF
 				$ah_buf .= <<"EOF";
 
 		advice execution("% ${class_name}::$transition->{name}(...)") : after() {
-			tjp->target()->passTransition(${class_name}::statepower[tjp->target()->state],
+			tjp->target()->${pass_function}(${class_name}::statepower[tjp->target()->state],
 			$transition->{rel_energy_prev}{static}, $transition->{id},
 			${dest_state_id});
 		};

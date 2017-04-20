@@ -178,6 +178,7 @@ sub merge {
 					and $trace_elem->{name} ne 'UNINITIALIZED'
 					and $log_elem->{us} > $self->{setup}{state_duration} * 1500
 					and $prev_elem->{name} ne 'txDone'
+					and $prev_elem->{name} ne 'rxDone'
 					and $prev_elem->{name} ne 'epilogue') {
 				return sprintf('State %s (trigger index %d) took %.1f ms longer than expected',
 					$trace_elem->{name}, $data_idx,
