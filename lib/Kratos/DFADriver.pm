@@ -108,13 +108,6 @@ sub analyze {
 	$self->log->analyze( @{$json_files} );
 }
 
-sub validate_model {
-	my ( $self, @files )      = @_;
-	my ( $logs, $json_files ) = $self->preprocess(@files);
-	$self->log->validate( @{$json_files} );
-	$self->assess_validation;
-}
-
 sub crossvalidate_model {
 	my ( $self, @files )      = @_;
 	my ( $logs, $json_files ) = $self->preprocess(@files);
@@ -559,47 +552,6 @@ sub assess_model_tex {
 	}
 	print "\\hline\n";
 	say '\end{tabular}';
-}
-
-sub assess_validation {
-	my ($self) = @_;
-
-	for my $name ( sort keys %{ $self->{log}{aggregate}{state} } ) {
-		my $state = $self->{log}{aggregate}{state}{$name};
-
-		printf( "Validating %s:\n", $name );
-		$self->printf_clip($state);
-		$self->printf_goodness( $self->model->get_state_power($name),
-			$state, 'power', 'µW' );
-		$self->printf_fit( $state, 'power', 'µW' );
-		$self->printf_online_goodness(
-			$state, 'online_power', 'µW' );
-		$self->printf_online_goodness(
-			$state, 'online_duration', 'µs' );
-	}
-	for my $name ( sort keys %{ $self->{log}{aggregate}{transition} } ) {
-		my $transition = $self->{log}{aggregate}{transition}{$name};
-
-		printf( "Validating %s:\n", $name );
-		$self->printf_clip($transition);
-		$self->printf_goodness(
-			$self->model->get_transition_by_name($name)->{duration}{static},
-			$transition, 'duration', 'µs' );
-		$self->printf_goodness(
-			$self->model->get_transition_by_name($name)->{energy}{static},
-			$transition, 'energy', 'pJ' );
-		$self->printf_goodness(
-			$self->model->get_transition_by_name($name)->{rel_energy_prev}{static},
-			$transition, 'rel_energy_prev', 'pJ' );
-		if ( exists $transition->{rel_energy_next}{median} ) {
-			$self->printf_goodness(
-				$self->model->get_transition_by_name($name)->{rel_energy_next}{static},
-				$transition, 'rel_energy_next', 'pJ' );
-		}
-		if ( exists $transition->{timeout}{median} ) {
-			$self->printf_fit( $transition, 'timeout', 'µs' );
-		}
-	}
 }
 
 sub update_model {

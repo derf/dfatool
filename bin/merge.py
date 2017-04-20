@@ -841,109 +841,6 @@ def crossvalidate(by_name, by_param, by_trace, model, parameters):
                 print('estimate function %s timeout by %s: MAE %.f µs,  SMAPE %.2f%%' % (
                     name, param, np.mean(estimate_mae[name]), np.mean(estimate_smape[name])))
 
-def validate(by_name, by_param, parameters):
-    aggdata = {
-        'state' : {},
-        'transition' : {},
-    }
-    for key, val in by_name.items():
-        name = key
-        isa = val['isa']
-        model = data['model'][isa][name]
-
-        if isa == 'state':
-            aggdata[isa][name] = {
-                'power' : {
-                    'goodness' : aggregate_measures(model['power']['static'], val['means']),
-                    'median' : np.median(val['means']),
-                    'mean'   : np.mean(val['means']),
-                    'std_inner' : np.std(val['means']),
-                    'function' : {},
-                },
-                'online_power' : {
-                    'goodness' : regression_measures(np.array(val['online_means']), np.array(val['means'])),
-                    'median' : np.median(val['online_means']),
-                    'mean'   : np.mean(val['online_means']),
-                    'std_inner' : np.std(val['online_means']),
-                    'function' : {},
-                },
-                'online_duration' : {
-                    'goodness' : regression_measures(np.array(val['online_durations']), np.array(val['durations'])),
-                    'median' : np.median(val['online_durations']),
-                    'mean'   : np.mean(val['online_durations']),
-                    'std_inner' : np.std(val['online_durations']),
-                    'function' : {},
-                },
-                'clip' : {
-                    'mean' : np.mean(val['clip_rate']),
-                    'max'  : max(val['clip_rate']),
-                },
-                'timeout' : {},
-            }
-            if 'function' in model['power']:
-                aggdata[isa][name]['power']['function'] = {
-                    'estimate' : {
-                        'fit' : assess_function(model['power']['function']['estimate'],
-                            name, 'means', parameters, by_param),
-                    },
-                    'user': {
-                        'fit' : assess_function(model['power']['function']['user'],
-                            name, 'means', parameters, by_param),
-                    },
-                }
-        if isa == 'transition':
-            aggdata[isa][name] = {
-                'duration' : {
-                    'goodness' : aggregate_measures(model['duration']['static'], val['durations']),
-                    'median' : np.median(val['durations']),
-                    'mean'   : np.mean(val['durations']),
-                    'std_inner' : np.std(val['durations']),
-                    'function' : {},
-                },
-                'energy' : {
-                    'goodness' : aggregate_measures(model['energy']['static'], val['energies']),
-                    'median' : np.median(val['energies']),
-                    'mean'   : np.mean(val['energies']),
-                    'std_inner' : np.std(val['energies']),
-                    'function' : {},
-                },
-                'rel_energy_prev' : {
-                    'goodness' : aggregate_measures(model['rel_energy_prev']['static'], val['rel_energies_prev']),
-                    'median' : np.median(val['rel_energies_prev']),
-                    'mean'   : np.mean(val['rel_energies_prev']),
-                    'std_inner' : np.std(val['rel_energies_prev']),
-                    'function' : {},
-                },
-                'rel_energy_next' : {
-                    'goodness' : aggregate_measures(model['rel_energy_next']['static'], val['rel_energies_next']),
-                    'median' : np.median(val['rel_energies_next']),
-                    'mean'   : np.mean(val['rel_energies_next']),
-                    'std_inner' : np.std(val['rel_energies_next']),
-                    'function' : {},
-                },
-                'clip' : {
-                    'mean' : np.mean(val['clip_rate']),
-                    'max'  : max(val['clip_rate']),
-                },
-                'timeout' : {},
-            }
-            if 'function' in model['timeout']:
-                aggdata[isa][name]['timeout'] = {
-                    'median' : np.median(val['timeouts']),
-                    'mean' : np.mean(val['timeouts']),
-                    'function': {
-                        'estimate' : {
-                            'fit' : assess_function(model['timeout']['function']['estimate'],
-                                name, 'timeouts', parameters, by_param),
-                        },
-                        'user': {
-                            'fit' : assess_function(model['timeout']['function']['user'],
-                                name, 'timeouts', parameters, by_param),
-                        },
-                    },
-                }
-    return aggdata
-
 def analyze_by_param(aggval, by_param, allvalues, name, key1, key2, param, param_idx):
     aggval[key1]['std_by_param'][param] = mean_std_by_param(
         by_param, allvalues, name, key2, param_idx)
@@ -1129,9 +1026,7 @@ if 'substates' in opts:
     else:
         plotter.plot_substate_thresholds(data['model'], by_name)
 
-if 'validate' in opts:
-    data['aggregate'] = validate(by_name, by_param, parameters)
-elif 'crossvalidate' in opts:
+if 'crossvalidate' in opts:
     crossvalidate(by_name, by_param, by_trace, data['model'], parameters)
 else:
     data['aggregate'] = analyze(by_name, by_arg, by_param, by_trace, parameters)

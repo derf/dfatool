@@ -178,9 +178,6 @@ my %action = (
 			$driver->update_model;
 		}
 	},
-	validate => sub {
-		$driver->validate_model(@data_files);
-	},
 	crossvalidate => sub {
 		printf("./dfatool crossvalidate %s %s\n",
 			$xml_file,
@@ -340,7 +337,7 @@ test programs to assess a device's energy usage.
 
 B<dfatool> [I<options>] enable|disable|maketest|rmtest|log|loop I<driver.xml>
 
-B<dfatool> [I<options>] analyze|validate|crossvalidate|ls|list|show
+B<dfatool> [I<options>] analyze|crossvalidate|ls|list|show
 I<driver.xml> I<data.tar> [I<moredata.tar ...>]
 
 =head1 VERSION
