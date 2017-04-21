@@ -65,6 +65,13 @@ sub parse_xml_property {
 			$param_idx++;
 		}
 	}
+	for my $lut_node ( $property_node->findnodes('./lut/*') ) {
+		my @paramkey = map { $_->[0]->getValue }
+			sort { $a->[1] cmp $b->[1] }
+			map { [ $_, $_->nodeName ] }
+			@{$lut_node->attributes->nodes};
+		$ret->{lut}{join(';', @paramkey)} = 0 + $lut_node->textContent;
+	}
 
 	return $ret;
 }
@@ -95,12 +102,11 @@ sub parse_xml {
 		my $param_name    = $param_node->getAttribute('name');
 		my $function_name = $param_node->getAttribute('functionname');
 		my $function_arg  = $param_node->getAttribute('functionparam');
-		my $default       = $param_node->textContent;
 
 		$self->{parameter}{$param_name} = {
 			function => $function_name,
 			arg_name => $function_arg,
-			default  => $default,
+			default  => undef,
 		};
 	}
 
@@ -526,6 +532,25 @@ sub get_state_power {
 	my ( $self, $name ) = @_;
 
 	return $self->{states}{$name}{power}{static};
+}
+
+sub get_state_power_with_params {
+	my ($self, $name, $param_values) = @_;
+
+	my $hash_str = join(';', map { $param_values->{$_} }
+		sort { $a cmp $b } keys %{$param_values} );
+
+	if (not $hash_str) {
+		return $self->get_state_power($name);
+	}
+
+	if (exists $self->{states}{$name}{power}{lut}{$hash_str}) {
+		return $self->{states}{$name}{power}{lut}{$hash_str};
+	}
+
+	say "Note: No matching LUT for state ${name}, using median";
+
+	return $self->get_state_power($name);
 }
 
 sub get_state_enum {

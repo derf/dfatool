@@ -11,6 +11,7 @@ use AspectC::Repo;
 use Carp;
 use Carp::Assert::More;
 use Cwd;
+use Data::Dumper;
 use DateTime;
 use Device::SerialPort;
 use File::Slurp qw(read_dir read_file write_file);
@@ -554,6 +555,21 @@ sub assess_model_tex {
 	say '\end{tabular}';
 }
 
+sub assess_workload {
+	my ($self, $workload) = @_;
+
+	$workload =~ s{ \s* \) \s* ; \s* }{:}gx;
+	$workload =~ s{ \s* \) \s* $ }{}gx;
+	$workload =~ s{ \s* ; \s* }{!:}gx;
+	$workload =~ s{ \s* \( \s* }{!}gx;
+	$workload =~ s{ \s* , \s* }{!}gx;
+	$workload =~ s{ [^!] \K $ }{!}gx;
+
+	say $workload;
+
+	my $traces = $self->dfa->run_str_to_trace($workload);
+}
+
 sub update_model {
 	my ($self) = @_;
 
@@ -739,10 +755,16 @@ sub to_cc {
 	my $class_name = $self->{class_name};
 
 	my @state_enum = $self->model->get_state_enum;
+	my %param_default;
+
+	for my $default_setting (@{$self->{param_default}}) {
+		my ($param, $value) = split(qr{ = }x, $default_setting);
+		$param_default{$param} = $value;
+	}
 
 	my $buf
 	  = "DFA_Driver::power_uW_t ${class_name}::statepower[] = {"
-	  . join( ', ', map { $self->model->get_state_power($_) } @state_enum )
+	  . join( ', ', map { sprintf('%.f', $self->model->get_state_power_with_params($_, \%param_default)) } @state_enum )
 	  . "};\n";
 
 	return $buf;

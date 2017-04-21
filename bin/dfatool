@@ -22,6 +22,7 @@ GetOptions(
 	  plot=s
 	  no-cache
 	  no-update
+	  param-default=s@
 	  state-duration=i
 	  shunt=f
 	  trace-filter=s@
@@ -31,6 +32,7 @@ GetOptions(
 	  voltage=f
 	  with-lut!
 	  offset=i
+	  workload=s
 	  zomg-fasta-nao
 	  }
 );
@@ -41,6 +43,8 @@ if ( @ARGV < 2 ) {
 
 @{ $opt{'exclude-states'} }
   = split( qr{,}, join( q{,}, @{ $opt{'exclude-states'} // [] } ) );
+@{ $opt{'param-default'} }
+  = split( qr{,}, join( q{,}, @{ $opt{'param-default'} // [] } ) );
 
 my ( $command, $xml_file, @data_files ) = @ARGV;
 
@@ -60,6 +64,7 @@ my $driver = Kratos::DFADriver->new(
 	mimosa_offset  => $opt{offset}          // 130,
 	mimosa_shunt   => $opt{shunt}           // 330,
 	mimosa_voltage => $opt{voltage}         // 3.60,
+	param_default  => $opt{'param-default'} // [],
 	trace_filter   => $opt{'trace-filter'}  // [],
 	trace_revisit  => $opt{'trace-revisit'} // 2,
 	with_lut       => $opt{'with-lut'},
@@ -156,7 +161,10 @@ my %action = (
 	analyze => sub {
 		$driver->analyze(@data_files);
 		$driver->assess_model;
-		if ( not $opt{'no-update'} ) {
+		if ( $opt{workload} ) {
+			$driver->assess_workload($opt{workload});
+		}
+		elsif ( not $opt{'no-update'} ) {
 			$driver->update_model;
 		}
 	},

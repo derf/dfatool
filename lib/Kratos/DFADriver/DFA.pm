@@ -143,6 +143,11 @@ sub run_str_to_trace {
 		$self->model->update_parameter_hash( \%param, $cmd, @args );
 
 		($state) = $dfa->successors( $state, ":${transition_str}" );
+
+		if (not defined $state) {
+			die("Transition $transition_str is invalid or has no successors\n");
+		}
+
 		$prev_transition = $transition;
 		for my $extra_cmd (
 			$self->model->get_state_extra_transitions(
