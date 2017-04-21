@@ -96,6 +96,102 @@ sub dfa {
 	return $dfa;
 }
 
+sub run_str_to_trace {
+	my ($self, $run_str) = @_;
+	my @trace;
+	my $dfa             = $self->dfa;
+	my %param           = $self->model->parameter_hash;
+	my $state           = 0;
+	my $state_duration  = $self->{state_duration} // 1000;
+	my @state_enum      = $self->model->get_state_enum;
+	my $prev_transition = {};
+	for my $transition_str ( split( qr{ : }x, $run_str ) ) {
+		my ( $cmd, @args ) = split( qr{ ! }x, $transition_str );
+		my $state_name = $self->reduced_id_to_state($state);
+		my $transition = $self->model->get_transition_by_name($cmd);
+
+		push(
+			@trace,
+			{
+				isa  => 'state',
+				name => $state_name,
+				plan => {
+					time => $prev_transition->{timeout}{static}
+						// $state_duration,
+					power  => $self->model->get_state_power($state_name),
+					energy => $self->model->get_state_power($state_name)
+						* $state_duration,
+				},
+				parameter =>
+					{ map { $_ => $param{$_}{value} } keys %param, },
+			},
+			{
+				isa  => 'transition',
+				name => $cmd,
+				args => [@args],
+				code => [ $cmd, @args ],
+				plan => {
+					level   => $transition->{level},
+					energy  => $transition->{energy}{static},
+					timeout => $transition->{timeout}{static},
+				},
+				parameter =>
+					{ map { $_ => $param{$_}{value} } keys %param, },
+			},
+		);
+
+		$self->model->update_parameter_hash( \%param, $cmd, @args );
+
+		($state) = $dfa->successors( $state, ":${transition_str}" );
+		$prev_transition = $transition;
+		for my $extra_cmd (
+			$self->model->get_state_extra_transitions(
+				$state_enum[$state]
+			)
+			)
+		{
+			$state_name = $self->reduced_id_to_state($state);
+			$transition = $self->model->get_transition_by_name($extra_cmd);
+			push(
+				@trace,
+				{
+					isa  => 'state',
+					name => $state_name,
+					plan => {
+						time => $prev_transition->{timeout}{static}
+							// $state_duration,
+						power => $self->model->get_state_power($state_name),
+						energy => $self->model->get_state_power($state_name)
+							* $state_duration,
+					},
+					parameter =>
+						{ map { $_ => $param{$_}{value} } keys %param, },
+				},
+				{
+					isa  => 'transition',
+					name => $extra_cmd,
+					args => [],
+					code => [$extra_cmd],
+					plan => {
+						level   => $transition->{level},
+						energy  => $transition->{energy}{static},
+						timeout => $transition->{timeout}{static},
+					},
+					parameter =>
+						{ map { $_ => $param{$_}{value} } keys %param, },
+				}
+			);
+			$prev_transition = $transition;
+		}
+	}
+
+	# required for unscheduled extra states and transitions caused by interrupts
+	$trace[-1]{final_parameter}
+		= { map { $_ => $param{$_}{value} } keys %param, };
+	return @trace;
+}
+
+
 sub traces {
 	my ($self) = @_;
 
@@ -108,10 +204,7 @@ sub traces {
 	}
 
 	my $max_iter       = $self->{trace_revisit} // 2;
-	my $dfa            = $self->dfa;
-	my @state_enum     = $self->model->get_state_enum;
-	my $next           = $dfa->new_deepdft_string_generator($max_iter);
-	my $state_duration = $self->{state_duration} // 1000;
+	my $next           = $self->dfa->new_deepdft_string_generator($max_iter);
 	my $trace_id       = 1;
 
 	my ( @raw_runs, @traces );
@@ -150,94 +243,8 @@ sub traces {
 	@raw_runs = sort @raw_runs;
 
 	for my $run_str (@raw_runs) {
-		my @trace;
-		my %param           = $self->model->parameter_hash;
-		my $state           = 0;
-		my $prev_transition = {};
-		for my $transition_str ( split( qr{ : }x, $run_str ) ) {
-			my ( $cmd, @args ) = split( qr{ ! }x, $transition_str );
-			my $state_name = $self->reduced_id_to_state($state);
-			my $transition = $self->model->get_transition_by_name($cmd);
-
-			push(
-				@trace,
-				{
-					isa  => 'state',
-					name => $state_name,
-					plan => {
-						time => $prev_transition->{timeout}{static}
-						  // $state_duration,
-						power  => $self->model->get_state_power($state_name),
-						energy => $self->model->get_state_power($state_name)
-						  * $state_duration,
-					},
-					parameter =>
-					  { map { $_ => $param{$_}{value} } keys %param, },
-				},
-				{
-					isa  => 'transition',
-					name => $cmd,
-					args => [@args],
-					code => [ $cmd, @args ],
-					plan => {
-						level   => $transition->{level},
-						energy  => $transition->{energy}{static},
-						timeout => $transition->{timeout}{static},
-					},
-					parameter =>
-					  { map { $_ => $param{$_}{value} } keys %param, },
-				},
-			);
-
-			$self->model->update_parameter_hash( \%param, $cmd, @args );
-
-			($state) = $dfa->successors( $state, ":${transition_str}" );
-			$prev_transition = $transition;
-			for my $extra_cmd (
-				$self->model->get_state_extra_transitions(
-					$state_enum[$state]
-				)
-			  )
-			{
-				$state_name = $self->reduced_id_to_state($state);
-				$transition = $self->model->get_transition_by_name($extra_cmd);
-				push(
-					@trace,
-					{
-						isa  => 'state',
-						name => $state_name,
-						plan => {
-							time => $prev_transition->{timeout}{static}
-							  // $state_duration,
-							power => $self->model->get_state_power($state_name),
-							energy => $self->model->get_state_power($state_name)
-							  * $state_duration,
-						},
-						parameter =>
-						  { map { $_ => $param{$_}{value} } keys %param, },
-					},
-					{
-						isa  => 'transition',
-						name => $extra_cmd,
-						args => [],
-						code => [$extra_cmd],
-						plan => {
-							level   => $transition->{level},
-							energy  => $transition->{energy}{static},
-							timeout => $transition->{timeout}{static},
-						},
-						parameter =>
-						  { map { $_ => $param{$_}{value} } keys %param, },
-					}
-				);
-				$prev_transition = $transition;
-			}
-		}
-
-    # required for unscheduled extra states and transitions caused by interrupts
-		$trace[-1]{final_parameter}
-		  = { map { $_ => $param{$_}{value} } keys %param, },
-		  push(
+		my @trace = $self->run_str_to_trace($run_str);
+		push(
 			@traces,
 			{
 				id    => $trace_id,
