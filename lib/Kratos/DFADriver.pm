@@ -192,6 +192,17 @@ sub printf_aggr {
 	}
 }
 
+sub printf_counter_status {
+	my ($self, $hash, $key) = @_;
+
+	$hash = $hash->{$key};
+
+	if (2 ** 32 / $hash->{median} < 10e6) {
+		printf("  %s: 32bit energy counter will overflow after %.f ms\n",
+			'power', (2 ** 32 / $hash->{median}) / 1000);
+	}
+}
+
 sub printf_aggr_tex {
 	my ( $self, $hash, $key, $unit, $divisor) = @_;
 
@@ -481,6 +492,7 @@ sub assess_model {
 
 		$self->printf_clip($state);
 		$self->printf_aggr( $state, 'power', 'µW' );
+		$self->printf_counter_status( $state, 'power' );
 		$self->printf_parameterized( $state, 'power' );
 		$self->printf_fit( $state, 'power', 'µW' );
 	}
