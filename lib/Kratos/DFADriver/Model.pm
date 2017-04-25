@@ -540,7 +540,7 @@ sub get_state_power_with_params {
 	my $hash_str = join(';', map { $param_values->{$_} }
 		sort { $a cmp $b } keys %{$param_values} );
 
-	if (not $hash_str) {
+	if ($hash_str eq q{}) {
 		return $self->get_state_power($name);
 	}
 
