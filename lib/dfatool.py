@@ -15,6 +15,8 @@ def running_mean(x, N):
     return (cumsum[N:] - cumsum[:-N]) / N
 
 def is_numeric(n):
+    if n == None:
+        return False
     try:
         int(n)
         return True

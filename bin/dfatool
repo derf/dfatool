@@ -22,6 +22,7 @@ GetOptions(
 	  plot=s
 	  no-cache
 	  no-update
+	  note=s
 	  param-default=s@
 	  state-duration=i
 	  shunt=f
@@ -53,6 +54,7 @@ my $driver = Kratos::DFADriver->new(
 	data_file       => $data_files[0],
 	excluded_states => $opt{'exclude-states'} // [],
 	fast_analysis   => $opt{'zomg-fasta-nao'} // 0,
+	filename_suffix => $opt{'note'},
 	ignore_nested   => $opt{'ignore-nested-calls'} // 0,
 	logging         => $opt{logging} // 1,
 	state_duration  => $opt{'state-duration'} // 1000,

@@ -1078,7 +1078,13 @@ sub archive_files {
 		)
 	);
 
-	$tar->write("../data/$self->{lp}{timestamp}_$self->{class_name}.tar");
+	my $filename = "../data/$self->{lp}{timestamp}_$self->{class_name}";
+	if ($self->{filename_suffix}) {
+		$filename .= '_' . $self->{filename_suffix};
+	}
+	$filename .= '.tar';
+
+	$tar->write($filename);
 
 	return $self;
 }
