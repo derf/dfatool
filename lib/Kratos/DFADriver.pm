@@ -63,9 +63,9 @@ sub set_paths {
 }
 
 sub set_output {
-	my ($self, $mode) = @_;
+	my ( $self, $mode ) = @_;
 
-	if ($mode eq 'tex') {
+	if ( $mode eq 'tex' ) {
 		$self->{tex} = 1;
 	}
 
@@ -193,37 +193,37 @@ sub printf_aggr {
 }
 
 sub printf_counter_status {
-	my ($self, $hash, $key) = @_;
+	my ( $self, $hash, $key ) = @_;
 
 	$hash = $hash->{$key};
 
-	if (2 ** 32 / $hash->{median} < 10e6) {
-		printf("  %s: 32bit energy counter will overflow after %.f ms\n",
-			'power', (2 ** 32 / $hash->{median}) / 1000);
+	if ( 2**32 / $hash->{median} < 10e6 ) {
+		printf( "  %s: 32bit energy counter will overflow after %.f ms\n",
+			'power', ( 2**32 / $hash->{median} ) / 1000 );
 	}
 }
 
 sub printf_aggr_tex {
-	my ( $self, $hash, $key, $unit, $divisor) = @_;
+	my ( $self, $hash, $key, $unit, $divisor ) = @_;
 
 	$hash = $hash->{$key};
 
-	if ($unit eq 'ms' and $hash->{median} < 1e3) {
-		$unit = '\us';
+	if ( $unit eq 'ms' and $hash->{median} < 1e3 ) {
+		$unit    = '\us';
 		$divisor = 1;
 	}
-	elsif ($unit eq '\uJ' and $hash->{median} < 1e6) {
-		$unit = 'nJ';
+	elsif ( $unit eq '\uJ' and $hash->{median} < 1e6 ) {
+		$unit    = 'nJ';
 		$divisor = 1e3;
 	}
-	elsif ($unit eq '\uW' and $hash->{median} >= 1e3) {
-		$unit = 'mW';
+	elsif ( $unit eq '\uW' and $hash->{median} >= 1e3 ) {
+		$unit    = 'mW';
 		$divisor = 1e3;
 	}
 
 	use locale;
 
-	printf(' & & \unit[%.3g]{%s}', $hash->{median} / $divisor, $unit);
+	printf( ' & & \unit[%.3g]{%s}', $hash->{median} / $divisor, $unit );
 }
 
 sub printf_count_tex {
@@ -232,7 +232,7 @@ sub printf_count_tex {
 	if ($hash) {
 		$hash = $hash->{$key};
 
-		printf(' & %d', $hash->{count});
+		printf( ' & %d', $hash->{count} );
 	}
 	else {
 		printf(' & ');
@@ -240,25 +240,25 @@ sub printf_count_tex {
 }
 
 sub printf_eval_tex {
-	my ( $self, $hash, $key, $unit, $divisor) = @_;
+	my ( $self, $hash, $key, $unit, $divisor ) = @_;
 
 	$hash = $hash->{$key};
 
-	if ($unit eq 'ms' and $hash->{median_goodness}{mae} < 1e3) {
-		$unit = '\us';
+	if ( $unit eq 'ms' and $hash->{median_goodness}{mae} < 1e3 ) {
+		$unit    = '\us';
 		$divisor = 1;
 	}
-	if ($unit eq '\uJ' and $hash->{median_goodness}{mae} < 1e6) {
-		$unit = 'nJ';
+	if ( $unit eq '\uJ' and $hash->{median_goodness}{mae} < 1e6 ) {
+		$unit    = 'nJ';
 		$divisor = 1e3;
 	}
 
 	use locale;
 
-	printf("\n%20s & \\unit[%.3g]{%s} & \\unit[%.2g]{\\%%}",
-		q{},
-		$hash->{median_goodness}{mae} / $divisor, $unit,
-		$hash->{median_goodness}{smape} // -1
+	printf(
+		"\n%20s & \\unit[%.3g]{%s} & \\unit[%.2g]{\\%%}",
+		q{}, $hash->{median_goodness}{mae} / $divisor,
+		$unit, $hash->{median_goodness}{smape} // -1
 	);
 }
 
@@ -292,16 +292,14 @@ sub printf_online_goodness {
 
 	if ( exists $hash->{goodness}->{smape} ) {
 		printf(
-"  %s: ~=%.f / µ=%.f %s, mean absolute error %.2f %s (%.2f%%)\n",
-			$key,                     $hash->{median},
-			$hash->{mean},            $unit,
-			$hash->{goodness}->{mae}, $unit,
-			$hash->{goodness}{smape}
+			"  %s: ~=%.f / µ=%.f %s, mean absolute error %.2f %s (%.2f%%)\n",
+			$key, $hash->{median}, $hash->{mean}, $unit,
+			$hash->{goodness}->{mae},
+			$unit, $hash->{goodness}{smape}
 		);
 	}
 	else {
-		printf(
-"  %s: ~=%.f / µ=%.f %s, mean absolute error %.2f %s\n",
+		printf( "  %s: ~=%.f / µ=%.f %s, mean absolute error %.2f %s\n",
 			$key, $hash->{median}, $hash->{mean}, $unit,
 			$hash->{goodness}->{mae}, $unit );
 	}
@@ -337,11 +335,11 @@ sub printf_parameterized {
 
 	if ( $std_global > 0 ) {
 		$param_ratio = $std_ind_param / $std_global;
-		if (defined $std_ind_arg) {
+		if ( defined $std_ind_arg ) {
 			$arg_ratio = $std_ind_arg / $std_global;
 		}
 	}
-	if ( $std_ind_param > 0) {
+	if ( $std_ind_param > 0 ) {
 		$trace_ratio = $std_ind_trace / $std_ind_param;
 	}
 
@@ -365,24 +363,23 @@ sub printf_parameterized {
 			$param_ratio ? $param_ratio : 0 );
 	}
 
-	if ( defined $std_ind_arg and   $std_global > 10
+	if (    defined $std_ind_arg
+		and $std_global > 10
 		and $arg_ratio < 0.5
 		and not exists $hash->{function}{user_arg} )
 	{
 		printf( "  %s: depends on arguments (%.2f / %.2f = %.3f)\n",
 			$key, $std_ind_arg, $std_global, $arg_ratio );
 	}
-	if ( defined $std_ind_arg and
-		(
-			   $std_global < 10
-			or $arg_ratio > 0.5
-		)
+	if (
+		defined $std_ind_arg
+		and (  $std_global < 10
+			or $arg_ratio > 0.5 )
 		and exists $hash->{function}{user_arg}
 	  )
 	{
 		printf( "  %s: should not depend on arguments (%.2f / %.2f = %.3f)\n",
-			$key, $std_ind_arg, $std_global,
-			$arg_ratio ? $arg_ratio : 0 );
+			$key, $std_ind_arg, $std_global, $arg_ratio ? $arg_ratio : 0 );
 	}
 
 	if ( $std_global > 10 and $trace_ratio < 0.5 ) {
@@ -423,22 +420,22 @@ sub printf_parameterized {
 		if ( $ratio < 0.6 ) {
 			$status = 'might depend';
 			$fline  = q{, probably };
-			$fline .= join( ' or ', $self->assess_fits( $hash, $arg, 'arg_fit_guess' ) );
+			$fline .= join( ' or ',
+				$self->assess_fits( $hash, $arg, 'arg_fit_guess' ) );
 		}
 		if ( $ratio < 0.3 ) {
 			$status = 'depends';
 		}
 		if ($fline) {
 			printf( "  %s: %s on local %s (%.2f / %.2f = %.3f%s)\n",
-				$key, $status, $arg, $std_ind_arg, $std_this, $ratio,
-				$fline );
+				$key, $status, $arg, $std_ind_arg, $std_this, $ratio, $fline );
 		}
 	}
 
 	for my $transition ( sort keys %{$std_by_trace} ) {
 		my $std_this = $std_by_trace->{$transition};
-		my $ratio = $std_ind_trace / $std_this;
-		if ($ratio < 0.4) {
+		my $ratio    = $std_ind_trace / $std_this;
+		if ( $ratio < 0.4 ) {
 			printf(
 "  %s: depends on presence of %s in trace (%.2f / %.2f = %.3f)\n",
 				$key, $transition, $std_ind_trace, $std_this, $ratio );
@@ -450,7 +447,7 @@ sub printf_fit {
 	my ( $self, $hash, $key, $unit ) = @_;
 	$hash = $hash->{$key};
 
-	for my $funtype (sort keys %{$hash->{function}}) {
+	for my $funtype ( sort keys %{ $hash->{function} } ) {
 		if ( exists $hash->{function}{$funtype}{error} ) {
 			printf( "  %s: %s function could not be fitted: %s\n",
 				$key, $funtype, $hash->{function}{$funtype}{error} );
@@ -465,18 +462,21 @@ sub printf_fit {
 		}
 	}
 
-	for my $pair (['param_mean_goodness', 'param mean/ssr-fit'],
-			['param_median_goodness', 'param median/static'],
-			['arg_mean_goodness', 'arg mean/ssr-fit'],
-			['arg_median_goodness', 'arg median/static']) {
-		my ($goodness, $desc) = @{$pair};
+	for my $pair (
+		[ 'param_mean_goodness',   'param mean/ssr-fit' ],
+		[ 'param_median_goodness', 'param median/static' ],
+		[ 'arg_mean_goodness',     'arg mean/ssr-fit' ],
+		[ 'arg_median_goodness',   'arg median/static' ]
+	  )
+	{
+		my ( $goodness, $desc ) = @{$pair};
 		if ( exists $hash->{$goodness} ) {
 			printf(
 				"  %s: %s LUT error: %.2f%% / %.f %s / %.f\n",
 				$key, $desc,
 				$hash->{$goodness}{smape} // -1,
-				$hash->{$goodness}{mae}, $unit,
-				$hash->{$goodness}{rmsd}
+				$hash->{$goodness}{mae},
+				$unit, $hash->{$goodness}{rmsd}
 			);
 		}
 	}
@@ -502,7 +502,7 @@ sub assess_model {
 		printf( "Assessing %s:\n", $name );
 
 		$self->printf_clip($transition);
-		$self->printf_aggr( $transition, 'duration',        'µs' );
+		$self->printf_aggr( $transition, 'duration', 'µs' );
 		$self->printf_parameterized( $transition, 'duration' );
 		$self->printf_fit( $transition, 'duration', 'µs' );
 		$self->printf_aggr( $transition, 'energy', 'pJ' );
@@ -534,7 +534,7 @@ sub assess_model_tex {
 	for my $name ( sort keys %{ $self->{log}{aggregate}{state} } ) {
 		my $state = $self->{log}{aggregate}{state}{$name};
 
-		printf("\n%20s", $name);
+		printf( "\n%20s", $name );
 
 		$self->printf_aggr_tex( $state, 'power', '\uW', 1 );
 		$self->printf_eval_tex( $state, 'power', '\uW', 1 );
@@ -548,18 +548,18 @@ sub assess_model_tex {
 	for my $name ( sort keys %{ $self->{log}{aggregate}{transition} } ) {
 		my $transition = $self->{log}{aggregate}{transition}{$name};
 
-		printf("\n%20s", $name);
+		printf( "\n%20s", $name );
 
-		$self->printf_aggr_tex( $transition, 'energy', '\uJ', 1e6 );
+		$self->printf_aggr_tex( $transition, 'energy',          '\uJ', 1e6 );
 		$self->printf_aggr_tex( $transition, 'rel_energy_prev', '\uJ', 1e6 );
 		$self->printf_aggr_tex( $transition, 'rel_energy_next', '\uJ', 1e6 );
-		$self->printf_aggr_tex( $transition, 'duration', 'ms', 1e3 );
+		$self->printf_aggr_tex( $transition, 'duration',        'ms',  1e3 );
 		$self->printf_count_tex( $transition, 'energy' );
 		print " \\\\";
-		$self->printf_eval_tex( $transition, 'energy', '\uJ', 1e6 );
+		$self->printf_eval_tex( $transition, 'energy',          '\uJ', 1e6 );
 		$self->printf_eval_tex( $transition, 'rel_energy_prev', '\uJ', 1e6 );
 		$self->printf_eval_tex( $transition, 'rel_energy_next', '\uJ', 1e6 );
-		$self->printf_eval_tex( $transition, 'duration', 'ms', 1e3 );
+		$self->printf_eval_tex( $transition, 'duration',        'ms',  1e3 );
 		$self->printf_count_tex;
 		print " \\\\";
 	}
@@ -568,7 +568,7 @@ sub assess_model_tex {
 }
 
 sub assess_workload {
-	my ($self, $workload) = @_;
+	my ( $self, $workload ) = @_;
 
 	$workload =~ s{ \s* \) \s* ; \s* }{:}gx;
 	$workload =~ s{ \s* \) \s* $ }{}gx;
@@ -585,7 +585,7 @@ sub assess_workload {
 sub update_model {
 	my ($self) = @_;
 
-	for my $name (sort keys %{ $self->{log}{aggregate}{state} }) {
+	for my $name ( sort keys %{ $self->{log}{aggregate}{state} } ) {
 		my $state = $self->{log}{aggregate}{state}{$name};
 		$self->model->set_state_power( $name, $state->{power}{median} );
 		for my $fname ( keys %{ $state->{power}{function} } ) {
@@ -595,36 +595,44 @@ sub update_model {
 				@{ $state->{power}{function}{$fname}{params} }
 			);
 		}
-		if ($self->{with_lut}) {
-			$self->model->set_state_lut( $name, 'power', $state->{power}{median_by_param} );
+		if ( $self->{with_lut} ) {
+			$self->model->set_state_lut( $name, 'power',
+				$state->{power}{median_by_param} );
 		}
 	}
-	for my $name (sort keys %{ $self->{log}{aggregate}{transition} }) {
+	for my $name ( sort keys %{ $self->{log}{aggregate}{transition} } ) {
 		my $transition = $self->{log}{aggregate}{transition}{$name};
-		my @keys = (qw(duration energy rel_energy_prev rel_energy_next));
+		my @keys       = (qw(duration energy rel_energy_prev rel_energy_next));
 
-		if ($self->model->get_transition_by_name($name)->{level} eq 'epilogue') {
-			push(@keys, 'timeout');
+		if (
+			$self->model->get_transition_by_name($name)->{level} eq 'epilogue' )
+		{
+			push( @keys, 'timeout' );
 		}
 
 		for my $key (@keys) {
-			$self->model->set_transition_property(
-				$name, $key, $transition->{$key}{median}
-			);
+			$self->model->set_transition_property( $name, $key,
+				$transition->{$key}{median} );
 			for my $fname ( keys %{ $transition->{$key}{function} } ) {
 				$self->model->set_transition_params(
-					$name, $key, $fname,
+					$name,
+					$key,
+					$fname,
 					$transition->{$key}{function}{$fname}{raw},
 					@{ $transition->{$key}{function}{$fname}{params} }
 				);
 			}
-			if ($self->{with_lut}) {
-				$self->model->set_transition_lut( $name, $key, $transition->{$key}{median_by_param} );
+			if ( $self->{with_lut} ) {
+				$self->model->set_transition_lut( $name, $key,
+					$transition->{$key}{median_by_param} );
 			}
 		}
 	}
 
-	$self->model->set_voltage($self->{log}{aggregate}{min_voltage}, $self->{log}{aggregate}{max_voltage});
+	$self->model->set_voltage(
+		$self->{log}{aggregate}{min_voltage},
+		$self->{log}{aggregate}{max_voltage}
+	);
 
 	$self->model->save;
 }
@@ -769,15 +777,22 @@ sub to_cc {
 	my @state_enum = $self->model->get_state_enum;
 	my %param_default;
 
-	for my $default_setting (@{$self->{param_default}}) {
-		my ($param, $value) = split(qr{ = }x, $default_setting);
+	for my $default_setting ( @{ $self->{param_default} } ) {
+		my ( $param, $value ) = split( qr{ = }x, $default_setting );
 		$param_default{$param} = $value;
 	}
 
-	my $buf
-	  = "DFA_Driver::power_uW_t ${class_name}::statepower[] = {"
-	  . join( ', ', map { sprintf('%.f', $self->model->get_state_power_with_params($_, \%param_default)) } @state_enum )
-	  . "};\n";
+	my $buf = "DFA_Driver::power_uW_t ${class_name}::statepower[] = {" . join(
+		', ',
+		map {
+			sprintf(
+				'%.f',
+				$self->model->get_state_power_with_params(
+					$_, \%param_default
+				)
+			  )
+		} @state_enum
+	) . "};\n";
 
 	return $buf;
 }
@@ -922,6 +937,7 @@ EOF
 	for my $run (@runs) {
 		$buf .= "\t\t/* test run $run->{id} start */\n";
 		$buf .= "\t\t${instance}.resetLogging();\n";
+
 		# $buf .= "\t\t${instance}.resetAccounting();\n"; # TODO sinnvoll?
 		my $state = 0;
 		for my $transition ( grep { $_->{isa} eq 'transition' }
@@ -1079,7 +1095,7 @@ sub archive_files {
 	);
 
 	my $filename = "../data/$self->{lp}{timestamp}_$self->{class_name}";
-	if ($self->{filename_suffix}) {
+	if ( $self->{filename_suffix} ) {
 		$filename .= '_' . $self->{filename_suffix};
 	}
 	$filename .= '.tar';
@@ -1261,7 +1277,7 @@ sub merged_json {
 		my $idx       = 0;
 
 		assert_is( $traces[$trace_idx]{id}, $run->{id} );
-		push(@{$traces[$trace_idx]{total_energy}}, $run->{total_energy});
+		push( @{ $traces[$trace_idx]{total_energy} }, $run->{total_energy} );
 		for my $online_obj ( @{ $run->{trace} } ) {
 			my $plan_obj = $traces[$trace_idx]{trace}[$idx];
 
@@ -1287,16 +1303,20 @@ sub merged_json {
 				}
 			}
 			else {
-				if ($online_obj->{isa} ne $plan_obj->{isa}) {
-					printf("Log merge: ISA mismatch (should be %s, is %s) at index %d#%d\n",
-						$plan_obj->{isa}, $online_obj->{isa}, $trace_idx, $idx);
+				if ( $online_obj->{isa} ne $plan_obj->{isa} ) {
+					printf(
+"Log merge: ISA mismatch (should be %s, is %s) at index %d#%d\n",
+						$plan_obj->{isa}, $online_obj->{isa}, $trace_idx,
+						$idx );
 					$self->mimosa->kill;
 					exit(1);
 				}
 				if ( $plan_obj->{name} ne 'UNINITIALIZED' ) {
-					if ($online_obj->{name} ne $plan_obj->{name}) {
-						printf("Log merge: name mismatch (should be %s, is %s) at index %d#%d\n",
-						$plan_obj->{name}, $online_obj->{name}, $trace_idx, $idx);
+					if ( $online_obj->{name} ne $plan_obj->{name} ) {
+						printf(
+"Log merge: name mismatch (should be %s, is %s) at index %d#%d\n",
+							$plan_obj->{name}, $online_obj->{name}, $trace_idx,
+							$idx );
 						$self->mimosa->kill;
 						exit(1);
 					}
@@ -1348,8 +1368,8 @@ sub launchpad_parse_line {
 		push(
 			@{ $self->{lp}{log} },
 			{
-				id    => $self->{lp}{run_id},
-				trace => [ @{ $self->{lp}{run} } ],
+				id           => $self->{lp}{run_id},
+				trace        => [ @{ $self->{lp}{run} } ],
 				total_energy => 0 + $+{total_e},
 			}
 		);

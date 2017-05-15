@@ -97,7 +97,7 @@ sub dfa {
 }
 
 sub run_str_to_trace {
-	my ($self, $run_str) = @_;
+	my ( $self, $run_str ) = @_;
 	my @trace;
 	my $dfa             = $self->dfa;
 	my %param           = $self->model->parameter_hash;
@@ -117,13 +117,12 @@ sub run_str_to_trace {
 				name => $state_name,
 				plan => {
 					time => $prev_transition->{timeout}{static}
-						// $state_duration,
+					  // $state_duration,
 					power  => $self->model->get_state_power($state_name),
 					energy => $self->model->get_state_power($state_name)
-						* $state_duration,
+					  * $state_duration,
 				},
-				parameter =>
-					{ map { $_ => $param{$_}{value} } keys %param, },
+				parameter => { map { $_ => $param{$_}{value} } keys %param, },
 			},
 			{
 				isa  => 'transition',
@@ -135,8 +134,7 @@ sub run_str_to_trace {
 					energy  => $transition->{energy}{static},
 					timeout => $transition->{timeout}{static},
 				},
-				parameter =>
-					{ map { $_ => $param{$_}{value} } keys %param, },
+				parameter => { map { $_ => $param{$_}{value} } keys %param, },
 			},
 		);
 
@@ -144,16 +142,13 @@ sub run_str_to_trace {
 
 		($state) = $dfa->successors( $state, ":${transition_str}" );
 
-		if (not defined $state) {
+		if ( not defined $state ) {
 			die("Transition $transition_str is invalid or has no successors\n");
 		}
 
 		$prev_transition = $transition;
 		for my $extra_cmd (
-			$self->model->get_state_extra_transitions(
-				$state_enum[$state]
-			)
-			)
+			$self->model->get_state_extra_transitions( $state_enum[$state] ) )
 		{
 			$state_name = $self->reduced_id_to_state($state);
 			$transition = $self->model->get_transition_by_name($extra_cmd);
@@ -164,13 +159,13 @@ sub run_str_to_trace {
 					name => $state_name,
 					plan => {
 						time => $prev_transition->{timeout}{static}
-							// $state_duration,
-						power => $self->model->get_state_power($state_name),
+						  // $state_duration,
+						power  => $self->model->get_state_power($state_name),
 						energy => $self->model->get_state_power($state_name)
-							* $state_duration,
+						  * $state_duration,
 					},
 					parameter =>
-						{ map { $_ => $param{$_}{value} } keys %param, },
+					  { map { $_ => $param{$_}{value} } keys %param, },
 				},
 				{
 					isa  => 'transition',
@@ -183,7 +178,7 @@ sub run_str_to_trace {
 						timeout => $transition->{timeout}{static},
 					},
 					parameter =>
-						{ map { $_ => $param{$_}{value} } keys %param, },
+					  { map { $_ => $param{$_}{value} } keys %param, },
 				}
 			);
 			$prev_transition = $transition;
@@ -192,10 +187,9 @@ sub run_str_to_trace {
 
 	# required for unscheduled extra states and transitions caused by interrupts
 	$trace[-1]{final_parameter}
-		= { map { $_ => $param{$_}{value} } keys %param, };
+	  = { map { $_ => $param{$_}{value} } keys %param, };
 	return @trace;
 }
-
 
 sub traces {
 	my ($self) = @_;
@@ -208,9 +202,9 @@ sub traces {
 		return @{ $self->{traces} };
 	}
 
-	my $max_iter       = $self->{trace_revisit} // 2;
-	my $next           = $self->dfa->new_deepdft_string_generator($max_iter);
-	my $trace_id       = 1;
+	my $max_iter = $self->{trace_revisit} // 2;
+	my $next     = $self->dfa->new_deepdft_string_generator($max_iter);
+	my $trace_id = 1;
 
 	my ( @raw_runs, @traces );
 	my $filter_re;
@@ -222,7 +216,7 @@ sub traces {
 			$re =~ s{,}{![^:]*:}g;
 			$re =~ s{$}{![^:]*)};
 			$re =~ s{^}{(^};
-			if ($re =~ m{ \$ }x) {
+			if ( $re =~ m{ \$ }x ) {
 				$re =~ s{\$}{};
 				$re =~ s{\)$}{\$)};
 			}
@@ -255,7 +249,7 @@ sub traces {
 				id    => $trace_id,
 				trace => [@trace],
 			}
-		  );
+		);
 		$trace_id++;
 	}
 

@@ -164,7 +164,7 @@ my %action = (
 		$driver->analyze(@data_files);
 		$driver->assess_model;
 		if ( $opt{workload} ) {
-			$driver->assess_workload($opt{workload});
+			$driver->assess_workload( $opt{workload} );
 		}
 		elsif ( not $opt{'no-update'} ) {
 			$driver->update_model;
@@ -189,10 +189,8 @@ my %action = (
 		}
 	},
 	crossvalidate => sub {
-		printf("./dfatool crossvalidate %s %s\n",
-			$xml_file,
-			join(q{ }, @data_files)
-		);
+		printf( "./dfatool crossvalidate %s %s\n",
+			$xml_file, join( q{ }, @data_files ) );
 		$driver->crossvalidate_model(@data_files);
 	},
 	ls => sub {
@@ -277,8 +275,8 @@ my %action = (
 					if (    $elem->{isa} eq 'state'
 						and $elem->{name} ne 'UNINITIALIZED' )
 					{
-						push( @widths, max (length( $elem->{name} ), 9) );
-						printf(' → %9s', $elem->{name});
+						push( @widths, max( length( $elem->{name} ), 9 ) );
+						printf( ' → %9s', $elem->{name} );
 						my @powers
 						  = map { $_->{uW_mean} } @{ $elem->{offline} };
 						push( @data, sum(@powers) / @powers );
@@ -286,8 +284,8 @@ my %action = (
 					elsif ( $elem->{isa} eq 'transition' ) {
 						my $args = join( q{, }, @{ $elem->{args} // [qw[?]] } );
 						my $pstr = "$elem->{name}($args)";
-						push( @widths, max (length($pstr), 9) );
-						printf(' → %9s', $pstr);
+						push( @widths, max( length($pstr), 9 ) );
+						printf( ' → %9s', $pstr );
 						my @energies
 						  = map { $_->{uW_mean_delta_prev} * ( $_->{us} - 20 ) }
 						  @{ $elem->{offline} };

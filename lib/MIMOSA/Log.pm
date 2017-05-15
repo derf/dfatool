@@ -171,28 +171,34 @@ sub merge {
 	# which wasn't detected earlier because of duplicate triggers elsewhere.
 	my $data_idx = 0;
 	for my $run ( @{ $self->{log}{traces} } ) {
-		my $prev_elem = {name => q{}};
+		my $prev_elem = { name => q{} };
 		for my $trace_elem ( @{ $run->{trace} } ) {
 			my $log_elem = $data->{trace}[$data_idx];
-			if ($log_elem->{isa} eq 'state'
-					and $trace_elem->{name} ne 'UNINITIALIZED'
-					and $log_elem->{us} > $self->{setup}{state_duration} * 1500
-					and $prev_elem->{name} ne 'txDone'
-					and $prev_elem->{name} ne 'rxDone'
-					and $prev_elem->{name} ne 'epilogue') {
-				return sprintf('State %s (trigger index %d) took %.1f ms longer than expected',
-					$trace_elem->{name}, $data_idx,
-					($log_elem->{us} / 1000) - $self->{setup}{state_duration}
+			if (    $log_elem->{isa} eq 'state'
+				and $trace_elem->{name} ne 'UNINITIALIZED'
+				and $log_elem->{us} > $self->{setup}{state_duration} * 1500
+				and $prev_elem->{name} ne 'txDone'
+				and $prev_elem->{name} ne 'rxDone'
+				and $prev_elem->{name} ne 'epilogue' )
+			{
+				return sprintf(
+'State %s (trigger index %d) took %.1f ms longer than expected',
+					$trace_elem->{name},
+					$data_idx,
+					( $log_elem->{us} / 1000 ) - $self->{setup}{state_duration}
 				);
 			}
-			if ($log_elem->{isa} eq 'state'
-					and $trace_elem->{name} ne 'UNINITIALIZED'
-					and $trace_elem->{name} ne 'TX'
-					and $trace_elem->{name} ne 'RX'
-					and $log_elem->{us} < $self->{setup}{state_duration} * 500 ) {
-				return sprintf('State %s (trigger index %d) was %.1f ms shorter than expected',
-					$trace_elem->{name}, $data_idx,
-					$self->{setup}{state_duration} - ($log_elem->{us} / 1000)
+			if (    $log_elem->{isa} eq 'state'
+				and $trace_elem->{name} ne 'UNINITIALIZED'
+				and $trace_elem->{name} ne 'TX'
+				and $trace_elem->{name} ne 'RX'
+				and $log_elem->{us} < $self->{setup}{state_duration} * 500 )
+			{
+				return sprintf(
+'State %s (trigger index %d) was %.1f ms shorter than expected',
+					$trace_elem->{name},
+					$data_idx,
+					$self->{setup}{state_duration} - ( $log_elem->{us} / 1000 )
 				);
 			}
 			$prev_elem = $trace_elem;
@@ -237,12 +243,12 @@ sub preprocess {
 	}
 
 	for my $i ( 0 .. $#{ $self->{mim_results} } ) {
-		my $file = $self->{mim_results}[$i];
+		my $file  = $self->{mim_results}[$i];
 		my $error = $self->merge("${tmpdir}/${file}");
 
 		if ($error) {
 			say "${file}: ${error}";
-			push(@errmap, $i);
+			push( @errmap, $i );
 		}
 	}
 
@@ -308,27 +314,29 @@ sub validate {
 				  //= $run->{trace}[ $i - 1 ]{parameter};
 			}
 		}
+
 		# online durations count current state + next transition, but we
 		# only want to analyze current state -> substract next transition.
 		# Note that we can only do this on online data which has
 		# corresponding offline data, i.e. where the offline data was not
 		# erroneous
 		for my $run ( @{ $json->{traces} } ) {
-			if (exists $run->{total_energy}) {
+			if ( exists $run->{total_energy} ) {
+
 				# splice changes the array (and thus the indices). so we need to
 				# start removing elements at the end
-				for my $erridx (reverse @errmap) {
-					splice(@{$run->{total_energy}}, $erridx, 1);
+				for my $erridx ( reverse @errmap ) {
+					splice( @{ $run->{total_energy} }, $erridx, 1 );
 				}
 			}
 			for my $i ( 0 .. $#{ $run->{trace} } ) {
-				for my $erridx (reverse @errmap) {
-					splice(@{$run->{trace}[$i]{online}}, $erridx, 1);
+				for my $erridx ( reverse @errmap ) {
+					splice( @{ $run->{trace}[$i]{online} }, $erridx, 1 );
 				}
-				if ($run->{trace}[$i]{isa} eq 'state') {
-					for my $j (0 .. $#{ $run->{trace}[$i]{online} } ) {
-						$run->{trace}[$i]{online}[$j]{time} -=
-							$run->{trace}[$i+1]{offline}[$j]{us};
+				if ( $run->{trace}[$i]{isa} eq 'state' ) {
+					for my $j ( 0 .. $#{ $run->{trace}[$i]{online} } ) {
+						$run->{trace}[$i]{online}[$j]{time}
+						  -= $run->{trace}[ $i + 1 ]{offline}[$j]{us};
 					}
 				}
 			}

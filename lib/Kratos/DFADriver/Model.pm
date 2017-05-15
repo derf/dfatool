@@ -33,15 +33,13 @@ sub new {
 }
 
 sub parse_xml_property {
-	my ($self, $node, $property_name) = @_;
+	my ( $self, $node, $property_name ) = @_;
 
 	my $xml = $self->{xml};
-	my $ret = {
-		static => 0
-	};
+	my $ret = { static => 0 };
 
 	my ($property_node) = $node->findnodes("./${property_name}");
-	if (not $property_node) {
+	if ( not $property_node ) {
 		return $ret;
 	}
 
@@ -49,33 +47,33 @@ sub parse_xml_property {
 		$ret->{static} = 0 + $static_node->textContent;
 	}
 	for my $function_node ( $property_node->findnodes('./function/*') ) {
-		my $name = $function_node->nodeName;
+		my $name     = $function_node->nodeName;
 		my $function = $function_node->textContent;
 		$function =~ s{^ \n* \s* }{}x;
 		$function =~ s{\s* \n* $}{}x;
 		$function =~ s{ [\n\t]+ }{}gx;
 
-		$ret->{function}{$name}{raw} = $function;
+		$ret->{function}{$name}{raw}  = $function;
 		$ret->{function}{$name}{node} = $function_node;
 
 		my $param_idx = 0;
 		while ( $function_node->hasAttribute("param${param_idx}") ) {
-			push( @{ $ret->{function}{$name}{params} },
-				$function_node->getAttribute("param${param_idx}") );
+			push(
+				@{ $ret->{function}{$name}{params} },
+				$function_node->getAttribute("param${param_idx}")
+			);
 			$param_idx++;
 		}
 	}
 	for my $lut_node ( $property_node->findnodes('./lut/*') ) {
 		my @paramkey = map { $_->[0]->getValue }
-			sort { $a->[1] cmp $b->[1] }
-			map { [ $_, $_->nodeName ] }
-			@{$lut_node->attributes->nodes};
-		$ret->{lut}{join(';', @paramkey)} = 0 + $lut_node->textContent;
+		  sort { $a->[1] cmp $b->[1] }
+		  map { [ $_, $_->nodeName ] } @{ $lut_node->attributes->nodes };
+		$ret->{lut}{ join( ';', @paramkey ) } = 0 + $lut_node->textContent;
 	}
 
 	return $ret;
 }
-
 
 sub parse_xml {
 	my ($self) = @_;
@@ -90,7 +88,7 @@ sub parse_xml {
 		my $name = $state_node->getAttribute('name');
 		my $power = $state_node->getAttribute('power') // 0;
 		$self->{states}{$name} = {
-			power => $self->parse_xml_property($state_node, 'power'),
+			power => $self->parse_xml_property( $state_node, 'power' ),
 			id    => $state_index,
 			node  => $state_node,
 		};
@@ -139,19 +137,22 @@ sub parse_xml {
 		}
 
 		my $transition = {
-			name             => $transition_node->getAttribute('name'),
-			duration         => $self->parse_xml_property($transition_node, 'duration'),
-			energy           => $self->parse_xml_property($transition_node, 'energy'),
-			rel_energy_prev  => $self->parse_xml_property($transition_node, 'rel_energy_prev'),
-			rel_energy_next  => $self->parse_xml_property($transition_node, 'rel_energy_next'),
-			timeout          => $self->parse_xml_property($transition_node, 'timeout'),
-			parameters       => [@parameters],
-			origins          => [@source_states],
-			destination      => $dst_node->textContent,
-			level            => $level_node->textContent,
-			id               => $transition_index,
-			affects          => {%affects},
-			node             => $transition_node,
+			name => $transition_node->getAttribute('name'),
+			duration =>
+			  $self->parse_xml_property( $transition_node, 'duration' ),
+			energy => $self->parse_xml_property( $transition_node, 'energy' ),
+			rel_energy_prev =>
+			  $self->parse_xml_property( $transition_node, 'rel_energy_prev' ),
+			rel_energy_next =>
+			  $self->parse_xml_property( $transition_node, 'rel_energy_next' ),
+			timeout => $self->parse_xml_property( $transition_node, 'timeout' ),
+			parameters  => [@parameters],
+			origins     => [@source_states],
+			destination => $dst_node->textContent,
+			level       => $level_node->textContent,
+			id          => $transition_index,
+			affects     => {%affects},
+			node        => $transition_node,
 		};
 
 		push( @{ $self->{transitions} }, $transition );
@@ -183,18 +184,20 @@ sub parse_xml {
 }
 
 sub reset_property {
-	my ($self, $node, $name) = @_;
+	my ( $self, $node, $name ) = @_;
 
 	my ($property_node) = $node->findnodes("./${name}");
 
 	if ($property_node) {
-		for my $attr_node ($property_node->findnodes('./static | ./lut')) {
+		for my $attr_node ( $property_node->findnodes('./static | ./lut') ) {
 			$property_node->removeChild($attr_node);
 		}
-		for my $function_parent ($property_node->findnodes('./function')) {
-			for my $function_node ($function_parent->childNodes) {
-				if ($function_node->nodeName eq 'user' or $function_node->nodeName eq 'user_arg') {
-					for my $attrnode ($function_node->attributes) {
+		for my $function_parent ( $property_node->findnodes('./function') ) {
+			for my $function_node ( $function_parent->childNodes ) {
+				if (   $function_node->nodeName eq 'user'
+					or $function_node->nodeName eq 'user_arg' )
+				{
+					for my $attrnode ( $function_node->attributes ) {
 						$attrnode->setValue(1);
 					}
 				}
@@ -209,15 +212,17 @@ sub reset_property {
 sub reset {
 	my ($self) = @_;
 
-	for my $state (values %{$self->{states}}) {
+	for my $state ( values %{ $self->{states} } ) {
 		for my $property (qw(power)) {
-			$self->reset_property($state->{node}, $property);
+			$self->reset_property( $state->{node}, $property );
 		}
 	}
 
-	for my $transition (@{$self->{transitions}}) {
-		for my $property (qw(duration energy rel_energy_prev rel_energy_next timeout)) {
-			$self->reset_property($transition->{node}, $property);
+	for my $transition ( @{ $self->{transitions} } ) {
+		for my $property (
+			qw(duration energy rel_energy_prev rel_energy_next timeout))
+		{
+			$self->reset_property( $transition->{node}, $property );
 		}
 	}
 }
@@ -234,17 +239,17 @@ sub set_state_power {
 	$self->{states}{$state}{power}{static} = $power;
 
 	my ($static_parent) = $state_node->findnodes('./power');
-	if (not $static_parent) {
+	if ( not $static_parent ) {
 		$static_parent = XML::LibXML::Element->new('power');
 		$state_node->appendChild($static_parent);
 	}
 
-	for my $static_node ($static_parent->findnodes('./static')) {
+	for my $static_node ( $static_parent->findnodes('./static') ) {
 		$static_parent->removeChild($static_node);
 	}
 
 	my $static_node = XML::LibXML::Element->new('static');
-	my $text_node = XML::LibXML::Text->new($power);;
+	my $text_node   = XML::LibXML::Text->new($power);
 
 	$text_node->setData($power);
 	$static_node->appendChild($text_node);
@@ -254,31 +259,32 @@ sub set_state_power {
 sub set_transition_property {
 	my ( $self, $transition_name, $property, $value ) = @_;
 
-	if (not defined $value) {
+	if ( not defined $value ) {
 		return;
 	}
 
-	my $transition = $self->get_transition_by_name($transition_name);
+	my $transition      = $self->get_transition_by_name($transition_name);
 	my $transition_node = $transition->{node};
-	$value = sprintf('%.f', $value);
+	$value = sprintf( '%.f', $value );
 
 	printf( "transition %-16s: adjust %s %d -> %d\n",
-		$transition->{name}, $property, $transition->{$property}{static}, $value);
+		$transition->{name}, $property, $transition->{$property}{static},
+		$value );
 
 	$transition->{$property}{static} = $value;
 
 	my ($static_parent) = $transition_node->findnodes("./${property}");
-	if (not $static_parent) {
+	if ( not $static_parent ) {
 		$static_parent = XML::LibXML::Element->new($property);
 		$transition_node->appendChild($static_parent);
 	}
 
-	for my $static_node ($static_parent->findnodes('./static')) {
+	for my $static_node ( $static_parent->findnodes('./static') ) {
 		$static_parent->removeChild($static_node);
 	}
 
 	my $static_node = XML::LibXML::Element->new('static');
-	my $text_node = XML::LibXML::Text->new($value);
+	my $text_node   = XML::LibXML::Text->new($value);
 
 	$text_node->setData($value);
 	$static_node->appendChild($text_node);
@@ -286,10 +292,10 @@ sub set_transition_property {
 }
 
 sub set_state_lut {
-	my ($self, $state, $property, $lut) = @_;
+	my ( $self, $state, $property, $lut ) = @_;
 	my $state_node = $self->{states}{$state}{node};
 
-	if (not defined $lut) {
+	if ( not defined $lut ) {
 		return;
 	}
 
@@ -301,11 +307,11 @@ sub set_state_lut {
 	my $lut_node = XML::LibXML::Element->new('lut');
 	$lut_parent->appendChild($lut_node);
 
-	for my $lut_entry (@{$lut}) {
+	for my $lut_entry ( @{$lut} ) {
 		my $entry_node = XML::LibXML::Element->new('entry');
-		my $value_node = XML::LibXML::Text->new($lut_entry->{value});
-		for my $param (sort keys %{$lut_entry->{key}}) {
-			$entry_node->setAttribute($param, $lut_entry->{key}{$param});
+		my $value_node = XML::LibXML::Text->new( $lut_entry->{value} );
+		for my $param ( sort keys %{ $lut_entry->{key} } ) {
+			$entry_node->setAttribute( $param, $lut_entry->{key}{$param} );
 		}
 		$entry_node->appendChild($value_node);
 		$lut_node->appendChild($entry_node);
@@ -313,13 +319,13 @@ sub set_state_lut {
 }
 
 sub set_transition_lut {
-	my ($self, $transition_name, $property, $lut) = @_;
+	my ( $self, $transition_name, $property, $lut ) = @_;
 
-	if (not defined $lut) {
+	if ( not defined $lut ) {
 		return;
 	}
 
-	my $transition = $self->get_transition_by_name($transition_name);
+	my $transition      = $self->get_transition_by_name($transition_name);
 	my $transition_node = $transition->{node};
 
 	my ($lut_parent) = $transition_node->findnodes("./${property}");
@@ -330,11 +336,11 @@ sub set_transition_lut {
 	my $lut_node = XML::LibXML::Element->new('lut');
 	$lut_parent->appendChild($lut_node);
 
-	for my $lut_entry (@{$lut}) {
+	for my $lut_entry ( @{$lut} ) {
 		my $entry_node = XML::LibXML::Element->new('entry');
-		my $value_node = XML::LibXML::Text->new($lut_entry->{value});
-		for my $param (sort keys %{$lut_entry->{key}}) {
-			$entry_node->setAttribute($param, $lut_entry->{key}{$param});
+		my $value_node = XML::LibXML::Text->new( $lut_entry->{value} );
+		for my $param ( sort keys %{ $lut_entry->{key} } ) {
+			$entry_node->setAttribute( $param, $lut_entry->{key}{$param} );
 		}
 		$entry_node->appendChild($value_node);
 		$lut_node->appendChild($entry_node);
@@ -356,17 +362,17 @@ sub set_state_params {
 
 	my ($function_parent) = $state_node->findnodes('./power/function');
 
-	if (not $function_parent) {
+	if ( not $function_parent ) {
 		my ($power_node) = $state_node->findnodes('./power');
 		$function_parent = XML::LibXML::Element->new('function');
 		$power_node->appendChild($function_parent);
 	}
 
-	for my $function_node ($function_parent->findnodes("./${fun_name}")) {
+	for my $function_node ( $function_parent->findnodes("./${fun_name}") ) {
 		$function_parent->removeChild($function_node);
 	}
 
-	my $function_node = XML::LibXML::Element->new($fun_name);
+	my $function_node    = XML::LibXML::Element->new($fun_name);
 	my $function_content = XML::LibXML::CDATASection->new($function);
 
 	$function_node->appendChild($function_content);
@@ -380,33 +386,35 @@ sub set_state_params {
 }
 
 sub set_transition_params {
-	my ( $self, $transition_name, $fun_type, $fun_name, $function, @params ) = @_;
-	my $transition = $self->get_transition_by_name($transition_name);
+	my ( $self, $transition_name, $fun_type, $fun_name, $function, @params )
+	  = @_;
+	my $transition      = $self->get_transition_by_name($transition_name);
 	my $transition_node = $transition->{node};
-	my $old_params = 'None';
+	my $old_params      = 'None';
 
 	if ( exists $transition->{$fun_type}{function}{$fun_name} ) {
 		$old_params = join( q{ },
 			@{ $transition->{$fun_type}{function}{$fun_name}{params} } );
 	}
 
-	printf(
-		"transition %-16s: adjust %s %s function parameters [%s] -> [%s]\n",
-		$transition_name, $fun_name, $fun_type, $old_params, join( q{ }, @params ) );
+	printf( "transition %-16s: adjust %s %s function parameters [%s] -> [%s]\n",
+		$transition_name, $fun_name, $fun_type, $old_params,
+		join( q{ }, @params ) );
 
-	my ($function_parent) = $transition_node->findnodes("./${fun_type}/function");
+	my ($function_parent)
+	  = $transition_node->findnodes("./${fun_type}/function");
 
-	if (not $function_parent) {
+	if ( not $function_parent ) {
 		my ($property_node) = $transition_node->findnodes("./${fun_type}");
 		$function_parent = XML::LibXML::Element->new('function');
 		$property_node->appendChild($function_parent);
 	}
 
-	for my $function_node ($function_parent->findnodes("./${fun_name}")) {
+	for my $function_node ( $function_parent->findnodes("./${fun_name}") ) {
 		$function_parent->removeChild($function_node);
 	}
 
-	my $function_node = XML::LibXML::Element->new($fun_name);
+	my $function_node    = XML::LibXML::Element->new($fun_name);
 	my $function_content = XML::LibXML::CDATASection->new($function);
 
 	$function_node->appendChild($function_content);
@@ -419,17 +427,17 @@ sub set_transition_params {
 }
 
 sub set_voltage {
-	my ($self, $min_voltage, $max_voltage) = @_;
+	my ( $self, $min_voltage, $max_voltage ) = @_;
 
 	my ($data_node) = $self->xml->findnodes('/data');
 
-	for my $voltage_node ($data_node->findnodes('./voltage')) {
+	for my $voltage_node ( $data_node->findnodes('./voltage') ) {
 		$data_node->removeChild($voltage_node);
 	}
 
 	my $voltage_node = XML::LibXML::Element->new('voltage');
-	$voltage_node->setAttribute('min', $min_voltage);
-	$voltage_node->setAttribute('max', $max_voltage);
+	$voltage_node->setAttribute( 'min', $min_voltage );
+	$voltage_node->setAttribute( 'max', $max_voltage );
 
 	$data_node->appendChild($voltage_node);
 }
@@ -535,16 +543,17 @@ sub get_state_power {
 }
 
 sub get_state_power_with_params {
-	my ($self, $name, $param_values) = @_;
+	my ( $self, $name, $param_values ) = @_;
 
-	my $hash_str = join(';', map { $param_values->{$_} }
+	my $hash_str = join( ';',
+		map  { $param_values->{$_} }
 		sort { $a cmp $b } keys %{$param_values} );
 
-	if ($hash_str eq q{}) {
+	if ( $hash_str eq q{} ) {
 		return $self->get_state_power($name);
 	}
 
-	if (exists $self->{states}{$name}{power}{lut}{$hash_str}) {
+	if ( exists $self->{states}{$name}{power}{lut}{$hash_str} ) {
 		return $self->{states}{$name}{power}{lut}{$hash_str};
 	}
 
@@ -593,13 +602,15 @@ sub TO_JSON {
 	}
 	for my $val ( values %transition_copy ) {
 		delete $val->{node};
-		for my $key (qw(duration energy rel_energy_prev rel_energy_next timeout)) {
+		for
+		  my $key (qw(duration energy rel_energy_prev rel_energy_next timeout))
+		{
 			if ( exists $val->{$key}{function} ) {
 				$val->{$key} = { %{ $val->{$key} } };
 				$val->{$key}{function} = { %{ $val->{$key}{function} } };
 				for my $ftype ( keys %{ $val->{$key}{function} } ) {
 					$val->{$key}{function}{$ftype}
-					= { %{ $val->{$key}{function}{$ftype} } };
+					  = { %{ $val->{$key}{function}{$ftype} } };
 					delete $val->{$key}{function}{$ftype}{node};
 				}
 			}
