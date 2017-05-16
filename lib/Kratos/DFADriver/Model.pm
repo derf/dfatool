@@ -8,7 +8,7 @@ use parent 'Class::Accessor';
 
 use Carp;
 use Carp::Assert::More;
-use List::Util qw(first);
+use List::Util qw(first uniq);
 use XML::LibXML;
 
 Kratos::DFADriver::Model->mk_ro_accessors(qw(class_name xml));
@@ -30,6 +30,85 @@ sub new {
 	$self->parse_xml;
 
 	return $self;
+}
+
+sub new_from_repo {
+	my ( $class, %opt ) = @_;
+	my $repo       = $opt{repo};
+	my $class_name = $opt{class_name};
+
+	my @states;
+	my %transition;
+
+	if ( not exists $repo->{class}{$class_name} ) {
+		die("Unknown class: $class_name\n");
+	}
+	my $class_base = $repo->{class}{$class_name};
+
+	for my $function ( values %{ $class_base->{function} } ) {
+		for my $attrib ( @{ $function->{attributes} // [] } ) {
+			if ( $attrib =~ s{ ^ src _ }{}x ) {
+				push( @states,                                    $attrib );
+				push( @{ $transition{ $function->{name} }{src} }, $attrib );
+			}
+			elsif ( $attrib =~ s{ ^ dst _ }{}x ) {
+				push( @states,                                    $attrib );
+				push( @{ $transition{ $function->{name} }{dst} }, $attrib );
+			}
+			else {
+				say "wat $attrib";
+			}
+		}
+	}
+
+	@states = uniq @states;
+	@states = sort @states;
+
+	my $xml = XML::LibXML::Document->new('1.0');
+
+	my $data_node        = $xml->createElement('data');
+	my $driver_node      = $xml->createElement('driver');
+	my $states_node      = $xml->createElement('states');
+	my $transitions_node = $xml->createElement('transitions');
+
+	$driver_node->setAttribute( name => $class_name );
+
+	$xml->setDocumentElement($data_node);
+	$data_node->appendChild($driver_node);
+	$driver_node->appendChild($states_node);
+	$driver_node->appendChild($transitions_node);
+
+	for my $state (@states) {
+		my $state_node = $xml->createElement('state');
+		$state_node->setAttribute( name => $state );
+		$states_node->appendChild($state_node);
+	}
+	for my $transition ( sort keys %transition ) {
+		my $transition_node = $xml->createElement('transition');
+		my $level = $transition eq 'epilogue' ? 'epilogue' : 'user';
+		$transition_node->setAttribute( name => $transition );
+		for my $src_state ( @{ $transition{$transition}{src} } ) {
+			my $src_node = $xml->createElement('src');
+			my $src_name = $xml->createTextNode($src_state);
+			$src_node->appendChild($src_name);
+			$transition_node->appendChild($src_node);
+		}
+		for my $dst_state ( @{ $transition{$transition}{dst} } ) {
+			my $dst_node = $xml->createElement('dst');
+			my $dst_name = $xml->createTextNode($dst_state);
+			$dst_node->appendChild($dst_name);
+			$transition_node->appendChild($dst_node);
+		}
+		my $level_node = $xml->createElement('level');
+		my $level_name = $xml->createTextNode($level);
+		$level_node->appendChild($level_name);
+		$transition_node->appendChild($level_node);
+		$transitions_node->appendChild($transition_node);
+	}
+
+	$xml->toFile( $opt{xml_file} );
+
+	return $class->new(%opt);
 }
 
 sub parse_xml_property {

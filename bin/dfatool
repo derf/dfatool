@@ -16,6 +16,7 @@ my %opt;
 GetOptions(
 	\%opt,
 	qw{
+	  class=s
 	  exclude-states=s@
 	  ignore-nested-calls
 	  logging!
@@ -51,6 +52,7 @@ my ( $command, $xml_file, @data_files ) = @ARGV;
 
 my $driver = Kratos::DFADriver->new(
 	cache => $opt{'no-cache'} ? 0 : 1,
+	class_name      => $opt{class},
 	data_file       => $data_files[0],
 	excluded_states => $opt{'exclude-states'} // [],
 	fast_analysis   => $opt{'zomg-fasta-nao'} // 0,
@@ -74,6 +76,10 @@ my $driver = Kratos::DFADriver->new(
 );
 
 my %action = (
+	autogen => sub {
+
+		# nothing to do
+	},
 	clean => sub {
 		$driver->launchpad_log_clean;
 	},

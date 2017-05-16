@@ -46,10 +46,30 @@ sub parse_xml {
 		my $filename = $node->getAttribute('filename');
 		my $id       = $node->getAttribute('id');
 		if ( defined $id ) {
-			$self->{files}[$id] = $filename;
+			$self->{files}{$id} = $filename;
 		}
 		else {
 			say STDERR "repo.acp: File ${filename} has no ID";
+		}
+	}
+
+	for my $aspect (
+		$xml->findnodes(
+			    '/ac-model/root/Namespace[@name="::"]/children/Aspect'
+			  . ' | /ac-model/root/Namespace[@name="::"]/children/Namespace'
+		)
+	  )
+	{
+		my $aspect_name = $aspect->getAttribute('name');
+		for my $attr_node ( $aspect->findnodes('./children/Attribute') ) {
+			my $attr_name = $attr_node->getAttribute('name');
+			my $attr_id   = $attr_node->getAttribute('id');
+			if ( defined $attr_id ) {
+				$self->{attributes}{$attr_id} = {
+					namespace => $aspect_name,
+					name      => $attr_name,
+				};
+			}
 		}
 	}
 
@@ -70,7 +90,7 @@ sub parse_xml {
 			push(
 				@sources,
 				{
-					file => $self->{files}[ $source->getAttribute('file') ],
+					file => $self->{files}{ $source->getAttribute('file') },
 					kind => $source_loc_kind[ $source->getAttribute('kind') ],
 				}
 			);
@@ -84,6 +104,7 @@ sub parse_xml {
 			my $name        = $fnode->getAttribute('name');
 			my $id          = $fnode->getAttribute('id') // q{?};
 			my $kind        = $fnode->getAttribute('kind');
+			my $attributes  = $fnode->getAttribute('attributes');
 			my $result_type = q{?};
 			my @args;
 
@@ -92,12 +113,23 @@ sub parse_xml {
 				$result_type = $typenode->getAttribute('signature');
 			}
 
-			#print "$id $name $kind $result_type <- ";
 			for my $argnode ( $fnode->findnodes('./arg_types/Type') ) {
 				push( @args, $argnode->getAttribute('signature') );
 			}
 
-			#say join( q{, }, @args );
+			my $fun = {
+				name     => $name,
+				returns  => $result_type,
+				argtypes => [@args],
+			};
+
+			if ($attributes) {
+				$fun->{attributes} = [
+					map { $self->{attributes}{$_}{name} }
+					  split( qr{ \s+ }x, $attributes )
+				];
+			}
+			$class->{function}{$name} = $fun;
 		}
 		$self->{class}{$class_name} = $class;
 	}

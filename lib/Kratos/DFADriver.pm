@@ -35,10 +35,23 @@ sub new {
 
 	$self->{dfa}           = Kratos::DFADriver::DFA->new(%opt);
 	$self->{mimosa}        = MIMOSA->new(%opt);
-	$self->{model}         = Kratos::DFADriver::Model->new(%opt);
 	$self->{repo}          = AspectC::Repo->new;
-	$self->{class_name}    = $self->{model}->class_name;
 	$self->{lp}{iteration} = 1;
+
+	if ( -r $opt{xml_file} ) {
+		$self->{model}      = Kratos::DFADriver::Model->new(%opt);
+		$self->{class_name} = $self->{model}->class_name;
+	}
+	elsif ( $opt{class_name} ) {
+		$self->{model} = Kratos::DFADriver::Model->new_from_repo(
+			repo       => $self->{repo},
+			class_name => $opt{class_name},
+			xml_file   => $opt{xml_file},
+		);
+	}
+	else {
+		die('Neither driver.xml nor class name specified, cannot continue');
+	}
 
 	bless( $self, $class );
 
