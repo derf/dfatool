@@ -48,7 +48,7 @@ if ( @ARGV < 2 ) {
 @{ $opt{'param-default'} }
   = split( qr{,}, join( q{,}, @{ $opt{'param-default'} // [] } ) );
 
-my ( $command, $xml_file, @data_files ) = @ARGV;
+my ( $command, $model_file, @data_files ) = @ARGV;
 
 my $driver = Kratos::DFADriver->new(
 	cache => $opt{'no-cache'} ? 0 : 1,
@@ -68,11 +68,11 @@ my $driver = Kratos::DFADriver->new(
 	mimosa_offset  => $opt{offset}          // 130,
 	mimosa_shunt   => $opt{shunt}           // 330,
 	mimosa_voltage => $opt{voltage}         // 3.60,
+	model_file     => $model_file,
 	param_default  => $opt{'param-default'} // [],
 	trace_filter   => $opt{'trace-filter'}  // [],
 	trace_revisit  => $opt{'trace-revisit'} // 2,
 	with_lut       => $opt{'with-lut'},
-	xml_file       => $xml_file,
 );
 
 my %action = (
@@ -196,7 +196,7 @@ my %action = (
 	},
 	crossvalidate => sub {
 		printf( "./dfatool crossvalidate %s %s\n",
-			$xml_file, join( q{ }, @data_files ) );
+			$model_file, join( q{ }, @data_files ) );
 		$driver->crossvalidate_model(@data_files);
 	},
 	ls => sub {
@@ -319,7 +319,7 @@ $SIG{INT} = $SIG{TERM} = sub {
 };
 
 sub show_usage {
-	say STDERR "Usage: $0 <action> <DFA driver XML file>";
+	say STDERR "Usage: $0 <action> <DFA driver file>";
 	say STDERR 'Supported actions: ' . join( q{ }, sort keys %action );
 	exit 1;
 }
@@ -349,10 +349,10 @@ test programs to assess a device's energy usage.
 
 =head1 SYNOPSIS
 
-B<dfatool> [I<options>] enable|disable|maketest|rmtest|log|loop I<driver.xml>
+B<dfatool> [I<options>] enable|disable|maketest|rmtest|log|loop I<driver.json>
 
 B<dfatool> [I<options>] analyze|crossvalidate|ls|list|show
-I<driver.xml> I<data.tar> [I<moredata.tar ...>]
+I<driver.json> I<data.tar> [I<moredata.tar ...>]
 
 =head1 VERSION
 
@@ -365,20 +365,20 @@ the last transition in a run
 
 =over
 
-=item B<enable> I<driver.xml>
+=item B<enable> I<driver.json>
 
-Instruments the driver noted in I<driver.xml> for energy accounting and state
+Instruments the driver noted in I<driver.json> for energy accounting and state
 and transition logging. Unconditionally uses static model attributes and only
 relative energy values. Attributes whose power or energy values are not yet
 known are set to zero.
 
-=item B<disable> I<driver.xml>
+=item B<disable> I<driver.json>
 
 Removes accounting and logging instrumentation, thus turning the driver back
 into an energy-unaware one. By default, each state may be visited up to two
 times...
 
-=item B<maketest> I<driver.xml>
+=item B<maketest> I<driver.json>
 
 Creates a kratos application containing a test program for the driver. By
 default, 

@@ -38,7 +38,7 @@ sub new {
 	$self->{repo}          = AspectC::Repo->new;
 	$self->{lp}{iteration} = 1;
 
-	if ( -r $opt{xml_file} ) {
+	if ( -r $opt{model_file} ) {
 		$self->{model}      = Kratos::DFADriver::Model->new(%opt);
 		$self->{class_name} = $self->{model}->class_name;
 	}
@@ -46,11 +46,11 @@ sub new {
 		$self->{model} = Kratos::DFADriver::Model->new_from_repo(
 			repo       => $self->{repo},
 			class_name => $opt{class_name},
-			xml_file   => $opt{xml_file},
+			model_file => $opt{model_file},
 		);
 	}
 	else {
-		die('Neither driver.xml nor class name specified, cannot continue');
+		die('Neither driver.json nor class name specified, cannot continue');
 	}
 
 	bless( $self, $class );
@@ -64,10 +64,10 @@ sub new {
 sub set_paths {
 	my ($self) = @_;
 
-	my $xml_path = $self->{xml_file};
-	$xml_path =~ s{ /?+dfa-driver/[^/]+[.]xml $ }{}x;
+	my $model_path = $self->{model_file};
+	$model_path =~ s{ /?+dfa-driver/[^/]+[.] ( xml | json ) $ }{}x;
 
-	my $prefix = $self->{prefix} = cwd() . "/${xml_path}/src";
+	my $prefix = $self->{prefix} = cwd() . "/${model_path}/src";
 	my $class_prefix
 	  = $self->repo->get_class_path_prefix( $self->{class_name} );
 	$self->{ah_file} = "${prefix}/${class_prefix}_dfa.ah";
@@ -1087,7 +1087,7 @@ sub archive_files {
 
 	my @mim_files = grep { m{ \. mim }x } read_dir('.');
 
-	$tar->add_files( $self->{xml_file}, @eval_files, @mim_files );
+	$tar->add_files( $self->{model_file}, @eval_files, @mim_files );
 
 	$tar->add_data(
 		'setup.json',
