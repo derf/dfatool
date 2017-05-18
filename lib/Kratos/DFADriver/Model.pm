@@ -88,6 +88,24 @@ sub new_from_repo {
 				say "wat $attrib";
 			}
 		}
+		if ( exists $transition{ $function->{name} } ) {
+			for my $i ( 0 .. $#{ $function->{argtypes} } ) {
+				my $argtype = $function->{argtypes}[$i];
+				my $param_name = sprintf( '%s.arg%d', $function->{name}, $i );
+				push(
+					@{ $transition{ $function->{name} }{parameters} },
+					{
+						name   => $param_name,
+						values => [],
+					}
+				);
+				$self->{parameter}{$param_name} = {
+					arg_name => $param_name,
+					function => $function->{name},
+					default  => undef,
+				};
+			}
+		}
 	}
 
 	@states = uniq @states;
@@ -113,7 +131,13 @@ sub new_from_repo {
 			destination => $transition{$name}{dst}[0],
 			origins     => $transition{$name}{src},
 			level       => $transition{$name}{level} // $guess_level,
+			parameters  => $transition{$name}{parameters} // [],
 		};
+		if ( @{ $transition{$name}{dst} } > 1 ) {
+			warn(
+"Transition ${name} has several destination states. This is not supported yet.\n"
+			);
+		}
 	}
 
 	write_file( $self->{model_file},

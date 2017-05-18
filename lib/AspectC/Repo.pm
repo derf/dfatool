@@ -129,7 +129,8 @@ sub parse_xml {
 					  split( qr{ \s+ }x, $attributes )
 				];
 			}
-			$class->{function}{$name} = $fun;
+			my $hash_key = sprintf( '%s(%s)', $name, join( q{, }, @args ) );
+			$class->{function}{$hash_key} = $fun;
 		}
 		$self->{class}{$class_name} = $class;
 	}
