@@ -54,14 +54,14 @@ sub new_from_repo {
 	my $repo = $opt{repo};
 
 	my $self = {
-		class      => $opt{class_name},
+		class_name => $opt{class_name},
 		model_file => $opt{model_file},
 		voltage    => {},
 	};
 
 	bless( $self, $class );
 
-	my $class_name = $self->{class};
+	my $class_name = $self->{class_name};
 
 	my @states;
 	my %transition;
@@ -81,6 +81,9 @@ sub new_from_repo {
 				push( @states,                                    $attrib );
 				push( @{ $transition{ $function->{name} }{dst} }, $attrib );
 			}
+			elsif ( $attrib =~ m{ ^ epilogue $ }x ) {
+				$transition{ $function->{name} }{level} = 'epilogue';
+			}
 			else {
 				say "wat $attrib";
 			}
@@ -92,7 +95,10 @@ sub new_from_repo {
 
 	for my $i ( 0 .. $#states ) {
 		$self->{state}{ $states[$i] } = {
-			id => $i,
+			id    => $i,
+			power => {
+				static => 0,
+			}
 		};
 	}
 
@@ -100,10 +106,13 @@ sub new_from_repo {
 
 	for my $i ( 0 .. $#transition_names ) {
 		my $name = $transition_names[$i];
+		my $guess_level = ( $name eq 'epilogue' ? 'epilogue' : 'user' );
 		$self->{transition}{$name} = {
+			name        => $name,
 			id          => $i,
 			destination => $transition{$name}{dst}[0],
 			origins     => $transition{$name}{src},
+			level       => $transition{$name}{level} // $guess_level,
 		};
 	}
 
