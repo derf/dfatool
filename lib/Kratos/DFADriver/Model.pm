@@ -81,6 +81,14 @@ sub new_from_repo {
 				push( @states,                                    $attrib );
 				push( @{ $transition{ $function->{name} }{dst} }, $attrib );
 			}
+			elsif ( $attrib =~ s{ ^ required_in_ }{}x ) {
+				push(
+					@{
+						$self->{custom_code}{after_transition_by_state}{$attrib}
+					},
+					$function->{name}
+				);
+			}
 			elsif ( $attrib =~ m{ ^ epilogue $ }x ) {
 				$transition{ $function->{name} }{level} = 'epilogue';
 			}
