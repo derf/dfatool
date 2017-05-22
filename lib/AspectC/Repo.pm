@@ -132,6 +132,16 @@ sub parse_xml {
 			my $hash_key = sprintf( '%s(%s)', $name, join( q{, }, @args ) );
 			$class->{function}{$hash_key} = $fun;
 		}
+
+		for my $vnode ( $node->findnodes('./children/Variable') ) {
+			my $name       = $vnode->getAttribute('name');
+			my ($sig_node) = $vnode->findnodes('./type/Type');
+			my $signature  = $vnode->getAttribute('signature');
+			$class->{variable}{$name} = {
+				type => $signature,
+			};
+		}
+
 		$self->{class}{$class_name} = $class;
 	}
 

@@ -928,8 +928,6 @@ DeclareThread(DriverEvalThread, driverEvalThread, 256);
 
 EOF
 
-	$buf .= $self->model->heap_code;
-
 	$buf .= <<"EOF";
 void DriverEvalThread::action()
 {
@@ -944,7 +942,6 @@ void DriverEvalThread::action()
 
 EOF
 
-	$buf .= $self->model->startup_code;
 	$buf .= "${instance}.startIteration(${num_runs});\n";
 
 	for my $run (@runs) {
@@ -980,7 +977,6 @@ EOF
 		$buf .= "\t\t${instance}.dumpLog();\n\n";
 	}
 
-	$buf .= $self->model->shutdown_code;
 	$buf .= "${instance}.stopIteration(); }}\n";
 
 	return $buf;

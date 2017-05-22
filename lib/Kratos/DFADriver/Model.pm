@@ -72,6 +72,7 @@ sub new_from_repo {
 	my $class_base = $repo->{class}{$class_name};
 
 	for my $function ( values %{ $class_base->{function} } ) {
+		my %param_values;
 		for my $attrib ( @{ $function->{attributes} // [] } ) {
 			if ( $attrib =~ s{ ^ src _ }{}x ) {
 				push( @states,                                    $attrib );
@@ -92,6 +93,11 @@ sub new_from_repo {
 			elsif ( $attrib =~ m{ ^ epilogue $ }x ) {
 				$transition{ $function->{name} }{level} = 'epilogue';
 			}
+			elsif ( $attrib
+				=~ m{ ^ testarg _ (?<index> [^_]+ ) _ (?<value> [^_]+) $ }x )
+			{
+				push( @{ $param_values{ $+{index} } }, $+{value} );
+			}
 			else {
 				say "wat $attrib";
 			}
@@ -104,7 +110,7 @@ sub new_from_repo {
 					@{ $transition{ $function->{name} }{parameters} },
 					{
 						name   => $param_name,
-						values => [],
+						values => $param_values{$i},
 					}
 				);
 				$self->{parameter}{$param_name} = {
@@ -112,6 +118,22 @@ sub new_from_repo {
 					function => $function->{name},
 					default  => undef,
 				};
+			}
+		}
+	}
+
+	if ( exists $repo->{class}{DriverEvalThread} ) {
+		for my $var ( keys %{ $repo->{class}{DriverEvalThread}{variable} } ) {
+			if ( $var
+				=~ m{ ^ testVal __ (?<fun> [^_]+ ) __ arg (?<index> \d+ ) __ (?<descr> [^_]+ ) $ }x
+			  )
+			{
+				push(
+					@{
+						$transition{ $+{fun} }{parameters}[ $+{index} ]{values}
+					},
+					$var
+				);
 			}
 		}
 	}
