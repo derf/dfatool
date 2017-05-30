@@ -122,8 +122,8 @@ sub new_from_repo {
 		}
 	}
 
-	if ( exists $repo->{class}{DriverEvalThread} ) {
-		for my $var ( keys %{ $repo->{class}{DriverEvalThread}{variable} } ) {
+	if ( exists $repo->{class}{"DriverEvalThread_${class_name}"} ) {
+		for my $var ( keys %{ $repo->{class}{"DriverEvalThread_${class_name}"}{variable} } ) {
 			if ( $var
 				=~ m{ ^ testVal __ (?<fun> [^_]+ ) __ arg (?<index> \d+ ) __ (?<descr> [^_]+ ) $ }x
 			  )
