@@ -342,6 +342,7 @@ sub printf_parameterized {
 	my $std_by_arg    = $hash->{std_by_arg} // {};
 	my $std_by_param  = $hash->{std_by_param};
 	my $std_by_trace  = $hash->{std_by_trace} // {};
+	my $r_by_param    = $hash->{spearmanr_by_param} // {};
 	my $arg_ratio;
 	my $param_ratio;
 	my $trace_ratio;
@@ -422,6 +423,10 @@ sub printf_parameterized {
 			printf( "  %s: %s on global %s (%.2f / %.2f = %.3f%s)\n",
 				$key, $status, $param, $std_ind_param, $std_this, $ratio,
 				$fline );
+		}
+		if (exists $r_by_param->{$param}) {
+			printf("  %s: spearman_r for global %s is %.3f (p = %.3f)\n",
+				$key, $param, $r_by_param->{$param}, -1);
 		}
 	}
 

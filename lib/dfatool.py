@@ -23,6 +23,14 @@ def is_numeric(n):
     except ValueError:
         return False
 
+def float_or_nan(n):
+    if n == None:
+        return np.nan
+    try:
+        return float(n)
+    except ValueError:
+        return np.nan
+
 def append_if_set(aggregate, data, key):
     if key in data:
         aggregate.append(data[key])
