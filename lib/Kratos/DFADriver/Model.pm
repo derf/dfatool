@@ -144,6 +144,10 @@ sub new_from_repo {
 	@states = uniq @states;
 	@states = sort @states;
 
+	# by convention, UNINITIALIZED always has ID 0
+	@states = grep { $_ ne 'UNINITIALIZED' } @states;
+	unshift( @states, 'UNINITIALIZED' );
+
 	for my $i ( 0 .. $#states ) {
 		$self->{state}{ $states[$i] } = {
 			id    => $i,
