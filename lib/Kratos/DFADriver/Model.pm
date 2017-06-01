@@ -123,7 +123,10 @@ sub new_from_repo {
 	}
 
 	if ( exists $repo->{class}{"DriverEvalThread_${class_name}"} ) {
-		for my $var ( keys %{ $repo->{class}{"DriverEvalThread_${class_name}"}{variable} } ) {
+		for my $var (
+			keys %{ $repo->{class}{"DriverEvalThread_${class_name}"}{variable} }
+		  )
+		{
 			if ( $var
 				=~ m{ ^ testVal __ (?<fun> [^_]+ ) __ arg (?<index> \d+ ) __ (?<descr> [^_]+ ) $ }x
 			  )
@@ -156,12 +159,15 @@ sub new_from_repo {
 		my $name = $transition_names[$i];
 		my $guess_level = ( $name eq 'epilogue' ? 'epilogue' : 'user' );
 		$self->{transition}{$name} = {
-			name        => $name,
-			id          => $i,
-			destination => $transition{$name}{dst}[0],
-			origins     => $transition{$name}{src},
-			level       => $transition{$name}{level} // $guess_level,
-			parameters  => $transition{$name}{parameters} // [],
+			name            => $name,
+			id              => $i,
+			destination     => $transition{$name}{dst}[0],
+			origins         => $transition{$name}{src},
+			level           => $transition{$name}{level} // $guess_level,
+			parameters      => $transition{$name}{parameters} // [],
+			energy          => { static => 0 },
+			rel_energy_prev => { static => 0 },
+			rel_energy_next => { static => 0 },
 		};
 		if ( @{ $transition{$name}{dst} } > 1 ) {
 			warn(
