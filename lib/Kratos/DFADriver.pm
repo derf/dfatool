@@ -1276,7 +1276,7 @@ sub launchpad_log_read {
 		croak("Serial port was disconnected");
 	}
 	if ( $count > 0 ) {
-		my @lines = split( /\n\r/, $chars );
+		my @lines = split( /\n\r|\r\n/, $chars );
 		for my $line (@lines) {
 			$self->launchpad_parse_line($line);
 		}
