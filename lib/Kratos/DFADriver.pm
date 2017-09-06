@@ -1138,7 +1138,7 @@ sub launchpad_connect {
 	$self->{port} = Device::SerialPort->new( $self->{port_file} )
 	  or croak("Error openig serial port $self->{port_file}");
 
-	$self->{port}->baudrate(115200);
+	$self->{port}->baudrate($self->{baud_rate} // 115200);
 	$self->{port}->databits(8);
 	$self->{port}->parity('none');
 	$self->{port}->read_const_time(500);

@@ -16,6 +16,7 @@ my %opt;
 GetOptions(
 	\%opt,
 	qw{
+	  baudrate=i
 	  class=s
 	  exclude-states=s@
 	  ignore-nested-calls
@@ -51,6 +52,7 @@ if ( @ARGV < 2 ) {
 my ( $command, $model_file, @data_files ) = @ARGV;
 
 my $driver = Kratos::DFADriver->new(
+	baud_rate       => $opt{baudrate} // 115200,
 	cache => $opt{'no-cache'} ? 0 : 1,
 	class_name      => $opt{class},
 	data_file       => $data_files[0],
