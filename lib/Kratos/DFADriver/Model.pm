@@ -11,7 +11,6 @@ use Carp::Assert::More;
 use List::Util qw(first uniq);
 use File::Slurp qw(read_file write_file);
 use JSON;
-use XML::LibXML;
 
 Kratos::DFADriver::Model->mk_ro_accessors(
 	qw(class_name parameter state transition));
@@ -31,20 +30,11 @@ sub new {
 
 	bless( $self, $class );
 
-	if ( $self->{model_file} =~ m{ [.] xml $ }x ) {
-		$self->{xml} = XML::LibXML->load_xml( location => $self->{model_file} );
-		$self->parse_xml;
-		$self->{model_file} =~ s{ [.] xml $}{.json}x;
-		write_file( $self->{model_file},
-			JSON->new->pretty->encode( $self->TO_JSON ) );
+	my $json = JSON->new->decode( scalar read_file( $self->{model_file} ) );
+	for my $key (qw(custom_code parameter state transition)) {
+		$self->{$key} = $json->{$key};
 	}
-	else {
-		my $json = JSON->new->decode( scalar read_file( $self->{model_file} ) );
-		for my $key (qw(custom_code parameter state transition)) {
-			$self->{$key} = $json->{$key};
-		}
-		$self->{class_name} = $json->{class};
-	}
+	$self->{class_name} = $json->{class};
 
 	return $self;
 }
@@ -215,160 +205,6 @@ sub new_from_repo {
 
 	write_file( $self->{model_file},
 		JSON->new->pretty->encode( $self->TO_JSON ) );
-
-	return $self;
-}
-
-sub parse_xml_property {
-	my ( $self, $node, $property_name ) = @_;
-
-	my $xml = $self->{xml};
-	my $ret = { static => 0 };
-
-	my ($property_node) = $node->findnodes("./${property_name}");
-	if ( not $property_node ) {
-		return $ret;
-	}
-
-	for my $static_node ( $property_node->findnodes('./static') ) {
-		$ret->{static} = 0 + $static_node->textContent;
-	}
-	for my $function_node ( $property_node->findnodes('./function/*') ) {
-		my $name     = $function_node->nodeName;
-		my $function = $function_node->textContent;
-		$function =~ s{^ \n* \s* }{}x;
-		$function =~ s{\s* \n* $}{}x;
-		$function =~ s{ [\n\t]+ }{}gx;
-
-		$ret->{function}{$name}{raw} = $function;
-
-		my $param_idx = 0;
-		while ( $function_node->hasAttribute("param${param_idx}") ) {
-			push(
-				@{ $ret->{function}{$name}{params} },
-				$function_node->getAttribute("param${param_idx}")
-			);
-			$param_idx++;
-		}
-	}
-	for my $lut_node ( $property_node->findnodes('./lut/*') ) {
-		my @paramkey = map { $_->[0]->getValue }
-		  sort { $a->[1] cmp $b->[1] }
-		  map { [ $_, $_->nodeName ] } @{ $lut_node->attributes->nodes };
-		$ret->{lut}{ join( ';', @paramkey ) } = 0 + $lut_node->textContent;
-	}
-
-	return $ret;
-}
-
-sub parse_xml {
-	my ($self) = @_;
-
-	my $xml = $self->{xml};
-	my ($driver_node) = $xml->findnodes('/data/driver');
-	my $class_name  = $self->{class_name} = $driver_node->getAttribute('name');
-	my $state_index = 0;
-	my @transitions;
-
-	for my $state_node ( $xml->findnodes('/data/driver/states/state') ) {
-		my $name = $state_node->getAttribute('name');
-		my $power = $state_node->getAttribute('power') // 0;
-		$self->{state}{$name} = {
-			power => $self->parse_xml_property( $state_node, 'power' ),
-			id    => $state_index,
-		};
-
-		$state_index++;
-	}
-
-	for my $param_node ( $xml->findnodes('/data/driver/parameters/param') ) {
-		my $param_name    = $param_node->getAttribute('name');
-		my $function_name = $param_node->getAttribute('functionname');
-		my $function_arg  = $param_node->getAttribute('functionparam');
-
-		$self->{parameter}{$param_name} = {
-			function => $function_name,
-			arg_name => $function_arg,
-			default  => undef,
-		};
-	}
-
-	for my $transition_node (
-		$xml->findnodes('/data/driver/transitions/transition') )
-	{
-		my @src_nodes      = $transition_node->findnodes('./src');
-		my ($dst_node)     = $transition_node->findnodes('./dst');
-		my ($level_node)   = $transition_node->findnodes('./level');
-		my @param_nodes    = $transition_node->findnodes('./param');
-		my @affected_nodes = $transition_node->findnodes('./affects/param');
-		my @parameters;
-		my %affects;
-
-		my @source_states = map { $_->textContent } @src_nodes;
-
-		for my $param_node (@param_nodes) {
-			my @value_nodes = $param_node->findnodes('./value');
-			my $param       = {
-				name   => $param_node->getAttribute('name'),
-				values => [ map { $_->textContent } @value_nodes ],
-			};
-			push( @parameters, $param );
-		}
-
-		for my $param_node (@affected_nodes) {
-			my $param_name  = $param_node->getAttribute('name');
-			my $param_value = $param_node->getAttribute('value');
-			$affects{$param_name} = $param_value;
-		}
-
-		my $transition = {
-			name => $transition_node->getAttribute('name'),
-			duration =>
-			  $self->parse_xml_property( $transition_node, 'duration' ),
-			energy => $self->parse_xml_property( $transition_node, 'energy' ),
-			rel_energy_prev =>
-			  $self->parse_xml_property( $transition_node, 'rel_energy_prev' ),
-			rel_energy_next =>
-			  $self->parse_xml_property( $transition_node, 'rel_energy_next' ),
-			timeout => $self->parse_xml_property( $transition_node, 'timeout' ),
-			parameters  => [@parameters],
-			origins     => [@source_states],
-			destination => $dst_node->textContent,
-			level       => $level_node->textContent,
-			affects     => {%affects},
-		};
-
-		push( @transitions, $transition );
-	}
-
-	@transitions = sort { $a->{name} cmp $b->{name} } @transitions;
-	for my $i ( 0 .. $#transitions ) {
-		$transitions[$i]{id} = $i;
-		$self->{transition}{ $transitions[$i]{name} } = $transitions[$i];
-	}
-
-	if ( my ($node) = $xml->findnodes('/data/startup/code') ) {
-		$self->{custom_code}{startup} = $node->textContent;
-	}
-	if ( my ($node) = $xml->findnodes('/data/heap/code') ) {
-		$self->{custom_code}{heap} = $node->textContent;
-	}
-	if ( my ($node) = $xml->findnodes('/data/after-transition/code') ) {
-		$self->{custom_code}{after_transition} = $node->textContent;
-	}
-	for my $node ( $xml->findnodes('/data/after-transition/if') ) {
-		my $state = $node->getAttribute('state');
-		for my $transition ( $node->findnodes('./transition') ) {
-			my $name = $transition->getAttribute('name');
-			push(
-				@{ $self->{custom_code}{after_transition_by_state}{$state} },
-				$name
-			);
-		}
-	}
-	if ( my ($node) = $xml->findnodes('/data/shutdown/code') ) {
-		$self->{custom_code}{shutdown} = $node->textContent;
-	}
 
 	return $self;
 }
