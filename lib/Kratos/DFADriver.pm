@@ -424,9 +424,9 @@ sub printf_parameterized {
 				$key, $status, $param, $std_ind_param, $std_this, $ratio,
 				$fline );
 		}
-		if (exists $r_by_param->{$param}) {
-			printf("  %s: spearman_r for global %s is %.3f (p = %.3f)\n",
-				$key, $param, $r_by_param->{$param}, -1);
+		if ( exists $r_by_param->{$param} ) {
+			printf( "  %s: spearman_r for global %s is %.3f (p = %.3f)\n",
+				$key, $param, $r_by_param->{$param}, -1 );
 		}
 	}
 
@@ -859,18 +859,19 @@ EOF
 	$buf .= "\n\t\t\\path\n";
 
 	for my $transition ( $self->model->transitions ) {
-		for my $origin ( @{ $transition->{origins} } ) {
+		for my $transition_elem ( @{ $transition->{transitions} } ) {
+			my ( $origin, $destination ) = @{$transition_elem};
 			my @edgestyles;
 			if ( $transition->{level} eq 'epilogue' ) {
 				push( @edgestyles, 'dashed' );
 			}
-			if ( $origin eq $transition->{destination} ) {
+			if ( $origin eq $destination ) {
 				push( @edgestyles, 'loop above' );
 			}
 			my $edgestyle
 			  = @edgestyles ? '[' . join( q{,}, @edgestyles ) . ']' : q{};
 			$buf
-			  .= "\t\t  ($origin) edge ${edgestyle} node {$transition->{name}} ($transition->{destination})\n";
+			  .= "\t\t  ($origin) edge ${edgestyle} node {$transition->{name}} ($destination)\n";
 		}
 	}
 	$buf .= "\t\t;\n";
@@ -992,8 +993,7 @@ sub to_test_h {
 	my ($self) = @_;
 	my $class_name = $self->{class_name};
 
-	my $class_prefix
-	  = $self->repo->get_class_path_prefix( $class_name );
+	my $class_prefix = $self->repo->get_class_path_prefix($class_name);
 
 	my $buf = <<"EOF";
 
@@ -1138,7 +1138,7 @@ sub launchpad_connect {
 	$self->{port} = Device::SerialPort->new( $self->{port_file} )
 	  or croak("Error openig serial port $self->{port_file}");
 
-	$self->{port}->baudrate($self->{baud_rate} // 115200);
+	$self->{port}->baudrate( $self->{baud_rate} // 115200 );
 	$self->{port}->databits(8);
 	$self->{port}->parity('none');
 	$self->{port}->read_const_time(500);

@@ -6,6 +6,7 @@ use 5.020;
 
 use parent 'Class::Accessor';
 
+use Data::Dumper;
 use FLAT::DFA;
 use Math::Cartesian::Product;
 
@@ -65,7 +66,21 @@ sub dfa {
 	$dfa->set_accepting( $dfa->get_states );
 
 	for my $transition ( $self->model->transitions ) {
-		my $destination = $transition->{destination};
+		print Dumper( $transition->{parameters} );
+
+		for my $param ( @{ $transition->{parameters} } ) {
+			if ( not defined $param->{values} ) {
+				die(
+"argument values for transition $transition->{name} are undefined\n"
+				);
+			}
+			if ( @{ $param->{values} } == 0 ) {
+				die(
+"argument-value list for transition $transition->{name} is empty \n"
+				);
+			}
+		}
+
 		my @argtuples
 		  = cartesian { 1 } map { $_->{values} } @{ $transition->{parameters} };
 
@@ -73,7 +88,8 @@ sub dfa {
 		# an empty array if @{$transition->{parameters}} is empty
 
 		for my $argtuple (@argtuples) {
-			for my $origin ( @{ $transition->{origins} } ) {
+			for my $transition_pair ( @{ $transition->{transitions} } ) {
+				my ( $origin, $destination ) = @{$transition_pair};
 				$dfa->add_transition(
 					$self->model->get_state_id($origin),
 					$self->model->get_state_id($destination),

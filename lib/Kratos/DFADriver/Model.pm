@@ -74,32 +74,57 @@ sub new_from_repo {
 	for my $function ( values %{ $class_base->{function} } ) {
 		my %param_values;
 		for my $attrib ( @{ $function->{attributes} // [] } ) {
-			if ( $attrib =~ s{ ^ src _ }{}x ) {
-				push( @states,                                    $attrib );
-				push( @{ $transition{ $function->{name} }{src} }, $attrib );
-			}
-			elsif ( $attrib =~ s{ ^ dst _ }{}x ) {
-				push( @states,                                    $attrib );
-				push( @{ $transition{ $function->{name} }{dst} }, $attrib );
-			}
-			elsif ( $attrib =~ s{ ^ required_in_ }{}x ) {
-				push(
-					@{
-						$self->{custom_code}{after_transition_by_state}{$attrib}
-					},
-					$function->{name}
-				);
+			if ( $attrib->{namespace} eq 'Model' ) {
+				if ( $attrib->{name} =~ m{ ^ transition }x
+					and @{ $attrib->{args} } == 2 )
+				{
+					push( @states, $attrib->{args}[0]{expression} );
+					push( @states, $attrib->{args}[1]{expression} );
+					push(
+						@{ $transition{ $function->{name} }{src} },
+						$attrib->{args}[0]{expression}
+					);
+					push(
+						@{ $transition{ $function->{name} }{dst} },
+						$attrib->{args}[1]{expression}
+					);
+					push(
+						@{ $transition{ $function->{name} }{transitions} },
+						[
+							$attrib->{args}[0]{expression},
+							$attrib->{args}[1]{expression}
+						]
+					);
+				}
+				elsif ( $attrib->{name} =~ m{ ^ testval }x
+					and @{ $attrib->{args} } == 2 )
+				{
+					push(
+						@{ $param_values{ $attrib->{args}[0]{value} } },
+						$attrib->{args}[1]{value}
+					);
+				}
+				elsif (
+					$attrib->{name} =~ m{ ^ required_in_ (?<state> .* ) $ }x )
+				{
+					push(
+						@{
+							$self->{custom_code}{after_transition_by_state}
+							  { $+{state} }
+						},
+						$function->{name}
+					);
+				}
+				else {
+					printf( "wat %s::%s\n",
+						$attrib->{namespace}, $attrib->{name} );
+				}
 			}
 			elsif ( $attrib =~ m{ ^ epilogue $ }x ) {
 				$transition{ $function->{name} }{level} = 'epilogue';
 			}
-			elsif ( $attrib
-				=~ m{ ^ testarg _ (?<index> [^_]+ ) _ (?<value> [^_]+) $ }x )
-			{
-				push( @{ $param_values{ $+{index} } }, $+{value} );
-			}
 			else {
-				say "wat $attrib";
+				printf( "wat %s::%s\n", $attrib->{namespace}, $attrib->{name} );
 			}
 		}
 		if ( exists $transition{ $function->{name} } ) {
@@ -160,22 +185,30 @@ sub new_from_repo {
 	my @transition_names = sort keys %transition;
 
 	for my $i ( 0 .. $#transition_names ) {
-		my $name = $transition_names[$i];
-		my $guess_level = ( $name eq 'epilogue' ? 'epilogue' : 'user' );
+
+		my $name         = $transition_names[$i];
+		my @origins      = uniq @{ $transition{$name}{src} };
+		my @destinations = uniq @{ $transition{$name}{dst} };
+		my $guess_level  = ( $name eq 'epilogue' ? 'epilogue' : 'user' );
+
 		$self->{transition}{$name} = {
 			name            => $name,
 			id              => $i,
-			destination     => $transition{$name}{dst}[0],
-			origins         => $transition{$name}{src},
+			destination     => \@destinations,
+			origins         => \@origins,
+			transitions     => $transition{$name}{transitions},
 			level           => $transition{$name}{level} // $guess_level,
 			parameters      => $transition{$name}{parameters} // [],
+			duration        => { static => 0 },
 			energy          => { static => 0 },
 			rel_energy_prev => { static => 0 },
 			rel_energy_next => { static => 0 },
+			timeout         => { static => 0 },
 		};
-		if ( @{ $transition{$name}{dst} } > 1 ) {
+		if ( @destinations > 1 ) {
+			my $dst_str = join( q{, }, @destinations );
 			warn(
-"Transition ${name} has several destination states. This is not supported yet.\n"
+"Transition ${name} has several destination states ($dst_str). This is only partially supported.\n"
 			);
 		}
 	}

@@ -64,10 +64,23 @@ sub parse_xml {
 		for my $attr_node ( $aspect->findnodes('./children/Attribute') ) {
 			my $attr_name = $attr_node->getAttribute('name');
 			my $attr_id   = $attr_node->getAttribute('id');
+			my @args;
+			for my $arg_node ( $attr_node->findnodes('./args/Arg') ) {
+				my $arg_name = $arg_node->getAttribute('name');
+				my $arg_type = $arg_node->getAttribute('type');
+				push(
+					@args,
+					{
+						name => $arg_name,
+						type => $arg_type,
+					}
+				);
+			}
 			if ( defined $attr_id ) {
 				$self->{attributes}{$attr_id} = {
 					namespace => $aspect_name,
 					name      => $attr_name,
+					arguments => \@args,
 				};
 			}
 		}
@@ -104,7 +117,6 @@ sub parse_xml {
 			my $name        = $fnode->getAttribute('name');
 			my $id          = $fnode->getAttribute('id') // q{?};
 			my $kind        = $fnode->getAttribute('kind');
-			my $attributes  = $fnode->getAttribute('attributes');
 			my $result_type = q{?};
 			my @args;
 
@@ -123,12 +135,30 @@ sub parse_xml {
 				argtypes => [@args],
 			};
 
-			if ($attributes) {
-				$fun->{attributes} = [
-					map { $self->{attributes}{$_}{name} }
-					  split( qr{ \s+ }x, $attributes )
-				];
+			for my $annotation_node (
+				$fnode->findnodes('./annotations/Annotation') )
+			{
+				my $attr_id   = $annotation_node->getAttribute('attribute');
+				my $attribute = {
+					name      => $self->{attributes}{$attr_id}{name},
+					namespace => $self->{attributes}{$attr_id}{namespace},
+				};
+				for my $param_node (
+					$annotation_node->findnodes('./parameters/Parameter') )
+				{
+					my $value      = $param_node->getAttribute('value');
+					my $expression = $param_node->getAttribute('expression');
+					push(
+						@{ $attribute->{args} },
+						{
+							value      => $value,
+							expression => $expression,
+						}
+					);
+				}
+				push( @{ $fun->{attributes} }, $attribute );
 			}
+
 			my $hash_key = sprintf( '%s(%s)', $name, join( q{, }, @args ) );
 			$class->{function}{$hash_key} = $fun;
 		}
