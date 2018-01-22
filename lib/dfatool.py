@@ -101,6 +101,7 @@ def _preprocess_measurement(measurement):
 
     processed_data = {
         'info' : measurement['info'],
+        'setup' : measurement['setup'],
         'triggers' : len(trigidx),
         'first_trig' : trigidx[0] * 10,
         'calibration' : caldata,
@@ -115,24 +116,25 @@ class AEMRAnalyzer:
         self.filename = filename
         self.version = 0
 
-    def _state_is_too_short(self, online, offline, next_transition):
+    def _state_is_too_short(self, online, offline, state_duration, next_transition):
         # We cannot control when an interrupt causes a state to be left
         if next_transition['plan']['level'] == 'epilogue':
             return False
 
         # Note: state_duration is stored as ms, not us
-        return offline['us'] < self.setup['state_duration'] * 500
+        return offline['us'] < state_duration * 500
 
-    def _state_is_too_long(self, online, offline, prev_transition):
+    def _state_is_too_long(self, online, offline, state_duration, prev_transition):
         # If the previous state was left by an interrupt, we may have some
         # waiting time left over. So it's okay if the current state is longer
         # than expected.
         if prev_transition['plan']['level'] == 'epilogue':
             return False
         # state_duration is stored as ms, not us
-        return offline['us'] > self.setup['state_duration'] * 1500
+        return offline['us'] > state_duration * 1500
 
     def _measurement_is_valid(self, processed_data):
+        state_duration = processed_data['setup']['state_duration']
         # Check trigger count
         if self.sched_trigger_count != processed_data['triggers']:
             processed_data['error'] = 'got {got:d} trigger edges, expected {exp:d}'.format(
@@ -164,14 +166,14 @@ class AEMRAnalyzer:
             if online_trace_part['isa'] == 'state' and online_trace_part['name'] != 'UNINITIALIZED':
                 online_prev_transition = self.traces[online_run_idx]['trace'][online_trace_part_idx-1]
                 online_next_transition = self.traces[online_run_idx]['trace'][online_trace_part_idx+1]
-                if self._state_is_too_short(online_trace_part, offline_trace_part, online_next_transition):
+                if self._state_is_too_short(online_trace_part, offline_trace_part, state_duration, online_next_transition):
                     processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too short (duration = {dur:d} us)'.format(
                         off_idx = offline_idx, on_idx = online_run_idx,
                         on_sub = online_trace_part_idx,
                         on_name = online_trace_part['name'],
                         dur = offline_trace_part['us'])
                     return False
-                if self._state_is_too_long(online_trace_part, offline_trace_part, online_prev_transition):
+                if self._state_is_too_long(online_trace_part, offline_trace_part, state_duration, online_prev_transition):
                     processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too long (duration = {dur:d} us)'.format(
                         off_idx = offline_idx, on_idx = online_run_idx,
                         on_sub = online_trace_part_idx,
@@ -203,15 +205,14 @@ class AEMRAnalyzer:
     # be analyzed.
     def preprocess_0(self):
         with tarfile.open(self.filename) as tf:
-            self.setup = json.load(tf.extractfile('setup.json'))
+            setup = json.load(tf.extractfile('setup.json'))
             self.traces = json.load(tf.extractfile('src/apps/DriverEval/DriverLog.json'))
-            print(self.setup)
             mim_files = []
             for member in tf.getmembers():
                 _, extension = os.path.splitext(member.name)
                 if extension == '.mim':
                     mim_files.append({
-                        'setup' : self.setup,
+                        'setup' : setup,
                         'info' : member,
                         'content' : tf.extractfile(member).read()
                     })
