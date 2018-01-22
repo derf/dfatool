@@ -2,6 +2,7 @@
 
 import csv
 from itertools import chain, combinations
+import io
 import json
 import numpy as np
 import os
@@ -9,6 +10,7 @@ from scipy.cluster.vq import kmeans2
 import struct
 import sys
 import tarfile
+from multiprocessing import Pool
 
 def running_mean(x, N):
     cumsum = np.cumsum(np.insert(x, 0, 0))
@@ -87,6 +89,153 @@ class Keysight:
                 currents[i] = float(row[2]) * -1
         return timestamps, currents
 
+def _preprocess_measurement(measurement):
+    setup = measurement['setup']
+    mim = MIMOSA(float(setup['mimosa_voltage']), int(setup['mimosa_shunt']))
+    charges, triggers = mim.load_data(measurement['content'])
+    trigidx = mim.trigger_edges(triggers)
+    triggers = []
+    cal_edges = mim.calibration_edges(running_mean(mim.currents_nocal(charges[0:trigidx[0]]), 10))
+    calfunc, caldata = mim.calibration_function(charges, cal_edges)
+    vcalfunc = np.vectorize(calfunc, otypes=[np.float64])
+
+    processed_data = {
+        'info' : measurement['info'],
+        'triggers' : len(trigidx),
+        'first_trig' : trigidx[0] * 10,
+        'calibration' : caldata,
+        'trace' : mim.analyze_states(charges, trigidx, vcalfunc)
+    }
+
+    return processed_data
+
+class AEMRAnalyzer:
+
+    def __init__(self, filename):
+        self.filename = filename
+        self.version = 0
+
+    def _state_is_too_short(self, online, offline, next_transition):
+        # We cannot control when an interrupt causes a state to be left
+        if next_transition['plan']['level'] == 'epilogue':
+            return False
+
+        # Note: state_duration is stored as ms, not us
+        return offline['us'] < self.setup['state_duration'] * 500
+
+    def _state_is_too_long(self, online, offline, prev_transition):
+        # If the previous state was left by an interrupt, we may have some
+        # waiting time left over. So it's okay if the current state is longer
+        # than expected.
+        if prev_transition['plan']['level'] == 'epilogue':
+            return False
+        # state_duration is stored as ms, not us
+        return offline['us'] > self.setup['state_duration'] * 1500
+
+    def _measurement_is_valid(self, processed_data):
+        # Check trigger count
+        if self.sched_trigger_count != processed_data['triggers']:
+            processed_data['error'] = 'got {got:d} trigger edges, expected {exp:d}'.format(
+                    got = processed_data['triggers'],
+                    exp = self.sched_trigger_count
+            )
+            return False
+        # Check state durations. Very short or long states can indicate a
+        # missed trigger signal which wasn't detected due to duplicate
+        # triggers elsewhere
+        online_datapoints = []
+        for run_idx, run in enumerate(self.traces):
+            for trace_part_idx in range(len(run['trace'])):
+                online_datapoints.append((run_idx, trace_part_idx))
+        for offline_idx, online_ref in enumerate(online_datapoints):
+            online_run_idx, online_trace_part_idx = online_ref
+            offline_trace_part = processed_data['trace'][offline_idx]
+            online_trace_part = self.traces[online_run_idx]['trace'][online_trace_part_idx]
+
+            if online_trace_part['isa'] != offline_trace_part['isa']:
+                processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) claims to be {off_isa:s}, but should be {on_isa:s}'.format(
+                        off_idx = offline_idx, on_idx = online_run_idx,
+                        on_sub = online_trace_part_idx,
+                        on_name = online_trace_part['name'],
+                        off_isa = offline_trace_part['isa'],
+                        on_isa = online_trace_part['isa'])
+                return False
+
+            if online_trace_part['isa'] == 'state' and online_trace_part['name'] != 'UNINITIALIZED':
+                online_prev_transition = self.traces[online_run_idx]['trace'][online_trace_part_idx-1]
+                online_next_transition = self.traces[online_run_idx]['trace'][online_trace_part_idx+1]
+                if self._state_is_too_short(online_trace_part, offline_trace_part, online_next_transition):
+                    processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too short (duration = {dur:d} us)'.format(
+                        off_idx = offline_idx, on_idx = online_run_idx,
+                        on_sub = online_trace_part_idx,
+                        on_name = online_trace_part['name'],
+                        dur = offline_trace_part['us'])
+                    return False
+                if self._state_is_too_long(online_trace_part, offline_trace_part, online_prev_transition):
+                    processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too long (duration = {dur:d} us)'.format(
+                        off_idx = offline_idx, on_idx = online_run_idx,
+                        on_sub = online_trace_part_idx,
+                        on_name = online_trace_part['name'],
+                        dur = offline_trace_part['us'])
+                    return False
+        return True
+
+    def _merge_measurement_into_online_data(self, measurement):
+        online_datapoints = []
+        for run_idx, run in enumerate(self.traces):
+            for trace_part_idx in range(len(run['trace'])):
+                online_datapoints.append((run_idx, trace_part_idx))
+        for offline_idx, online_ref in enumerate(online_datapoints):
+            online_run_idx, online_trace_part_idx = online_ref
+            offline_trace_part = measurement['trace'][offline_idx]
+            online_trace_part = self.traces[online_run_idx]['trace'][online_trace_part_idx]
+
+            if not 'offline' in online_trace_part:
+                online_trace_part['offline'] = [offline_trace_part]
+            else:
+                online_trace_part['offline'].append(offline_trace_part)
+
+    def preprocess(self):
+        if self.version == 0:
+            self.preprocess_0()
+
+    # Loads raw MIMOSA data and turns it into measurements which are ready to
+    # be analyzed.
+    def preprocess_0(self):
+        with tarfile.open(self.filename) as tf:
+            self.setup = json.load(tf.extractfile('setup.json'))
+            self.traces = json.load(tf.extractfile('src/apps/DriverEval/DriverLog.json'))
+            print(self.setup)
+            mim_files = []
+            for member in tf.getmembers():
+                _, extension = os.path.splitext(member.name)
+                if extension == '.mim':
+                    mim_files.append({
+                        'setup' : self.setup,
+                        'info' : member,
+                        'content' : tf.extractfile(member).read()
+                    })
+            with Pool() as pool:
+                measurements = pool.map(_preprocess_measurement, mim_files)
+        self.sched_trigger_count = 0
+        for run in self.traces:
+            self.sched_trigger_count += len(run['trace'])
+        num_valid = 0
+        for measurement in measurements:
+            if self._measurement_is_valid(measurement):
+                self._merge_measurement_into_online_data(measurement)
+                num_valid += 1
+            else:
+                print('[W] Skipping {m:s}: {e:s}'.format(
+                    m = measurement['info'].name,
+                    e = measurement['error']))
+        print('[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
+            num_valid = num_valid,
+            num_total = len(measurements)))
+
+    def analyze(self):
+        pass
+
 class MIMOSA:
 
     def __init__(self, voltage, shunt):
@@ -100,20 +249,25 @@ class MIMOSA:
         ua_step = ua_max / 65535
         return charge * ua_step
 
-    def load_data(self, filename):
-        with tarfile.open(filename) as tf:
-            num_bytes = tf.getmember('/tmp/mimosa//mimosa_scale_1.tmp').size
-            charges = np.ndarray(shape=(int(num_bytes / 4)), dtype=np.int32)
-            triggers = np.ndarray(shape=(int(num_bytes / 4)), dtype=np.int8)
-            with tf.extractfile('/tmp/mimosa//mimosa_scale_1.tmp') as f:
-                content = f.read()
-                iterator = struct.iter_unpack('<I', content)
-                i = 0
-                for word in iterator:
-                    charges[i] = (word[0] >> 4)
-                    triggers[i] = (word[0] & 0x08) >> 3
-                    i += 1
-        return (charges, triggers)
+    def _load_tf(self, tf):
+        num_bytes = tf.getmember('/tmp/mimosa//mimosa_scale_1.tmp').size
+        charges = np.ndarray(shape=(int(num_bytes / 4)), dtype=np.int32)
+        triggers = np.ndarray(shape=(int(num_bytes / 4)), dtype=np.int8)
+        with tf.extractfile('/tmp/mimosa//mimosa_scale_1.tmp') as f:
+            content = f.read()
+            iterator = struct.iter_unpack('<I', content)
+            i = 0
+            for word in iterator:
+                charges[i] = (word[0] >> 4)
+                triggers[i] = (word[0] & 0x08) >> 3
+                i += 1
+        return charges, triggers
+
+
+    def load_data(self, raw_data):
+        with io.BytesIO(raw_data) as data_object:
+            with tarfile.open(fileobj = data_object) as tf:
+                return self._load_tf(tf)
 
     def currents_nocal(self, charges):
         ua_max = 1.836 / self.shunt * 1000000
@@ -168,7 +322,7 @@ class MIMOSA:
         if cal_r2_mean > cal_0_mean:
             b_lower = (ua_r2 - 0) / (cal_r2_mean - cal_0_mean)
         else:
-            print("WARNING: 0 uA == %.f uA during calibration" % (ua_r2))
+            print('[W] 0 uA == %.f uA during calibration' % (ua_r2))
             b_lower = 0
 
         b_upper = (ua_r1 - ua_r2) / (cal_r1_mean - cal_r2_mean)
