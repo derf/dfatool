@@ -110,11 +110,12 @@ def _preprocess_measurement(measurement):
 
     return processed_data
 
-class AEMRAnalyzer:
+class RawData:
 
     def __init__(self, filename):
         self.filename = filename
         self.version = 0
+        self.preprocessed = False
 
     def _state_is_too_short(self, online, offline, state_duration, next_transition):
         # We cannot control when an interrupt causes a state to be left
@@ -166,20 +167,24 @@ class AEMRAnalyzer:
             if online_trace_part['isa'] == 'state' and online_trace_part['name'] != 'UNINITIALIZED':
                 online_prev_transition = self.traces[online_run_idx]['trace'][online_trace_part_idx-1]
                 online_next_transition = self.traces[online_run_idx]['trace'][online_trace_part_idx+1]
-                if self._state_is_too_short(online_trace_part, offline_trace_part, state_duration, online_next_transition):
-                    processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too short (duration = {dur:d} us)'.format(
-                        off_idx = offline_idx, on_idx = online_run_idx,
-                        on_sub = online_trace_part_idx,
-                        on_name = online_trace_part['name'],
-                        dur = offline_trace_part['us'])
-                    return False
-                if self._state_is_too_long(online_trace_part, offline_trace_part, state_duration, online_prev_transition):
-                    processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too long (duration = {dur:d} us)'.format(
-                        off_idx = offline_idx, on_idx = online_run_idx,
-                        on_sub = online_trace_part_idx,
-                        on_name = online_trace_part['name'],
-                        dur = offline_trace_part['us'])
-                    return False
+                try:
+                    if self._state_is_too_short(online_trace_part, offline_trace_part, state_duration, online_next_transition):
+                        processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too short (duration = {dur:d} us)'.format(
+                            off_idx = offline_idx, on_idx = online_run_idx,
+                            on_sub = online_trace_part_idx,
+                            on_name = online_trace_part['name'],
+                            dur = offline_trace_part['us'])
+                        return False
+                    if self._state_is_too_long(online_trace_part, offline_trace_part, state_duration, online_prev_transition):
+                        processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too long (duration = {dur:d} us)'.format(
+                            off_idx = offline_idx, on_idx = online_run_idx,
+                            on_sub = online_trace_part_idx,
+                            on_name = online_trace_part['name'],
+                            dur = offline_trace_part['us'])
+                        return False
+                except KeyError:
+                    pass
+                    # TODO es gibt next_transitions ohne 'plan'
         return True
 
     def _merge_measurement_into_online_data(self, measurement):
@@ -197,9 +202,47 @@ class AEMRAnalyzer:
             else:
                 online_trace_part['offline'].append(offline_trace_part)
 
-    def preprocess(self):
+            if not 'offline_aggregates' in online_trace_part:
+                online_trace_part['offline_aggregates'] = {
+                    'power_mean' : [],
+                    'duration' : [],
+                    'power_std' : [],
+                    'energy' : [],
+                    'clipping' : [],
+                    'timeout' : [],
+                    'rel_energy_prev' : [],
+                    'rel_energy_next' : []
+                }
+
+            # Note: All state/transitions are 20us "too long" due to injected
+            # active wait states. These are needed to work around MIMOSA's
+            # relatively low sample rate of 100 kHz (10us) and removed here.
+            online_trace_part['offline_aggregates']['power_mean'].append(
+                offline_trace_part['uW_mean'])
+            online_trace_part['offline_aggregates']['duration'].append(
+                offline_trace_part['us'] - 20)
+            online_trace_part['offline_aggregates']['power_std'].append(
+                offline_trace_part['uW_std'])
+            online_trace_part['offline_aggregates']['energy'].append(
+                offline_trace_part['uW_mean'] * (offline_trace_part['us'] - 20))
+            online_trace_part['offline_aggregates']['clipping'].append(
+                offline_trace_part['clip_rate'])
+            if online_trace_part['isa'] == 'transition':
+                online_trace_part['offline_aggregates']['timeout'].append(
+                    offline_trace_part['timeout'])
+                online_trace_part['offline_aggregates']['rel_energy_prev'].append(
+                    offline_trace_part['uW_mean_delta_prev'] * (offline_trace_part['us'] - 20))
+                online_trace_part['offline_aggregates']['rel_energy_next'].append(
+                    offline_trace_part['uW_mean_delta_next'] * (offline_trace_part['us'] - 20))
+
+
+    def get_preprocessed_data(self):
+        if self.preprocessed:
+            return self.traces
         if self.version == 0:
             self.preprocess_0()
+        self.preprocessed = True
+        return self.traces
 
     # Loads raw MIMOSA data and turns it into measurements which are ready to
     # be analyzed.
@@ -233,9 +276,42 @@ class AEMRAnalyzer:
         print('[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
             num_valid = num_valid,
             num_total = len(measurements)))
+        self.setup = setup
+        self.preprocessing_stats = {
+            'num_runs' : len(measurements),
+            'num_valid' : num_valid
+        }
+
+class Analysis:
+
+    def __init__(self, preprocessed_data):
+        self.traces = preprocessed_data
+        self.by_name = {}
+        self.by_arg = {}
+        self.by_param = {}
+        self.by_trace = {}
+
+    def _add_data_to_aggregate(self, aggregate, key, element):
+        if not key in aggregate:
+            aggregate[key] = {
+                'isa' : element['isa']
+            }
+            for datakey in element['offline_aggregates'].keys():
+                aggregate[key][datakey] = []
+        for datakey, dataval in element['offline_aggregates'].items():
+            aggregate[key][datakey].extend(dataval)
+
+    def _load_run_elem(self, i, elem):
+        self._add_data_to_aggregate(self.by_name, elem['name'], elem)
 
     def analyze(self):
-        pass
+        for runidx, run in enumerate(self.traces):
+            # if opts['ignore-trace-idx'] != runidx
+            for i, elem in enumerate(run['trace']):
+                if elem['name'] != 'UNINITIALIZED':
+                    self._load_run_elem(i, elem)
+        return self.by_name
+
 
 class MIMOSA:
 
