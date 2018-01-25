@@ -47,6 +47,10 @@ def aggregate_measures(aggregate, actual):
     return regression_measures(aggregate_array, np.array(actual))
 
 def regression_measures(predicted, actual):
+    if type(predicted) != np.ndarray:
+        raise ValueError('first arg must be ndarray, is {}'.format(type(predicted)))
+    if type(actual) != np.ndarray:
+        raise ValueError('second arg must be ndarray, is {}'.format(type(actual)))
     deviations = predicted - actual
     if len(deviations) == 0:
         return {}
@@ -204,20 +208,21 @@ class RawData:
 
             if not 'offline_aggregates' in online_trace_part:
                 online_trace_part['offline_aggregates'] = {
-                    'power_mean' : [],
+                    'power' : [],
                     'duration' : [],
                     'power_std' : [],
                     'energy' : [],
                     'clipping' : [],
-                    'timeout' : [],
-                    'rel_energy_prev' : [],
-                    'rel_energy_next' : []
                 }
+                if online_trace_part['isa'] == 'transition':
+                    online_trace_part['offline_aggregates']['timeout'] = []
+                    online_trace_part['offline_aggregates']['rel_energy_prev'] = []
+                    online_trace_part['offline_aggregates']['rel_energy_next'] = []
 
             # Note: All state/transitions are 20us "too long" due to injected
             # active wait states. These are needed to work around MIMOSA's
             # relatively low sample rate of 100 kHz (10us) and removed here.
-            online_trace_part['offline_aggregates']['power_mean'].append(
+            online_trace_part['offline_aggregates']['power'].append(
                 offline_trace_part['uW_mean'])
             online_trace_part['offline_aggregates']['duration'].append(
                 offline_trace_part['us'] - 20)
@@ -282,7 +287,7 @@ class RawData:
             'num_valid' : num_valid
         }
 
-class Analysis:
+class EnergyModel:
 
     def __init__(self, preprocessed_data):
         self.traces = preprocessed_data
@@ -290,6 +295,20 @@ class Analysis:
         self.by_arg = {}
         self.by_param = {}
         self.by_trace = {}
+        np.seterr('raise')
+        for runidx, run in enumerate(self.traces):
+            # if opts['ignore-trace-idx'] != runidx
+            for i, elem in enumerate(run['trace']):
+                if elem['name'] != 'UNINITIALIZED':
+                    self._load_run_elem(i, elem)
+        self._aggregate_to_ndarray(self.by_name)
+
+    def _aggregate_to_ndarray(self, aggregate):
+        for elem in aggregate.values():
+            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
+                if key in elem:
+                    elem[key] = np.array(elem[key])
+
 
     def _add_data_to_aggregate(self, aggregate, key, element):
         if not key in aggregate:
@@ -304,13 +323,47 @@ class Analysis:
     def _load_run_elem(self, i, elem):
         self._add_data_to_aggregate(self.by_name, elem['name'], elem)
 
-    def analyze(self):
-        for runidx, run in enumerate(self.traces):
-            # if opts['ignore-trace-idx'] != runidx
-            for i, elem in enumerate(run['trace']):
-                if elem['name'] != 'UNINITIALIZED':
-                    self._load_run_elem(i, elem)
-        return self.by_name
+    def get_static(self):
+        static_model = {}
+        for name, elem in self.by_name.items():
+            static_model[name] = {}
+            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
+                if key in elem:
+                    try:
+                        static_model[name][key] = np.mean(elem[key])
+                    except RuntimeWarning:
+                        print('[W] Got no data for {} {}'.format(name, key))
+                    except FloatingPointError as fpe:
+                        print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
+
+        def getter(name, key, **kwargs):
+            return static_model[name][key]
+
+        return getter
+
+    def states(self):
+        return sorted(list(filter(lambda k: self.by_name[k]['isa'] == 'state', self.by_name.keys())))
+
+    def transitions(self):
+        return sorted(list(filter(lambda k: self.by_name[k]['isa'] == 'transition', self.by_name.keys())))
+
+    def assess(self, model_function):
+        for name, elem in sorted(self.by_name.items()):
+            print('{}:'.format(name))
+            if elem['isa'] == 'state':
+                predicted_data = np.array(list(map(lambda x: model_function(name, 'power'), elem['power'])))
+                measures = regression_measures(predicted_data, elem['power'])
+                print('  power: {:.2f}% / {:.0f} µW'.format(
+                    measures['smape'], measures['mae']
+                ))
+            else:
+                for key in ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']:
+                    predicted_data = np.array(list(map(lambda x: model_function(name, key), elem[key])))
+                    measures = regression_measures(predicted_data, elem[key])
+                    print('  {:10s}: {:.2f}% / {:.0f}'.format(
+                        key, measures['smape'], measures['mae']
+                    ))
+
 
 
 class MIMOSA:
