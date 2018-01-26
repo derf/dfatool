@@ -330,16 +330,34 @@ class EnergyModel:
             for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
                 if key in elem:
                     try:
+                        static_model[name][key] = np.median(elem[key])
+                    except RuntimeWarning:
+                        print('[W] Got no data for {} {}'.format(name, key))
+                    except FloatingPointError as fpe:
+                        print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
+
+        def static_median_getter(name, key, **kwargs):
+            return static_model[name][key]
+
+        return static_median_getter
+
+    def get_static_using_mean(self):
+        static_model = {}
+        for name, elem in self.by_name.items():
+            static_model[name] = {}
+            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
+                if key in elem:
+                    try:
                         static_model[name][key] = np.mean(elem[key])
                     except RuntimeWarning:
                         print('[W] Got no data for {} {}'.format(name, key))
                     except FloatingPointError as fpe:
                         print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
 
-        def getter(name, key, **kwargs):
+        def static_mean_getter(name, key, **kwargs):
             return static_model[name][key]
 
-        return getter
+        return static_mean_getter
 
     def states(self):
         return sorted(list(filter(lambda k: self.by_name[k]['isa'] == 'state', self.by_name.keys())))
