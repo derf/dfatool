@@ -104,8 +104,8 @@ def _preprocess_measurement(measurement):
     vcalfunc = np.vectorize(calfunc, otypes=[np.float64])
 
     processed_data = {
+        'fileno' : measurement['fileno'],
         'info' : measurement['info'],
-        'setup' : measurement['setup'],
         'triggers' : len(trigidx),
         'first_trig' : trigidx[0] * 10,
         'calibration' : caldata,
@@ -116,8 +116,10 @@ def _preprocess_measurement(measurement):
 
 class RawData:
 
-    def __init__(self, filename):
-        self.filename = filename
+    def __init__(self, filenames):
+        self.filenames = filenames.copy()
+        self.traces_by_fileno = []
+        self.setup_by_fileno = []
         self.version = 0
         self.preprocessed = False
 
@@ -139,25 +141,30 @@ class RawData:
         return offline['us'] > state_duration * 1500
 
     def _measurement_is_valid(self, processed_data):
-        state_duration = processed_data['setup']['state_duration']
+        setup = self.setup_by_fileno[processed_data['fileno']]
+        traces = self.traces_by_fileno[processed_data['fileno']]
+        state_duration = setup['state_duration']
         # Check trigger count
-        if self.sched_trigger_count != processed_data['triggers']:
+        sched_trigger_count = 0
+        for run in traces:
+            sched_trigger_count += len(run['trace'])
+        if sched_trigger_count != processed_data['triggers']:
             processed_data['error'] = 'got {got:d} trigger edges, expected {exp:d}'.format(
                     got = processed_data['triggers'],
-                    exp = self.sched_trigger_count
+                    exp = sched_trigger_count
             )
             return False
         # Check state durations. Very short or long states can indicate a
         # missed trigger signal which wasn't detected due to duplicate
         # triggers elsewhere
         online_datapoints = []
-        for run_idx, run in enumerate(self.traces):
+        for run_idx, run in enumerate(traces):
             for trace_part_idx in range(len(run['trace'])):
                 online_datapoints.append((run_idx, trace_part_idx))
         for offline_idx, online_ref in enumerate(online_datapoints):
             online_run_idx, online_trace_part_idx = online_ref
             offline_trace_part = processed_data['trace'][offline_idx]
-            online_trace_part = self.traces[online_run_idx]['trace'][online_trace_part_idx]
+            online_trace_part = traces[online_run_idx]['trace'][online_trace_part_idx]
 
             if online_trace_part['isa'] != offline_trace_part['isa']:
                 processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) claims to be {off_isa:s}, but should be {on_isa:s}'.format(
@@ -169,8 +176,8 @@ class RawData:
                 return False
 
             if online_trace_part['isa'] == 'state' and online_trace_part['name'] != 'UNINITIALIZED':
-                online_prev_transition = self.traces[online_run_idx]['trace'][online_trace_part_idx-1]
-                online_next_transition = self.traces[online_run_idx]['trace'][online_trace_part_idx+1]
+                online_prev_transition = traces[online_run_idx]['trace'][online_trace_part_idx-1]
+                online_next_transition = traces[online_run_idx]['trace'][online_trace_part_idx+1]
                 try:
                     if self._state_is_too_short(online_trace_part, offline_trace_part, state_duration, online_next_transition):
                         processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too short (duration = {dur:d} us)'.format(
@@ -193,13 +200,14 @@ class RawData:
 
     def _merge_measurement_into_online_data(self, measurement):
         online_datapoints = []
-        for run_idx, run in enumerate(self.traces):
+        traces = self.traces_by_fileno[measurement['fileno']]
+        for run_idx, run in enumerate(traces):
             for trace_part_idx in range(len(run['trace'])):
                 online_datapoints.append((run_idx, trace_part_idx))
         for offline_idx, online_ref in enumerate(online_datapoints):
             online_run_idx, online_trace_part_idx = online_ref
             offline_trace_part = measurement['trace'][offline_idx]
-            online_trace_part = self.traces[online_run_idx]['trace'][online_trace_part_idx]
+            online_trace_part = traces[online_run_idx]['trace'][online_trace_part_idx]
 
             if not 'offline' in online_trace_part:
                 online_trace_part['offline'] = [offline_trace_part]
@@ -240,6 +248,10 @@ class RawData:
                 online_trace_part['offline_aggregates']['rel_energy_next'].append(
                     offline_trace_part['uW_mean_delta_next'] * (offline_trace_part['us'] - 20))
 
+    def _concatenate_analyzed_traces(self):
+        self.traces = []
+        for trace in self.traces_by_fileno:
+            self.traces.extend(trace)
 
     def get_preprocessed_data(self):
         if self.preprocessed:
@@ -252,36 +264,38 @@ class RawData:
     # Loads raw MIMOSA data and turns it into measurements which are ready to
     # be analyzed.
     def preprocess_0(self):
-        with tarfile.open(self.filename) as tf:
-            setup = json.load(tf.extractfile('setup.json'))
-            self.traces = json.load(tf.extractfile('src/apps/DriverEval/DriverLog.json'))
-            mim_files = []
-            for member in tf.getmembers():
-                _, extension = os.path.splitext(member.name)
-                if extension == '.mim':
-                    mim_files.append({
-                        'setup' : setup,
-                        'info' : member,
-                        'content' : tf.extractfile(member).read()
-                    })
-            with Pool() as pool:
-                measurements = pool.map(_preprocess_measurement, mim_files)
-        self.sched_trigger_count = 0
-        for run in self.traces:
-            self.sched_trigger_count += len(run['trace'])
+        mim_files = []
+        for i, filename in enumerate(self.filenames):
+            with tarfile.open(filename) as tf:
+                self.setup_by_fileno.append(json.load(tf.extractfile('setup.json')))
+                self.traces_by_fileno.append(json.load(tf.extractfile('src/apps/DriverEval/DriverLog.json')))
+                for member in tf.getmembers():
+                    _, extension = os.path.splitext(member.name)
+                    if extension == '.mim':
+                        mim_files.append({
+                            'content' : tf.extractfile(member).read(),
+                            'fileno' : i,
+                            'info' : member,
+                            'setup' : self.setup_by_fileno[i],
+                            'traces' : self.traces_by_fileno[i],
+                        })
+        with Pool() as pool:
+            measurements = pool.map(_preprocess_measurement, mim_files)
+
         num_valid = 0
         for measurement in measurements:
             if self._measurement_is_valid(measurement):
                 self._merge_measurement_into_online_data(measurement)
                 num_valid += 1
             else:
-                print('[W] Skipping {m:s}: {e:s}'.format(
+                print('[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
+                    ar = self.filenames[measurement['fileno']],
                     m = measurement['info'].name,
                     e = measurement['error']))
         print('[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
             num_valid = num_valid,
             num_total = len(measurements)))
-        self.setup = setup
+        self._concatenate_analyzed_traces()
         self.preprocessing_stats = {
             'num_runs' : len(measurements),
             'num_valid' : num_valid
