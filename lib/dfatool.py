@@ -371,16 +371,26 @@ class EnergyModel:
             if elem['isa'] == 'state':
                 predicted_data = np.array(list(map(lambda x: model_function(name, 'power'), elem['power'])))
                 measures = regression_measures(predicted_data, elem['power'])
-                print('  power: {:.2f}% / {:.0f} µW'.format(
-                    measures['smape'], measures['mae']
-                ))
+                if 'smape' in measures:
+                    print('  power: {:.2f}% / {:.0f} µW'.format(
+                        measures['smape'], measures['mae']
+                    ))
+                else:
+                    print('  power: {:.0f} µW'.format(
+                        measures['mae']
+                    ))
             else:
                 for key in ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']:
                     predicted_data = np.array(list(map(lambda x: model_function(name, key), elem[key])))
                     measures = regression_measures(predicted_data, elem[key])
-                    print('  {:10s}: {:.2f}% / {:.0f}'.format(
-                        key, measures['smape'], measures['mae']
-                    ))
+                    if 'smape' in measures:
+                        print('  {:10s}: {:.2f}% / {:.0f}'.format(
+                            key, measures['smape'], measures['mae']
+                        ))
+                    else:
+                        print('  {:10s}: {:.0f}'.format(
+                            key, measures['mae']
+                        ))
 
 
 
