@@ -9,9 +9,9 @@ if __name__ == '__main__':
 
     preprocessed_data = raw_data.get_preprocessed_data()
     model = EnergyModel(preprocessed_data)
-    static_model = model.get_static()
 
     print('--- simple static model ---')
+    static_model = model.get_static()
     for state in model.states():
         print('{:10s}: {:.0f} µW'.format(state, static_model(state, 'power')))
     for trans in model.transitions():
@@ -20,6 +20,10 @@ if __name__ == '__main__':
             static_model(trans, 'rel_energy_prev'),
             static_model(trans, 'rel_energy_next')))
         print('{:10s}: {:.0f} µs'.format(trans, static_model(trans, 'duration')))
+    model.assess(static_model)
 
-    model.assess(model.get_static())
+    print('--- LUT ---')
+    lut_model = model.get_param_lut()
+    model.assess(lut_model)
+
     sys.exit(0)

@@ -25,6 +25,14 @@ def is_numeric(n):
     except ValueError:
         return False
 
+def _soft_cast_int(n):
+    if n == None or n == '':
+        return None
+    try:
+        return int(n)
+    except ValueError:
+        return n
+
 def float_or_nan(n):
     if n == None:
         return np.nan
@@ -32,6 +40,11 @@ def float_or_nan(n):
         return float(n)
     except ValueError:
         return np.nan
+
+def _param_dict_to_list(param_dict):
+    paramkeys = sorted(param_dict.keys())
+    paramvalue = [_soft_cast_int(param_dict[x]) for x in paramkeys]
+    return paramvalue
 
 def append_if_set(aggregate, data, key):
     if key in data:
@@ -214,6 +227,9 @@ class RawData:
             else:
                 online_trace_part['offline'].append(offline_trace_part)
 
+            paramkeys = sorted(online_trace_part['parameter'].keys())
+            paramvalue = [_soft_cast_int(online_trace_part['parameter'][x]) for x in paramkeys]
+
             if not 'offline_aggregates' in online_trace_part:
                 online_trace_part['offline_aggregates'] = {
                     'power' : [],
@@ -221,6 +237,8 @@ class RawData:
                     'power_std' : [],
                     'energy' : [],
                     'clipping' : [],
+                    'paramkeys' : [],
+                    'param': [],
                 }
                 if online_trace_part['isa'] == 'transition':
                     online_trace_part['offline_aggregates']['timeout'] = []
@@ -240,6 +258,8 @@ class RawData:
                 offline_trace_part['uW_mean'] * (offline_trace_part['us'] - 20))
             online_trace_part['offline_aggregates']['clipping'].append(
                 offline_trace_part['clip_rate'])
+            online_trace_part['offline_aggregates']['paramkeys'].append(paramkeys)
+            online_trace_part['offline_aggregates']['param'].append(paramvalue)
             if online_trace_part['isa'] == 'transition':
                 online_trace_part['offline_aggregates']['timeout'].append(
                     offline_trace_part['timeout'])
@@ -321,7 +341,7 @@ class EnergyModel:
 
     def _aggregate_to_ndarray(self, aggregate):
         for elem in aggregate.values():
-            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
+            for key in ['clipping', 'power', 'power_std', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
                 if key in elem:
                     elem[key] = np.array(elem[key])
 
@@ -338,6 +358,7 @@ class EnergyModel:
 
     def _load_run_elem(self, i, elem):
         self._add_data_to_aggregate(self.by_name, elem['name'], elem)
+        self._add_data_to_aggregate(self.by_param, (elem['name'], tuple(_param_dict_to_list(elem['parameter']))), elem)
 
     def get_static(self):
         static_model = {}
@@ -375,6 +396,25 @@ class EnergyModel:
 
         return static_mean_getter
 
+    def get_param_lut(self):
+        lut_model = {}
+        for name, elem in self.by_param.items():
+            lut_model[name] = {}
+            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
+                if key in elem:
+                    try:
+                        lut_model[name][key] = np.mean(elem[key])
+                    except RuntimeWarning:
+                        print('[W] Got no data for {} {}'.format(name, key))
+                    except FloatingPointError as fpe:
+                        print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
+        print(lut_model)
+
+        def lut_median_getter(name, key, param, **kwargs):
+            return lut_model[(name, tuple(param))][key]
+
+        return lut_median_getter
+
     def states(self):
         return sorted(list(filter(lambda k: self.by_name[k]['isa'] == 'state', self.by_name.keys())))
 
@@ -385,7 +425,7 @@ class EnergyModel:
         for name, elem in sorted(self.by_name.items()):
             print('{}:'.format(name))
             if elem['isa'] == 'state':
-                predicted_data = np.array(list(map(lambda x: model_function(name, 'power'), elem['power'])))
+                predicted_data = np.array(list(map(lambda i: model_function(name, 'power', param=elem['param'][i]), range(len(elem['power'])))))
                 measures = regression_measures(predicted_data, elem['power'])
                 if 'smape' in measures:
                     print('  power: {:.2f}% / {:.0f} µW'.format(
@@ -397,14 +437,14 @@ class EnergyModel:
                     ))
             else:
                 for key in ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']:
-                    predicted_data = np.array(list(map(lambda x: model_function(name, key), elem[key])))
+                    predicted_data = np.array(list(map(lambda i: model_function(name, key, param=elem['param'][i]), range(len(elem[key])))))
                     measures = regression_measures(predicted_data, elem[key])
                     if 'smape' in measures:
-                        print('  {:10s}: {:.2f}% / {:.0f}'.format(
+                        print('  {:15s}: {:.2f}% / {:.0f}'.format(
                             key, measures['smape'], measures['mae']
                         ))
                     else:
-                        print('  {:10s}: {:.0f}'.format(
+                        print('  {:15s}: {:.0f}'.format(
                             key, measures['mae']
                         ))
 
