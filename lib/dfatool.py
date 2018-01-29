@@ -188,6 +188,18 @@ class RawData:
                         on_isa = online_trace_part['isa'])
                 return False
 
+            # Clipping in UNINITIALIZED (offline_idx == 0) can happen during
+            # calibration and is handled by MIMOSA
+            if offline_idx != 0 and offline_trace_part['clip_rate'] != 0:
+                processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) was clipping {clip:f}% of the time'.format(
+                    off_idx = offline_idx, on_idx = online_run_idx,
+                    on_sub = online_trace_part_idx,
+                    on_name = online_trace_part['name'],
+                    clip = offline_trace_part['clip_rate'] * 100,
+                )
+                return False
+
+
             if online_trace_part['isa'] == 'state' and online_trace_part['name'] != 'UNINITIALIZED':
                 online_prev_transition = traces[online_run_idx]['trace'][online_trace_part_idx-1]
                 online_next_transition = traces[online_run_idx]['trace'][online_trace_part_idx+1]
@@ -236,7 +248,6 @@ class RawData:
                     'duration' : [],
                     'power_std' : [],
                     'energy' : [],
-                    'clipping' : [],
                     'paramkeys' : [],
                     'param': [],
                 }
@@ -256,8 +267,6 @@ class RawData:
                 offline_trace_part['uW_std'])
             online_trace_part['offline_aggregates']['energy'].append(
                 offline_trace_part['uW_mean'] * (offline_trace_part['us'] - 20))
-            online_trace_part['offline_aggregates']['clipping'].append(
-                offline_trace_part['clip_rate'])
             online_trace_part['offline_aggregates']['paramkeys'].append(paramkeys)
             online_trace_part['offline_aggregates']['param'].append(paramvalue)
             if online_trace_part['isa'] == 'transition':
@@ -341,7 +350,7 @@ class EnergyModel:
 
     def _aggregate_to_ndarray(self, aggregate):
         for elem in aggregate.values():
-            for key in ['clipping', 'power', 'power_std', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
+            for key in ['power', 'power_std', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
                 if key in elem:
                     elem[key] = np.array(elem[key])
 
@@ -408,7 +417,6 @@ class EnergyModel:
                         print('[W] Got no data for {} {}'.format(name, key))
                     except FloatingPointError as fpe:
                         print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
-        print(lut_model)
 
         def lut_median_getter(name, key, param, **kwargs):
             return lut_model[(name, tuple(param))][key]
