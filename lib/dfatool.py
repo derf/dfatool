@@ -253,7 +253,8 @@ class RawData:
         for trace in self.traces_by_fileno:
             self.traces.extend(trace)
 
-    def get_preprocessed_data(self):
+    def get_preprocessed_data(self, verbose = True):
+        self.verbose = verbose
         if self.preprocessed:
             return self.traces
         if self.version == 0:
@@ -287,14 +288,15 @@ class RawData:
             if self._measurement_is_valid(measurement):
                 self._merge_measurement_into_online_data(measurement)
                 num_valid += 1
-            else:
+            elif self.verbose:
                 print('[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
                     ar = self.filenames[measurement['fileno']],
                     m = measurement['info'].name,
                     e = measurement['error']))
-        print('[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
-            num_valid = num_valid,
-            num_total = len(measurements)))
+        if self.verbose:
+            print('[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
+                num_valid = num_valid,
+                num_total = len(measurements)))
         self._concatenate_analyzed_traces()
         self.preprocessing_stats = {
             'num_runs' : len(measurements),
