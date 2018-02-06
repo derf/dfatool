@@ -6,6 +6,7 @@ import io
 import json
 import numpy as np
 import os
+from scipy import optimize
 from scipy.cluster.vq import kmeans2
 import struct
 import sys
@@ -350,6 +351,84 @@ def _param_slice_eq(a, b, index):
         return True
     return False
 
+class ParamFunction:
+
+    def __init__(self, param_function, validation_function, num_vars):
+        self._param_function = param_function
+        self._validation_function = validation_function
+        self._num_variables = num_vars
+
+    def is_valid(self, arg):
+        return self._validation_function(arg)
+
+    def eval(self, param, args):
+        return self._param_function(param, args)
+
+    def error_function(self, P, X, y):
+        return self._param_function(P, X) - y
+
+class analytic:
+    _num0_8 = np.vectorize(lambda x: 8 - bin(int(x)).count("1"))
+    _num0_16 = np.vectorize(lambda x: 16 - bin(int(x)).count("1"))
+    _num1 = np.vectorize(lambda x: bin(int(x)).count("1"))
+
+    def functions():
+        functions = {
+            'linear' : ParamFunction(
+                lambda param, arg: param[0] + param[1] * arg,
+                lambda arg: True,
+                2
+            ),
+            'logarithmic' : ParamFunction(
+                lambda param, arg: param[0] + param[1] * np.log(arg),
+                lambda arg: arg > 0,
+                2
+            ),
+            'logarithmic1' : ParamFunction(
+                lambda param, arg: param[0] + param[1] * np.log(arg + 1),
+                lambda arg: arg > -1,
+                2
+            ),
+            'exponential' : ParamFunction(
+                lambda param, arg: param[0] + param[1] * np.exp(arg),
+                lambda arg: arg <= 64,
+                2
+            ),
+            #'polynomial' : lambda param, arg: param[0] + param[1] * arg + param[2] * arg ** 2,
+            'square' : ParamFunction(
+                lambda param, arg: param[0] + param[1] * arg ** 2,
+                lambda arg: True,
+                2
+            ),
+            'fractional' : ParamFunction(
+                lambda param, arg: param[0] + param[1] / arg,
+                lambda arg: arg != 0,
+                2
+            ),
+            'sqrt' : ParamFunction(
+                lambda param, arg: param[0] + param[1] * np.sqrt(arg),
+                lambda arg: arg >= 0,
+                2
+            ),
+            'num0_8' : ParamFunction(
+                lambda param, arg: param[0] + param[1] * analytic._num0_8(arg),
+                lambda arg: True,
+                2
+            ),
+            'num0_16' : ParamFunction(
+                lambda param, arg: param[0] + param[1] * analytic._num0_16(arg),
+                lambda arg: True,
+                2
+            ),
+            'num1' : ParamFunction(
+                lambda param, arg: param[0] + param[1] * analytic._num1(arg),
+                lambda arg: True,
+                2
+            ),
+        }
+
+        return functions
+
 class EnergyModel:
 
     def __init__(self, preprocessed_data):
@@ -371,6 +450,67 @@ class EnergyModel:
             for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
                 if key in self.by_name[state_or_trans]:
                     self._compute_param_statistics(state_or_trans, key)
+
+    def _try_fits(self, state_or_tran, model_attribute, param_index):
+        functions = analytic.functions()
+
+
+        for param_key in filter(lambda x: x[0] == state_or_tran, self.by_param.keys()):
+            # We might remove elements from 'functions' while iterating over
+            # its keys. A generator will not allow this, so we need to
+            # convert to a list.
+            function_names = list(functions.keys())
+            for function_name in function_names:
+                function_object = functions[function_name]
+                if is_numeric(param_key[1][param_index]) and not function_object.is_valid(param_key[1][param_index]):
+                    functions.pop(function_name, None)
+
+        raw_results = {}
+        results = {}
+
+        for param_key in filter(lambda x: x[0] == state_or_tran, self.by_param.keys()):
+            X = []
+            Y = []
+            num_valid = 0
+            num_total = 0
+            for k, v in self.by_param.items():
+                if _param_slice_eq(k, param_key, param_index):
+                    num_total += 1
+                    if is_numeric(k[1][param_index]):
+                        num_valid += 1
+                        X.extend([float(k[1][param_index])] * len(v[model_attribute]))
+                        Y.extend(v[model_attribute])
+
+            if num_valid > 2:
+                X = np.array(X)
+                Y = np.array(Y)
+                for function_name, param_function in functions.items():
+                    raw_results[function_name] = {}
+                    error_function = param_function.error_function
+                    res = optimize.least_squares(error_function, [0, 1], args=(X, Y), xtol=2e-15)
+                    measures = regression_measures(param_function.eval(res.x, X), Y)
+                    for measure, error_rate in measures.items():
+                        if not measure in raw_results[function_name]:
+                            raw_results[function_name][measure] = []
+                        raw_results[function_name][measure].append(error_rate)
+                    #print(function_name, res, measures)
+
+        best_fit_val = np.inf
+        best_fit_name = None
+        for function_name, result in raw_results.items():
+            if len(result) > 0:
+                results[function_name] = {}
+                for measure in result.keys():
+                    results[function_name][measure] = np.mean(result[measure])
+                rmsd = results[function_name]['rmsd']
+                if rmsd < best_fit_val:
+                    best_fit_val = rmsd
+                    best_fit_name = function_name
+
+        return {
+            'best' : best_fit_name,
+            'results' : results
+        }
 
     def _aggregate_to_ndarray(self, aggregate):
         for elem in aggregate.values():
@@ -484,6 +624,23 @@ class EnergyModel:
             return lut_model[(name, tuple(param))][key]
 
         return lut_median_getter
+
+    def get_param_analytic(self):
+        static_model = self._get_model_from_dict(self.by_name, np.median)
+
+    def get_fitted(self):
+        for state_or_tran in self.by_name.keys():
+            if self.by_name[state_or_tran]['isa'] == 'state':
+                attributes = ['power']
+            else:
+                attributes = ['energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']
+            for model_attribute in attributes:
+                for parameter_index, parameter_name in enumerate(self._parameter_names):
+                    if self.param_dependence_ratio(state_or_tran, model_attribute, parameter_name) > 0.5:
+                        fit_results = self._try_fits(state_or_tran, model_attribute, parameter_index)
+                        print('{} is {}'.format(parameter_name, fit_results['best']))
+        pass
+
 
     def states(self):
         return sorted(list(filter(lambda k: self.by_name[k]['isa'] == 'state', self.by_name.keys())))
