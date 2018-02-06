@@ -470,17 +470,7 @@ class EnergyModel:
         return static_median_getter
 
     def get_static_using_mean(self):
-        static_model = {}
-        for name, elem in self.by_name.items():
-            static_model[name] = {}
-            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
-                if key in elem:
-                    try:
-                        static_model[name][key] = np.mean(elem[key])
-                    except RuntimeWarning:
-                        print('[W] Got no data for {} {}'.format(name, key))
-                    except FloatingPointError as fpe:
-                        print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
+        static_model = self._get_model_from_dict(self.by_name, np.mean)
 
         def static_mean_getter(name, key, **kwargs):
             return static_model[name][key]
@@ -488,17 +478,7 @@ class EnergyModel:
         return static_mean_getter
 
     def get_param_lut(self):
-        lut_model = {}
-        for name, elem in self.by_param.items():
-            lut_model[name] = {}
-            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
-                if key in elem:
-                    try:
-                        lut_model[name][key] = np.mean(elem[key])
-                    except RuntimeWarning:
-                        print('[W] Got no data for {} {}'.format(name, key))
-                    except FloatingPointError as fpe:
-                        print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
+        lut_model = self._get_model_from_dict(self.by_param, np.median)
 
         def lut_median_getter(name, key, param, **kwargs):
             return lut_model[(name, tuple(param))][key]
