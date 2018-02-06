@@ -135,6 +135,7 @@ class RawData:
         self.setup_by_fileno = []
         self.version = 0
         self.preprocessed = False
+        self._parameter_names = None
 
     def _state_is_too_short(self, online, offline, state_duration, next_transition):
         # We cannot control when an interrupt causes a state to be left
@@ -178,6 +179,18 @@ class RawData:
             online_run_idx, online_trace_part_idx = online_ref
             offline_trace_part = processed_data['trace'][offline_idx]
             online_trace_part = traces[online_run_idx]['trace'][online_trace_part_idx]
+
+            if self._parameter_names == None:
+                self._parameter_names = sorted(online_trace_part['parameter'].keys())
+
+            if sorted(online_trace_part['parameter'].keys()) != self._parameter_names:
+                processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) has inconsistent paramete set: should be {param_want:s}, is {param_is:s}'.format(
+                    off_idx = offline_idx, on_idx = online_run_idx,
+                    on_sub = online_trace_part_idx,
+                    on_name = online_trace_part['name'],
+                    param_want = self._parameter_names,
+                    param_is = sorted(online_trace_part['parameter'].keys())
+                )
 
             if online_trace_part['isa'] != offline_trace_part['isa']:
                 processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) claims to be {off_isa:s}, but should be {on_isa:s}'.format(
@@ -332,6 +345,11 @@ class RawData:
             'num_valid' : num_valid
         }
 
+def _param_slice_eq(a, b, index):
+    if (*a[1][:index], *a[1][index+1:]) == (*b[1][:index], *b[1][index+1:]) and a[0] == b[0]:
+        return True
+    return False
+
 class EnergyModel:
 
     def __init__(self, preprocessed_data):
@@ -340,13 +358,19 @@ class EnergyModel:
         self.by_arg = {}
         self.by_param = {}
         self.by_trace = {}
+        self.stats = {}
         np.seterr('raise')
+        self._parameter_names = sorted(self.traces[0]['trace'][0]['parameter'].keys())
         for runidx, run in enumerate(self.traces):
             # if opts['ignore-trace-idx'] != runidx
             for i, elem in enumerate(run['trace']):
                 if elem['name'] != 'UNINITIALIZED':
                     self._load_run_elem(i, elem)
         self._aggregate_to_ndarray(self.by_name)
+        for state_or_trans in self.by_name.keys():
+            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
+                if key in self.by_name[state_or_trans]:
+                    self._compute_param_statistics(state_or_trans, key)
 
     def _aggregate_to_ndarray(self, aggregate):
         for elem in aggregate.values():
@@ -369,18 +393,76 @@ class EnergyModel:
         self._add_data_to_aggregate(self.by_name, elem['name'], elem)
         self._add_data_to_aggregate(self.by_param, (elem['name'], tuple(_param_dict_to_list(elem['parameter']))), elem)
 
-    def get_static(self):
-        static_model = {}
-        for name, elem in self.by_name.items():
-            static_model[name] = {}
+    def _compute_param_statistics(self, state_or_trans, key):
+        if not state_or_trans in self.stats:
+            self.stats[state_or_trans] = {}
+
+        #static_model = self.get_static()
+        #lut_model = self.get_param_lut()
+
+        self.stats[state_or_trans][key] = {
+            'std_static' : np.std(self.by_name[state_or_trans][key]),
+            'std_param_lut' : np.mean([np.std(self.by_param[x][key]) for x in self.by_param.keys() if x[0] == state_or_trans]),
+            'std_by_param' : {},
+            'mae_static' : 5,
+        }
+
+        for param_idx, param in enumerate(self._parameter_names):
+            self.stats[state_or_trans][key]['std_by_param'][param] = self._mean_std_by_param(state_or_trans, key, param_idx)
+
+# returns the mean standard deviation of all measurements of 'what'
+# (e.g. power consumption or timeout) for state/transition 'name' where
+# parameter 'index' is dynamic and all other parameters are fixed.
+# I.e., if parameters are a, b, c ∈ {1,2,3} and 'index' corresponds to b', then
+# this function returns the mean of the standard deviations of (a=1, b=*, c=1),
+# (a=1, b=*, c=2), and so on
+    def _mean_std_by_param(self, state_or_tran, key, param_index):
+        partitions = []
+        for param_value in filter(lambda x: x[0] == state_or_tran, self.by_param.keys()):
+            param_partition = []
+            for k, v in self.by_param.items():
+                if _param_slice_eq(k, param_value, param_index):
+                    param_partition.extend(v[key])
+            if len(param_partition):
+                partitions.append(param_partition)
+            else:
+                print('[W] parameter value partition for {} is empty'.format(param_value))
+        return np.mean([np.std(partition) for partition in partitions])
+
+    def generic_param_independence_ratio(self, state_or_trans, key):
+        statistics = self.stats[state_or_trans][key]
+        if statistics['std_static'] == 0:
+            return 0
+        return statistics['std_param_lut'] / statistics['std_static']
+
+    def generic_param_dependence_ratio(self, state_or_trans, key):
+        return 1 - self.generic_param_independence_ratio(state_or_trans, key)
+
+    def param_independence_ratio(self, state_or_trans, key, param):
+        statistics = self.stats[state_or_trans][key]
+        if statistics['std_by_param'][param] == 0:
+            return 0
+        return statistics['std_param_lut'] / statistics['std_by_param'][param]
+
+    def param_dependence_ratio(self, state_or_trans, key, param):
+        return 1 - self.param_independence_ratio(state_or_trans, key, param)
+
+    def _get_model_from_dict(self, model_dict, model_function):
+        model = {}
+        for name, elem in model_dict.items():
+            model[name] = {}
             for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
                 if key in elem:
                     try:
-                        static_model[name][key] = np.median(elem[key])
+                        model[name][key] = model_function(elem[key])
                     except RuntimeWarning:
                         print('[W] Got no data for {} {}'.format(name, key))
                     except FloatingPointError as fpe:
                         print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
+        return model
+
+    def get_static(self):
+        static_model = self._get_model_from_dict(self.by_name, np.median)
 
         def static_median_getter(name, key, **kwargs):
             return static_model[name][key]
@@ -429,6 +511,9 @@ class EnergyModel:
     def transitions(self):
         return sorted(list(filter(lambda k: self.by_name[k]['isa'] == 'transition', self.by_name.keys())))
 
+    def parameters(self):
+        return self._parameter_names
+
     def assess(self, model_function):
         for name, elem in sorted(self.by_name.items()):
             print('{}:'.format(name))
@@ -444,7 +529,7 @@ class EnergyModel:
                         measures['mae']
                     ))
             else:
-                for key in ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']:
+                for key in ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next', 'timeout']:
                     predicted_data = np.array(list(map(lambda i: model_function(name, key, param=elem['param'][i]), range(len(elem[key])))))
                     measures = regression_measures(predicted_data, elem[key])
                     if 'smape' in measures:
