@@ -43,6 +43,31 @@ class TestStaticModel(unittest.TestCase):
         self.assertAlmostEqual(static_model('stopListening', 'duration'), 260, places=0)
         self.assertAlmostEqual(static_model('write_nb', 'duration'), 510, places=0)
 
+        self.assertAlmostEqual(model.param_dependence_ratio('POWERDOWN', 'power', 'datarate'), 0, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('POWERDOWN', 'power', 'txbytes'), 0, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('POWERDOWN', 'power', 'txpower'), 0, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('RX', 'power', 'datarate'), 0.99, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('RX', 'power', 'txbytes'), 0, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('RX', 'power', 'txpower'), 0.01, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('STANDBY1', 'power', 'datarate'), 0.04, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('STANDBY1', 'power', 'txbytes'), 0.35, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('STANDBY1', 'power', 'txpower'), 0.32, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('TX', 'power', 'datarate'), 1, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('TX', 'power', 'txbytes'), 0.09, places=2)
+        self.assertAlmostEqual(model.param_dependence_ratio('TX', 'power', 'txpower'), 1, places=2)
+
+        param_model, param_info = model.get_fitted()
+        self.assertEqual(param_info('POWERDOWN', 'power'), None)
+        self.assertEqual(param_info('RX', 'power')['function']._model_str,
+            '0 + regression_arg(0) + regression_arg(1) * np.sqrt(parameter(datarate))')
+        self.assertEqual(param_info('STANDBY1', 'power'), None)
+        self.assertEqual(param_info('TX', 'power')['function']._model_str,
+            '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate)) + regression_arg(2) * parameter(txpower) + regression_arg(3) * 1/(parameter(datarate)) * parameter(txpower)')
+        self.assertEqual(param_info('epilogue', 'timeout')['function']._model_str,
+            '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate))')
+        self.assertEqual(param_info('stopListening', 'duration')['function']._model_str,
+            '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate))')
+
 
     def test_model_singlefile_mmparam(self):
         raw_data = RawData(['../data/20161221_123347_mmparam.tar'])
@@ -190,6 +215,15 @@ class TestStaticModel(unittest.TestCase):
         self.assertAlmostEqual(static_model('setTxPower', 'energy'), 288701, places=0)
         self.assertAlmostEqual(static_model('sleep', 'energy'), 104445, places=0)
         self.assertEqual(static_model('txDone', 'energy'), 0)
+
+        param_model, param_info = model.get_fitted()
+        self.assertEqual(param_info('IDLE', 'power'), None)
+        self.assertEqual(param_info('RX', 'power')['function']._model_str,
+            '0 + regression_arg(0) + regression_arg(1) * np.log(parameter(symbolrate) + 1)')
+        self.assertEqual(param_info('SLEEP', 'power'), None)
+        self.assertEqual(param_info('SLEEP_EWOR', 'power'), None)
+        self.assertEqual(param_info('SYNTH_ON', 'power'), None)
+        self.assertEqual(param_info('XOFF', 'power'), None)
 
 if __name__ == '__main__':
     unittest.main()

@@ -367,10 +367,82 @@ class ParamFunction:
     def error_function(self, P, X, y):
         return self._param_function(P, X) - y
 
+class AnalyticFunction:
+
+    def __init__(self, function_str, num_vars, parameters):
+        self._parameter_names = parameters
+        self._model_str = function_str
+        rawfunction = function_str
+        self._dependson = [False] * len(parameters)
+
+        for i in range(len(parameters)):
+            if rawfunction.find('parameter({})'.format(parameters[i])) >= 0:
+                self._dependson[i] = True
+                rawfunction = rawfunction.replace('parameter({})'.format(parameters[i]), 'arg[{:d}]'.format(i))
+            if rawfunction.find('function_arg({})'.format(parameters[i])) >= 0:
+                self._dependson[i] = True
+                rawfunction = rawfunction.replace('function_arg({})'.format(parameters[i]), 'arg[{:d}]'.format(i))
+        for i in range(num_vars):
+            rawfunction = rawfunction.replace('regression_arg({:d})'.format(i), 'param[{:d}]'.format(i))
+        self._function_str = rawfunction
+        self._function = eval('lambda param, arg: ' + rawfunction);
+        self._regression_args = list(np.ones((num_vars)))
+
+    def _get_fit_data(self, by_param, state_or_tran, model_attribute):
+        X = [[] for i in range(len(self._parameter_names))]
+        Y = []
+
+        num_valid = 0
+        num_total = 0
+
+        for key, val in by_param.items():
+            if key[0] == state_or_tran and len(key[1]) == len(self._parameter_names):
+                valid = True
+                num_total += 1
+                for i in range(len(self._parameter_names)):
+                    if self._dependson[i] and not is_numeric(key[1][i]):
+                        valid = False
+                if valid:
+                    num_valid += 1
+                    Y.extend(val[model_attribute])
+                    for i in range(len(self._parameter_names)):
+                        if self._dependson[i]:
+                            X[i].extend([float(key[1][i])] * len(val[model_attribute]))
+                        else:
+                            X[i].extend([np.nan] * len(val[model_attribute]))
+        for i in range(len(self._parameter_names)):
+            X[i] = np.array(X[i])
+        Y = np.array(Y)
+
+        return X, Y, num_valid, num_total
+
+    def fit(self, by_param, state_or_tran, model_attribute):
+        X, Y, num_valid, num_total = self._get_fit_data(by_param, state_or_tran, model_attribute)
+        if num_valid > 2:
+            error_function = lambda P, X, y: self._function(P, X) - y
+            try:
+                res = optimize.least_squares(error_function, self._regression_args, args=(X, Y), xtol=2e-15)
+            except ValueError as err:
+                return
+            self._regression_args = res.x
+
 class analytic:
     _num0_8 = np.vectorize(lambda x: 8 - bin(int(x)).count("1"))
     _num0_16 = np.vectorize(lambda x: 16 - bin(int(x)).count("1"))
     _num1 = np.vectorize(lambda x: bin(int(x)).count("1"))
+
+    _function_map = {
+        'linear' : lambda x: x,
+        'logarithmic' : np.log,
+        'logarithmic1' : lambda x: np.log(x + 1),
+        'exponential' : np.exp,
+        'square' : lambda x : x ** 2,
+        'fractional' : lambda x : 1 / x,
+        'sqrt' : np.sqrt,
+        'num0_8' : _num0_8,
+        'num0_16' : _num0_16,
+        'num1' : _num1,
+    }
 
     def functions():
         functions = {
@@ -428,6 +500,47 @@ class analytic:
         }
 
         return functions
+
+    def _fmap(reference_type, reference_name, function_type):
+        ref_str = '{}({})'.format(reference_type,reference_name)
+        if function_type == 'linear':
+            return ref_str
+        if function_type == 'logarithmic':
+            return 'np.log({})'.format(ref_str)
+        if function_type == 'logarithmic1':
+            return 'np.log({} + 1)'.format(ref_str)
+        if function_type == 'exponential':
+            return 'np.exp({})'.format(ref_str)
+        if function_type == 'exponential':
+            return 'np.exp({})'.format(ref_str)
+        if function_type == 'square':
+            return '({})**2'.format(ref_str)
+        if function_type == 'fractional':
+            return '1/({})'.format(ref_str)
+        if function_type == 'sqrt':
+            return 'np.sqrt({})'.format(ref_str)
+        return 'analytic._{}({})'.format(function_type, ref_str)
+
+    def function_powerset(function_descriptions, parameter_names):
+        buf = '0'
+        arg_idx = 0
+        for combination in powerset(function_descriptions.items()):
+            buf += ' + regression_arg({:d})'.format(arg_idx)
+            arg_idx += 1
+            for function_item in combination:
+                buf += ' * {}'.format(analytic._fmap('parameter', function_item[0], function_item[1]['best']))
+        return AnalyticFunction(buf, arg_idx, parameter_names)
+
+    #def function_powerset(function_descriptions):
+    #    function_buffer = lambda param, arg: 0
+    #    param_idx = 0
+    #    for combination in powerset(function_descriptions):
+    #        new_function = lambda param, arg: param[param_idx]
+    #        param_idx += 1
+    #        for function_name in combination:
+    #            new_function = lambda param, arg: new_function(param, arg) * analytic._function_map[function_name](arg)
+    #        new_function = lambda param, arg: param[param_idx] * 
+    #        function_buffer = lambda param, arg: function_buffer(param, arg) + 
 
 class EnergyModel:
 
@@ -629,17 +742,36 @@ class EnergyModel:
         static_model = self._get_model_from_dict(self.by_name, np.median)
 
     def get_fitted(self):
+        static_model = self._get_model_from_dict(self.by_name, np.mean)
+        param_model = dict([[state_or_tran, {}] for state_or_tran in self.by_name.keys()])
         for state_or_tran in self.by_name.keys():
             if self.by_name[state_or_tran]['isa'] == 'state':
                 attributes = ['power']
             else:
                 attributes = ['energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']
             for model_attribute in attributes:
+                fit_results = {}
                 for parameter_index, parameter_name in enumerate(self._parameter_names):
                     if self.param_dependence_ratio(state_or_tran, model_attribute, parameter_name) > 0.5:
-                        fit_results = self._try_fits(state_or_tran, model_attribute, parameter_index)
-                        print('{} is {}'.format(parameter_name, fit_results['best']))
-        pass
+                        fit_results[parameter_name] = self._try_fits(state_or_tran, model_attribute, parameter_index)
+                        #print('{} {} is {}'.format(state_or_tran, parameter_name, fit_results[parameter_name]['best']))
+                if len(fit_results.keys()):
+                    x = analytic.function_powerset(fit_results, self._parameter_names)
+                    x.fit(self.by_param, state_or_tran, model_attribute)
+                    param_model[state_or_tran][model_attribute] = {
+                        'fit_result': fit_results,
+                        'function' : x
+                    }
+
+        def model_getter(name, key, **kwargs):
+            return static_model[name][key]
+
+        def info_getter(name, key):
+            if key in param_model[name]:
+                return param_model[name][key]
+            return None
+
+        return model_getter, info_getter
 
 
     def states(self):
