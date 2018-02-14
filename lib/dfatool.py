@@ -798,31 +798,19 @@ class EnergyModel:
         return self._parameter_names
 
     def assess(self, model_function):
+        results = {}
         for name, elem in sorted(self.by_name.items()):
-            print('{}:'.format(name))
+            results[name] = {}
             if elem['isa'] == 'state':
                 predicted_data = np.array(list(map(lambda i: model_function(name, 'power', param=elem['param'][i]), range(len(elem['power'])))))
                 measures = regression_measures(predicted_data, elem['power'])
-                if 'smape' in measures:
-                    print('  power: {:.2f}% / {:.0f} µW'.format(
-                        measures['smape'], measures['mae']
-                    ))
-                else:
-                    print('  power: {:.0f} µW'.format(
-                        measures['mae']
-                    ))
+                results[name]['power'] = measures
             else:
                 for key in ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next', 'timeout']:
                     predicted_data = np.array(list(map(lambda i: model_function(name, key, param=elem['param'][i]), range(len(elem[key])))))
                     measures = regression_measures(predicted_data, elem[key])
-                    if 'smape' in measures:
-                        print('  {:15s}: {:.2f}% / {:.0f}'.format(
-                            key, measures['smape'], measures['mae']
-                        ))
-                    else:
-                        print('  {:15s}: {:.0f}'.format(
-                            key, measures['mae']
-                        ))
+                    results[name][key] = measures
+        return results
 
 
 
