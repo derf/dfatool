@@ -225,5 +225,8 @@ class TestStaticModel(unittest.TestCase):
         self.assertEqual(param_info('SYNTH_ON', 'power'), None)
         self.assertEqual(param_info('XOFF', 'power'), None)
 
+        self.assertAlmostEqual(param_info('RX', 'power')['function']._regression_args[0], 84415, places=0)
+        self.assertAlmostEqual(param_info('RX', 'power')['function']._regression_args[1], 206, places=0)
+
 if __name__ == '__main__':
     unittest.main()
