@@ -15,17 +15,21 @@ def print_model_quality(results):
                     state_or_tran, key, result['mae']))
 
 
-def model_quality_table(result_lists):
+def model_quality_table(result_lists, info_list):
     for state_or_tran in result_lists[0].keys():
         for key in result_lists[0][state_or_tran].keys():
             buf = '{:20s} {:15s}'.format(state_or_tran, key)
-            for results in result_lists:
+            for i, results in enumerate(result_lists):
+                info = info_list[i]
                 buf += '  |||  '
-                result = results[state_or_tran][key]
-                if 'smape' in result:
-                    buf += '{:6.2f}% / {:9.0f}'.format(result['smape'], result['mae'])
+                if info == None or info(state_or_tran, key):
+                    result = results[state_or_tran][key]
+                    if 'smape' in result:
+                        buf += '{:6.2f}% / {:9.0f}'.format(result['smape'], result['mae'])
+                    else:
+                        buf += '{:6}    {:9.0f}'.format('', result['mae'])
                 else:
-                    buf += '{:6}    {:9.0f}'.format('', result['mae'])
+                    buf += '{:6}----{:9}'.format('', '')
             print(buf)
 
 if __name__ == '__main__':
@@ -64,17 +68,17 @@ if __name__ == '__main__':
 
     print('--- param model ---')
     param_model, param_info = model.get_fitted()
-    #for state in model.states():
-    #    for attribute in ['power']:
-    #        if param_info(state, attribute):
-    #            print('{:10s}: {}'.format(state, param_info(state, attribute)['function']._model_str))
-    #            print('{:10s}  {}'.format('', param_info(state, attribute)['function']._regression_args))
-    #for trans in model.transitions():
-    #    for attribute in ['energy', 'rel_energy_prev', 'rel_energy_next', 'duration', 'timeout']:
-    #        if param_info(trans, attribute):
-    #            print('{:10s}: {:10s}: {}'.format(trans, attribute, param_info(trans, attribute)['function']._model_str))
-    #            print('{:10s}  {:10s}  {}'.format('', '', param_info(trans, attribute)['function']._regression_args))
+    for state in model.states():
+        for attribute in ['power']:
+            if param_info(state, attribute):
+                print('{:10s}: {}'.format(state, param_info(state, attribute)['function']._model_str))
+                print('{:10s}  {}'.format('', param_info(state, attribute)['function']._regression_args))
+    for trans in model.transitions():
+        for attribute in ['energy', 'rel_energy_prev', 'rel_energy_next', 'duration', 'timeout']:
+            if param_info(trans, attribute):
+                print('{:10s}: {:10s}: {}'.format(trans, attribute, param_info(trans, attribute)['function']._model_str))
+                print('{:10s}  {:10s}  {}'.format('', '', param_info(trans, attribute)['function']._regression_args))
     analytic_quality = model.assess(param_model)
-    model_quality_table([static_quality, lut_quality, analytic_quality])
+    model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
 
     sys.exit(0)

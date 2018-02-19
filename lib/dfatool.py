@@ -269,6 +269,7 @@ class RawData:
                     online_trace_part['offline_aggregates']['timeout'] = []
                     online_trace_part['offline_aggregates']['rel_energy_prev'] = []
                     online_trace_part['offline_aggregates']['rel_energy_next'] = []
+                    online_trace_part['offline_aggregates']['args'] = []
 
             # Note: All state/transitions are 20us "too long" due to injected
             # active wait states. These are needed to work around MIMOSA's
@@ -290,6 +291,13 @@ class RawData:
                     offline_trace_part['uW_mean_delta_prev'] * (offline_trace_part['us'] - 20))
                 online_trace_part['offline_aggregates']['rel_energy_next'].append(
                     offline_trace_part['uW_mean_delta_next'] * (offline_trace_part['us'] - 20))
+                # Unscheduled transitions do not have an 'args' field set.
+                # However, they should only be caused by interrupts, and
+                # interrupts don't have args anyways.
+                if 'args' in online_trace_part:
+                    online_trace_part['offline_aggregates']['args'].append(online_trace_part['args'])
+                else:
+                    online_trace_part['offline_aggregates']['args'].append([])
 
     def _concatenate_analyzed_traces(self):
         self.traces = []
@@ -378,14 +386,15 @@ class AnalyticFunction:
         for i in range(len(parameters)):
             if rawfunction.find('parameter({})'.format(parameters[i])) >= 0:
                 self._dependson[i] = True
-                rawfunction = rawfunction.replace('parameter({})'.format(parameters[i]), 'arg[{:d}]'.format(i))
-            if rawfunction.find('function_arg({})'.format(parameters[i])) >= 0:
+                rawfunction = rawfunction.replace('parameter({})'.format(parameters[i]), 'model_param[{:d}]'.format(i))
+        for i in range(0, 0):
+            if rawfunction.find('function_arg({:d})'.format(i)) >= 0:
                 self._dependson[i] = True
-                rawfunction = rawfunction.replace('function_arg({})'.format(parameters[i]), 'arg[{:d}]'.format(i))
+                rawfunction = rawfunction.replace('function_arg({:d})'.format(i), 'model_param[{:d}]'.format(len(parameters) + i))
         for i in range(num_vars):
-            rawfunction = rawfunction.replace('regression_arg({:d})'.format(i), 'param[{:d}]'.format(i))
+            rawfunction = rawfunction.replace('regression_arg({:d})'.format(i), 'reg_param[{:d}]'.format(i))
         self._function_str = rawfunction
-        self._function = eval('lambda param, arg: ' + rawfunction);
+        self._function = eval('lambda reg_param, model_param: ' + rawfunction);
         self._regression_args = list(np.ones((num_vars)))
 
     def _get_fit_data(self, by_param, state_or_tran, model_attribute):
@@ -456,54 +465,54 @@ class analytic:
     def functions():
         functions = {
             'linear' : ParamFunction(
-                lambda param, arg: param[0] + param[1] * arg,
-                lambda arg: True,
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] * model_param,
+                lambda model_param: True,
                 2
             ),
             'logarithmic' : ParamFunction(
-                lambda param, arg: param[0] + param[1] * np.log(arg),
-                lambda arg: arg > 0,
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] * np.log(model_param),
+                lambda model_param: model_param > 0,
                 2
             ),
             'logarithmic1' : ParamFunction(
-                lambda param, arg: param[0] + param[1] * np.log(arg + 1),
-                lambda arg: arg > -1,
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] * np.log(model_param + 1),
+                lambda model_param: model_param > -1,
                 2
             ),
             'exponential' : ParamFunction(
-                lambda param, arg: param[0] + param[1] * np.exp(arg),
-                lambda arg: arg <= 64,
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] * np.exp(model_param),
+                lambda model_param: model_param <= 64,
                 2
             ),
-            #'polynomial' : lambda param, arg: param[0] + param[1] * arg + param[2] * arg ** 2,
+            #'polynomial' : lambda reg_param, model_param: reg_param[0] + reg_param[1] * model_param + reg_param[2] * model_param ** 2,
             'square' : ParamFunction(
-                lambda param, arg: param[0] + param[1] * arg ** 2,
-                lambda arg: True,
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] * model_param ** 2,
+                lambda model_param: True,
                 2
             ),
             'fractional' : ParamFunction(
-                lambda param, arg: param[0] + param[1] / arg,
-                lambda arg: arg != 0,
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] / model_param,
+                lambda model_param: model_param != 0,
                 2
             ),
             'sqrt' : ParamFunction(
-                lambda param, arg: param[0] + param[1] * np.sqrt(arg),
-                lambda arg: arg >= 0,
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] * np.sqrt(model_param),
+                lambda model_param: model_param >= 0,
                 2
             ),
             'num0_8' : ParamFunction(
-                lambda param, arg: param[0] + param[1] * analytic._num0_8(arg),
-                lambda arg: True,
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] * analytic._num0_8(model_param),
+                lambda model_param: True,
                 2
             ),
             'num0_16' : ParamFunction(
-                lambda param, arg: param[0] + param[1] * analytic._num0_16(arg),
-                lambda arg: True,
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] * analytic._num0_16(model_param),
+                lambda model_param: True,
                 2
             ),
             'num1' : ParamFunction(
-                lambda param, arg: param[0] + param[1] * analytic._num1(arg),
-                lambda arg: True,
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] * analytic._num1(model_param),
+                lambda model_param: True,
                 2
             ),
         }
@@ -556,7 +565,6 @@ class EnergyModel:
     def __init__(self, preprocessed_data):
         self.traces = preprocessed_data
         self.by_name = {}
-        self.by_arg = {}
         self.by_param = {}
         self.by_trace = {}
         self.stats = {}
@@ -651,9 +659,19 @@ class EnergyModel:
         for datakey, dataval in element['offline_aggregates'].items():
             aggregate[key][datakey].extend(dataval)
 
+    def _load_agg_elem(self, name, elem):
+        args = []
+        if 'args' in elem:
+            args = elem['args']
+        self._add_data_to_aggregate(self.by_name, name, elem)
+        self._add_data_to_aggregate(self.by_param, (name, tuple(elem['param']), tuple(args)), elem)
+
     def _load_run_elem(self, i, elem):
+        args = []
+        if 'args' in elem:
+            args = elem['args']
         self._add_data_to_aggregate(self.by_name, elem['name'], elem)
-        self._add_data_to_aggregate(self.by_param, (elem['name'], tuple(_param_dict_to_list(elem['parameter']))), elem)
+        self._add_data_to_aggregate(self.by_param, (elem['name'], tuple(_param_dict_to_list(elem['parameter'])), tuple(args)), elem)
 
     def _compute_param_statistics(self, state_or_trans, key):
         if not state_or_trans in self.stats:
@@ -742,8 +760,8 @@ class EnergyModel:
     def get_param_lut(self):
         lut_model = self._get_model_from_dict(self.by_param, np.median)
 
-        def lut_median_getter(name, key, param, **kwargs):
-            return lut_model[(name, tuple(param))][key]
+        def lut_median_getter(name, key, param, arg = [], **kwargs):
+            return lut_model[(name, tuple(param), tuple(arg))][key]
 
         return lut_median_getter
 
@@ -807,7 +825,7 @@ class EnergyModel:
                 results[name]['power'] = measures
             else:
                 for key in ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next', 'timeout']:
-                    predicted_data = np.array(list(map(lambda i: model_function(name, key, param=elem['param'][i]), range(len(elem[key])))))
+                    predicted_data = np.array(list(map(lambda i: model_function(name, key, param=elem['param'][i], arg=elem['args'][i]), range(len(elem[key])))))
                     measures = regression_measures(predicted_data, elem[key])
                     results[name][key] = measures
         return results
