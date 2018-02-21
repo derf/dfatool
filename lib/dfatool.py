@@ -638,6 +638,47 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index):
         'results' : results
     }
 
+def _compute_param_statistics_parallel(args):
+    return {
+        'state_or_trans' : args['state_or_trans'],
+        'key' : args['key'],
+        'result' : _compute_param_statistics(*args['args'])
+    }
+
+def _compute_param_statistics(by_name, by_param, parameter_names, num_args, state_or_trans, key):
+    ret = {
+        'std_static' : np.std(by_name[state_or_trans][key]),
+        'std_param_lut' : np.mean([np.std(by_param[x][key]) for x in by_param.keys() if x[0] == state_or_trans]),
+        'std_by_param' : {},
+    }
+
+    for param_idx, param in enumerate(parameter_names):
+        ret['std_by_param'][param] = _mean_std_by_param(by_param, state_or_trans, key, param_idx)
+    if arg_support_enabled and by_name[state_or_trans]['isa'] == 'transition':
+        for arg_index in range(num_args[state_or_trans]):
+            ret['std_by_param'][_arg_name(arg_index)] = _mean_std_by_param(by_param, state_or_trans, key, len(self._parameter_names) + arg_index)
+
+    return ret
+
+# returns the mean standard deviation of all measurements of 'what'
+# (e.g. power consumption or timeout) for state/transition 'name' where
+# parameter 'index' is dynamic and all other parameters are fixed.
+# I.e., if parameters are a, b, c ∈ {1,2,3} and 'index' corresponds to b', then
+# this function returns the mean of the standard deviations of (a=1, b=*, c=1),
+# (a=1, b=*, c=2), and so on
+def _mean_std_by_param(by_param, state_or_tran, key, param_index):
+    partitions = []
+    for param_value in filter(lambda x: x[0] == state_or_tran, by_param.keys()):
+        param_partition = []
+        for k, v in by_param.items():
+            if _param_slice_eq(k, param_value, param_index):
+                param_partition.extend(v[key])
+        if len(param_partition):
+            partitions.append(param_partition)
+        else:
+            print('[W] parameter value partition for {} is empty'.format(param_value))
+    return np.mean([np.std(partition) for partition in partitions])
+
 class EnergyModel:
 
     def __init__(self, preprocessed_data):
@@ -657,10 +698,27 @@ class EnergyModel:
                 if elem['isa'] == 'transition' and not elem['name'] in self._num_args and 'args' in elem:
                     self._num_args[elem['name']] = len(elem['args'])
         self._aggregate_to_ndarray(self.by_name)
+        self._compute_all_param_statistics()
+
+    def _compute_all_param_statistics(self):
+        queue = []
         for state_or_trans in self.by_name.keys():
+            self.stats[state_or_trans] = {}
             for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
                 if key in self.by_name[state_or_trans]:
-                    self._compute_param_statistics(state_or_trans, key)
+                    self.stats[state_or_trans][key] = _compute_param_statistics(self.by_name, self.by_param, self._parameter_names, self._num_args, state_or_trans, key)
+                    #queue.append({
+                    #    'state_or_trans' : state_or_trans,
+                    #    'key' : key,
+                    #    'args' : [self.by_name, self.by_param, self._parameter_names, self._num_args, state_or_trans, key]
+                    #})
+
+        # IPC overhead for by_name/by_param (un)pickling is higher than
+        # multiprocessing speedup...  so let's not do this.
+        #with Pool() as pool:
+        #    results = pool.map(_compute_param_statistics_parallel, queue)
+        #for ret in results:
+        #    self.stats[ret['state_or_trans']][ret['key']] = ret['result']
 
     @classmethod
     def from_model(self, model_data, parameter_names):
@@ -675,10 +733,7 @@ class EnergyModel:
                 #if elem['isa'] == 'transition' and not state_or_tran in self._num_args and 'args' in elem:
                 #    self._num_args = len(elem['args'])
         self._aggregate_to_ndarray(self.by_name)
-        for state_or_trans in self.by_name.keys():
-            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
-                if key in self.by_name[state_or_trans]:
-                    self._compute_param_statistics(state_or_trans, key)
+        self._compute_all_param_statistics()
 
     def _aggregate_to_ndarray(self, aggregate):
         for elem in aggregate.values():
@@ -704,45 +759,6 @@ class EnergyModel:
     def _load_run_elem(self, i, elem):
         self._add_data_to_aggregate(self.by_name, elem['name'], elem)
         self._add_data_to_aggregate(self.by_param, (elem['name'], tuple(_elem_param_and_arg_list(elem))), elem)
-
-    def _compute_param_statistics(self, state_or_trans, key):
-        if not state_or_trans in self.stats:
-            self.stats[state_or_trans] = {}
-
-        #static_model = self.get_static()
-        #lut_model = self.get_param_lut()
-
-        self.stats[state_or_trans][key] = {
-            'std_static' : np.std(self.by_name[state_or_trans][key]),
-            'std_param_lut' : np.mean([np.std(self.by_param[x][key]) for x in self.by_param.keys() if x[0] == state_or_trans]),
-            'std_by_param' : {},
-            'mae_static' : 5,
-        }
-
-        for param_idx, param in enumerate(self._parameter_names):
-            self.stats[state_or_trans][key]['std_by_param'][param] = self._mean_std_by_param(state_or_trans, key, param_idx)
-        if arg_support_enabled and self.by_name[state_or_trans]['isa'] == 'transition':
-            for arg_index in range(self._num_args[state_or_trans]):
-                self.stats[state_or_trans][key]['std_by_param'][_arg_name(arg_index)] = self._mean_std_by_param(state_or_trans, key, len(self._parameter_names) + arg_index)
-
-# returns the mean standard deviation of all measurements of 'what'
-# (e.g. power consumption or timeout) for state/transition 'name' where
-# parameter 'index' is dynamic and all other parameters are fixed.
-# I.e., if parameters are a, b, c ∈ {1,2,3} and 'index' corresponds to b', then
-# this function returns the mean of the standard deviations of (a=1, b=*, c=1),
-# (a=1, b=*, c=2), and so on
-    def _mean_std_by_param(self, state_or_tran, key, param_index):
-        partitions = []
-        for param_value in filter(lambda x: x[0] == state_or_tran, self.by_param.keys()):
-            param_partition = []
-            for k, v in self.by_param.items():
-                if _param_slice_eq(k, param_value, param_index):
-                    param_partition.extend(v[key])
-            if len(param_partition):
-                partitions.append(param_partition)
-            else:
-                print('[W] parameter value partition for {} is empty'.format(param_value))
-        return np.mean([np.std(partition) for partition in partitions])
 
     def generic_param_independence_ratio(self, state_or_trans, key):
         statistics = self.stats[state_or_trans][key]
