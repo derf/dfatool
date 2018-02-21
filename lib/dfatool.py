@@ -825,6 +825,8 @@ class EnergyModel:
         param_model = dict([[state_or_tran, {}] for state_or_tran in self.by_name.keys()])
         fit_queue = []
         for state_or_tran in self.by_name.keys():
+            param_keys = filter(lambda k: k[0] == state_or_tran, self.by_param.keys())
+            param_subdict = dict(map(lambda k: [k, self.by_param[k]], param_keys))
             num_args = 0
             if self.by_name[state_or_tran]['isa'] == 'state':
                 attributes = ['power']
@@ -846,7 +848,7 @@ class EnergyModel:
                         if self.param_dependence_ratio(state_or_tran, model_attribute, _arg_name(arg_index)) > 0.5:
                             fit_queue.append({
                                 'key' : [state_or_tran, model_attribute, _arg_name(arg_index)],
-                                'args' : [self.by_param, state_or_tran, model_attribute, len(self._parameter_names) + arg_index]
+                                'args' : [param_subdict, state_or_tran, model_attribute, len(self._parameter_names) + arg_index]
                             })
                             #fit_results[_arg_name(arg_index)] = _try_fits(self.by_param, state_or_tran, model_attribute, len(self._parameter_names) + arg_index)
                 #if 'args' in self.by_name[state_or_tran]:
