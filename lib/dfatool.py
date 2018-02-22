@@ -389,6 +389,7 @@ class AnalyticFunction:
         self._model_str = function_str
         rawfunction = function_str
         self._dependson = [False] * (len(parameters) + num_args)
+        self.fit_success = False
 
         for i in range(len(parameters)):
             if rawfunction.find('parameter({})'.format(parameters[i])) >= 0:
@@ -437,8 +438,6 @@ class AnalyticFunction:
 
     def fit(self, by_param, state_or_tran, model_attribute):
         X, Y, num_valid, num_total = self._get_fit_data(by_param, state_or_tran, model_attribute)
-        if state_or_tran == 'send':
-            print('{} {} dependson {}'.format(state_or_tran, model_attribute, self._dependson))
         if num_valid > 2:
             error_function = lambda P, X, y: self._function(P, X) - y
             try:
@@ -448,6 +447,7 @@ class AnalyticFunction:
                 return
             if res.status > 0:
                 self._regression_args = res.x
+                self.fit_success = True
             else:
                 print('[W] Fit failed for {}/{}: {} (function: {})'.format(state_or_tran, model_attribute, res.message, self._model_str))
         else:
@@ -913,10 +913,11 @@ class EnergyModel:
                 if len(fit_results.keys()):
                     x = analytic.function_powerset(fit_results, self._parameter_names, num_args)
                     x.fit(self.by_param, state_or_tran, model_attribute)
-                    param_model[state_or_tran][model_attribute] = {
-                        'fit_result': fit_results,
-                        'function' : x
-                    }
+                    if x.fit_success:
+                        param_model[state_or_tran][model_attribute] = {
+                            'fit_result': fit_results,
+                            'function' : x
+                        }
 
         def model_getter(name, key, **kwargs):
             if key in param_model[name]:
