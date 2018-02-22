@@ -13,7 +13,7 @@ import sys
 import tarfile
 from multiprocessing import Pool
 
-arg_support_enabled = False
+arg_support_enabled = True
 
 def running_mean(x, N):
     cumsum = np.cumsum(np.insert(x, 0, 0))
@@ -385,13 +385,10 @@ class AnalyticFunction:
 
     def __init__(self, function_str, num_vars, parameters, num_args):
         self._parameter_names = parameters
+        self._num_args = num_args
         self._model_str = function_str
         rawfunction = function_str
         self._dependson = [False] * (len(parameters) + num_args)
-
-        for i in range(0, num_args):
-            if rawfunction.find('parameter({})'.format(_arg_name(i))) >= 0:
-                rawfunction = rawfunction.replace('parameter({})'.format(_arg_name(i)), 'function_arg({:d})'.format(i))
 
         for i in range(len(parameters)):
             if rawfunction.find('parameter({})'.format(parameters[i])) >= 0:
@@ -408,28 +405,31 @@ class AnalyticFunction:
         self._regression_args = list(np.ones((num_vars)))
 
     def _get_fit_data(self, by_param, state_or_tran, model_attribute):
-        X = [[] for i in range(len(self._parameter_names))]
+        dimension = len(self._parameter_names) + self._num_args
+        X = [[] for i in range(dimension)]
         Y = []
 
         num_valid = 0
         num_total = 0
 
         for key, val in by_param.items():
-            if key[0] == state_or_tran and len(key[1]) == len(self._parameter_names):
+            if key[0] == state_or_tran and len(key[1]) == dimension:
                 valid = True
                 num_total += 1
-                for i in range(len(self._parameter_names)):
+                for i in range(dimension):
                     if self._dependson[i] and not is_numeric(key[1][i]):
                         valid = False
                 if valid:
                     num_valid += 1
                     Y.extend(val[model_attribute])
-                    for i in range(len(self._parameter_names)):
+                    for i in range(dimension):
                         if self._dependson[i]:
                             X[i].extend([float(key[1][i])] * len(val[model_attribute]))
                         else:
                             X[i].extend([np.nan] * len(val[model_attribute]))
-        for i in range(len(self._parameter_names)):
+            elif key[0] == state_or_tran and len(key[1]) != dimension:
+                print('[W] Invalid parameter key length while gathering fit data for {}/{}. is {}, want {}.'.format(state_or_tran, model_attribute, len(key[1]), dimension))
+        for i in range(dimension):
             X[i] = np.array(X[i])
         Y = np.array(Y)
 
@@ -437,13 +437,21 @@ class AnalyticFunction:
 
     def fit(self, by_param, state_or_tran, model_attribute):
         X, Y, num_valid, num_total = self._get_fit_data(by_param, state_or_tran, model_attribute)
+        if state_or_tran == 'send':
+            print('{} {} dependson {}'.format(state_or_tran, model_attribute, self._dependson))
         if num_valid > 2:
             error_function = lambda P, X, y: self._function(P, X) - y
             try:
                 res = optimize.least_squares(error_function, self._regression_args, args=(X, Y), xtol=2e-15)
             except ValueError as err:
+                print('[W] Fit failed for {}/{}: {} (function: {})'.format(state_or_tran, model_attribute, err, self._model_str))
                 return
-            self._regression_args = res.x
+            if res.status > 0:
+                self._regression_args = res.x
+            else:
+                print('[W] Fit failed for {}/{}: {} (function: {})'.format(state_or_tran, model_attribute, res.message, self._model_str))
+        else:
+            print('[W] Insufficient amount of valid parameter keys, cannot fit {}/{}'.format(state_or_tran, model_attribute))
 
     def is_predictable(self, param_list):
         for i, param in enumerate(param_list):
@@ -556,7 +564,10 @@ class analytic:
             buf += ' + regression_arg({:d})'.format(arg_idx)
             arg_idx += 1
             for function_item in combination:
-                buf += ' * {}'.format(analytic._fmap('parameter', function_item[0], function_item[1]['best']))
+                if arg_support_enabled and is_numeric(function_item[0]):
+                    buf += ' * {}'.format(analytic._fmap('function_arg', function_item[0], function_item[1]['best']))
+                else:
+                    buf += ' * {}'.format(analytic._fmap('parameter', function_item[0], function_item[1]['best']))
         return AnalyticFunction(buf, arg_idx, parameter_names, num_args)
 
     #def function_powerset(function_descriptions):
@@ -592,6 +603,10 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index):
                 functions.pop(function_name, None)
 
     raw_results = {}
+    ref_results = {
+        'mean' : [],
+        'median' : []
+    }
     results = {}
 
     for param_key in filter(lambda x: x[0] == state_or_tran, by_param.keys()):
@@ -620,6 +635,10 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index):
                         raw_results[function_name][measure] = []
                     raw_results[function_name][measure].append(error_rate)
                 #print(function_name, res, measures)
+            mean_measures = aggregate_measures(np.mean(Y), Y)
+            ref_results['mean'].append(mean_measures['rmsd'])
+            median_measures = aggregate_measures(np.median(Y), Y)
+            ref_results['median'].append(median_measures['rmsd'])
 
     best_fit_val = np.inf
     best_fit_name = None
@@ -635,6 +654,9 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index):
 
     return {
         'best' : best_fit_name,
+        'best_rmsd' : best_fit_val,
+        'mean_rmsd' : np.mean(ref_results['mean']),
+        'median_rmsd' : np.mean(ref_results['median']),
         'results' : results
     }
 
@@ -650,13 +672,14 @@ def _compute_param_statistics(by_name, by_param, parameter_names, num_args, stat
         'std_static' : np.std(by_name[state_or_trans][key]),
         'std_param_lut' : np.mean([np.std(by_param[x][key]) for x in by_param.keys() if x[0] == state_or_trans]),
         'std_by_param' : {},
+        'std_by_arg' : [],
     }
 
     for param_idx, param in enumerate(parameter_names):
         ret['std_by_param'][param] = _mean_std_by_param(by_param, state_or_trans, key, param_idx)
     if arg_support_enabled and by_name[state_or_trans]['isa'] == 'transition':
         for arg_index in range(num_args[state_or_trans]):
-            ret['std_by_param'][_arg_name(arg_index)] = _mean_std_by_param(by_param, state_or_trans, key, len(self._parameter_names) + arg_index)
+            ret['std_by_arg'].append(_mean_std_by_param(by_param, state_or_trans, key, len(parameter_names) + arg_index))
 
     return ret
 
@@ -778,6 +801,15 @@ class EnergyModel:
     def param_dependence_ratio(self, state_or_trans, key, param):
         return 1 - self.param_independence_ratio(state_or_trans, key, param)
 
+    def arg_independence_ratio(self, state_or_trans, key, arg_index):
+        statistics = self.stats[state_or_trans][key]
+        if statistics['std_by_arg'][arg_index] == 0:
+            return 0
+        return statistics['std_param_lut'] / statistics['std_by_arg'][arg_index]
+
+    def arg_dependence_ratio(self, state_or_trans, key, arg_index):
+        return 1 - self.arg_independence_ratio(state_or_trans, key, arg_index)
+
     def _get_model_from_dict(self, model_dict, model_function):
         model = {}
         for name, elem in model_dict.items():
@@ -827,7 +859,6 @@ class EnergyModel:
         for state_or_tran in self.by_name.keys():
             param_keys = filter(lambda k: k[0] == state_or_tran, self.by_param.keys())
             param_subdict = dict(map(lambda k: [k, self.by_param[k]], param_keys))
-            num_args = 0
             if self.by_name[state_or_tran]['isa'] == 'state':
                 attributes = ['power']
             else:
@@ -843,11 +874,10 @@ class EnergyModel:
                         #fit_results[parameter_name] = _try_fits(self.by_param, state_or_tran, model_attribute, parameter_index)
                         #print('{} {} is {}'.format(state_or_tran, parameter_name, fit_results[parameter_name]['best']))
                 if arg_support_enabled and self.by_name[state_or_tran]['isa'] == 'transition':
-                    num_args = self._num_args[state_or_tran]
                     for arg_index in range(self._num_args[state_or_tran]):
-                        if self.param_dependence_ratio(state_or_tran, model_attribute, _arg_name(arg_index)) > 0.5:
+                        if self.arg_dependence_ratio(state_or_tran, model_attribute, arg_index) > 0.5:
                             fit_queue.append({
-                                'key' : [state_or_tran, model_attribute, _arg_name(arg_index)],
+                                'key' : [state_or_tran, model_attribute, arg_index],
                                 'args' : [param_subdict, state_or_tran, model_attribute, len(self._parameter_names) + arg_index]
                             })
                             #fit_results[_arg_name(arg_index)] = _try_fits(self.by_param, state_or_tran, model_attribute, len(self._parameter_names) + arg_index)
@@ -868,7 +898,17 @@ class EnergyModel:
                 fit_results = {}
                 for result in all_fit_results:
                     if result['key'][0] == state_or_tran and result['key'][1] == model_attribute:
-                        fit_results[result['key'][2]] = result['result']
+                        fit_result = result['result']
+                        if fit_result['best_rmsd'] >= min(fit_result['mean_rmsd'], fit_result['median_rmsd']):
+                            print('[I] Not modeling {} {} as function of {}: best ({:.0f}) is worse than ref ({:.0f}, {:.0f})'.format(
+                                state_or_tran, model_attribute, result['key'][2], fit_result['best_rmsd'],
+                                fit_result['mean_rmsd'], fit_result['median_rmsd']))
+                        elif fit_result['best_rmsd'] >= 0.5 * min(fit_result['mean_rmsd'], fit_result['median_rmsd']):
+                            print('[I] Not modeling {} {} as function o {}: best ({:.0f}) is not much better than ({:.0f}, {:.0f})'.format(
+                                state_or_tran, model_attribute, result['key'][2], fit_result['best_rmsd'],
+                                fit_result['mean_rmsd'], fit_result['median_rmsd']))
+                        else:
+                            fit_results[result['key'][2]] = fit_result
 
                 if len(fit_results.keys()):
                     x = analytic.function_powerset(fit_results, self._parameter_names, num_args)
