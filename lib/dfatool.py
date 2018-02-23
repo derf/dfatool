@@ -7,7 +7,8 @@ import json
 import numpy as np
 import os
 from scipy import optimize
-from scipy.cluster.vq import kmeans2
+from gplearn.genetic import SymbolicRegressor
+from sklearn.metrics import r2_score
 import struct
 import sys
 import tarfile
@@ -74,6 +75,7 @@ def regression_measures(predicted, actual):
     if type(actual) != np.ndarray:
         raise ValueError('second arg must be ndarray, is {}'.format(type(actual)))
     deviations = predicted - actual
+    mean = np.mean(actual)
     if len(deviations) == 0:
         return {}
     measures = {
@@ -81,12 +83,17 @@ def regression_measures(predicted, actual):
         'msd' : np.mean(deviations**2, dtype=np.float64),
         'rmsd' : np.sqrt(np.mean(deviations**2), dtype=np.float64),
         'ssr' : np.sum(deviations**2, dtype=np.float64),
+        'rsq' : r2_score(actual, predicted),
     }
+
+    #rsq_quotient = np.sum((actual - mean)**2, dtype=np.float64) * np.sum((predicted - mean)**2, dtype=np.float64)
 
     if np.all(actual != 0):
         measures['mape'] = np.mean(np.abs(deviations / actual)) * 100 # bad measure
     if np.all(np.abs(predicted) + np.abs(actual) != 0):
         measures['smape'] = np.mean(np.abs(deviations) / (( np.abs(predicted) + np.abs(actual)) / 2 )) * 100
+    #if np.all(rsq_quotient != 0):
+    #    measures['rsq'] = (np.sum((actual - mean) * (predicted - mean), dtype=np.float64)**2) / rsq_quotient
 
     return measures
 
