@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 
+import getopt
+import plotter
+import re
 import sys
-from dfatool import EnergyModel, RawData
+from dfatool import EnergyModel, RawData, soft_cast_int
+
+opts = {}
 
 def print_model_quality(results):
     for state_or_tran in results.keys():
@@ -33,11 +38,30 @@ def model_quality_table(result_lists, info_list):
             print(buf)
 
 if __name__ == '__main__':
-    filenames = sys.argv[1:]
-    raw_data = RawData(filenames)
+
+    ignored_trace_indexes = None
+
+    try:
+        raw_opts, args = getopt.getopt(sys.argv[1:], "",
+            'plot ignored-trace-indexes='.split(' '))
+
+        for option, parameter in raw_opts:
+            optname = re.sub(r'^--', '', option)
+            opts[optname] = parameter
+
+            if 'ignored-trace-indexes' in opts:
+                ignored_trace_indexes = list(map(int, opts['ignored-trace-indexes'].split(',')))
+                if 0 in ignored_trace_indexes:
+                    print('[E] arguments to --ignored-trace-indexes start from 1')
+
+    except getopt.GetoptError as err:
+        print(err)
+        sys.exit(2)
+
+    raw_data = RawData(args)
 
     preprocessed_data = raw_data.get_preprocessed_data()
-    model = EnergyModel(preprocessed_data)
+    model = EnergyModel(preprocessed_data, ignore_trace_indexes = ignored_trace_indexes)
 
     print('--- simple static model ---')
     static_model = model.get_static()
