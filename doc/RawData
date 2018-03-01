@@ -1,0 +1,59 @@
+get_preprocessed_data:
+[ ... Liste von einzelnen Läufen (d.h. eine Zustands- und Transitionsfolge UNINITIALIZED -> foo -> FOO -> bar -> BAR -> ...)
+	Jeder Lauf:
+	- id: int Nummer des Laufs, beginnend bei 1
+	- trace: [ ... Liste von Zuständen und Transitionen
+		Jeweils:
+		- name: str Name
+		- isa: str state // transition
+		- parameter: { ... globaler Parameter: aktueller wert. null falls noch nicht eingestellt }
+		- plan:
+			Falls isa == 'state':
+			- power: int(uW?)
+			- time: int(us) geplante Dauer
+			- energy: int(pJ?)
+			Falls isa == 'transition':
+			- timeout: int(us) oder null
+			- energy: int (pJ?)
+			- level: str 'user' 'epilogue'
+		- offline_aggregates:
+			- power: [float(uW)] Mittlere Leistung während Zustand/Transitions
+			- power_std: [float(uW^2)] Standardabweichung der Leistung
+			- duration: [int(us)] Dauer
+			- energy: [float(pJ)] Energieaufnahme des Zustands / der Transition
+			- clip_rate: [float(0..1)] Clipping
+			- paramkeys: [[str]] Name der berücksichtigten Parameter
+			- param: [int // str] Parameterwerte. Quasi-Duplikat von 'parameter' oben
+			Falls isa == 'transition':
+			- timeout: [int(us)] Dauer des vorherigen Zustands
+			- rel_energy_prev: [int(pJ)]
+			- rel_energy_next: [int(pJ)]
+		- offline: [ ... Während der Messung von MIMOSA o.ä. gemessene Werte
+			-> siehe doc/MIMOSA analyze_states
+			- isa: 'state' oder 'transition'
+			- clip_rate: range(0..1) Anteil an Clipping im Energieverbrauch
+			- raw_mean: Mittelwert der Rohwerte
+			- raw_std: Standardabweichung der Rohwerte
+			- uW_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
+			- uW_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
+			- us: Dauer
+			Nur falls isa 'transition':
+			- timeout: Dauer des vorherigen Zustands
+			- uW_mean_delta_prev
+			- uW_mean_delta_next
+		]
+		- online: [ ... Während der Messung vom Betriebssystem bestimmte Daten
+			Falls isa == 'state':
+			- power: int(uW?)
+			- time: int(us) geplante Dauer
+			- energy: int(pJ?)
+			Falls isa == 'transition':
+			- timeout: int(us) oder null
+			- energy: int (pJ?)
+			- level: str ('user' oder 'epilogue')
+		]
+		Falls isa == 'transition':
+		- code: [str] Name und Argumente der aufgerufenen Funktion
+		- args: [str] Argumente der aufgerufenen Funktion
+	]
+]

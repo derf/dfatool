@@ -1,0 +1,32 @@
+calibration_functio#caldata:
+- edges: [int(us)] Position der Kalibrierungsflanken in us seit Messbeginn
+- offset: int Null-Offset der Rohwerte (Mittlerer Rohwert ohne Verbrauch)
+- offset2: int Rohwert bei R2 als Last
+- slope_low: int Funktionssteigung zwischen 0 und R2
+- slope_high: int Funktionssteigung zwischen R2 und R1
+- add_low: Funktionsoffset zwischen 0 und R2
+- add_high: Funktionsoffset zwischen R2 und R1
+- r0_err_uW: int(uW) Mittlerer Messfehler der unkalibrierten Daten ohne Verbrauch
+- r0_std_uW: int Standardabweichung des Messfehlers der unkalibrierten Daten ohne Verbrauch
+- r1_err_uW: int(uW) Mittlerer Messfehler der unkalibrierten Daten an R1
+- r1_std_uW: int Standardabweichung des Messfehlers der unkalibrierten Daten an R1
+- r2_err_uW: int(uW) Mittlerer Messfehler der unkalibrierten Daten an R2
+- r2_std_uW: int Standardabweichung des Messfehlers der unkalibrierten Daten an R2
+
+analyze_states:
+[... Ein Element pro Trace-Part, begrenzt durch Triggerflanken.
+     Jedes Element stellt also einen Zustand oder eine Transition dar.
+
+	- isa: 'state' oder 'transition'
+	- clip_rate: range(0..1) Anteil an Clipping im Energieverbrauch
+	- raw_mean: Mittelwert der Rohwerte
+	- raw_std: Standardabweichung der Rohwerte
+	- uW_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
+	- uW_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
+	- us: Dauer
+
+	Nur falls isa 'transition':
+	- timeout: Dauer des vorherigen Zustands
+	- uW_mean_delta_prev: Differenz zwischen uW_mean und uW_mean des vorherigen Zustands
+	- uW_mean_delta_next: Differenz zwischen uW_mean und uW_mean des Folgezustands
+]

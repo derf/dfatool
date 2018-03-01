@@ -1,0 +1,9 @@
+- trigger_pin: int
+- state_duration: int(ms)
+- trace_revisit: int
+- trace_filter: [...]
+- excluded_states: [...]
+- mimosa_shunt: int(ohm)
+- mimosa_offset: int(?)
+- ignore_nested: bool
+- mimosa_voltage: float(V)
