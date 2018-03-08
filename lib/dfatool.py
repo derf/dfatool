@@ -122,6 +122,33 @@ class Keysight:
                 currents[i] = float(row[2]) * -1
         return timestamps, currents
 
+def _xv_partitions_kfold(length, num_slices):
+    pairs = []
+    indexes = np.arange(length)
+    for i in range(0, num_slices):
+        training = np.delete(indexes, slice(i, None, num_slices))
+        validation = indexes[i::num_slices]
+        pairs.append((training, validation))
+    return pairs
+
+def _xv_partitions_montecarlo(length, num_slices):
+    pairs = []
+    for i in range(0, num_slices):
+        shuffled = np.random.permutation(np.arange(length))
+        border = int(length * float(2) / 3)
+        training = shuffled[:border]
+        validation = shuffled[border:]
+        pairs.append((training, validation))
+    return pairs
+
+class CrossValidation:
+
+    def __init__(self, em, num_partitions):
+        self._em = em
+        self._num_partitions = num_partitions
+        x = EnergyModel.from_model(em.by_name, em._parameter_names)
+
+
 def _preprocess_measurement(measurement):
     setup = measurement['setup']
     mim = MIMOSA(float(setup['mimosa_voltage']), int(setup['mimosa_shunt']))
@@ -287,9 +314,9 @@ class RawData:
                     'param': [],
                 }
                 if online_trace_part['isa'] == 'transition':
-                    online_trace_part['offline_aggregates']['timeout'] = []
                     online_trace_part['offline_aggregates']['rel_energy_prev'] = []
                     online_trace_part['offline_aggregates']['rel_energy_next'] = []
+                    online_trace_part['offline_aggregates']['timeout'] = []
 
             # Note: All state/transitions are 20us "too long" due to injected
             # active wait states. These are needed to work around MIMOSA's
@@ -305,12 +332,12 @@ class RawData:
             online_trace_part['offline_aggregates']['paramkeys'].append(paramkeys)
             online_trace_part['offline_aggregates']['param'].append(paramvalue)
             if online_trace_part['isa'] == 'transition':
-                online_trace_part['offline_aggregates']['timeout'].append(
-                    offline_trace_part['timeout'])
                 online_trace_part['offline_aggregates']['rel_energy_prev'].append(
                     offline_trace_part['uW_mean_delta_prev'] * (offline_trace_part['us'] - 20))
                 online_trace_part['offline_aggregates']['rel_energy_next'].append(
                     offline_trace_part['uW_mean_delta_next'] * (offline_trace_part['us'] - 20))
+                online_trace_part['offline_aggregates']['timeout'].append(
+                    offline_trace_part['timeout'])
 
     def _concatenate_analyzed_traces(self):
         self.traces = []
@@ -683,7 +710,7 @@ def _compute_param_statistics(by_name, by_param, parameter_names, num_args, stat
 
     for param_idx, param in enumerate(parameter_names):
         ret['std_by_param'][param] = _mean_std_by_param(by_param, state_or_trans, key, param_idx)
-    if arg_support_enabled and by_name[state_or_trans]['isa'] == 'transition':
+    if arg_support_enabled and state_or_trans in num_args:
         for arg_index in range(num_args[state_or_trans]):
             ret['std_by_arg'].append(_mean_std_by_param(by_param, state_or_trans, key, len(parameter_names) + arg_index))
 
@@ -718,6 +745,7 @@ class EnergyModel:
         self.stats = {}
         np.seterr('raise')
         self._parameter_names = sorted(self.traces[0]['trace'][0]['parameter'].keys())
+        self._epilogue_functions = set()
         self._num_args = {}
         for run in self.traces:
             if ignore_trace_indexes == None or int(run['id']) not in ignore_trace_indexes:
@@ -726,8 +754,9 @@ class EnergyModel:
                         self._load_run_elem(i, elem)
                     if elem['isa'] == 'transition' and not elem['name'] in self._num_args and 'args' in elem:
                         self._num_args[elem['name']] = len(elem['args'])
-            else:
-                print('[I] ignored trace index #{:d}'.format(int(run['id'])))
+                    #if elem['isa'] == 'transition' and elem['plan']['level'] == 'epilogue':
+                    #    self._epilogue_functions.add(elem['name'])
+        print(self._epilogue_functions)
         self._aggregate_to_ndarray(self.by_name)
         self._compute_all_param_statistics()
 
@@ -735,7 +764,7 @@ class EnergyModel:
         queue = []
         for state_or_trans in self.by_name.keys():
             self.stats[state_or_trans] = {}
-            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
+            for key in self.by_name[state_or_trans]['attributes']:
                 if key in self.by_name[state_or_trans]:
                     self.stats[state_or_trans][key] = _compute_param_statistics(self.by_name, self.by_param, self._parameter_names, self._num_args, state_or_trans, key)
                     #queue.append({
@@ -768,18 +797,24 @@ class EnergyModel:
 
     def _aggregate_to_ndarray(self, aggregate):
         for elem in aggregate.values():
-            for key in ['power', 'power_std', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
-                if key in elem:
-                    elem[key] = np.array(elem[key])
+            for key in elem['attributes']:
+                elem[key] = np.array(elem[key])
 
 
     def _add_data_to_aggregate(self, aggregate, key, element):
         if not key in aggregate:
             aggregate[key] = {
-                'isa' : element['isa']
+                'isa' : element['isa'],
+                'attributes' : list(element['offline_aggregates'].keys())
             }
             for datakey in element['offline_aggregates'].keys():
                 aggregate[key][datakey] = []
+            if element['isa'] == 'state':
+                aggregate[key]['attributes'] = ['power']
+            else:
+                aggregate[key]['attributes'] = ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']
+                if element['plan']['level'] == 'epilogue':
+                    aggregate[key]['attributes'].insert(0, 'timeout')
         for datakey, dataval in element['offline_aggregates'].items():
             aggregate[key][datakey].extend(dataval)
 
@@ -822,14 +857,13 @@ class EnergyModel:
         model = {}
         for name, elem in model_dict.items():
             model[name] = {}
-            for key in ['power', 'energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']:
-                if key in elem:
-                    try:
-                        model[name][key] = model_function(elem[key])
-                    except RuntimeWarning:
-                        print('[W] Got no data for {} {}'.format(name, key))
-                    except FloatingPointError as fpe:
-                        print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
+            for key in elem['attributes']:
+                try:
+                    model[name][key] = model_function(elem[key])
+                except RuntimeWarning:
+                    print('[W] Got no data for {} {}'.format(name, key))
+                except FloatingPointError as fpe:
+                    print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
         return model
 
     def get_static(self):
@@ -867,11 +901,7 @@ class EnergyModel:
         for state_or_tran in self.by_name.keys():
             param_keys = filter(lambda k: k[0] == state_or_tran, self.by_param.keys())
             param_subdict = dict(map(lambda k: [k, self.by_param[k]], param_keys))
-            if self.by_name[state_or_tran]['isa'] == 'state':
-                attributes = ['power']
-            else:
-                attributes = ['energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']
-            for model_attribute in attributes:
+            for model_attribute in self.by_name[state_or_tran]['attributes']:
                 fit_results = {}
                 for parameter_index, parameter_name in enumerate(self._parameter_names):
                     if self.param_dependence_ratio(state_or_tran, model_attribute, parameter_name) > 0.5:
@@ -898,11 +928,7 @@ class EnergyModel:
             num_args = 0
             if arg_support_enabled and self.by_name[state_or_tran]['isa'] == 'transition':
                 num_args = self._num_args[state_or_tran]
-            if self.by_name[state_or_tran]['isa'] == 'state':
-                attributes = ['power']
-            else:
-                attributes = ['energy', 'duration', 'timeout', 'rel_energy_prev', 'rel_energy_next']
-            for model_attribute in attributes:
+            for model_attribute in self.by_name[state_or_tran]['attributes']:
                 fit_results = {}
                 for result in all_fit_results:
                     if result['key'][0] == state_or_tran and result['key'][1] == model_attribute:
@@ -956,15 +982,10 @@ class EnergyModel:
         results = {}
         for name, elem in sorted(self.by_name.items()):
             results[name] = {}
-            if elem['isa'] == 'state':
-                predicted_data = np.array(list(map(lambda i: model_function(name, 'power', param=elem['param'][i]), range(len(elem['power'])))))
-                measures = regression_measures(predicted_data, elem['power'])
-                results[name]['power'] = measures
-            else:
-                for key in ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next', 'timeout']:
-                    predicted_data = np.array(list(map(lambda i: model_function(name, key, param=elem['param'][i]), range(len(elem[key])))))
-                    measures = regression_measures(predicted_data, elem[key])
-                    results[name][key] = measures
+            for key in elem['attributes']:
+                predicted_data = np.array(list(map(lambda i: model_function(name, key, param=elem['param'][i]), range(len(elem[key])))))
+                measures = regression_measures(predicted_data, elem[key])
+                results[name][key] = measures
         return results
 
 
