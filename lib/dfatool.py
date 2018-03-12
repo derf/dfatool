@@ -836,8 +836,7 @@ class EnergyModel:
     def _add_data_to_aggregate(self, aggregate, key, element):
         if not key in aggregate:
             aggregate[key] = {
-                'isa' : element['isa'],
-                'attributes' : list(element['offline_aggregates'].keys())
+                'isa' : element['isa']
             }
             for datakey in element['offline_aggregates'].keys():
                 aggregate[key][datakey] = []
