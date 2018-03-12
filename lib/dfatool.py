@@ -745,7 +745,6 @@ class EnergyModel:
         self.stats = {}
         np.seterr('raise')
         self._parameter_names = sorted(self.traces[0]['trace'][0]['parameter'].keys())
-        self._epilogue_functions = set()
         self._num_args = {}
         for run in self.traces:
             if ignore_trace_indexes == None or int(run['id']) not in ignore_trace_indexes:
@@ -754,9 +753,6 @@ class EnergyModel:
                         self._load_run_elem(i, elem)
                     if elem['isa'] == 'transition' and not elem['name'] in self._num_args and 'args' in elem:
                         self._num_args[elem['name']] = len(elem['args'])
-                    #if elem['isa'] == 'transition' and elem['plan']['level'] == 'epilogue':
-                    #    self._epilogue_functions.add(elem['name'])
-        print(self._epilogue_functions)
         self._aggregate_to_ndarray(self.by_name)
         self._compute_all_param_statistics()
 
