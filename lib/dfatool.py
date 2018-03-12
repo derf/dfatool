@@ -305,6 +305,7 @@ class RawData:
                 paramvalue.extend(map(soft_cast_int, online_trace_part['args']))
 
             if not 'offline_aggregates' in online_trace_part:
+                online_trace_part['offline_attributes'] = ['power', 'duration', 'energy']
                 online_trace_part['offline_aggregates'] = {
                     'power' : [],
                     'duration' : [],
@@ -314,6 +315,7 @@ class RawData:
                     'param': [],
                 }
                 if online_trace_part['isa'] == 'transition':
+                    online_trace_part['offline_attributes'].extend(['rel_energy_prev', 'rel_energy_next', 'timeout'])
                     online_trace_part['offline_aggregates']['rel_energy_prev'] = []
                     online_trace_part['offline_aggregates']['rel_energy_next'] = []
                     online_trace_part['offline_aggregates']['timeout'] = []
@@ -737,7 +739,7 @@ def _mean_std_by_param(by_param, state_or_tran, key, param_index):
 
 class EnergyModel:
 
-    def __init__(self, preprocessed_data, ignore_trace_indexes = None):
+    def __init__(self, preprocessed_data, ignore_trace_indexes = None, discard_outliers = None):
         self.traces = preprocessed_data
         self.by_name = {}
         self.by_param = {}
@@ -746,6 +748,9 @@ class EnergyModel:
         np.seterr('raise')
         self._parameter_names = sorted(self.traces[0]['trace'][0]['parameter'].keys())
         self._num_args = {}
+        self._outlier_threshold = discard_outliers
+        if discard_outliers != None:
+            self._compute_outlier_stats(ignore_trace_indexes, discard_outliers)
         for run in self.traces:
             if ignore_trace_indexes == None or int(run['id']) not in ignore_trace_indexes:
                 for i, elem in enumerate(run['trace']):
@@ -755,6 +760,26 @@ class EnergyModel:
                         self._num_args[elem['name']] = len(elem['args'])
         self._aggregate_to_ndarray(self.by_name)
         self._compute_all_param_statistics()
+
+    def _compute_outlier_stats(self, ignore_trace_indexes, threshold):
+        tmp_by_param = {}
+        self.median_by_param = {}
+        for run in self.traces:
+            if ignore_trace_indexes == None or int(run['id']) not in ignore_trace_indexes:
+                for i, elem in enumerate(run['trace']):
+                    key = (elem['name'], tuple(_elem_param_and_arg_list(elem)))
+                    if not key in tmp_by_param:
+                        tmp_by_param[key] = {}
+                        for attribute in elem['offline_attributes']:
+                            tmp_by_param[key][attribute] = []
+                    for attribute in elem['offline_attributes']:
+                        tmp_by_param[key][attribute].extend(elem['offline_aggregates'][attribute])
+        for key, elem in tmp_by_param.items():
+            if not key in self.median_by_param:
+                self.median_by_param[key] = {}
+            for attribute in tmp_by_param[key].keys():
+                self.median_by_param[key][attribute] = np.median(tmp_by_param[key][attribute])
+
 
     def _compute_all_param_statistics(self):
         queue = []
@@ -796,6 +821,17 @@ class EnergyModel:
             for key in elem['attributes']:
                 elem[key] = np.array(elem[key])
 
+    def _prune_outliers(self, key, attribute, data):
+        if self._outlier_threshold == None:
+            return data
+        median = self.median_by_param[key][attribute]
+        if np.median(np.abs(data - median)) == 0:
+            return data
+        pruned_data = list(filter(lambda x: np.abs(0.6745 * (x - median) / np.median(np.abs(data - median))) > self._outlier_threshold, data ))
+        if len(pruned_data):
+            print('[I] Pruned outliers from ({}) {}: {}'.format(key, attribute, pruned_data))
+            data = list(filter(lambda x: np.abs(0.6745 * (x - median) / np.median(np.abs(data - median))) <= self._outlier_threshold, data ))
+        return data
 
     def _add_data_to_aggregate(self, aggregate, key, element):
         if not key in aggregate:
@@ -812,6 +848,8 @@ class EnergyModel:
                 if element['plan']['level'] == 'epilogue':
                     aggregate[key]['attributes'].insert(0, 'timeout')
         for datakey, dataval in element['offline_aggregates'].items():
+            if datakey in element['offline_attributes']:
+                dataval = self._prune_outliers((element['name'], tuple(_elem_param_and_arg_list(element))), datakey, dataval)
             aggregate[key][datakey].extend(dataval)
 
     def _load_agg_elem(self, name, elem):
