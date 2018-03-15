@@ -6,6 +6,7 @@ import io
 import json
 import numpy as np
 import os
+import re
 from scipy import optimize
 from gplearn.genetic import SymbolicRegressor
 from sklearn.metrics import r2_score
@@ -44,6 +45,12 @@ def float_or_nan(n):
         return float(n)
     except ValueError:
         return np.nan
+
+def vprint(verbose, string):
+    if verbose:
+        print(string)
+
+# TODO function override per Argument, z.B. für CC1200 send.duration
 
 def _elem_param_and_arg_list(elem):
     param_dict = elem['parameter']
@@ -419,13 +426,14 @@ class ParamFunction:
 
 class AnalyticFunction:
 
-    def __init__(self, function_str, num_vars, parameters, num_args):
+    def __init__(self, function_str, num_vars, parameters, num_args, verbose = True):
         self._parameter_names = parameters
         self._num_args = num_args
         self._model_str = function_str
         rawfunction = function_str
         self._dependson = [False] * (len(parameters) + num_args)
         self.fit_success = False
+        self.verbose = verbose
 
         for i in range(len(parameters)):
             if rawfunction.find('parameter({})'.format(parameters[i])) >= 0:
@@ -739,7 +747,7 @@ def _mean_std_by_param(by_param, state_or_tran, key, param_index):
 
 class EnergyModel:
 
-    def __init__(self, preprocessed_data, ignore_trace_indexes = None, discard_outliers = None):
+    def __init__(self, preprocessed_data, ignore_trace_indexes = None, discard_outliers = None, function_override = {}):
         self.traces = preprocessed_data
         self.by_name = {}
         self.by_param = {}
@@ -749,6 +757,7 @@ class EnergyModel:
         self._parameter_names = sorted(self.traces[0]['trace'][0]['parameter'].keys())
         self._num_args = {}
         self._outlier_threshold = discard_outliers
+        self.function_override = function_override
         if discard_outliers != None:
             self._compute_outlier_stats(ignore_trace_indexes, discard_outliers)
         for run in self.traces:
@@ -977,7 +986,19 @@ class EnergyModel:
                         else:
                             fit_results[result['key'][2]] = fit_result
 
-                if len(fit_results.keys()):
+                if (state_or_tran, model_attribute) in self.function_override:
+                    function_str = self.function_override[(state_or_tran, model_attribute)]
+                    var_re = re.compile(r'regression_arg\(([0-9]*)\)')
+                    var_count = max(map(int, var_re.findall(function_str))) + 1
+                    x = AnalyticFunction(function_str,
+                        var_count, self._parameter_names, num_args)
+                    x.fit(self.by_param, state_or_tran, model_attribute)
+                    if x.fit_success:
+                        param_model[state_or_tran][model_attribute] = {
+                            'fit_result': fit_results,
+                            'function' : x
+                        }
+                elif len(fit_results.keys()):
                     x = analytic.function_powerset(fit_results, self._parameter_names, num_args)
                     x.fit(self.by_param, state_or_tran, model_attribute)
                     if x.fit_success:

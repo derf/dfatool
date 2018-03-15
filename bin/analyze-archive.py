@@ -41,10 +41,11 @@ if __name__ == '__main__':
 
     ignored_trace_indexes = None
     discard_outliers = None
+    function_override = {}
 
     try:
         raw_opts, args = getopt.getopt(sys.argv[1:], "",
-            'plot ignored-trace-indexes= discard-outliers='.split(' '))
+            'plot ignored-trace-indexes= discard-outliers= function-override='.split(' '))
 
         for option, parameter in raw_opts:
             optname = re.sub(r'^--', '', option)
@@ -58,6 +59,11 @@ if __name__ == '__main__':
             if 'discard-outliers' in opts:
                 discard_outliers = float(opts['discard-outliers'])
 
+            if 'function-override' in opts:
+                for function_desc in opts['function-override'].split(';'):
+                    state_or_tran, attribute, *function_str = function_desc.split(' ')
+                    function_override[(state_or_tran, attribute)] = ' '.join(function_str)
+
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)
@@ -67,7 +73,8 @@ if __name__ == '__main__':
     preprocessed_data = raw_data.get_preprocessed_data()
     model = EnergyModel(preprocessed_data,
         ignore_trace_indexes = ignored_trace_indexes,
-        discard_outliers = discard_outliers)
+        discard_outliers = discard_outliers,
+        function_override = function_override)
 
     print('--- simple static model ---')
     static_model = model.get_static()
