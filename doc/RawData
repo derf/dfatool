@@ -16,6 +16,7 @@ get_preprocessed_data:
 			- timeout: int(us) oder null
 			- energy: int (pJ?)
 			- level: str 'user' 'epilogue'
+		- offline_attributes: [ ... Namen der in offline_aggregates gespeicherten Modellattribute, z.B. param, duration, energy, timeout ]
 		- offline_aggregates:
 			- power: [float(uW)] Mittlere Leistung während Zustand/Transitions
 			- power_std: [float(uW^2)] Standardabweichung der Leistung

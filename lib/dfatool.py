@@ -50,8 +50,6 @@ def vprint(verbose, string):
     if verbose:
         print(string)
 
-# TODO function override per Argument, z.B. für CC1200 send.duration
-
 def _elem_param_and_arg_list(elem):
     param_dict = elem['parameter']
     paramkeys = sorted(param_dict.keys())
@@ -388,15 +386,14 @@ class RawData:
             if self._measurement_is_valid(measurement):
                 self._merge_measurement_into_online_data(measurement)
                 num_valid += 1
-            elif self.verbose:
-                print('[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
+            else:
+                vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
                     ar = self.filenames[measurement['fileno']],
                     m = measurement['info'].name,
                     e = measurement['error']))
-        if self.verbose:
-            print('[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
-                num_valid = num_valid,
-                num_total = len(measurements)))
+        vprint(self.verbose, '[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
+            num_valid = num_valid,
+            num_total = len(measurements)))
         self._concatenate_analyzed_traces()
         self.preprocessing_stats = {
             'num_runs' : len(measurements),
@@ -473,7 +470,7 @@ class AnalyticFunction:
                         else:
                             X[i].extend([np.nan] * len(val[model_attribute]))
             elif key[0] == state_or_tran and len(key[1]) != dimension:
-                print('[W] Invalid parameter key length while gathering fit data for {}/{}. is {}, want {}.'.format(state_or_tran, model_attribute, len(key[1]), dimension))
+                vprint(self.verbose, '[W] Invalid parameter key length while gathering fit data for {}/{}. is {}, want {}.'.format(state_or_tran, model_attribute, len(key[1]), dimension))
         X = np.array(X)
         Y = np.array(Y)
 
@@ -486,15 +483,15 @@ class AnalyticFunction:
             try:
                 res = optimize.least_squares(error_function, self._regression_args, args=(X, Y), xtol=2e-15)
             except ValueError as err:
-                print('[W] Fit failed for {}/{}: {} (function: {})'.format(state_or_tran, model_attribute, err, self._model_str))
+                vprint(self.verbose, '[W] Fit failed for {}/{}: {} (function: {})'.format(state_or_tran, model_attribute, err, self._model_str))
                 return
             if res.status > 0:
                 self._regression_args = res.x
                 self.fit_success = True
             else:
-                print('[W] Fit failed for {}/{}: {} (function: {})'.format(state_or_tran, model_attribute, res.message, self._model_str))
+                vprint(self.verbose, '[W] Fit failed for {}/{}: {} (function: {})'.format(state_or_tran, model_attribute, res.message, self._model_str))
         else:
-            print('[W] Insufficient amount of valid parameter keys, cannot fit {}/{}'.format(state_or_tran, model_attribute))
+            vprint(self.verbose, '[W] Insufficient amount of valid parameter keys, cannot fit {}/{}'.format(state_or_tran, model_attribute))
 
     def is_predictable(self, param_list):
         for i, param in enumerate(param_list):
@@ -747,7 +744,7 @@ def _mean_std_by_param(by_param, state_or_tran, key, param_index):
 
 class EnergyModel:
 
-    def __init__(self, preprocessed_data, ignore_trace_indexes = None, discard_outliers = None, function_override = {}):
+    def __init__(self, preprocessed_data, ignore_trace_indexes = None, discard_outliers = None, function_override = {}, verbose = True):
         self.traces = preprocessed_data
         self.by_name = {}
         self.by_param = {}
@@ -758,6 +755,7 @@ class EnergyModel:
         self._num_args = {}
         self._outlier_threshold = discard_outliers
         self.function_override = function_override
+        self.verbose = verbose
         if discard_outliers != None:
             self._compute_outlier_stats(ignore_trace_indexes, discard_outliers)
         for run in self.traces:
@@ -838,7 +836,7 @@ class EnergyModel:
             return data
         pruned_data = list(filter(lambda x: np.abs(0.6745 * (x - median) / np.median(np.abs(data - median))) > self._outlier_threshold, data ))
         if len(pruned_data):
-            print('[I] Pruned outliers from ({}) {}: {}'.format(key, attribute, pruned_data))
+            vprint(self.verbose, '[I] Pruned outliers from ({}) {}: {}'.format(key, attribute, pruned_data))
             data = list(filter(lambda x: np.abs(0.6745 * (x - median) / np.median(np.abs(data - median))) <= self._outlier_threshold, data ))
         return data
 
@@ -903,9 +901,9 @@ class EnergyModel:
                 try:
                     model[name][key] = model_function(elem[key])
                 except RuntimeWarning:
-                    print('[W] Got no data for {} {}'.format(name, key))
+                    vprint(self.verbose, '[W] Got no data for {} {}'.format(name, key))
                 except FloatingPointError as fpe:
-                    print('[W] Got no data for {} {}: {}'.format(name, key, fpe))
+                    vprint(self.verbose, '[W] Got no data for {} {}: {}'.format(name, key, fpe))
         return model
 
     def get_static(self):
@@ -976,11 +974,11 @@ class EnergyModel:
                     if result['key'][0] == state_or_tran and result['key'][1] == model_attribute:
                         fit_result = result['result']
                         if fit_result['best_rmsd'] >= min(fit_result['mean_rmsd'], fit_result['median_rmsd']):
-                            print('[I] Not modeling {} {} as function of {}: best ({:.0f}) is worse than ref ({:.0f}, {:.0f})'.format(
+                            vprint(self.verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is worse than ref ({:.0f}, {:.0f})'.format(
                                 state_or_tran, model_attribute, result['key'][2], fit_result['best_rmsd'],
                                 fit_result['mean_rmsd'], fit_result['median_rmsd']))
                         elif fit_result['best_rmsd'] >= 0.5 * min(fit_result['mean_rmsd'], fit_result['median_rmsd']):
-                            print('[I] Not modeling {} {} as function of {}: best ({:.0f}) is not much better than ({:.0f}, {:.0f})'.format(
+                            vprint(self.verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is not much better than ({:.0f}, {:.0f})'.format(
                                 state_or_tran, model_attribute, result['key'][2], fit_result['best_rmsd'],
                                 fit_result['mean_rmsd'], fit_result['median_rmsd']))
                         else:
@@ -1046,9 +1044,10 @@ class EnergyModel:
 
 class MIMOSA:
 
-    def __init__(self, voltage, shunt):
+    def __init__(self, voltage, shunt, verbose = True):
         self.voltage = voltage
         self.shunt = shunt
+        self.verbose = verbose
         self.r1 = 984 # "1k"
         self.r2 = 99013 # "100k"
 
@@ -1130,7 +1129,7 @@ class MIMOSA:
         if cal_r2_mean > cal_0_mean:
             b_lower = (ua_r2 - 0) / (cal_r2_mean - cal_0_mean)
         else:
-            print('[W] 0 uA == %.f uA during calibration' % (ua_r2))
+            vprint(self.verbose, '[W] 0 uA == %.f uA during calibration' % (ua_r2))
             b_lower = 0
 
         b_upper = (ua_r1 - ua_r2) / (cal_r1_mean - cal_r2_mean)
@@ -1264,7 +1263,7 @@ class MIMOSA:
                 data['substates'] = substates
                 ssum = np.sum(list(map(lambda x : x['duration'], substates['states'])))
                 if ssum != data['us']:
-                    print("ERR: duration %d vs %d" % (data['us'], ssum))
+                    vprint(self.verbose, "ERR: duration %d vs %d" % (data['us'], ssum))
 
             if isa == 'transition':
                 # subtract average power of previous state
