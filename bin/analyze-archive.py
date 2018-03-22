@@ -37,15 +37,33 @@ def model_quality_table(result_lists, info_list):
                     buf += '{:6}----{:9}'.format('', '')
             print(buf)
 
+def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
+    print('')
+    print(r'key attribute $1 - \frac{\sigma_X}{...}$')
+    for state_or_tran in model.by_name.keys():
+        for attribute in model.by_name[state_or_tran]['attributes']:
+            print('{} {} {:.8f}'.format(state_or_tran, attribute, model.generic_param_dependence_ratio(state_or_tran, attribute)))
+
+    print('')
+    print(r'key attribute parameter $1 - \frac{...}{...}$')
+    for state_or_tran in model.by_name.keys():
+        for attribute in model.by_name[state_or_tran]['attributes']:
+            for param in model.parameters():
+                print('{} {} {} {:.8f}'.format(state_or_tran, attribute, param, model.param_dependence_ratio(state_or_tran, attribute, param)))
+            if state_or_tran in model._num_args:
+                for arg_index in range(model._num_args[state_or_tran]):
+                    print('{} {} {:d} {:.8f}'.format(state_or_tran, attribute, arg_index, model.arg_dependence_ratio(state_or_tran, attribute, arg_index)))
+
 if __name__ == '__main__':
 
     ignored_trace_indexes = None
     discard_outliers = None
+    tex_output = False
     function_override = {}
 
     try:
         raw_opts, args = getopt.getopt(sys.argv[1:], "",
-            'plot ignored-trace-indexes= discard-outliers= function-override='.split(' '))
+            'plot ignored-trace-indexes= discard-outliers= function-override= tex-output'.split(' '))
 
         for option, parameter in raw_opts:
             optname = re.sub(r'^--', '', option)
@@ -63,6 +81,9 @@ if __name__ == '__main__':
                 for function_desc in opts['function-override'].split(';'):
                     state_or_tran, attribute, *function_str = function_desc.split(' ')
                     function_override[(state_or_tran, attribute)] = ' '.join(function_str)
+
+            if 'tex-output' in opts:
+                tex_output = True
 
     except getopt.GetoptError as err:
         print(err)
@@ -105,17 +126,21 @@ if __name__ == '__main__':
 
     print('--- param model ---')
     param_model, param_info = model.get_fitted()
-    for state in model.states():
-        for attribute in ['power']:
-            if param_info(state, attribute):
-                print('{:10s}: {}'.format(state, param_info(state, attribute)['function']._model_str))
-                print('{:10s}  {}'.format('', param_info(state, attribute)['function']._regression_args))
-    for trans in model.transitions():
-        for attribute in ['energy', 'rel_energy_prev', 'rel_energy_next', 'duration', 'timeout']:
-            if param_info(trans, attribute):
-                print('{:10s}: {:10s}: {}'.format(trans, attribute, param_info(trans, attribute)['function']._model_str))
-                print('{:10s}  {:10s}  {}'.format('', '', param_info(trans, attribute)['function']._regression_args))
+    if not tex_output:
+        for state in model.states():
+            for attribute in ['power']:
+                if param_info(state, attribute):
+                    print('{:10s}: {}'.format(state, param_info(state, attribute)['function']._model_str))
+                    print('{:10s}  {}'.format('', param_info(state, attribute)['function']._regression_args))
+        for trans in model.transitions():
+            for attribute in ['energy', 'rel_energy_prev', 'rel_energy_next', 'duration', 'timeout']:
+                if param_info(trans, attribute):
+                    print('{:10s}: {:10s}: {}'.format(trans, attribute, param_info(trans, attribute)['function']._model_str))
+                    print('{:10s}  {:10s}  {}'.format('', '', param_info(trans, attribute)['function']._regression_args))
     analytic_quality = model.assess(param_model)
-    model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
+    if tex_output:
+        print_text_model_data(model, static_model, static_quality, lut_model, lut_quality, param_model, param_info, analytic_quality)
+    else:
+        model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
 
     sys.exit(0)

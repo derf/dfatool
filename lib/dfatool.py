@@ -789,7 +789,7 @@ class EnergyModel:
 
 
     def _compute_all_param_statistics(self):
-        queue = []
+        #queue = []
         for state_or_trans in self.by_name.keys():
             self.stats[state_or_trans] = {}
             for key in self.by_name[state_or_trans]['attributes']:
