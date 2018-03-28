@@ -50,6 +50,45 @@ def vprint(verbose, string):
     if verbose:
         print(string)
 
+    def _gplearn_add_(x, y):
+        return x + y
+
+    def _gplearn_sub_(x, y):
+        return x - y
+
+    def _gplearn_mul_(x, y):
+        return x * y
+
+    def _gplearn_div_(x, y):
+        if np.abs(y) > 0.001:
+            return x / y
+        return 1.
+
+def gplearn_to_function(function_str):
+
+    eval_globals = {
+        'add' : lambda x, y : x + y,
+        'sub' : lambda x, y : x - y,
+        'mul' : lambda x, y : x * y,
+        'div' : lambda x, y : np.divide(x, y) if np.abs(y) > 0.001 else 1.,
+        'sqrt': lambda x : np.sqrt(np.abs(x)),
+        'log' : lambda x : np.log(np.abs(x)) if np.abs(x) > 0.001 else 0.,
+        'inv' : lambda x : 1. / x if np.abs(x) > 0.001 else 0.,
+    }
+
+    last_arg_index = 0
+    for i in range(0, 100):
+        if function_str.find('X{:d}'.format(i)) >= 0:
+            last_arg_index = i
+
+    arg_list = []
+    for i in range(0, last_arg_index+1):
+        arg_list.append('X{:d}'.format(i))
+
+    eval_str = 'lambda {}, *whatever: {}'.format(','.join(arg_list), function_str)
+    print(eval_str)
+    return eval(eval_str, eval_globals)
+
 def _elem_param_and_arg_list(elem):
     param_dict = elem['parameter']
     paramkeys = sorted(param_dict.keys())
@@ -446,7 +485,7 @@ class AnalyticFunction:
         self._function = eval('lambda reg_param, model_param: ' + rawfunction);
         self._regression_args = list(np.ones((num_vars)))
 
-    def _get_fit_data(self, by_param, state_or_tran, model_attribute):
+    def get_fit_data(self, by_param, state_or_tran, model_attribute):
         dimension = len(self._parameter_names) + self._num_args
         X = [[] for i in range(dimension)]
         Y = []
@@ -477,7 +516,7 @@ class AnalyticFunction:
         return X, Y, num_valid, num_total
 
     def fit(self, by_param, state_or_tran, model_attribute):
-        X, Y, num_valid, num_total = self._get_fit_data(by_param, state_or_tran, model_attribute)
+        X, Y, num_valid, num_total = self.get_fit_data(by_param, state_or_tran, model_attribute)
         if num_valid > 2:
             error_function = lambda P, X, y: self._function(P, X) - y
             try:
@@ -750,6 +789,7 @@ class EnergyModel:
         self.by_param = {}
         self.by_trace = {}
         self.stats = {}
+        self.cache = {}
         np.seterr('raise')
         self._parameter_names = sorted(self.traces[0]['trace'][0]['parameter'].keys())
         self._num_args = {}
@@ -767,6 +807,11 @@ class EnergyModel:
                         self._num_args[elem['name']] = len(elem['args'])
         self._aggregate_to_ndarray(self.by_name)
         self._compute_all_param_statistics()
+
+    def distinct_param_values(self, state_or_tran, param_index = None, arg_index = None):
+        if param_index != None:
+            param_values = map(lambda x: x[param_index], self.by_name[state_or_tran]['param'])
+        return sorted(set(param_values))
 
     def _compute_outlier_stats(self, ignore_trace_indexes, threshold):
         tmp_by_param = {}
@@ -934,7 +979,16 @@ class EnergyModel:
     def get_param_analytic(self):
         static_model = self._get_model_from_dict(self.by_name, np.median)
 
+    def param_index(self, param_name):
+        if param_name in self._parameter_names:
+            return self._parameter_names.index(param_name)
+        return len(self._parameter_names) + int(param_name)
+
     def get_fitted(self):
+
+        if 'fitted_model_getter' in self.cache and 'fitted_info_getter' in self.cache:
+            return self.cache['fitted_model_getter'], self.cache['fitted_info_getter']
+
         static_model = self._get_model_from_dict(self.by_name, np.median)
         param_model = dict([[state_or_tran, {}] for state_or_tran in self.by_name.keys()])
         fit_queue = []
@@ -1017,6 +1071,9 @@ class EnergyModel:
             if key in param_model[name]:
                 return param_model[name][key]
             return None
+
+        self.cache['fitted_model_getter'] = model_getter
+        self.cache['fitted_info_getter'] = info_getter
 
         return model_getter, info_getter
 

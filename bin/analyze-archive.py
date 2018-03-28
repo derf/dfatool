@@ -4,7 +4,8 @@ import getopt
 import plotter
 import re
 import sys
-from dfatool import EnergyModel, RawData, soft_cast_int
+from dfatool import EnergyModel, RawData
+from dfatool import soft_cast_int, is_numeric, gplearn_to_function
 
 opts = {}
 
@@ -62,8 +63,11 @@ if __name__ == '__main__':
     function_override = {}
 
     try:
-        raw_opts, args = getopt.getopt(sys.argv[1:], "",
-            'plot ignored-trace-indexes= discard-outliers= function-override= tex-output'.split(' '))
+        optspec = (
+            'plot-unparam= plot-param= '
+            'ignored-trace-indexes= discard-outliers= function-override= tex-output'
+        )
+        raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
 
         for option, parameter in raw_opts:
             optname = re.sub(r'^--', '', option)
@@ -96,6 +100,12 @@ if __name__ == '__main__':
         ignore_trace_indexes = ignored_trace_indexes,
         discard_outliers = discard_outliers,
         function_override = function_override)
+
+
+    if 'plot-unparam' in opts:
+        for kv in opts['plot-unparam'].split(';'):
+            state_or_trans, attribute = kv.split(' ')
+            plotter.plot_y(model.by_name[state_or_trans][attribute])
 
     print('--- simple static model ---')
     static_model = model.get_static()
@@ -142,5 +152,12 @@ if __name__ == '__main__':
         print_text_model_data(model, static_model, static_quality, lut_model, lut_quality, param_model, param_info, analytic_quality)
     else:
         model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
+
+    if 'plot-param' in opts:
+        for kv in opts['plot-param'].split(';'):
+            state_or_trans, attribute, param_name, *functions = kv.split(' ')
+            if len(functions):
+                functions = [gplearn_to_function(' '.join(functions))]
+            plotter.plot_param(model, state_or_trans, attribute, model.param_index(param_name), extra_functions=functions)
 
     sys.exit(0)

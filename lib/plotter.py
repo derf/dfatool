@@ -5,6 +5,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
+def float_or_nan(n):
+    if n == None:
+        return np.nan
+    try:
+        return float(n)
+    except ValueError:
+        return np.nan
+
 def flatten(somelist):
     return [item for sublist in somelist for item in sublist]
 
@@ -70,6 +78,72 @@ def plot_substate_thresholds_p(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if aggregate[key]['isa'] == 'state' and key[0] != 'UNINITIALIZED']
     data = [aggregate[key]['sub_thresholds'] for key in keys]
     boxplot(keys, None, None, data, 'Zustand', '% Clipping')
+
+def plot_y(Y, ylabel = None, title = None):
+    plot_xy(np.arange(len(Y)), Y, ylabel = ylabel, title = title)
+
+def plot_xy(X, Y, xlabel = None, ylabel = None, title = None):
+    fig, ax1 = plt.subplots(figsize=(10,6))
+    if title != None:
+        fig.canvas.set_window_title(title)
+    if xlabel != None:
+        ax1.set_xlabel(xlabel)
+    if ylabel != None:
+        ax1.set_ylabel(ylabel)
+    plt.subplots_adjust(left = 0.05, bottom = 0.05, right = 0.99, top = 0.99)
+    plt.plot(X, Y, "rx")
+    plt.show()
+
+def _param_slice_eq(a, b, index):
+    return (*a[1][:index], *a[1][index+1:]) == (*b[1][:index], *b[1][index+1:]) and a[0] == b[0]
+
+def plot_param(model, state_or_trans, attribute, param_idx, xlabel = None, ylabel = None, title = None, extra_functions = []):
+    fig, ax1 = plt.subplots(figsize=(10,6))
+    if title != None:
+        fig.canvas.set_window_title(title)
+    if xlabel != None:
+        ax1.set_xlabel(xlabel)
+    if ylabel != None:
+        ax1.set_ylabel(ylabel)
+    plt.subplots_adjust(left = 0.05, bottom = 0.05, right = 0.99, top = 0.99)
+
+    param_model, param_info = model.get_fitted()
+
+    by_other_param = {}
+
+    for k, v in model.by_param.items():
+        if k[0] == state_or_trans:
+            other_param_key = (*k[1][:param_idx], *k[1][param_idx+1:])
+            if not other_param_key in by_other_param:
+                by_other_param[other_param_key] = {'X': [], 'Y': []}
+            by_other_param[other_param_key]['X'].extend([float(k[1][param_idx])] * len(v[attribute]))
+            by_other_param[other_param_key]['Y'].extend(v[attribute])
+
+    cm = plt.get_cmap('brg', len(by_other_param))
+    for i, k in enumerate(by_other_param):
+        v = by_other_param[k]
+        v['X'] = np.array(v['X'])
+        v['Y'] = np.array(v['Y'])
+        plt.plot(v['X'], v['Y'], "rx", color=cm(i))
+        x_range = int((v['X'].max() - v['X'].min()) * 2)
+        xsp = np.linspace(v['X'].min(), v['X'].max(), x_range)
+        if param_model:
+            ysp = []
+            for x in xsp:
+                xarg = [*k[:param_idx], x, *k[param_idx:]]
+                ysp.append(param_model(state_or_trans, attribute, param = xarg))
+            plt.plot(xsp, ysp, "r-", color=cm(i), linewidth=0.5)
+        if len(extra_functions) != 0:
+            for f in extra_functions:
+                ysp = []
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    for x in xsp:
+                        xarg = [*k[:param_idx], x, *k[param_idx:]]
+                        ysp.append(f(*xarg))
+                plt.plot(xsp, ysp, "r--", color=cm(i), linewidth=1, dashes=(3, 3))
+
+    plt.show()
+
 
 def plot_param_fit(function, name, fitfunc, funp, parameters, datatype, index, X, Y, xaxis=None, yaxis=None):
     fig, ax1 = plt.subplots(figsize=(10,6))
