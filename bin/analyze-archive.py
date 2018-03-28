@@ -155,9 +155,11 @@ if __name__ == '__main__':
 
     if 'plot-param' in opts:
         for kv in opts['plot-param'].split(';'):
-            state_or_trans, attribute, param_name, *functions = kv.split(' ')
-            if len(functions):
-                functions = [gplearn_to_function(' '.join(functions))]
-            plotter.plot_param(model, state_or_trans, attribute, model.param_index(param_name), extra_functions=functions)
+            state_or_trans, attribute, param_name, *function = kv.split(' ')
+            if len(function):
+                function = gplearn_to_function(' '.join(function))
+            else:
+                function = None
+            plotter.plot_param(model, state_or_trans, attribute, model.param_index(param_name), extra_function=function)
 
     sys.exit(0)

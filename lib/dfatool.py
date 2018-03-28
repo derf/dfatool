@@ -984,6 +984,11 @@ class EnergyModel:
             return self._parameter_names.index(param_name)
         return len(self._parameter_names) + int(param_name)
 
+    def param_name(self, param_index):
+        if param_index < len(self._parameter_names):
+            return self._parameter_names[param_index]
+        return str(param_index)
+
     def get_fitted(self):
 
         if 'fitted_model_getter' in self.cache and 'fitted_info_getter' in self.cache:
