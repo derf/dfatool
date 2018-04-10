@@ -547,7 +547,7 @@ class analytic:
     _num0_16 = np.vectorize(lambda x: 16 - bin(int(x)).count("1"))
     _num1 = np.vectorize(lambda x: bin(int(x)).count("1"))
     _safe_log = np.vectorize(lambda x: np.log(np.abs(x)) if np.abs(x) > 0.001 else 1.)
-    _safe_frac = np.vectorize(lambda x: 1 / x if np.abs(x) > 0.001 else 1.)
+    _safe_inv = np.vectorize(lambda x: 1 / x if np.abs(x) > 0.001 else 1.)
     _safe_sqrt = np.vectorize(lambda x: np.sqrt(np.abs(x)))
 
     _function_map = {
@@ -556,13 +556,13 @@ class analytic:
         'logarithmic1' : lambda x: np.log(x + 1),
         'exponential' : np.exp,
         'square' : lambda x : x ** 2,
-        'fractional' : lambda x : 1 / x,
+        'inverse' : lambda x : 1 / x,
         'sqrt' : np.sqrt,
         'num0_8' : _num0_8,
         'num0_16' : _num0_16,
         'num1' : _num1,
         'safe_log' : lambda x: np.log(np.abs(x)) if np.abs(x) > 0.001 else 1.,
-        'safe_frac' : lambda x: 1 / x if np.abs(x) > 0.001 else 1.,
+        'safe_inv' : lambda x: 1 / x if np.abs(x) > 0.001 else 1.,
         'safe_sqrt': lambda x: np.sqrt(np.abs(x)),
     }
 
@@ -594,7 +594,7 @@ class analytic:
                 lambda model_param: True,
                 2
             ),
-            'fractional' : ParamFunction(
+            'inverse' : ParamFunction(
                 lambda reg_param, model_param: reg_param[0] + reg_param[1] / model_param,
                 lambda model_param: model_param != 0,
                 2
@@ -627,8 +627,8 @@ class analytic:
                 lambda model_param: True,
                 2
             )
-            functions['safe_frac'] = ParamFunction(
-                lambda reg_param, model_param: reg_param[0] + reg_param[1] * analytic._safe_frac(model_param),
+            functions['safe_inv'] = ParamFunction(
+                lambda reg_param, model_param: reg_param[0] + reg_param[1] * analytic._safe_inv(model_param),
                 lambda model_param: True,
                 2
             )
@@ -654,7 +654,7 @@ class analytic:
             return 'np.exp({})'.format(ref_str)
         if function_type == 'square':
             return '({})**2'.format(ref_str)
-        if function_type == 'fractional':
+        if function_type == 'inverse':
             return '1/({})'.format(ref_str)
         if function_type == 'sqrt':
             return 'np.sqrt({})'.format(ref_str)
