@@ -229,4 +229,5 @@ class TestStaticModel(unittest.TestCase):
         self.assertAlmostEqual(param_info('RX', 'power')['function']._regression_args[1], 206, places=0)
 
 if __name__ == '__main__':
+    dfatool.safe_function_enabled = False
     unittest.main()
