@@ -60,12 +60,14 @@ if __name__ == '__main__':
     ignored_trace_indexes = None
     discard_outliers = None
     tex_output = False
+    safe_functions_enabled = False
     function_override = {}
 
     try:
         optspec = (
             'plot-unparam= plot-param= '
-            'ignored-trace-indexes= discard-outliers= function-override= tex-output'
+            'ignored-trace-indexes= discard-outliers= function-override= tex-output '
+            'with-safe-functions'
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
 
@@ -88,6 +90,9 @@ if __name__ == '__main__':
 
             if 'tex-output' in opts:
                 tex_output = True
+
+            if 'with-safe-functions' in opts:
+                safe_functions_enabled = True
 
     except getopt.GetoptError as err:
         print(err)
@@ -135,7 +140,7 @@ if __name__ == '__main__':
     lut_quality = model.assess(lut_model)
 
     print('--- param model ---')
-    param_model, param_info = model.get_fitted()
+    param_model, param_info = model.get_fitted(safe_functions_enabled = safe_functions_enabled)
     if not tex_output:
         for state in model.states():
             for attribute in ['power']:
