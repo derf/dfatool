@@ -128,6 +128,7 @@ def regression_measures(predicted, actual):
         'rmsd' : np.sqrt(np.mean(deviations**2), dtype=np.float64),
         'ssr' : np.sum(deviations**2, dtype=np.float64),
         'rsq' : r2_score(actual, predicted),
+        'count' : len(actual),
     }
 
     #rsq_quotient = np.sum((actual - mean)**2, dtype=np.float64) * np.sum((predicted - mean)**2, dtype=np.float64)
@@ -758,16 +759,35 @@ def _compute_param_statistics_parallel(args):
         'result' : _compute_param_statistics(*args['args'])
     }
 
+def all_params_are_numeric(data, param_idx):
+    param_values = list(map(lambda x: x[param_idx], data['param']))
+    if len(list(filter(is_numeric, param_values))) == len(param_values):
+        return True
+    return False
+
 def _compute_param_statistics(by_name, by_param, parameter_names, num_args, state_or_trans, key):
     ret = {
         'std_static' : np.std(by_name[state_or_trans][key]),
         'std_param_lut' : np.mean([np.std(by_param[x][key]) for x in by_param.keys() if x[0] == state_or_trans]),
         'std_by_param' : {},
         'std_by_arg' : [],
+        'corr_by_param' : {},
+        'corr_by_arg' : [],
     }
 
     for param_idx, param in enumerate(parameter_names):
         ret['std_by_param'][param] = _mean_std_by_param(by_param, state_or_trans, key, param_idx)
+        if all_params_are_numeric(by_name[state_or_trans], param_idx):
+            param_values = np.array(list((map(lambda x: x[param_idx], by_name[state_or_trans]['param']))))
+            try:
+                ret['corr_by_param'][param] = np.corrcoef(by_name[state_or_trans][key], param_values)[0, 1]
+            except FloatingPointError as fpe:
+                # Typically happens when all parameter values are identical.
+                # Building a correlation coefficient is pointless in this case
+                # -> assume no correlation
+                ret['corr_by_param'][param] = 0.
+        else:
+            ret['corr_by_param'][param] = 0.
     if arg_support_enabled and state_or_trans in num_args:
         for arg_index in range(num_args[state_or_trans]):
             ret['std_by_arg'].append(_mean_std_by_param(by_param, state_or_trans, key, len(parameter_names) + arg_index))
@@ -792,6 +812,9 @@ def _mean_std_by_param(by_param, state_or_tran, key, param_index):
         else:
             print('[W] parameter value partition for {} is empty'.format(param_value))
     return np.mean([np.std(partition) for partition in partitions])
+
+#def _corr_by_param(by_name, state_or_tran, key, param_index):
+#    
 
 class EnergyModel:
 
@@ -851,10 +874,6 @@ class EnergyModel:
             self.stats[state_or_trans] = {}
             for key in self.by_name[state_or_trans]['attributes']:
                 if key in self.by_name[state_or_trans]:
-                    #try:
-                    #    print(state_or_trans, key, np.corrcoef(self.by_name[state_or_trans][key], np.array(self.by_name[state_or_trans]['param']).T))
-                    #except TypeError as e:
-                    #    print(state_or_trans, key, e)
                     self.stats[state_or_trans][key] = _compute_param_statistics(self.by_name, self.by_param, self._parameter_names, self._num_args, state_or_trans, key)
                     #queue.append({
                     #    'state_or_trans' : state_or_trans,
@@ -1109,14 +1128,58 @@ class EnergyModel:
         return self._parameter_names
 
     def assess(self, model_function):
-        results = {}
+        detailed_results = {}
+        model_energy_list = []
+        real_energy_list = []
+        model_duration_list = []
+        real_duration_list = []
+        model_timeout_list = []
+        real_timeout_list = []
         for name, elem in sorted(self.by_name.items()):
-            results[name] = {}
+            detailed_results[name] = {}
             for key in elem['attributes']:
                 predicted_data = np.array(list(map(lambda i: model_function(name, key, param=elem['param'][i]), range(len(elem[key])))))
                 measures = regression_measures(predicted_data, elem[key])
-                results[name][key] = measures
-        return results
+                detailed_results[name][key] = measures
+
+        for trace in self.traces:
+            for rep_id in range(len(trace['trace'][0]['offline'])):
+                model_energy = 0.
+                real_energy = 0.
+                model_duration = 0.
+                real_duration = 0.
+                model_timeout = 0.
+                real_timeout = 0.
+                for trace_part in trace['trace']:
+                    name = trace_part['name']
+                    isa = trace_part['isa']
+                    if name != 'UNINITIALIZED':
+                        param = trace_part['offline_aggregates']['param'][rep_id]
+                        power = trace_part['offline'][rep_id]['uW_mean']
+                        duration = trace_part['offline'][rep_id]['us']
+                        real_energy += power * duration
+                        if isa == 'state':
+                            model_energy += model_function(name, 'power', param=param) * duration
+                        else:
+                            model_energy += model_function(name, 'energy', param=param)
+                            real_duration += duration
+                            model_duration += model_function(name, 'duration', param=param)
+                            if 'plan' in trace_part and trace_part['plan']['level'] == 'epilogue':
+                                real_timeout += trace_part['offline'][rep_id]['timeout']
+                                model_timeout += model_function(name, 'timeout', param=param)
+                real_energy_list.append(real_energy)
+                model_energy_list.append(model_energy)
+                real_duration_list.append(real_duration)
+                model_duration_list.append(model_duration)
+                real_timeout_list.append(real_timeout)
+                model_timeout_list.append(model_timeout)
+
+        return {
+            'by_dfa_component' : detailed_results,
+            'duration_by_trace' : regression_measures(np.array(model_duration_list), np.array(real_duration_list)),
+            'energy_by_trace' : regression_measures(np.array(model_energy_list), np.array(real_energy_list)),
+            'timeout_by_trace' : regression_measures(np.array(model_timeout_list), np.array(real_timeout_list)),
+        }
 
 
 

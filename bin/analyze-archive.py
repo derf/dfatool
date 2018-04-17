@@ -20,23 +20,46 @@ def print_model_quality(results):
                 print('{:20s} {:15s} {:.0f}'.format(
                     state_or_tran, key, result['mae']))
 
+def format_quality_measures(result):
+    if 'smape' in result:
+        return '{:6.2f}% / {:9.0f}'.format(result['smape'], result['mae'])
+    else:
+        return '{:6}    {:9.0f}'.format('', result['mae'])
 
 def model_quality_table(result_lists, info_list):
-    for state_or_tran in result_lists[0].keys():
-        for key in result_lists[0][state_or_tran].keys():
+    for state_or_tran in result_lists[0]['by_dfa_component'].keys():
+        for key in result_lists[0]['by_dfa_component'][state_or_tran].keys():
             buf = '{:20s} {:15s}'.format(state_or_tran, key)
             for i, results in enumerate(result_lists):
                 info = info_list[i]
                 buf += '  |||  '
                 if info == None or info(state_or_tran, key):
-                    result = results[state_or_tran][key]
-                    if 'smape' in result:
-                        buf += '{:6.2f}% / {:9.0f}'.format(result['smape'], result['mae'])
-                    else:
-                        buf += '{:6}    {:9.0f}'.format('', result['mae'])
+                    result = results['by_dfa_component'][state_or_tran][key]
+                    buf += format_quality_measures(result)
                 else:
                     buf += '{:6}----{:9}'.format('', '')
             print(buf)
+
+def model_summary_table(result_list):
+    buf = 'transition duration'
+    for results in result_list:
+        if len(buf):
+            buf += '  |||  '
+        buf += format_quality_measures(results['duration_by_trace'])
+    print(buf)
+    buf = 'total energy       '
+    for results in result_list:
+        if len(buf):
+            buf += '  |||  '
+        buf += format_quality_measures(results['energy_by_trace'])
+    print(buf)
+    buf = 'transition timeout '
+    for results in result_list:
+        if len(buf):
+            buf += '  |||  '
+        buf += format_quality_measures(results['timeout_by_trace'])
+    print(buf)
+
 
 def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
     print('')
@@ -59,14 +82,15 @@ if __name__ == '__main__':
 
     ignored_trace_indexes = None
     discard_outliers = None
-    tex_output = False
     safe_functions_enabled = False
     function_override = {}
+    show_models = []
+    show_quality = []
 
     try:
         optspec = (
-            'plot-unparam= plot-param= '
-            'ignored-trace-indexes= discard-outliers= function-override= tex-output '
+            'plot-unparam= plot-param= show-models= show-quality= '
+            'ignored-trace-indexes= discard-outliers= function-override= '
             'with-safe-functions'
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
@@ -88,8 +112,11 @@ if __name__ == '__main__':
                     state_or_tran, attribute, *function_str = function_desc.split(' ')
                     function_override[(state_or_tran, attribute)] = ' '.join(function_str)
 
-            if 'tex-output' in opts:
-                tex_output = True
+            if 'show-models' in opts:
+                show_models = opts['show-models'].split(',')
+
+            if 'show-quality' in opts:
+                show_quality = opts['show-quality'].split(',')
 
             if 'with-safe-functions' in opts:
                 safe_functions_enabled = True
@@ -112,36 +139,40 @@ if __name__ == '__main__':
             state_or_trans, attribute = kv.split(' ')
             plotter.plot_y(model.by_name[state_or_trans][attribute])
 
-    print('--- simple static model ---')
+    if len(show_models):
+        print('--- simple static model ---')
     static_model = model.get_static()
-    #for state in model.states():
-    #    print('{:10s}: {:.0f} µW  ({:.2f})'.format(
-    #        state,
-    #        static_model(state, 'power'),
-    #        model.generic_param_dependence_ratio(state, 'power')))
-    #    for param in model.parameters():
-    #        print('{:10s}  dependence on {:15s}: {:.2f}'.format(
-    #            '',
-    #            param,
-    #            model.param_dependence_ratio(state, 'power', param)))
-    #for trans in model.transitions():
-    #    print('{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  ({:.2f} / {:.2f} / {:.2f})'.format(
-    #        trans, static_model(trans, 'energy'),
-    #        static_model(trans, 'rel_energy_prev'),
-    #        static_model(trans, 'rel_energy_next'),
-    #        model.generic_param_dependence_ratio(trans, 'energy'),
-    #        model.generic_param_dependence_ratio(trans, 'rel_energy_prev'),
-    #        model.generic_param_dependence_ratio(trans, 'rel_energy_next')))
-    #    print('{:10s}: {:.0f} µs'.format(trans, static_model(trans, 'duration')))
+    if 'static' in show_models or 'all' in show_models:
+        for state in model.states():
+            print('{:10s}: {:.0f} µW  ({:.2f})'.format(
+                state,
+                static_model(state, 'power'),
+                model.generic_param_dependence_ratio(state, 'power')))
+            for param in model.parameters():
+                print('{:10s}  dependence on {:15s}: {:.2f}'.format(
+                    '',
+                    param,
+                    model.param_dependence_ratio(state, 'power', param)))
+        for trans in model.transitions():
+            print('{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  ({:.2f} / {:.2f} / {:.2f})'.format(
+                trans, static_model(trans, 'energy'),
+                static_model(trans, 'rel_energy_prev'),
+                static_model(trans, 'rel_energy_next'),
+                model.generic_param_dependence_ratio(trans, 'energy'),
+                model.generic_param_dependence_ratio(trans, 'rel_energy_prev'),
+                model.generic_param_dependence_ratio(trans, 'rel_energy_next')))
+            print('{:10s}: {:.0f} µs'.format(trans, static_model(trans, 'duration')))
     static_quality = model.assess(static_model)
 
-    print('--- LUT ---')
+    if len(show_models):
+        print('--- LUT ---')
     lut_model = model.get_param_lut()
     lut_quality = model.assess(lut_model)
 
-    print('--- param model ---')
+    if len(show_models):
+        print('--- param model ---')
     param_model, param_info = model.get_fitted(safe_functions_enabled = safe_functions_enabled)
-    if not tex_output:
+    if 'param' in show_models or 'all' in show_models:
         for state in model.states():
             for attribute in ['power']:
                 if param_info(state, attribute):
@@ -153,10 +184,14 @@ if __name__ == '__main__':
                     print('{:10s}: {:10s}: {}'.format(trans, attribute, param_info(trans, attribute)['function']._model_str))
                     print('{:10s}  {:10s}  {}'.format('', '', param_info(trans, attribute)['function']._regression_args))
     analytic_quality = model.assess(param_model)
-    if tex_output:
+
+    if 'tex' in show_models or 'tex' in show_quality:
         print_text_model_data(model, static_model, static_quality, lut_model, lut_quality, param_model, param_info, analytic_quality)
-    else:
+
+    if 'table' in show_quality or 'all' in show_quality:
         model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
+    if 'summary' in show_quality or 'all' in show_quality:
+        model_summary_table([static_quality, analytic_quality, lut_quality])
 
     if 'plot-param' in opts:
         for kv in opts['plot-param'].split(';'):
