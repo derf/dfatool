@@ -777,20 +777,11 @@ def _compute_param_statistics(by_name, by_param, parameter_names, num_args, stat
 
     for param_idx, param in enumerate(parameter_names):
         ret['std_by_param'][param] = _mean_std_by_param(by_param, state_or_trans, key, param_idx)
-        if all_params_are_numeric(by_name[state_or_trans], param_idx):
-            param_values = np.array(list((map(lambda x: x[param_idx], by_name[state_or_trans]['param']))))
-            try:
-                ret['corr_by_param'][param] = np.corrcoef(by_name[state_or_trans][key], param_values)[0, 1]
-            except FloatingPointError as fpe:
-                # Typically happens when all parameter values are identical.
-                # Building a correlation coefficient is pointless in this case
-                # -> assume no correlation
-                ret['corr_by_param'][param] = 0.
-        else:
-            ret['corr_by_param'][param] = 0.
+        ret['corr_by_param'][param] = _corr_by_param(by_name, state_or_trans, key, param_idx)
     if arg_support_enabled and state_or_trans in num_args:
         for arg_index in range(num_args[state_or_trans]):
             ret['std_by_arg'].append(_mean_std_by_param(by_param, state_or_trans, key, len(parameter_names) + arg_index))
+            ret['corr_by_arg'].append(_corr_by_param(by_name, state_or_trans, key, len(parameter_names) + arg_index))
 
     return ret
 
@@ -813,12 +804,22 @@ def _mean_std_by_param(by_param, state_or_tran, key, param_index):
             print('[W] parameter value partition for {} is empty'.format(param_value))
     return np.mean([np.std(partition) for partition in partitions])
 
-#def _corr_by_param(by_name, state_or_tran, key, param_index):
-#    
+def _corr_by_param(by_name, state_or_trans, key, param_index):
+    if all_params_are_numeric(by_name[state_or_trans], param_index):
+        param_values = np.array(list((map(lambda x: x[param_index], by_name[state_or_trans]['param']))))
+        try:
+            return np.corrcoef(by_name[state_or_trans][key], param_values)[0, 1]
+        except FloatingPointError as fpe:
+            # Typically happens when all parameter values are identical.
+            # Building a correlation coefficient is pointless in this case
+            # -> assume no correlation
+            return 0.
+    else:
+        return 0.
 
 class EnergyModel:
 
-    def __init__(self, preprocessed_data, ignore_trace_indexes = None, discard_outliers = None, function_override = {}, verbose = True):
+    def __init__(self, preprocessed_data, ignore_trace_indexes = None, discard_outliers = None, function_override = {}, verbose = True, use_corrcoef = False):
         self.traces = preprocessed_data
         self.by_name = {}
         self.by_param = {}
@@ -829,6 +830,7 @@ class EnergyModel:
         self._parameter_names = sorted(self.traces[0]['trace'][0]['parameter'].keys())
         self._num_args = {}
         self._outlier_threshold = discard_outliers
+        self._use_corrcoef = use_corrcoef
         self.function_override = function_override
         self.verbose = verbose
         if discard_outliers != None:
@@ -948,6 +950,8 @@ class EnergyModel:
 
     def generic_param_independence_ratio(self, state_or_trans, key):
         statistics = self.stats[state_or_trans][key]
+        if self._use_corrcoef:
+            return 0
         if statistics['std_static'] == 0:
             return 0
         return statistics['std_param_lut'] / statistics['std_static']
@@ -957,6 +961,8 @@ class EnergyModel:
 
     def param_independence_ratio(self, state_or_trans, key, param):
         statistics = self.stats[state_or_trans][key]
+        if self._use_corrcoef:
+            return 1 - np.abs(statistics['corr_by_param'][param])
         if statistics['std_by_param'][param] == 0:
             return 0
         return statistics['std_param_lut'] / statistics['std_by_param'][param]
@@ -964,14 +970,28 @@ class EnergyModel:
     def param_dependence_ratio(self, state_or_trans, key, param):
         return 1 - self.param_independence_ratio(state_or_trans, key, param)
 
+    def depends_on_param(self, state_or_trans, key, param):
+        if self._use_corrcoef:
+            return self.param_dependence_ratio(state_or_trans, key, param) > 0.1
+        else:
+            return self.param_dependence_ratio(state_or_trans, key, param) > 0.5
+
     def arg_independence_ratio(self, state_or_trans, key, arg_index):
         statistics = self.stats[state_or_trans][key]
+        if self._use_corrcoef:
+            return 1 - np.abs(statistics['corr_by_arg'][arg_index])
         if statistics['std_by_arg'][arg_index] == 0:
             return 0
         return statistics['std_param_lut'] / statistics['std_by_arg'][arg_index]
 
     def arg_dependence_ratio(self, state_or_trans, key, arg_index):
         return 1 - self.arg_independence_ratio(state_or_trans, key, arg_index)
+
+    def depends_on_arg(self, state_or_trans, key, param):
+        if self._use_corrcoef:
+            return self.arg_dependence_ratio(state_or_trans, key, param) > 0.1
+        else:
+            return self.arg_dependence_ratio(state_or_trans, key, param) > 0.5
 
     def _get_model_from_dict(self, model_dict, model_function):
         model = {}
@@ -1038,7 +1058,7 @@ class EnergyModel:
             for model_attribute in self.by_name[state_or_tran]['attributes']:
                 fit_results = {}
                 for parameter_index, parameter_name in enumerate(self._parameter_names):
-                    if self.param_dependence_ratio(state_or_tran, model_attribute, parameter_name) > 0.5:
+                    if self.depends_on_param(state_or_tran, model_attribute, parameter_name):
                         fit_queue.append({
                             'key' : [state_or_tran, model_attribute, parameter_name],
                             'args' : [self.by_param, state_or_tran, model_attribute, parameter_index, safe_functions_enabled]
@@ -1047,7 +1067,7 @@ class EnergyModel:
                         #print('{} {} is {}'.format(state_or_tran, parameter_name, fit_results[parameter_name]['best']))
                 if arg_support_enabled and self.by_name[state_or_tran]['isa'] == 'transition':
                     for arg_index in range(self._num_args[state_or_tran]):
-                        if self.arg_dependence_ratio(state_or_tran, model_attribute, arg_index) > 0.5:
+                        if self.depends_on_arg(state_or_tran, model_attribute, arg_index):
                             fit_queue.append({
                                 'key' : [state_or_tran, model_attribute, arg_index],
                                 'args' : [param_subdict, state_or_tran, model_attribute, len(self._parameter_names) + arg_index, safe_functions_enabled]
@@ -1126,6 +1146,9 @@ class EnergyModel:
 
     def parameters(self):
         return self._parameter_names
+
+    def attributes(self, state_or_trans):
+        return self.by_name[state_or_trans]['attributes']
 
     def assess(self, model_function):
         detailed_results = {}
