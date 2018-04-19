@@ -970,6 +970,10 @@ class EnergyModel:
     def param_dependence_ratio(self, state_or_trans, key, param):
         return 1 - self.param_independence_ratio(state_or_trans, key, param)
 
+    # This heuristic is very similar to the "function is not much better than
+    # median" checks in get_fitted. So far, doing it here as well is mostly
+    # a performance and not an algorithm quality decision.
+    # --df, 2018-04-18
     def depends_on_param(self, state_or_trans, key, param):
         if self._use_corrcoef:
             return self.param_dependence_ratio(state_or_trans, key, param) > 0.1
@@ -987,6 +991,7 @@ class EnergyModel:
     def arg_dependence_ratio(self, state_or_trans, key, arg_index):
         return 1 - self.arg_independence_ratio(state_or_trans, key, arg_index)
 
+    # See notes on depends_on_param
     def depends_on_arg(self, state_or_trans, key, param):
         if self._use_corrcoef:
             return self.arg_dependence_ratio(state_or_trans, key, param) > 0.1
@@ -1091,7 +1096,8 @@ class EnergyModel:
                             vprint(self.verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is worse than ref ({:.0f}, {:.0f})'.format(
                                 state_or_tran, model_attribute, result['key'][2], fit_result['best_rmsd'],
                                 fit_result['mean_rmsd'], fit_result['median_rmsd']))
-                        elif fit_result['best_rmsd'] >= 0.5 * min(fit_result['mean_rmsd'], fit_result['median_rmsd']):
+                        # See notes on depends_on_param
+                        elif fit_result['best_rmsd'] >= 0.8 * min(fit_result['mean_rmsd'], fit_result['median_rmsd']):
                             vprint(self.verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is not much better than ({:.0f}, {:.0f})'.format(
                                 state_or_tran, model_attribute, result['key'][2], fit_result['best_rmsd'],
                                 fit_result['mean_rmsd'], fit_result['median_rmsd']))
@@ -1154,6 +1160,7 @@ class EnergyModel:
         detailed_results = {}
         model_energy_list = []
         real_energy_list = []
+        model_rel_energy_list = []
         model_duration_list = []
         real_duration_list = []
         model_timeout_list = []
@@ -1169,22 +1176,32 @@ class EnergyModel:
             for rep_id in range(len(trace['trace'][0]['offline'])):
                 model_energy = 0.
                 real_energy = 0.
+                model_rel_energy = 0.
                 model_duration = 0.
                 real_duration = 0.
                 model_timeout = 0.
                 real_timeout = 0.
-                for trace_part in trace['trace']:
+                for i, trace_part in enumerate(trace['trace']):
                     name = trace_part['name']
+                    prev_name = trace['trace'][i-1]['name']
                     isa = trace_part['isa']
                     if name != 'UNINITIALIZED':
                         param = trace_part['offline_aggregates']['param'][rep_id]
+                        prev_param = trace['trace'][i-1]['offline_aggregates']['param'][rep_id]
                         power = trace_part['offline'][rep_id]['uW_mean']
                         duration = trace_part['offline'][rep_id]['us']
+                        prev_duration = trace['trace'][i-1]['offline'][rep_id]['us']
                         real_energy += power * duration
                         if isa == 'state':
                             model_energy += model_function(name, 'power', param=param) * duration
                         else:
                             model_energy += model_function(name, 'energy', param=param)
+                            # If i == 1, the previous state was UNINITIALIZED, for which we do not have model data
+                            if i == 1:
+                                model_rel_energy += model_function(name, 'energy', param=param)
+                            else:
+                                model_rel_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
+                            model_rel_energy += model_function(name, 'rel_energy_prev', param=param)
                             real_duration += duration
                             model_duration += model_function(name, 'duration', param=param)
                             if 'plan' in trace_part and trace_part['plan']['level'] == 'epilogue':
@@ -1192,6 +1209,7 @@ class EnergyModel:
                                 model_timeout += model_function(name, 'timeout', param=param)
                 real_energy_list.append(real_energy)
                 model_energy_list.append(model_energy)
+                model_rel_energy_list.append(model_rel_energy)
                 real_duration_list.append(real_duration)
                 model_duration_list.append(model_duration)
                 real_timeout_list.append(real_timeout)
@@ -1202,6 +1220,7 @@ class EnergyModel:
             'duration_by_trace' : regression_measures(np.array(model_duration_list), np.array(real_duration_list)),
             'energy_by_trace' : regression_measures(np.array(model_energy_list), np.array(real_energy_list)),
             'timeout_by_trace' : regression_measures(np.array(model_timeout_list), np.array(real_timeout_list)),
+            'rel_energy_by_trace' : regression_measures(np.array(model_rel_energy_list), np.array(real_energy_list)),
         }
 
 
