@@ -15,15 +15,14 @@ class State:
 
     def dfs(self, depth):
         if depth == 0:
-            return [[trans.name] for trans in self.outgoing_transitions]
-
-        ret = []
-        for trans in self.outgoing_transitions:
-            for suffix in trans.destination.dfs(depth - 1):
-                new_suffix = [trans.name]
-                new_suffix.extend(suffix)
-                ret.append(new_suffix)
-        return ret
+            for trans in self.outgoing_transitions:
+                yield [trans.name]
+        else:
+            for trans in self.outgoing_transitions:
+                for suffix in trans.destination.dfs(depth - 1):
+                    new_suffix = [trans.name]
+                    new_suffix.extend(suffix)
+                    yield new_suffix
 
 class PTA:
     def __init__(self, state_names, parameters):
