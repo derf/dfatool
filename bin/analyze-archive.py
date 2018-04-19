@@ -71,13 +71,13 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
     print('')
     print(r'key attribute $1 - \frac{\sigma_X}{...}$')
     for state_or_tran in model.by_name.keys():
-        for attribute in model.by_name[state_or_tran]['attributes']:
+        for attribute in model.attributes(state_or_tran):
             print('{} {} {:.8f}'.format(state_or_tran, attribute, model.generic_param_dependence_ratio(state_or_tran, attribute)))
 
     print('')
     print(r'key attribute parameter $1 - \frac{...}{...}$')
     for state_or_tran in model.by_name.keys():
-        for attribute in model.by_name[state_or_tran]['attributes']:
+        for attribute in model.attributes(state_or_tran):
             for param in model.parameters():
                 print('{} {} {} {:.8f}'.format(state_or_tran, attribute, param, model.param_dependence_ratio(state_or_tran, attribute, param)))
             if state_or_tran in model._num_args:
@@ -180,11 +180,11 @@ if __name__ == '__main__':
     param_model, param_info = model.get_fitted(safe_functions_enabled = safe_functions_enabled)
     if 'param' in show_models or 'all' in show_models:
         for state in model.states():
-            for attribute in ['power']:
+            for attribute in model.attributes(state):
                 if param_info(state, attribute):
                     print('{:10s}: {}'.format(state, param_info(state, attribute)['function']._model_str))
                     print('{:10s}  {}'.format('', param_info(state, attribute)['function']._regression_args))
-        for trans in model.transitions():
+        for trans in model.attributes(trans):
             for attribute in ['energy', 'rel_energy_prev', 'rel_energy_next', 'duration', 'timeout']:
                 if param_info(trans, attribute):
                     print('{:10s}: {:10s}: {}'.format(trans, attribute, param_info(trans, attribute)['function']._model_str))
