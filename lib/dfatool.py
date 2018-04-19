@@ -135,8 +135,12 @@ def regression_measures(predicted, actual):
 
     if np.all(actual != 0):
         measures['mape'] = np.mean(np.abs(deviations / actual)) * 100 # bad measure
+    else:
+        measures['mape'] = np.nan
     if np.all(np.abs(predicted) + np.abs(actual) != 0):
         measures['smape'] = np.mean(np.abs(deviations) / (( np.abs(predicted) + np.abs(actual)) / 2 )) * 100
+    else:
+        measures['smape'] = np.nan
     #if np.all(rsq_quotient != 0):
     #    measures['rsq'] = (np.sum((actual - mean) * (predicted - mean), dtype=np.float64)**2) / rsq_quotient
 
