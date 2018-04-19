@@ -1154,6 +1154,11 @@ class EnergyModel:
     def transitions(self):
         return sorted(list(filter(lambda k: self.by_name[k]['isa'] == 'transition', self.by_name.keys())))
 
+    def states_and_transitions(self):
+        ret = self.states()
+        ret.extend(self.transitions())
+        return ret
+
     def parameters(self):
         return self._parameter_names
 
