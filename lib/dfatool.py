@@ -8,7 +8,6 @@ import numpy as np
 import os
 import re
 from scipy import optimize
-from gplearn.genetic import SymbolicRegressor
 from sklearn.metrics import r2_score
 import struct
 import sys
