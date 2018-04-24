@@ -104,6 +104,17 @@ class State:
                     new_suffix.extend(suffix)
                     yield new_suffix
 
+def _json_function_to_analytic_function(base, attribute, parameters):
+    if attribute in base and 'function' in base[attribute]:
+        base = base[attribute]['function']
+        return AnalyticFunction(base['raw'], parameters, 0, regression_args = base['regression_args'])
+    return None
+
+def _json_get_static(base, attribute):
+    if attribute in base:
+        return base[attribute]['static']
+    return 0
+
 class PTA:
     def __init__(self, state_names = [], parameters = [], initial_param_values = None):
         self.states = dict([[state_name, State(state_name)] for state_name in state_names])
@@ -117,8 +128,31 @@ class PTA:
         if not 'UNINITIALIZED' in state_names:
             self.states['UNINITIALIZED'] = State('UNINITIALIZED')
 
+    @classmethod
+    def from_json(cls, json_input):
+        kwargs = {}
+        for key in ('state_names', 'parameters', 'initial_param_values'):
+            if key in json_input:
+                kwargs[key] = json_input[key]
+        pta = cls(**kwargs)
+        for name, state in json_input['states'].items():
+            power_function = _json_function_to_analytic_function(state, 'power', pta.parameters)
+            pta.add_state(name, power = _json_get_static(state, 'power'), power_function = power_function)
+        for transition in json_input['transitions']:
+            duration_function = _json_function_to_analytic_function(transition, 'duration', pta.parameters)
+            energy_function = _json_function_to_analytic_function(transition, 'energy', pta.parameters)
+            timeout_function = _json_function_to_analytic_function(transition, 'timeout', pta.parameters)
+            pta.add_transition(transition['origin'], transition['destination'],
+                transition['name'],
+                duration = _json_get_static(transition, 'duration'),
+                energy = _json_get_static(transition, 'energy'),
+                timeout = _json_get_static(transition, 'timeout')
+            )
+
+        return pta
+
     def add_state(self, state_name, **kwargs):
-        if 'power_function' in kwargs:
+        if 'power_function' in kwargs and type(kwargs['power_function']) != AnalyticFunction:
             kwargs['power_function'] = AnalyticFunction(kwargs['power_function'],
                 self.parameters, 0)
         self.states[state_name] = State(state_name, **kwargs)
@@ -127,7 +161,7 @@ class PTA:
         orig_state = self.states[orig_state]
         dest_state = self.states[dest_state]
         for key in ('duration_function', 'energy_function', 'timeout_function'):
-            if key in kwargs:
+            if key in kwargs and type(kwargs[key]) != AnalyticFunction:
                 kwargs[key] = AnalyticFunction(kwargs[key], self.parameters, 0)
 
         new_transition = Transition(orig_state, dest_state, function_name, **kwargs)

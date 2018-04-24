@@ -3,6 +3,82 @@
 from automata import PTA
 import unittest
 
+example_json_1 = {
+    'parameters' : ['datarate', 'txbytes', 'txpower'],
+    'initial_param_values' : [None, None],
+    'states' : {
+        'IDLE' : {
+            'power' : {
+                'static' : 5,
+            }
+        },
+        'TX' : {
+            'power' : {
+                'static' : 100,
+                'function' : {
+                    'raw' : 'regression_arg(0) + regression_arg(1)'
+                        ' * parameter(txpower)',
+                    'regression_args' : [ 100, 2 ]
+                },
+            }
+        },
+    },
+    'transitions' : [
+        {
+            'name' : 'init',
+            'origin' : 'UNINITIALIZED',
+            'destination' : 'IDLE',
+            'duration' : {
+                'static' : 50000,
+            },
+        },
+        {
+            'name' : 'setTxPower',
+            'origin' : 'IDLE',
+            'destination' : 'IDLE',
+            'duration' : { 'static' : 120 },
+            'energy ' : { 'static' : 10000 },
+            'arg_to_param_map' : { 'txpower' : 0 },
+        },
+        {
+            'name' : 'send',
+            'origin' : 'IDLE',
+            'destination' : 'TX',
+            'duration' : {
+                'static' : 10,
+                'function' : {
+                    'raw' : 'regression_arg(0) + regression_arg(1)'
+                        ' * function_arg(1)',
+                    'regression_args' : [48, 8],
+                },
+            },
+            'energy' : {
+                'static' : 3,
+                'function' : {
+                    'raw' : 'regression_arg(0) + regression_arg(1)'
+                        ' * function_arg(1)',
+                    'regression_args' : [3, 5],
+                },
+            },
+            'arg_to_param_map' : { 'txbytes' : 1 },
+        },
+        {
+            'name' : 'txComplete',
+            'origin' : 'TX',
+            'destination' : 'IDLE',
+            'is_interrupt' : 1,
+            'timeout' : {
+                'static' : 2000,
+                'function' : {
+                    'raw' : 'regression_arg(0) + regression_arg(1)'
+                        ' * parameter(txbytes)',
+                    'regression_args' : [ 500, 16 ],
+                },
+            },
+        }
+    ],
+}
+
 class TestPTA(unittest.TestCase):
     def test_dfs(self):
         pta = PTA(['IDLE', 'TX'])
@@ -19,95 +95,31 @@ class TestPTA(unittest.TestCase):
         pta.add_transition('IDLE', 'IDLE', 'set1')
         pta.add_transition('IDLE', 'IDLE', 'set2')
         self.assertEqual(list(pta.dfs(0)), [['init']])
-        self.assertEqual(list(pta.dfs(1)), [['init', 'set1'], ['init', 'set2']])
-        self.assertEqual(list(pta.dfs(2)), [['init', 'set1', 'set1'],
+        self.assertEqual(sorted(pta.dfs(1)), [['init', 'set1'], ['init', 'set2']])
+        self.assertEqual(sorted(pta.dfs(2)), [['init', 'set1', 'set1'],
             ['init', 'set1', 'set2'],
             ['init', 'set2', 'set1'],
             ['init', 'set2', 'set2']])
 
     def test_from_json(self):
-        json_input = {
-            'parameters' : ['datarate', 'txbytes', 'txpower'],
-            'initial_param_values' : [None, None],
-            'states' : {
-                'IDLE' : {
-                    'power' : {
-                        'static' : 5,
-                    }
-                },
-                'TX' : {
-                    'power' : {
-                        'static' : 100,
-                        'function' : {
-                            'raw' : '0 + regression_arg(0) + regression_arg(1)'
-                                ' * parameter(txpower) + regression_arg(2)'
-                                ' * 1 / parameter(datarate) + regression_arg(3)'
-                                ' * parameter(txpower) * 1 / parameter(datarate)',
-                            'regression_args' : [
-                                13918.0985307854,
-                                245.185518812381,
-                                8368807.4712942,
-                                271527.656040595
-                            ],
-                        },
-                    }
-                },
-            },
-            'transitions' : [
-                {
-                    'name' : 'init',
-                    'origin' : 'UNINITIALIZED',
-                    'destination' : 'IDLE',
-                    'duration' : {
-                        'static' : 50000,
-                    },
-                },
-                {
-                    'name' : 'setTxPower',
-                    'origin' : 'IDLE',
-                    'destination' : 'IDLE',
-                    'duration' : { 'static' : 120 },
-                    'energy ' : { 'static' : 10000 },
-                    'arg_to_param_map' : [ 'txpower' ],
-                },
-                {
-                    'name' : 'send',
-                    'origin' : 'IDLE',
-                    'destination' : 'TX',
-                    'duration' : {
-                        'static' : 10,
-                        'function' : {
-                            'raw' : 'regression_arg(0) + regression_arg(1)'
-                                ' * function_arg(1)',
-                            'regression_args' : [48, 8],
-                        },
-                    },
-                    'energy' : {
-                        'static' : 3,
-                        'function' : {
-                            'raw' : 'regression_arg(0) + regression_arg(1)'
-                                ' * function_arg(1)',
-                            'regression_args' : [3, 5],
-                        },
-                    },
-                    'arg_to_param_map' : [ None, 'txbytes' ],
-                },
-                {
-                    'name' : 'txComplete',
-                    'origin' : 'TX',
-                    'destination' : 'IDLE',
-                    'is_interrupt' : 1,
-                    'timeout' : {
-                        'static' : 2000,
-                        'function' : {
-                            'raw' : 'regression_arg(0) + regression_arg(1)'
-                                ' * parameter(txbytes)',
-                            'regression_args' : [ 500, 16 ],
-                        },
-                    },
-                }
-            ],
-        }
+        pta = PTA.from_json(example_json_1)
+        self.assertEqual(pta.parameters, ['datarate', 'txbytes', 'txpower'])
+        self.assertEqual(pta.states['UNINITIALIZED'].name, 'UNINITIALIZED')
+        self.assertEqual(pta.states['IDLE'].name, 'IDLE')
+        self.assertEqual(pta.states['TX'].name, 'TX')
+        self.assertEqual(len(pta.transitions), 4)
+        self.assertEqual(pta.transitions[0].name, 'init')
+        self.assertEqual(pta.transitions[1].name, 'setTxPower')
+        self.assertEqual(pta.transitions[2].name, 'send')
+        self.assertEqual(pta.transitions[3].name, 'txComplete')
+
+    def test_from_json_dfs(self):
+        pta = PTA.from_json(example_json_1)
+        self.assertEqual(sorted(pta.dfs(1)), [['init', 'send'], ['init', 'setTxPower']])
+
+    def test_from_json_function(self):
+        pta = PTA.from_json(example_json_1)
+        self.assertEqual(pta.states['TX'].get_energy(1000, {'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 1000 * (100 + 2 * 10))
 
     def test_simulation(self):
         pta = PTA()
