@@ -152,13 +152,37 @@ class TestPTA(unittest.TestCase):
             'length' : None
         })
 
-    def test_simulation_param_set(self):
+    def test_simulation_param_update_function(self):
         pta = PTA(parameters = ['txpower', 'length'])
         pta.add_state('IDLE', power = 5)
         pta.add_state('TX', power = 100)
         pta.add_transition('UNINITIALIZED', 'IDLE', 'init', energy = 500000, duration = 50000)
         pta.add_transition('IDLE', 'IDLE', 'setTxPower', energy = 10000, duration = 120,
             param_update_function = lambda param, arg: {**param, 'txpower' : arg[0]})
+        pta.add_transition('IDLE', 'TX', 'send', energy = 3, duration = 10)
+        pta.add_transition('TX', 'IDLE', 'txComplete', timeout = 2000, is_interrupt = True)
+        trace = [
+            ['init'],
+            ['setTxPower', 10]
+        ]
+        expected_energy = 510000
+        expected_duration = 50120
+        power, duration, state, parameters = pta.simulate(trace)
+        self.assertEqual(power, expected_energy)
+        self.assertEqual(duration, expected_duration)
+        self.assertEqual(state.name, 'IDLE')
+        self.assertEqual(parameters, {
+            'txpower' : 10,
+            'length' : None
+        })
+
+    def test_simulation_arg_to_param_map(self):
+        pta = PTA(parameters = ['txpower', 'length'])
+        pta.add_state('IDLE', power = 5)
+        pta.add_state('TX', power = 100)
+        pta.add_transition('UNINITIALIZED', 'IDLE', 'init', energy = 500000, duration = 50000)
+        pta.add_transition('IDLE', 'IDLE', 'setTxPower', energy = 10000, duration = 120,
+            arg_to_param_map = {'txpower' : 0})
         pta.add_transition('IDLE', 'TX', 'send', energy = 3, duration = 10)
         pta.add_transition('TX', 'IDLE', 'txComplete', timeout = 2000, is_interrupt = True)
         trace = [

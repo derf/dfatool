@@ -51,9 +51,10 @@ class Transition:
         if self.param_update_function:
             return self.param_update_function(param_dict, args)
         if self.arg_to_param_map:
-            ret = {}
-            #for arg_index in range(self.arg_to_param_map):
-            #    if self.arg_to_param_map[arg_index]
+            ret = param_dict.copy()
+            for k, v in self.arg_to_param_map.items():
+                ret[k] = args[v]
+            return ret
         return param_dict
 
 class State:
