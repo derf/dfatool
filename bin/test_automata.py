@@ -31,6 +31,9 @@ example_json_1 = {
             'duration' : {
                 'static' : 50000,
             },
+            'set_param' : {
+                'txpower' : 10
+            },
         },
         {
             'name' : 'setTxPower',
@@ -120,6 +123,7 @@ class TestPTA(unittest.TestCase):
     def test_from_json_function(self):
         pta = PTA.from_json(example_json_1)
         self.assertEqual(pta.states['TX'].get_energy(1000, {'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 1000 * (100 + 2 * 10))
+        self.assertEqual(pta.transitions[3].get_timeout({'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 500 + 16 * 6)
 
     def test_simulation(self):
         pta = PTA()
@@ -203,6 +207,25 @@ class TestPTA(unittest.TestCase):
         ]
         expected_energy = 510000
         expected_duration = 50120
+        power, duration, state, parameters = pta.simulate(trace)
+        self.assertEqual(power, expected_energy)
+        self.assertEqual(duration, expected_duration)
+        self.assertEqual(state.name, 'IDLE')
+        self.assertEqual(parameters, {
+            'txpower' : 10,
+            'length' : None
+        })
+
+    def test_simulation_set_param(self):
+        pta = PTA(parameters = ['txpower', 'length'])
+        pta.add_state('IDLE', power = 5)
+        pta.add_state('TX', power = 100)
+        pta.add_transition('UNINITIALIZED', 'IDLE', 'init', energy = 500000, duration = 50000, set_param = {'txpower' : 10})
+        trace = [
+            ['init'],
+        ]
+        expected_energy = 500000
+        expected_duration = 50000
         power, duration, state, parameters = pta.simulate(trace)
         self.assertEqual(power, expected_energy)
         self.assertEqual(duration, expected_duration)

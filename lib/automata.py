@@ -17,7 +17,7 @@ class Transition:
             timeout = 0, timeout_function = None,
             is_interrupt = False,
             arguments = [], param_update_function = None,
-            arg_to_param_map = None):
+            arg_to_param_map = None, set_param = None):
         self.name = name
         self.origin = orig_state
         self.destination = dest_state
@@ -31,6 +31,7 @@ class Transition:
         self.arguments = arguments.copy()
         self.param_update_function = param_update_function
         self.arg_to_param_map = arg_to_param_map
+        self.set_param = set_param
 
     def get_duration(self, param_dict = {}, args = []):
         if self.duration_function:
@@ -50,12 +51,14 @@ class Transition:
     def get_params_after_transition(self, param_dict, args = []):
         if self.param_update_function:
             return self.param_update_function(param_dict, args)
+        ret = param_dict.copy()
         if self.arg_to_param_map:
-            ret = param_dict.copy()
             for k, v in self.arg_to_param_map.items():
                 ret[k] = args[v]
-            return ret
-        return param_dict
+        if self.set_param:
+            for k, v in self.set_param.items():
+                ret[k] = v
+        return ret
 
 class State:
     def __init__(self, name, power = 0, power_function = None):
@@ -142,11 +145,18 @@ class PTA:
             duration_function = _json_function_to_analytic_function(transition, 'duration', pta.parameters)
             energy_function = _json_function_to_analytic_function(transition, 'energy', pta.parameters)
             timeout_function = _json_function_to_analytic_function(transition, 'timeout', pta.parameters)
+            arg_to_param_map = None
+            if 'arg_to_param_map' in transition:
+                arg_to_param_map = transition['arg_to_param_map']
             pta.add_transition(transition['origin'], transition['destination'],
                 transition['name'],
                 duration = _json_get_static(transition, 'duration'),
+                duration_function = duration_function,
                 energy = _json_get_static(transition, 'energy'),
-                timeout = _json_get_static(transition, 'timeout')
+                energy_function = energy_function,
+                timeout = _json_get_static(transition, 'timeout'),
+                timeout_function = timeout_function,
+                arg_to_param_map = arg_to_param_map
             )
 
         return pta
