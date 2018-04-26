@@ -26,7 +26,7 @@ example_json_1 = {
     'transitions' : [
         {
             'name' : 'init',
-            'origin' : 'UNINITIALIZED',
+            'origin' : ['UNINITIALIZED', 'IDLE'],
             'destination' : 'IDLE',
             'duration' : {
                 'static' : 50000,
@@ -110,20 +110,21 @@ class TestPTA(unittest.TestCase):
         self.assertEqual(pta.states['UNINITIALIZED'].name, 'UNINITIALIZED')
         self.assertEqual(pta.states['IDLE'].name, 'IDLE')
         self.assertEqual(pta.states['TX'].name, 'TX')
-        self.assertEqual(len(pta.transitions), 4)
+        self.assertEqual(len(pta.transitions), 5)
         self.assertEqual(pta.transitions[0].name, 'init')
-        self.assertEqual(pta.transitions[1].name, 'setTxPower')
-        self.assertEqual(pta.transitions[2].name, 'send')
-        self.assertEqual(pta.transitions[3].name, 'txComplete')
+        self.assertEqual(pta.transitions[1].name, 'init')
+        self.assertEqual(pta.transitions[2].name, 'setTxPower')
+        self.assertEqual(pta.transitions[3].name, 'send')
+        self.assertEqual(pta.transitions[4].name, 'txComplete')
 
     def test_from_json_dfs(self):
         pta = PTA.from_json(example_json_1)
-        self.assertEqual(sorted(pta.dfs(1)), [['init', 'send'], ['init', 'setTxPower']])
+        self.assertEqual(sorted(pta.dfs(1)), [['init', 'init'], ['init', 'send'], ['init', 'setTxPower']])
 
     def test_from_json_function(self):
         pta = PTA.from_json(example_json_1)
         self.assertEqual(pta.states['TX'].get_energy(1000, {'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 1000 * (100 + 2 * 10))
-        self.assertEqual(pta.transitions[3].get_timeout({'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 500 + 16 * 6)
+        self.assertEqual(pta.transitions[4].get_timeout({'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 500 + 16 * 6)
 
     def test_simulation(self):
         pta = PTA()

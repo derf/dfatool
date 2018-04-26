@@ -67,13 +67,6 @@ class State:
         self.power_function = power_function
         self.outgoing_transitions = {}
 
-    """@classmethod
-    def from_json(cls, serialized_state):
-        if 'power' in serialized_state:
-            cls.power = serialized_state['power']['static']
-            if 'function' in serialized_state:
-                cls.power_function = """
-
     def add_outgoing_transition(self, new_transition):
         self.outgoing_transitions[new_transition.name] = new_transition
 
@@ -148,16 +141,20 @@ class PTA:
             arg_to_param_map = None
             if 'arg_to_param_map' in transition:
                 arg_to_param_map = transition['arg_to_param_map']
-            pta.add_transition(transition['origin'], transition['destination'],
-                transition['name'],
-                duration = _json_get_static(transition, 'duration'),
-                duration_function = duration_function,
-                energy = _json_get_static(transition, 'energy'),
-                energy_function = energy_function,
-                timeout = _json_get_static(transition, 'timeout'),
-                timeout_function = timeout_function,
-                arg_to_param_map = arg_to_param_map
-            )
+            origins = transition['origin']
+            if type(origins) != list:
+                origins = [origins]
+            for origin in origins:
+                pta.add_transition(origin, transition['destination'],
+                    transition['name'],
+                    duration = _json_get_static(transition, 'duration'),
+                    duration_function = duration_function,
+                    energy = _json_get_static(transition, 'energy'),
+                    energy_function = energy_function,
+                    timeout = _json_get_static(transition, 'timeout'),
+                    timeout_function = timeout_function,
+                    arg_to_param_map = arg_to_param_map
+                )
 
         return pta
 
