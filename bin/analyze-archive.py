@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import getopt
+import json
 import plotter
 import re
 import sys
@@ -92,12 +93,14 @@ if __name__ == '__main__':
     function_override = {}
     show_models = []
     show_quality = []
+    hwmodel = None
+    energymodel_export_file = None
 
     try:
         optspec = (
             'plot-unparam= plot-param= show-models= show-quality= '
             'ignored-trace-indexes= discard-outliers= function-override= '
-            'with-safe-functions'
+            'with-safe-functions hwmodel= export-energymodel='
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
 
@@ -127,6 +130,10 @@ if __name__ == '__main__':
             if 'with-safe-functions' in opts:
                 safe_functions_enabled = True
 
+            if 'hwmodel' in opts:
+                with open(opts['hwmodel'], 'r') as f:
+                    hwmodel = json.load(f)
+
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)
@@ -137,7 +144,8 @@ if __name__ == '__main__':
     model = EnergyModel(preprocessed_data,
         ignore_trace_indexes = ignored_trace_indexes,
         discard_outliers = discard_outliers,
-        function_override = function_override)
+        function_override = function_override,
+        hwmodel = hwmodel)
 
 
     if 'plot-unparam' in opts:
@@ -207,5 +215,14 @@ if __name__ == '__main__':
             else:
                 function = None
             plotter.plot_param(model, state_or_trans, attribute, model.param_index(param_name), extra_function=function)
+
+    if 'export-energymodel' in opts:
+        if not hwmodel:
+            print('[E] --export-energymodel requires --hwmodel to be set')
+            sys.exit(1)
+        json_model = model.to_json()
+        with open(opts['export-energymodel'], 'w') as f:
+            json.dump(json_model, f, indent = 2, sort_keys = True)
+
 
     sys.exit(0)

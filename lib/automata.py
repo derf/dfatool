@@ -1,4 +1,4 @@
-from dfatool import AnalyticFunction
+from functions import AnalyticFunction
 
 def _parse_function(input_function):
     if type('input_function') == 'str':
