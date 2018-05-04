@@ -934,6 +934,7 @@ class EnergyModel:
         model_energy_list = []
         real_energy_list = []
         model_rel_energy_list = []
+        model_state_energy_list = []
         model_duration_list = []
         real_duration_list = []
         model_timeout_list = []
@@ -950,6 +951,7 @@ class EnergyModel:
                 model_energy = 0.
                 real_energy = 0.
                 model_rel_energy = 0.
+                model_state_energy = 0.
                 model_duration = 0.
                 real_duration = 0.
                 model_timeout = 0.
@@ -974,6 +976,7 @@ class EnergyModel:
                                 model_rel_energy += model_function(name, 'energy', param=param)
                             else:
                                 model_rel_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
+                                model_state_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
                             model_rel_energy += model_function(name, 'rel_energy_prev', param=param)
                             real_duration += duration
                             model_duration += model_function(name, 'duration', param=param)
@@ -983,6 +986,7 @@ class EnergyModel:
                 real_energy_list.append(real_energy)
                 model_energy_list.append(model_energy)
                 model_rel_energy_list.append(model_rel_energy)
+                model_state_energy_list.append(model_state_energy)
                 real_duration_list.append(real_duration)
                 model_duration_list.append(model_duration)
                 real_timeout_list.append(real_timeout)
@@ -994,6 +998,7 @@ class EnergyModel:
             'energy_by_trace' : regression_measures(np.array(model_energy_list), np.array(real_energy_list)),
             'timeout_by_trace' : regression_measures(np.array(model_timeout_list), np.array(real_timeout_list)),
             'rel_energy_by_trace' : regression_measures(np.array(model_rel_energy_list), np.array(real_energy_list)),
+            'state_energy_by_trace' : regression_measures(np.array(model_state_energy_list), np.array(real_energy_list)),
         }
 
 

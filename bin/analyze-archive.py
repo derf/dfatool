@@ -60,6 +60,12 @@ def model_summary_table(result_list):
             buf += '  |||  '
         buf += format_quality_measures(results['rel_energy_by_trace'])
     print(buf)
+    buf = 'state-only energy  '
+    for results in result_list:
+        if len(buf):
+            buf += '  |||  '
+        buf += format_quality_measures(results['state_energy_by_trace'])
+    print(buf)
     buf = 'transition timeout '
     for results in result_list:
         if len(buf):
