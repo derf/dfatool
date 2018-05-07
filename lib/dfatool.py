@@ -382,6 +382,9 @@ class RawData:
         self.traces = []
         for trace in self.traces_by_fileno:
             self.traces.extend(trace)
+        for i, trace in enumerate(self.traces):
+            trace['orig_id'] = trace['id']
+            trace['id'] = i
 
     def get_preprocessed_data(self, verbose = True):
         self.verbose = verbose
@@ -584,7 +587,7 @@ def _corr_by_param(by_name, state_or_trans, key, param_index):
 
 class EnergyModel:
 
-    def __init__(self, preprocessed_data, ignore_trace_indexes = None, discard_outliers = None, function_override = {}, verbose = True, use_corrcoef = False, hwmodel = None):
+    def __init__(self, preprocessed_data, ignore_trace_indexes = [], discard_outliers = None, function_override = {}, verbose = True, use_corrcoef = False, hwmodel = None):
         self.traces = preprocessed_data
         self.by_name = {}
         self.by_param = {}
@@ -599,10 +602,11 @@ class EnergyModel:
         self.function_override = function_override
         self.verbose = verbose
         self.hwmodel = hwmodel
+        self.ignore_trace_indexes = ignore_trace_indexes
         if discard_outliers != None:
             self._compute_outlier_stats(ignore_trace_indexes, discard_outliers)
         for run in self.traces:
-            if ignore_trace_indexes == None or int(run['id']) not in ignore_trace_indexes:
+            if run['id'] not in ignore_trace_indexes:
                 for i, elem in enumerate(run['trace']):
                     if elem['name'] != 'UNINITIALIZED':
                         self._load_run_elem(i, elem)
@@ -620,7 +624,7 @@ class EnergyModel:
         tmp_by_param = {}
         self.median_by_param = {}
         for run in self.traces:
-            if ignore_trace_indexes == None or int(run['id']) not in ignore_trace_indexes:
+            if run['id'] not in ignore_trace_indexes:
                 for i, elem in enumerate(run['trace']):
                     key = (elem['name'], tuple(_elem_param_and_arg_list(elem)))
                     if not key in tmp_by_param:
@@ -948,50 +952,51 @@ class EnergyModel:
                 detailed_results[name][key] = measures
 
         for trace in self.traces:
-            for rep_id in range(len(trace['trace'][0]['offline'])):
-                model_energy = 0.
-                real_energy = 0.
-                model_rel_energy = 0.
-                model_state_energy = 0.
-                model_duration = 0.
-                real_duration = 0.
-                model_timeout = 0.
-                real_timeout = 0.
-                for i, trace_part in enumerate(trace['trace']):
-                    name = trace_part['name']
-                    prev_name = trace['trace'][i-1]['name']
-                    isa = trace_part['isa']
-                    if name != 'UNINITIALIZED':
-                        param = trace_part['offline_aggregates']['param'][rep_id]
-                        prev_param = trace['trace'][i-1]['offline_aggregates']['param'][rep_id]
-                        power = trace_part['offline'][rep_id]['uW_mean']
-                        duration = trace_part['offline'][rep_id]['us']
-                        prev_duration = trace['trace'][i-1]['offline'][rep_id]['us']
-                        real_energy += power * duration
-                        if isa == 'state':
-                            model_energy += model_function(name, 'power', param=param) * duration
-                        else:
-                            model_energy += model_function(name, 'energy', param=param)
-                            # If i == 1, the previous state was UNINITIALIZED, for which we do not have model data
-                            if i == 1:
-                                model_rel_energy += model_function(name, 'energy', param=param)
+            if trace['id'] not in self.ignore_trace_indexes:
+                for rep_id in range(len(trace['trace'][0]['offline'])):
+                    model_energy = 0.
+                    real_energy = 0.
+                    model_rel_energy = 0.
+                    model_state_energy = 0.
+                    model_duration = 0.
+                    real_duration = 0.
+                    model_timeout = 0.
+                    real_timeout = 0.
+                    for i, trace_part in enumerate(trace['trace']):
+                        name = trace_part['name']
+                        prev_name = trace['trace'][i-1]['name']
+                        isa = trace_part['isa']
+                        if name != 'UNINITIALIZED':
+                            param = trace_part['offline_aggregates']['param'][rep_id]
+                            prev_param = trace['trace'][i-1]['offline_aggregates']['param'][rep_id]
+                            power = trace_part['offline'][rep_id]['uW_mean']
+                            duration = trace_part['offline'][rep_id]['us']
+                            prev_duration = trace['trace'][i-1]['offline'][rep_id]['us']
+                            real_energy += power * duration
+                            if isa == 'state':
+                                model_energy += model_function(name, 'power', param=param) * duration
                             else:
-                                model_rel_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
-                                model_state_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
-                            model_rel_energy += model_function(name, 'rel_energy_prev', param=param)
-                            real_duration += duration
-                            model_duration += model_function(name, 'duration', param=param)
-                            if 'plan' in trace_part and trace_part['plan']['level'] == 'epilogue':
-                                real_timeout += trace_part['offline'][rep_id]['timeout']
-                                model_timeout += model_function(name, 'timeout', param=param)
-                real_energy_list.append(real_energy)
-                model_energy_list.append(model_energy)
-                model_rel_energy_list.append(model_rel_energy)
-                model_state_energy_list.append(model_state_energy)
-                real_duration_list.append(real_duration)
-                model_duration_list.append(model_duration)
-                real_timeout_list.append(real_timeout)
-                model_timeout_list.append(model_timeout)
+                                model_energy += model_function(name, 'energy', param=param)
+                                # If i == 1, the previous state was UNINITIALIZED, for which we do not have model data
+                                if i == 1:
+                                    model_rel_energy += model_function(name, 'energy', param=param)
+                                else:
+                                    model_rel_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
+                                    model_state_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
+                                model_rel_energy += model_function(name, 'rel_energy_prev', param=param)
+                                real_duration += duration
+                                model_duration += model_function(name, 'duration', param=param)
+                                if 'plan' in trace_part and trace_part['plan']['level'] == 'epilogue':
+                                    real_timeout += trace_part['offline'][rep_id]['timeout']
+                                    model_timeout += model_function(name, 'timeout', param=param)
+                    real_energy_list.append(real_energy)
+                    model_energy_list.append(model_energy)
+                    model_rel_energy_list.append(model_rel_energy)
+                    model_state_energy_list.append(model_state_energy)
+                    real_duration_list.append(real_duration)
+                    model_duration_list.append(model_duration)
+                    real_timeout_list.append(real_timeout)
+                    model_timeout_list.append(model_timeout)
 
         return {
             'by_dfa_component' : detailed_results,

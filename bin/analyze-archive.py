@@ -93,7 +93,7 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
 
 if __name__ == '__main__':
 
-    ignored_trace_indexes = None
+    ignored_trace_indexes = []
     discard_outliers = None
     safe_functions_enabled = False
     function_override = {}
