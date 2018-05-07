@@ -10,6 +10,17 @@ def _parse_function(input_function):
 def _dict_to_list(input_dict):
     return [input_dict[x] for x in sorted(input_dict.keys())]
 
+def _attribute_to_json(static_value, param_function):
+    ret = {
+        'static' : static_value
+    }
+    if param_function:
+        ret['function'] = {
+            'raw' : param_function._model_str,
+            'regression_args' : list(param_function._regression_args)
+        }
+    return ret
+
 class Transition:
     def __init__(self, orig_state, dest_state, name,
             energy = 0, energy_function = None,
@@ -19,8 +30,8 @@ class Transition:
             arguments = [], param_update_function = None,
             arg_to_param_map = None, set_param = None):
         self.name = name
-        self.origin = orig_state
-        self.destination = dest_state
+        self.origin = orig_state.name
+        self.destination = dest_state.name
         self.energy = energy
         self.energy_function = energy_function
         self.duration = duration
@@ -58,6 +69,21 @@ class Transition:
         if self.set_param:
             for k, v in self.set_param.items():
                 ret[k] = v
+        return ret
+
+    def to_json(self):
+        ret = {
+            'name' : self.name,
+            'origin' : self.origin,
+            'destination' : self.destination,
+            'is_interrupt' : self.is_interrupt,
+            'arguments' : self.arguments,
+            'arg_to_param_map' : self.arg_to_param_map,
+            'set_param' : self.set_param,
+            'duration' : _attribute_to_json(self.duration, self.duration_function),
+            'energy' : _attribute_to_json(self.energy, self.energy_function),
+            'timeout' : _attribute_to_json(self.timeout, self.timeout_function),
+        }
         return ret
 
 class State:
@@ -99,6 +125,13 @@ class State:
                     new_suffix = [trans.name]
                     new_suffix.extend(suffix)
                     yield new_suffix
+
+    def to_json(self):
+        ret = {
+            'name' : self.name,
+            'power' : _attribute_to_json(self.power, self.power_function)
+        }
+        return ret
 
 def _json_function_to_analytic_function(base, attribute, parameters):
     if attribute in base and 'function' in base[attribute]:
@@ -158,6 +191,15 @@ class PTA:
 
         return pta
 
+    def to_json(self):
+        ret = {
+            'parameters' : self.parameters,
+            'initial_param_values' : self.initial_param_values,
+            'states' : dict([[state.name, state.to_json()] for state in self.states.values()]),
+            'transitions' : [trans.to_json() for trans in self.transitions]
+        }
+        return ret
+
     def add_state(self, state_name, **kwargs):
         if 'power_function' in kwargs and type(kwargs['power_function']) != AnalyticFunction:
             kwargs['power_function'] = AnalyticFunction(kwargs['power_function'],
@@ -205,3 +247,11 @@ class PTA:
                     state = transition.destination
 
         return total_energy, total_duration, state, param_dict
+
+    def update(self, static_model, param_model):
+        for state in self.states.values():
+            if state.name != 'UNINITIALIZED':
+                state.power = static_model(state.name, 'power')
+                if param_model(state.name, 'power'):
+                    state.power_function = param_model(state.name, 'power')['function']
+                print(state.name, state.power, state.power_function.__dict__)

@@ -907,9 +907,10 @@ class EnergyModel:
         return model_getter, info_getter
 
     def to_json(self):
+        static_model = self.get_static()
         _, param_info = self.get_fitted()
         pta = PTA.from_json(self.hwmodel)
-        pta.update(param_info)
+        pta.update(static_model, param_info)
         return pta.to_json()
 
     def states(self):
