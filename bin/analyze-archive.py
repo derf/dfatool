@@ -156,8 +156,9 @@ if __name__ == '__main__':
 
     if 'plot-unparam' in opts:
         for kv in opts['plot-unparam'].split(';'):
-            state_or_trans, attribute = kv.split(' ')
-            plotter.plot_y(model.by_name[state_or_trans][attribute])
+            state_or_trans, attribute, ylabel = kv.split(':')
+            fname = 'param_y_{}_{}.pdf'.format(state_or_trans,attribute)
+            plotter.plot_y(model.by_name[state_or_trans][attribute], xlabel = 'measurement #', ylabel = ylabel, output = fname)
 
     if len(show_models):
         print('--- simple static model ---')
@@ -191,15 +192,40 @@ if __name__ == '__main__':
 
     if len(show_models):
         print('--- param model ---')
+
     param_model, param_info = model.get_fitted(safe_functions_enabled = safe_functions_enabled)
+
+    if 'paramdetection' in show_models or 'all' in show_models:
+        for state in model.states_and_transitions():
+            for attribute in model.attributes(state):
+                info = param_info(state, attribute)
+                print('{:10s} {:10s} non-param stddev {:f}'.format(
+                    state, attribute, model.stats[state][attribute]['std_static']
+                ))
+                print('{:10s} {:10s} param-lut stddev {:f}'.format(
+                    state, attribute, model.stats[state][attribute]['std_param_lut']
+                ))
+                for param in sorted(model.stats[state][attribute]['std_by_param'].keys()):
+                    print('{:10s} {:10s} {:10s} stddev {:f}'.format(
+                        state, attribute, param, model.stats[state][attribute]['std_by_param'][param]
+                    ))
+                if info != None:
+                    for param_name in sorted(info['fit_result'].keys(), key=str):
+                        param_fit = info['fit_result'][param_name]['results']
+                        for function_type in sorted(param_fit.keys()):
+                            function_rmsd = param_fit[function_type]['rmsd']
+                            print('{:10s} {:10s} {:10s} mean {:10s} RMSD {:.0f}'.format(
+                                state, attribute, str(param_name), function_type, function_rmsd
+                            ))
+
     if 'param' in show_models or 'all' in show_models:
         for state in model.states():
             for attribute in model.attributes(state):
                 if param_info(state, attribute):
                     print('{:10s}: {}'.format(state, param_info(state, attribute)['function']._model_str))
                     print('{:10s}  {}'.format('', param_info(state, attribute)['function']._regression_args))
-        for trans in model.attributes(trans):
-            for attribute in ['energy', 'rel_energy_prev', 'rel_energy_next', 'duration', 'timeout']:
+        for trans in model.transitions():
+            for attribute in model.attributes(trans):
                 if param_info(trans, attribute):
                     print('{:10s}: {:10s}: {}'.format(trans, attribute, param_info(trans, attribute)['function']._model_str))
                     print('{:10s}  {:10s}  {}'.format('', '', param_info(trans, attribute)['function']._regression_args))

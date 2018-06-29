@@ -14,6 +14,7 @@ import tarfile
 from multiprocessing import Pool
 from automata import PTA
 from functions import analytic
+from functions import AnalyticFunction
 from utils import is_numeric
 
 arg_support_enabled = True
