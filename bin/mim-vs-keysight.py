@@ -7,7 +7,7 @@ import struct
 import sys
 import tarfile
 import matplotlib.pyplot as plt
-from dfatool import running_mean, MIMOSA, Keysight
+from dfatool import running_mean, MIMOSA, KeysightCSV
 
 voltage = float(sys.argv[1])
 shunt = float(sys.argv[2])
@@ -16,7 +16,7 @@ mimfile = "../data/20161114_arb_%d.mim" % shunt
 csvfile = "../data/20161114_%d_arb.csv" % shunt
 
 mim = MIMOSA(voltage, shunt)
-ks = Keysight()
+ks = KeysightCSV()
 
 charges, triggers = mim.load_data(mimfile)
 timestamps, currents = ks.load_data(csvfile)

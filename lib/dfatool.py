@@ -139,7 +139,7 @@ def regression_measures(predicted, actual):
 
     return measures
 
-class Keysight:
+class KeysightCSV:
 
     def __init__(self):
         pass
