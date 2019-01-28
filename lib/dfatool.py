@@ -1044,6 +1044,10 @@ class MIMOSA:
             with tarfile.open(fileobj = data_object) as tf:
                 return self._load_tf(tf)
 
+    def load_file(self, filename):
+        with tarfile.open(filename) as tf:
+            return self._load_tf(tf)
+
     def currents_nocal(self, charges):
         ua_max = 1.836 / self.shunt * 1000000
         ua_step = ua_max / 65535

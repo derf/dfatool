@@ -15,7 +15,7 @@ mimfile = sys.argv[3]
 
 mim = MIMOSA(voltage, shunt)
 
-charges, triggers = mim.load_data(mimfile)
+charges, triggers = mim.load_file(mimfile)
 charges = charges[:3000000]
 
 currents = running_mean(mim.charge_to_current_nocal(charges), 10) * 1e-6
