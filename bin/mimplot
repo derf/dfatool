@@ -1,27 +1,61 @@
 #!/usr/bin/env python3
 
 import csv
+import getopt
 import numpy as np
 import os
+import re
 import struct
 import sys
 import tarfile
 import matplotlib.pyplot as plt
 from dfatool import running_mean, MIMOSA
 
-voltage = float(sys.argv[1])
-shunt = float(sys.argv[2])
-mimfile = sys.argv[3]
+opt = dict()
 
-mim = MIMOSA(voltage, shunt)
+if __name__ == '__main__':
 
-charges, triggers = mim.load_file(mimfile)
-charges = charges[:3000000]
+	try:
+		optspec = (
+			'export= '
+		)
 
-currents = running_mean(mim.charge_to_current_nocal(charges), 10) * 1e-6
-xr = np.arange(len(currents)) * 1e-5
-plt.plot( xr, currents, "r-")
-plt.xlabel('Zeit [s]')
-plt.ylabel('Strom [A]')
-plt.grid(True)
-plt.show()
+		raw_opts, args = getopt.getopt(sys.argv[1:], '', optspec.split())
+
+		for option, parameter in raw_opts:
+			optname = re.sub(r'^--', '', option)
+			opt[optname] = parameter
+
+		if 'export' in opt:
+			opt['export'] = list(map(int, opt['export'].split(':')))
+
+	except getopt.GetoptError as err:
+		print(err)
+		sys.exit(2)
+
+	voltage = float(args[0])
+	shunt = float(args[1])
+	mimfile = args[2]
+
+	mim = MIMOSA(voltage, shunt)
+
+	charges, triggers = mim.load_file(mimfile)
+	charges = charges[:3000000]
+
+	currents = running_mean(mim.charge_to_current_nocal(charges), 10) * 1e-6
+	powers = currents * voltage
+	xr = np.arange(len(currents)) * 1e-5
+
+	if 'export' in opt:
+		xr = xr[opt['export'][0] : opt['export'][1]]
+		currents = currents[opt['export'][0] : opt['export'][1]]
+		powers = powers[opt['export'][0] : opt['export'][1]]
+
+		for pair in zip(xr, powers):
+			print('{} {}'.format(*pair))
+
+	plt.plot( xr, powers, "r-")
+	plt.xlabel('Time [s]')
+	plt.ylabel('Power [W]')
+	plt.grid(True)
+	plt.show()
