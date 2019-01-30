@@ -1,11 +1,34 @@
 #!/usr/bin/env python3
 
 import lzma
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import struct
 import sys
 import xml.etree.ElementTree as ET
+
+def plot_y(Y, **kwargs):
+    plot_xy(np.arange(len(Y)), Y, **kwargs)
+
+def plot_xy(X, Y, xlabel = None, ylabel = None, title = None, output = None):
+    fig, ax1 = plt.subplots(figsize=(10,6))
+    if title != None:
+        fig.canvas.set_window_title(title)
+    if xlabel != None:
+        ax1.set_xlabel(xlabel)
+    if ylabel != None:
+        ax1.set_ylabel(ylabel)
+    plt.subplots_adjust(left = 0.1, bottom = 0.1, right = 0.99, top = 0.99)
+    plt.plot(X, Y, "bo", markersize=2)
+    if output:
+        plt.savefig(output)
+        with open('{}.txt'.format(output), 'w') as f:
+            print('X Y', file=f)
+            for i in range(len(X)):
+                print('{} {}'.format(X[i], Y[i]), file=f)
+    else:
+        plt.show()
 
 filename = sys.argv[1]
 
@@ -73,8 +96,30 @@ for i, channel in enumerate(channels):
 
     if i > 0 and channel_type == 'A' and channels[i-1][2] == 'V' and channel_id == channels[i-1][0]:
         power = data[i-1] * data[i]
+        power = 3.6 * data[i]
         print('channel {:d} ({:s}): min {:f}, max {:f}, mean {:f} W'.format(
             channel_id, channel_model, np.min(power), np.max(power), np.mean(power)))
+        min_power = np.min(power)
+        max_power = np.max(power)
+        power_border = np.mean([min_power, max_power])
+        low_power = power[power < power_border]
+        high_power = power[power >= power_border]
+        plot_y(power)
+        print('    avg low / high power (delta): {:f} / {:f} ({:f}) W'.format(
+            np.mean(low_power), np.mean(high_power),
+            np.mean(high_power) - np.mean(low_power)))
+        #plot_y(low_power)
+        #plot_y(high_power)
+        high_power_durations = []
+        current_high_power_duration = 0
+        for is_hpe in power >= power_border:
+            if is_hpe:
+                current_high_power_duration += interval
+            else:
+                if current_high_power_duration > 0:
+                    high_power_durations.append(current_high_power_duration)
+                current_high_power_duration = 0
+        print('    avg high-power duration: {:f} µs'.format(np.mean(high_power_durations) * 1000000))
 
 #print(xml_header)
 #print(raw_header)
