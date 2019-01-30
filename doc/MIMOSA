@@ -1,4 +1,4 @@
-calibration_functio#caldata:
+calibration_function#caldata:
 - edges: [int(us)] Position der Kalibrierungsflanken in us seit Messbeginn
 - offset: int Null-Offset der Rohwerte (Mittlerer Rohwert ohne Verbrauch)
 - offset2: int Rohwert bei R2 als Last

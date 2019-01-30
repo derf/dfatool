@@ -20,10 +20,23 @@ from utils import is_numeric
 arg_support_enabled = True
 
 def running_mean(x, N):
+    """
+    Compute running average.
+
+    arguments:
+    x -- NumPy array
+    N -- how many items to average
+    """
     cumsum = np.cumsum(np.insert(x, 0, 0))
     return (cumsum[N:] - cumsum[:-N]) / N
 
 def soft_cast_int(n):
+    """
+    Convert to int, if possible.
+
+    If it is empty, returns None.
+    If it is not numeric, it is left unchanged.
+    """
     if n == None or n == '':
         return None
     try:
@@ -32,6 +45,7 @@ def soft_cast_int(n):
         return n
 
 def float_or_nan(n):
+    """Convert to float (if numeric) or NaN."""
     if n == None:
         return np.nan
     try:
@@ -40,9 +54,16 @@ def float_or_nan(n):
         return np.nan
 
 def vprint(verbose, string):
+    """
+    Print string if verbose.
+
+    Prints string if verbose is a True value
+    """
     if verbose:
         print(string)
 
+    # I don't recall what these are for.
+    # --df, 2019-01-29
     def _gplearn_add_(x, y):
         return x + y
 
@@ -94,19 +115,55 @@ def _arg_name(arg_index):
     return '~arg{:02}'.format(arg_index)
 
 def append_if_set(aggregate, data, key):
+    """Append data[key] to aggregate if key in data."""
     if key in data:
         aggregate.append(data[key])
 
 def mean_or_none(arr):
+    """
+    Compute mean of NumPy array arr.
+
+    Return -1 if arr is empty.
+    """
     if len(arr):
         return np.mean(arr)
     return -1
 
 def aggregate_measures(aggregate, actual):
+    """
+    Calculate error measures for model value on data list.
+
+    arguments:
+    aggregate -- model value (float or int)
+    actual -- real-world / reference values (list of float or int)
+
+    return value:
+    See regression_measures
+    """
     aggregate_array = np.array([aggregate] * len(actual))
     return regression_measures(aggregate_array, np.array(actual))
 
 def regression_measures(predicted, actual):
+    """
+    Calculate error measures by comparing model values to reference values.
+
+    arguments:
+    predicted -- model values (np.ndarray)
+    actual -- real-world / reference values (np.ndarray)
+
+    Returns a dict containing the following measures:
+    mae -- Mean Absolute Error
+    mape -- Mean Absolute Percentage Error,
+            if all items in actual are non-zero (NaN otherwise)
+    smape -- Symmetric Mean Absolute Percentage Error,
+             if no 0,0-pairs are present in actual and predicted (NaN otherwise)
+    msd -- Mean Square Deviation
+    rmsd -- Root Mean Square Deviation
+    ssr -- Sum of Squared Residuals
+    rsq -- R^2 measure, see sklearn.metrics.r2_score
+    count -- Number of values
+    """
+
     if type(predicted) != np.ndarray:
         raise ValueError('first arg must be ndarray, is {}'.format(type(predicted)))
     if type(actual) != np.ndarray:
@@ -209,8 +266,20 @@ def _preprocess_measurement(measurement):
     return processed_data
 
 class RawData:
+    """
+    Loader for hardware model traces measured with MIMOSA.
+
+    Expects a specific trace format and UART log output (as produced by the
+    dfatool benchmark generator). Loads data, prunes bogus measurements, and
+    provides preprocessed data suitable for EnergyModel.
+    """
 
     def __init__(self, filenames):
+        """
+        Create a new RawData object.
+
+        Each filename element corresponds to a measurement run.
+        """
         self.filenames = filenames.copy()
         self.traces_by_fileno = []
         self.setup_by_fileno = []
@@ -388,17 +457,22 @@ class RawData:
             trace['id'] = i
 
     def get_preprocessed_data(self, verbose = True):
+        """
+        Return a list of DFA traces annotated with energy, timing, and parameter data.
+
+        Suitable for the EnergyModel constructor.
+        See EnergyModel(...) docstring for format details.
+        """
         self.verbose = verbose
         if self.preprocessed:
             return self.traces
         if self.version == 0:
-            self.preprocess_0()
+            self._preprocess_0()
         self.preprocessed = True
         return self.traces
 
-    # Loads raw MIMOSA data and turns it into measurements which are ready to
-    # be analyzed.
-    def preprocess_0(self):
+    def _preprocess_0(self):
+        """Load raw MIMOSA data and turn it into measurements which are ready to be analyzed."""
         mim_files = []
         for i, filename in enumerate(self.filenames):
             with tarfile.open(filename) as tf:
@@ -437,6 +511,20 @@ class RawData:
         }
 
 def _param_slice_eq(a, b, index):
+    """
+    Check if by_param keys a and b are identical, ignoring the parameter at index.
+
+    parameters:
+    a, b -- (state/transition name, [parameter0 value, parameter1 value, ...])
+    index -- parameter index to ignore (0 -> parameter0, 1 -> parameter1, etc.)
+
+    Returns True iff a and b have the same state/transition name, and all
+    parameters at positions != index are identical.
+
+    example:
+    ('foo', [1, 4]), ('foo', [2, 4]), 0 -> True
+    ('foo', [1, 4]), ('foo', [2, 4]), 1 -> False
+    """
     if (*a[1][:index], *a[1][index+1:]) == (*b[1][:index], *b[1][index+1:]) and a[0] == b[0]:
         return True
     return False
@@ -528,7 +616,7 @@ def _compute_param_statistics_parallel(args):
         'result' : _compute_param_statistics(*args['args'])
     }
 
-def all_params_are_numeric(data, param_idx):
+def _all_params_are_numeric(data, param_idx):
     param_values = list(map(lambda x: x[param_idx], data['param']))
     if len(list(filter(is_numeric, param_values))) == len(param_values):
         return True
@@ -554,13 +642,24 @@ def _compute_param_statistics(by_name, by_param, parameter_names, num_args, stat
 
     return ret
 
-# returns the mean standard deviation of all measurements of 'what'
-# (e.g. power consumption or timeout) for state/transition 'name' where
-# parameter 'index' is dynamic and all other parameters are fixed.
-# I.e., if parameters are a, b, c ∈ {1,2,3} and 'index' corresponds to b', then
-# this function returns the mean of the standard deviations of (a=1, b=*, c=1),
-# (a=1, b=*, c=2), and so on
 def _mean_std_by_param(by_param, state_or_tran, key, param_index):
+    u"""
+    Calculate the mean standard deviation for a static model where all parameters but param_index are constant.
+
+    arguments:
+    by_param -- measurements sorted by key/transition name and parameter values
+    state_or_tran -- state or transition name (-> by_param[(state_or_tran, *)])
+    key -- model attribute, e.g. 'power' or 'duration'
+           (-> by_param[(state_or_tran, *)][key])
+    param_index -- index of variable parameter
+
+    Returns the mean standard deviation of all measurements of 'key'
+    (e.g. power consumption or timeout) for state/transition 'state_or_tran' where
+    parameter 'param_index' is dynamic and all other parameters are fixed.
+    I.e., if parameters are a, b, c ∈ {1,2,3} and 'index' corresponds to b, then
+    this function returns the mean of the standard deviations of (a=1, b=*, c=1),
+    (a=1, b=*, c=2), and so on.
+    """
     partitions = []
     for param_value in filter(lambda x: x[0] == state_or_tran, by_param.keys()):
         param_partition = []
@@ -574,7 +673,7 @@ def _mean_std_by_param(by_param, state_or_tran, key, param_index):
     return np.mean([np.std(partition) for partition in partitions])
 
 def _corr_by_param(by_name, state_or_trans, key, param_index):
-    if all_params_are_numeric(by_name[state_or_trans], param_index):
+    if _all_params_are_numeric(by_name[state_or_trans], param_index):
         param_values = np.array(list((map(lambda x: x[param_index], by_name[state_or_trans]['param']))))
         try:
             return np.corrcoef(by_name[state_or_trans][key], param_values)[0, 1]
@@ -587,8 +686,101 @@ def _corr_by_param(by_name, state_or_trans, key, param_index):
         return 0.
 
 class EnergyModel:
+    """
+    parameter-aware PTA-based energy model.
+
+    Supports both static and parameter-based model attributes, and automatic detection of parameter-dependence.
+    """
 
     def __init__(self, preprocessed_data, ignore_trace_indexes = [], discard_outliers = None, function_override = {}, verbose = True, use_corrcoef = False, hwmodel = None):
+        """
+        Prepare a new PTA energy model.
+
+        Actual model generation is done on-demand by calling the respective functions.
+
+        arguments:
+        preprocessed_data -- list of preprocessed DFA traces.
+        ignore_trace_indexes -- list of trace indexes. The corresponding taces will be ignored.
+        discard_outliers -- experimental: threshold for outlier detection and removel (float).
+            Outlier detection is performed individually for each state/transition in each trace,
+            so it only works if the benchmark ran several times.
+            Given "data" (a set of measurements of the same thing, e.g. TX duration in the third benchmark trace),
+            "m" (the median of all attribute measurements with the same parameters, which may include data from other traces),
+            a data point X is considered an outlier if
+            | 0.6745 * (X - m) / median(|data - m|) | > discard_outliers .
+        function_override -- dict of overrides for automatic parameter function generation.
+            If (state or transition name, model attribute) is present in function_override,
+            the corresponding text string is the function used for analytic (parameter-aware/fitted)
+            modeling of this attribute. It is passed to AnalyticFunction, see
+            there for the required format. Note that this happens regardless of
+            parameter dependency detection: The provided analytic function will be assigned
+            even if it seems like the model attribute is static / parameter-independent.
+        verbose -- print informative output, e.g. when removing an outlier
+        use_corrcoef -- use correlation coefficient instead of stddev comparison
+            to detect whether a model attribute depends on a parameter
+        hwmodel -- hardware model suitable for PTA.from_hwmodel
+
+        Detailed layout of preprocessed_data:
+        [ ... Liste von einzelnen Läufen (d.h. eine Zustands- und Transitionsfolge UNINITIALIZED -> foo -> FOO -> bar -> BAR -> ...)
+            Jeder Lauf:
+            - id: int Nummer des Laufs, beginnend bei 1
+            - trace: [ ... Liste von Zuständen und Transitionen
+                Jeweils:
+                - name: str Name
+                - isa: str state // transition
+                - parameter: { ... globaler Parameter: aktueller wert. null falls noch nicht eingestellt }
+                - plan:
+                    Falls isa == 'state':
+                    - power: int(uW?)
+                    - time: int(us) geplante Dauer
+                    - energy: int(pJ?)
+                    Falls isa == 'transition':
+                    - timeout: int(us) oder null
+                    - energy: int (pJ?)
+                    - level: str 'user' 'epilogue'
+                - offline_attributes: [ ... Namen der in offline_aggregates gespeicherten Modellattribute, z.B. param, duration, energy, timeout ]
+                - offline_aggregates:
+                    - power: [float(uW)] Mittlere Leistung während Zustand/Transitions
+                    - power_std: [float(uW^2)] Standardabweichung der Leistung
+                    - duration: [int(us)] Dauer
+                    - energy: [float(pJ)] Energieaufnahme des Zustands / der Transition
+                    - clip_rate: [float(0..1)] Clipping
+                    - paramkeys: [[str]] Name der berücksichtigten Parameter
+                    - param: [int // str] Parameterwerte. Quasi-Duplikat von 'parameter' oben
+                    Falls isa == 'transition':
+                    - timeout: [int(us)] Dauer des vorherigen Zustands
+                    - rel_energy_prev: [int(pJ)]
+                    - rel_energy_next: [int(pJ)]
+                - offline: [ ... Während der Messung von MIMOSA o.ä. gemessene Werte
+                    -> siehe doc/MIMOSA analyze_states
+                    - isa: 'state' oder 'transition'
+                    - clip_rate: range(0..1) Anteil an Clipping im Energieverbrauch
+                    - raw_mean: Mittelwert der Rohwerte
+                    - raw_std: Standardabweichung der Rohwerte
+                    - uW_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
+                    - uW_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
+                    - us: Dauer
+                    Nur falls isa 'transition':
+                    - timeout: Dauer des vorherigen Zustands
+                    - uW_mean_delta_prev
+                    - uW_mean_delta_next
+                ]
+                - online: [ ... Während der Messung vom Betriebssystem bestimmte Daten
+                    Falls isa == 'state':
+                    - power: int(uW?)
+                    - time: int(us) geplante Dauer
+                    - energy: int(pJ?)
+                    Falls isa == 'transition':
+                    - timeout: int(us) oder null
+                    - energy: int (pJ?)
+                    - level: str ('user' oder 'epilogue')
+                ]
+                Falls isa == 'transition':
+                - code: [str] Name und Argumente der aufgerufenen Funktion
+                - args: [str] Argumente der aufgerufenen Funktion
+            ]
+        ]
+        """
         self.traces = preprocessed_data
         self.by_name = {}
         self.by_param = {}
