@@ -283,6 +283,52 @@ def _preprocess_measurement(measurement):
 
     return processed_data
 
+class ParamStats:
+
+    def __init__(self, by_name, by_param, parameter_names, arg_count):
+        self.stats = dict()
+        # Note: This is deliberately single-threaded. The overhead incurred
+        # by multiprocessing is higher than the speed gained by parallel
+        # computation of statistics measures.
+        for state_or_tran in by_name.keys():
+            self.stats[state_or_tran] = dict()
+            for attribute in by_name[state_or_tran]['attributes']:
+                self.stats[state_or_tran][attribute] = compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_tran, attribute)
+
+    def generic_param_independence_ratio(self, state_or_trans, attribute, use_corrcoef = False):
+        statistics = self.stats[state_or_trans][attribute]
+        if use_corrcoef:
+            # not supported
+            return 0
+        if statistics['std_static'] == 0:
+            return 0
+        return statistics['std_param_lut'] / statistics['std_static']
+
+    def generic_param_dependence_ratio(self, state_or_trans, attribute, use_corrcoef = False):
+        return 1 - self.generic_param_independence_ratio(state_or_trans, attribute, use_corrcoef)
+
+    def param_independence_ratio(self, state_or_trans, attribute, param, use_corrcoef = False):
+        statistics = self.stats[state_or_trans][attribute]
+        if use_corrcoef:
+            return 1 - np.abs(statistics['corr_by_param'][param])
+        if statistics['std_by_param'][param] == 0:
+            return 0
+        return statistics['std_param_lut'] / statistics['std_by_param'][param]
+
+    def param_dependence_ratio(self, state_or_trans, attribute, param, use_corrcoef = False):
+        return 1 - self.param_independence_ratio(state_or_trans, attribute, param, use_corrcoef)
+
+    def arg_independence_ratio(self, state_or_trans, attribute, arg_index, use_corrcoef = False):
+        statistics = self.stats[state_or_trans][attribute]
+        if use_corrcoef:
+            return 1 - np.abs(statistics['corr_by_arg'][arg_index])
+        if statistics['std_by_arg'][arg_index] == 0:
+            return 0
+        return statistics['std_param_lut'] / statistics['std_by_arg'][arg_index]
+
+    def arg_dependence_ratio(self, state_or_trans, attribute, arg_index, use_corrcoef = False):
+        return 1 - self.arg_independence_ratio(state_or_trans, attribute, arg_index, use_corrcoef)
+
 class RawData:
     """
     Loader for hardware model traces measured with MIMOSA.
@@ -733,7 +779,6 @@ class EnergyModel:
         self.by_name = {}
         self.by_param = {}
         self.by_trace = {}
-        self.stats = {}
         self.cache = {}
         np.seterr('raise')
         self._parameter_names = sorted(self.traces[0]['trace'][0]['parameter'].keys())
@@ -782,20 +827,12 @@ class EnergyModel:
 
 
     def _compute_all_param_statistics(self):
-        # Note: This is deliberately single-threaded. The overhead incurred
-        # by multiprocessing is higher than the speed gained by parallel
-        # computation of statistics measures.
-        for state_or_trans in self.by_name.keys():
-            self.stats[state_or_trans] = {}
-            for key in self.by_name[state_or_trans]['attributes']:
-                if key in self.by_name[state_or_trans]:
-                    self.stats[state_or_trans][key] = compute_param_statistics(self.by_name, self.by_param, self._parameter_names, self._num_args, state_or_trans, key)
+        self.stats = ParamStats(self.by_name, self.by_param, self._parameter_names, self._num_args)
 
     @classmethod
     def from_model(self, model_data, parameter_names):
         self.by_name = {}
         self.by_param = {}
-        self.stats = {}
         np.seterr('raise')
         self._parameter_names = parameter_names
         for state_or_tran, values in model_data.items():
@@ -849,55 +886,22 @@ class EnergyModel:
         self._add_data_to_aggregate(self.by_name, elem['name'], elem)
         self._add_data_to_aggregate(self.by_param, (elem['name'], tuple(_elem_param_and_arg_list(elem))), elem)
 
-    def generic_param_independence_ratio(self, state_or_trans, key):
-        statistics = self.stats[state_or_trans][key]
-        if self._use_corrcoef:
-            return 0
-        if statistics['std_static'] == 0:
-            return 0
-        return statistics['std_param_lut'] / statistics['std_static']
-
-    def generic_param_dependence_ratio(self, state_or_trans, key):
-        return 1 - self.generic_param_independence_ratio(state_or_trans, key)
-
-    def param_independence_ratio(self, state_or_trans, key, param):
-        statistics = self.stats[state_or_trans][key]
-        if self._use_corrcoef:
-            return 1 - np.abs(statistics['corr_by_param'][param])
-        if statistics['std_by_param'][param] == 0:
-            return 0
-        return statistics['std_param_lut'] / statistics['std_by_param'][param]
-
-    def param_dependence_ratio(self, state_or_trans, key, param):
-        return 1 - self.param_independence_ratio(state_or_trans, key, param)
-
     # This heuristic is very similar to the "function is not much better than
     # median" checks in get_fitted. So far, doing it here as well is mostly
     # a performance and not an algorithm quality decision.
     # --df, 2018-04-18
     def depends_on_param(self, state_or_trans, key, param):
         if self._use_corrcoef:
-            return self.param_dependence_ratio(state_or_trans, key, param) > 0.1
+            return self.stats.param_dependence_ratio(state_or_trans, key, param, self._use_corrcoef) > 0.1
         else:
-            return self.param_dependence_ratio(state_or_trans, key, param) > 0.5
-
-    def arg_independence_ratio(self, state_or_trans, key, arg_index):
-        statistics = self.stats[state_or_trans][key]
-        if self._use_corrcoef:
-            return 1 - np.abs(statistics['corr_by_arg'][arg_index])
-        if statistics['std_by_arg'][arg_index] == 0:
-            return 0
-        return statistics['std_param_lut'] / statistics['std_by_arg'][arg_index]
-
-    def arg_dependence_ratio(self, state_or_trans, key, arg_index):
-        return 1 - self.arg_independence_ratio(state_or_trans, key, arg_index)
+            return self.stats.param_dependence_ratio(state_or_trans, key, param, self._use_corrcoef) > 0.5
 
     # See notes on depends_on_param
     def depends_on_arg(self, state_or_trans, key, param):
         if self._use_corrcoef:
-            return self.arg_dependence_ratio(state_or_trans, key, param) > 0.1
+            return self.stats.arg_dependence_ratio(state_or_trans, key, param, self._use_corrcoef) > 0.1
         else:
-            return self.arg_dependence_ratio(state_or_trans, key, param) > 0.5
+            return self.stats.arg_dependence_ratio(state_or_trans, key, param, self._use_corrcoef) > 0.5
 
     def _get_model_from_dict(self, model_dict, model_function):
         model = {}

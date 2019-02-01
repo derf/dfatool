@@ -79,17 +79,17 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
     print(r'key attribute $1 - \frac{\sigma_X}{...}$')
     for state_or_tran in model.by_name.keys():
         for attribute in model.attributes(state_or_tran):
-            print('{} {} {:.8f}'.format(state_or_tran, attribute, model.generic_param_dependence_ratio(state_or_tran, attribute)))
+            print('{} {} {:.8f}'.format(state_or_tran, attribute, model.stats.generic_param_dependence_ratio(state_or_tran, attribute)))
 
     print('')
     print(r'key attribute parameter $1 - \frac{...}{...}$')
     for state_or_tran in model.by_name.keys():
         for attribute in model.attributes(state_or_tran):
             for param in model.parameters():
-                print('{} {} {} {:.8f}'.format(state_or_tran, attribute, param, model.param_dependence_ratio(state_or_tran, attribute, param)))
+                print('{} {} {} {:.8f}'.format(state_or_tran, attribute, param, model.stats.param_dependence_ratio(state_or_tran, attribute, param)))
             if state_or_tran in model._num_args:
                 for arg_index in range(model._num_args[state_or_tran]):
-                    print('{} {} {:d} {:.8f}'.format(state_or_tran, attribute, arg_index, model.arg_dependence_ratio(state_or_tran, attribute, arg_index)))
+                    print('{} {} {:d} {:.8f}'.format(state_or_tran, attribute, arg_index, model.stats.arg_dependence_ratio(state_or_tran, attribute, arg_index)))
 
 if __name__ == '__main__':
 
@@ -168,20 +168,20 @@ if __name__ == '__main__':
             print('{:10s}: {:.0f} µW  ({:.2f})'.format(
                 state,
                 static_model(state, 'power'),
-                model.generic_param_dependence_ratio(state, 'power')))
+                model.stats.generic_param_dependence_ratio(state, 'power')))
             for param in model.parameters():
                 print('{:10s}  dependence on {:15s}: {:.2f}'.format(
                     '',
                     param,
-                    model.param_dependence_ratio(state, 'power', param)))
+                    model.stats.param_dependence_ratio(state, 'power', param)))
         for trans in model.transitions():
             print('{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  ({:.2f} / {:.2f} / {:.2f})'.format(
                 trans, static_model(trans, 'energy'),
                 static_model(trans, 'rel_energy_prev'),
                 static_model(trans, 'rel_energy_next'),
-                model.generic_param_dependence_ratio(trans, 'energy'),
-                model.generic_param_dependence_ratio(trans, 'rel_energy_prev'),
-                model.generic_param_dependence_ratio(trans, 'rel_energy_next')))
+                model.stats.generic_param_dependence_ratio(trans, 'energy'),
+                model.stats.generic_param_dependence_ratio(trans, 'rel_energy_prev'),
+                model.stats.generic_param_dependence_ratio(trans, 'rel_energy_next')))
             print('{:10s}: {:.0f} µs'.format(trans, static_model(trans, 'duration')))
     static_quality = model.assess(static_model)
 
@@ -200,14 +200,14 @@ if __name__ == '__main__':
             for attribute in model.attributes(state):
                 info = param_info(state, attribute)
                 print('{:10s} {:10s} non-param stddev {:f}'.format(
-                    state, attribute, model.stats[state][attribute]['std_static']
+                    state, attribute, model.stats.stats[state][attribute]['std_static']
                 ))
                 print('{:10s} {:10s} param-lut stddev {:f}'.format(
-                    state, attribute, model.stats[state][attribute]['std_param_lut']
+                    state, attribute, model.stats.stats[state][attribute]['std_param_lut']
                 ))
-                for param in sorted(model.stats[state][attribute]['std_by_param'].keys()):
+                for param in sorted(model.stats.stats[state][attribute]['std_by_param'].keys()):
                     print('{:10s} {:10s} {:10s} stddev {:f}'.format(
-                        state, attribute, param, model.stats[state][attribute]['std_by_param'][param]
+                        state, attribute, param, model.stats.stats[state][attribute]['std_by_param'][param]
                     ))
                 if info != None:
                     for param_name in sorted(info['fit_result'].keys(), key=str):
