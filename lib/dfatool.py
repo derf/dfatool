@@ -627,13 +627,6 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
         'results' : results
     }
 
-def _compute_param_statistics_parallel(args):
-    return {
-        'state_or_trans' : args['state_or_trans'],
-        'key' : args['key'],
-        'result' : _compute_param_statistics(*args['args'])
-    }
-
 def _all_params_are_numeric(data, param_idx):
     param_values = list(map(lambda x: x[param_idx], data['param']))
     if len(list(filter(is_numeric, param_values))) == len(param_values):
@@ -877,24 +870,14 @@ class EnergyModel:
 
 
     def _compute_all_param_statistics(self):
-        #queue = []
+        # Note: This is deliberately single-threaded. The overhead incurred
+        # by multiprocessing is higher than the speed gained by parallel
+        # computation of statistics measures.
         for state_or_trans in self.by_name.keys():
             self.stats[state_or_trans] = {}
             for key in self.by_name[state_or_trans]['attributes']:
                 if key in self.by_name[state_or_trans]:
                     self.stats[state_or_trans][key] = _compute_param_statistics(self.by_name, self.by_param, self._parameter_names, self._num_args, state_or_trans, key)
-                    #queue.append({
-                    #    'state_or_trans' : state_or_trans,
-                    #    'key' : key,
-                    #    'args' : [self.by_name, self.by_param, self._parameter_names, self._num_args, state_or_trans, key]
-                    #})
-
-        # IPC overhead for by_name/by_param (un)pickling is higher than
-        # multiprocessing speedup...  so let's not do this.
-        #with Pool() as pool:
-        #    results = pool.map(_compute_param_statistics_parallel, queue)
-        #for ret in results:
-        #    self.stats[ret['state_or_trans']][ret['key']] = ret['result']
 
     @classmethod
     def from_model(self, model_data, parameter_names):
