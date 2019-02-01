@@ -39,6 +39,10 @@ def compute_param_statistics(by_name, by_param, parameter_names, arg_count, stat
     arguments:
     by_name -- ground truth partitioned by state/transition name.
         by_name[state_or_trans][attribute] must be a list or 1-D numpy array.
+        by_name[state_or_trans]['param'] must be a list of parameter values
+        corresponding to the ground truth, e.g. [[1, 2, 3], ...] if the
+        first ground truth element has the (lexically) first parameter set to 1,
+        the second to 2 and the third to 3.
     by_param -- ground truth partitioned by state/transition name and parameters.
         by_name[(state_or_trans, *)][attribute] must be a list or 1-D numpy array.
     parameter_names -- list of parameter names, must have the same order as the parameter
