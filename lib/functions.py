@@ -157,7 +157,12 @@ class AnalyticFunction:
         Return training data suitable for scipy.optimize.least_squares.
 
         arguments:
-        by_param -- measurement data, partitioned by state/transition name and parameter/arg values
+        by_param -- measurement data, partitioned by state/transition name and parameter/arg values.
+            This function only uses by_param[(state_or_tran, *)][model_attribute],
+            which must be a list or 1-D NumPy array containing the ground truth.
+            The parameter values in (state_or_tran, *) must be numeric for
+            all parameters this function depends on -- otherwise, the
+            corresponding data will be left out.
         state_or_tran -- state or transition name, e.g. "TX" or "send"
         model_attribute -- model attribute name, e.g. "power" or "duration"
 
@@ -207,6 +212,9 @@ class AnalyticFunction:
         by_param -- measurement data, partitioned by state/transition name and parameter/arg values
         state_or_tran -- state or transition name, e.g. "TX" or "send"
         model_attribute -- model attribute name, e.g. "power" or "duration"
+
+        The ground truth is read from by_param[(state_or_tran, *)][model_attribute],
+        which must be a list or 1-D NumPy array.
         """
         X, Y, num_valid, num_total = self.get_fit_data(by_param, state_or_tran, model_attribute)
         if num_valid > 2:

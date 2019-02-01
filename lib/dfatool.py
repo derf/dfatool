@@ -704,10 +704,35 @@ def _corr_by_param(by_name, state_or_trans, key, param_index):
         return 0.
 
 class EnergyModel:
-    """
+    u"""
     parameter-aware PTA-based energy model.
 
     Supports both static and parameter-based model attributes, and automatic detection of parameter-dependence.
+
+    The model heavily relies on two internal data structures:
+    EnergyModel.by_name and EnergyModel.by_param.
+
+    These provide measurements aggregated by state/transition name
+    and (in case of by_para) parameter values. Layout:
+    dictionary with one key per state/transition ('send', 'TX', ...) or
+    one key per state/transition and parameter combination
+    (('send', (1, 2)), ('send', (2, 3)), ('TX', (1, 2)), ('TX', (2, 3)), ...).
+    For by_param, parameter values are ordered corresponding to the lexically sorted parameter names.
+
+    Each element is in turn a dict with the following elements:
+    - isa: 'state' or 'transition'
+    - power: list of mean power measurements in µW
+    - duration: list of durations in µs
+    - power_std: list of stddev of power per state/transition
+    - energy: consumed energy (power*duration) in pJ
+    - paramkeys: list of parameter names in each measurement (-> list of lists)
+    - param: list of parameter values in each measurement (-> list of lists)
+    - attributes: list of keys that should be analyzed,
+        e.g. ['power', 'duration']
+    additionally, only if isa == 'transition':
+    - timeout: list of duration of previous state in µs
+    - rel_energy_prev: transition energy relative to previous state mean power in pJ
+    - rel_energy_next: transition energy relative to next state mean power in pJ
     """
 
     def __init__(self, preprocessed_data, ignore_trace_indexes = [], discard_outliers = None, function_override = {}, verbose = True, use_corrcoef = False, hwmodel = None):
