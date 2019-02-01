@@ -162,7 +162,10 @@ class AnalyticFunction:
             which must be a list or 1-D NumPy array containing the ground truth.
             The parameter values in (state_or_tran, *) must be numeric for
             all parameters this function depends on -- otherwise, the
-            corresponding data will be left out.
+            corresponding data will be left out. Parameter values must be
+            ordered according to the order of parameter names used in
+            the ParamFunction constructor. Argument values (if any) always come after
+            parameters, in the order of their index in the function signature.
         state_or_tran -- state or transition name, e.g. "TX" or "send"
         model_attribute -- model attribute name, e.g. "power" or "duration"
 
@@ -214,7 +217,10 @@ class AnalyticFunction:
         model_attribute -- model attribute name, e.g. "power" or "duration"
 
         The ground truth is read from by_param[(state_or_tran, *)][model_attribute],
-        which must be a list or 1-D NumPy array.
+        which must be a list or 1-D NumPy array. Parameter values must be
+        ordered according to the parameter names in the constructor. If
+        argument values are present, they must come after parameter values
+        in the order of their appearance in the function signature.
         """
         X, Y, num_valid, num_total = self.get_fit_data(by_param, state_or_tran, model_attribute)
         if num_valid > 2:
