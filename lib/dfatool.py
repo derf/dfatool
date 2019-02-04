@@ -174,7 +174,6 @@ def regression_measures(predicted, actual):
     rsq -- R^2 measure, see sklearn.metrics.r2_score
     count -- Number of values
     """
-
     if type(predicted) != np.ndarray:
         raise ValueError('first arg must be ndarray, is {}'.format(type(predicted)))
     if type(actual) != np.ndarray:
@@ -286,6 +285,23 @@ def _preprocess_measurement(measurement):
 class ParamStats:
 
     def __init__(self, by_name, by_param, parameter_names, arg_count, use_corrcoef = False):
+        """
+        Compute standard deviation and correlation coefficient on parameterized data partitions.
+
+        arguments:
+        by_name -- ground truth partitioned by state/transition name.
+            by_name[state_or_trans][attribute] must be a list or 1-D numpy array.
+            by_name[state_or_trans]['param'] must be a list of parameter values
+            corresponding to the ground truth, e.g. [[1, 2, 3], ...] if the
+            first ground truth element has the (lexically) first parameter set to 1,
+            the second to 2 and the third to 3.
+        by_param -- ground truth partitioned by state/transition name and parameters.
+            by_name[(state_or_trans, *)][attribute] must be a list or 1-D numpy array.
+        parameter_names -- list of parameter names, must have the same order as the parameter
+            values in by_param (lexical sorting is recommended).
+        arg_count -- dict providing the number of functions args ("local parameters") for each function.
+        use_corrcoef -- use correlation coefficient instead of stddev heuristic for parameter detection
+        """
         self.stats = dict()
         self.use_corrcoef = use_corrcoef
         # Note: This is deliberately single-threaded. The overhead incurred
@@ -296,19 +312,25 @@ class ParamStats:
             for attribute in by_name[state_or_tran]['attributes']:
                 self.stats[state_or_tran][attribute] = compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_tran, attribute)
 
-    def generic_param_independence_ratio(self, state_or_trans, attribute):
+    def _generic_param_independence_ratio(self, state_or_trans, attribute):
         statistics = self.stats[state_or_trans][attribute]
         if self.use_corrcoef:
             # not supported
-            return 0
+            raise ValueError
         if statistics['std_static'] == 0:
             return 0
         return statistics['std_param_lut'] / statistics['std_static']
 
     def generic_param_dependence_ratio(self, state_or_trans, attribute):
-        return 1 - self.generic_param_independence_ratio(state_or_trans, attribute)
+        """
+        Return the heuristi ratio of parameter dependence for state_or_trans and attribute.
 
-    def param_independence_ratio(self, state_or_trans, attribute, param):
+        This is not supported if the correlation coefficient is used.
+        A value close to 0 means no influence, a value close to 1 means high probability of influence.
+        """
+        return 1 - self._generic_param_independence_ratio(state_or_trans, attribute)
+
+    def _param_independence_ratio(self, state_or_trans, attribute, param):
         statistics = self.stats[state_or_trans][attribute]
         if self.use_corrcoef:
             return 1 - np.abs(statistics['corr_by_param'][param])
@@ -317,9 +339,14 @@ class ParamStats:
         return statistics['std_param_lut'] / statistics['std_by_param'][param]
 
     def param_dependence_ratio(self, state_or_trans, attribute, param):
-        return 1 - self.param_independence_ratio(state_or_trans, attribute, param)
+        """
+        Return the heuristic ratio of parameter dependence for state_or_trans, attribute, and param.
 
-    def arg_independence_ratio(self, state_or_trans, attribute, arg_index):
+        A value close to 0 means no influence, a value close to 1 means high probability of influence.
+        """
+        return 1 - self._param_independence_ratio(state_or_trans, attribute, param)
+
+    def _arg_independence_ratio(self, state_or_trans, attribute, arg_index):
         statistics = self.stats[state_or_trans][attribute]
         if self.use_corrcoef:
             return 1 - np.abs(statistics['corr_by_arg'][arg_index])
@@ -328,24 +355,26 @@ class ParamStats:
         return statistics['std_param_lut'] / statistics['std_by_arg'][arg_index]
 
     def arg_dependence_ratio(self, state_or_trans, attribute, arg_index):
-        return 1 - self.arg_independence_ratio(state_or_trans, attribute, arg_index)
+        return 1 - self._arg_independence_ratio(state_or_trans, attribute, arg_index)
 
     # This heuristic is very similar to the "function is not much better than
     # median" checks in get_fitted. So far, doing it here as well is mostly
     # a performance and not an algorithm quality decision.
     # --df, 2018-04-18
-    def depends_on_param(self, state_or_trans, key, param):
+    def depends_on_param(self, state_or_trans, attribute, param):
+        """Return whether attribute of state_or_trans depens on param."""
         if self.use_corrcoef:
-            return self.param_dependence_ratio(state_or_trans, key, param) > 0.1
+            return self.param_dependence_ratio(state_or_trans, attribute, param) > 0.1
         else:
-            return self.param_dependence_ratio(state_or_trans, key, param) > 0.5
+            return self.param_dependence_ratio(state_or_trans, attribute, param) > 0.5
 
     # See notes on depends_on_param
-    def depends_on_arg(self, state_or_trans, key, param):
+    def depends_on_arg(self, state_or_trans, attribute, arg_index):
+        """Return whether attribute of state_or_trans depens on arg_index."""
         if self.use_corrcoef:
-            return self.arg_dependence_ratio(state_or_trans, key, param) > 0.1
+            return self.arg_dependence_ratio(state_or_trans, attribute, arg_index) > 0.1
         else:
-            return self.arg_dependence_ratio(state_or_trans, key, param) > 0.5
+            return self.arg_dependence_ratio(state_or_trans, attribute, arg_index) > 0.5
 
 class RawData:
     """
