@@ -285,8 +285,9 @@ def _preprocess_measurement(measurement):
 
 class ParamStats:
 
-    def __init__(self, by_name, by_param, parameter_names, arg_count):
+    def __init__(self, by_name, by_param, parameter_names, arg_count, use_corrcoef = False):
         self.stats = dict()
+        self.use_corrcoef = use_corrcoef
         # Note: This is deliberately single-threaded. The overhead incurred
         # by multiprocessing is higher than the speed gained by parallel
         # computation of statistics measures.
@@ -295,39 +296,56 @@ class ParamStats:
             for attribute in by_name[state_or_tran]['attributes']:
                 self.stats[state_or_tran][attribute] = compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_tran, attribute)
 
-    def generic_param_independence_ratio(self, state_or_trans, attribute, use_corrcoef = False):
+    def generic_param_independence_ratio(self, state_or_trans, attribute):
         statistics = self.stats[state_or_trans][attribute]
-        if use_corrcoef:
+        if self.use_corrcoef:
             # not supported
             return 0
         if statistics['std_static'] == 0:
             return 0
         return statistics['std_param_lut'] / statistics['std_static']
 
-    def generic_param_dependence_ratio(self, state_or_trans, attribute, use_corrcoef = False):
-        return 1 - self.generic_param_independence_ratio(state_or_trans, attribute, use_corrcoef)
+    def generic_param_dependence_ratio(self, state_or_trans, attribute):
+        return 1 - self.generic_param_independence_ratio(state_or_trans, attribute)
 
-    def param_independence_ratio(self, state_or_trans, attribute, param, use_corrcoef = False):
+    def param_independence_ratio(self, state_or_trans, attribute, param):
         statistics = self.stats[state_or_trans][attribute]
-        if use_corrcoef:
+        if self.use_corrcoef:
             return 1 - np.abs(statistics['corr_by_param'][param])
         if statistics['std_by_param'][param] == 0:
             return 0
         return statistics['std_param_lut'] / statistics['std_by_param'][param]
 
-    def param_dependence_ratio(self, state_or_trans, attribute, param, use_corrcoef = False):
-        return 1 - self.param_independence_ratio(state_or_trans, attribute, param, use_corrcoef)
+    def param_dependence_ratio(self, state_or_trans, attribute, param):
+        return 1 - self.param_independence_ratio(state_or_trans, attribute, param)
 
-    def arg_independence_ratio(self, state_or_trans, attribute, arg_index, use_corrcoef = False):
+    def arg_independence_ratio(self, state_or_trans, attribute, arg_index):
         statistics = self.stats[state_or_trans][attribute]
-        if use_corrcoef:
+        if self.use_corrcoef:
             return 1 - np.abs(statistics['corr_by_arg'][arg_index])
         if statistics['std_by_arg'][arg_index] == 0:
             return 0
         return statistics['std_param_lut'] / statistics['std_by_arg'][arg_index]
 
-    def arg_dependence_ratio(self, state_or_trans, attribute, arg_index, use_corrcoef = False):
-        return 1 - self.arg_independence_ratio(state_or_trans, attribute, arg_index, use_corrcoef)
+    def arg_dependence_ratio(self, state_or_trans, attribute, arg_index):
+        return 1 - self.arg_independence_ratio(state_or_trans, attribute, arg_index)
+
+    # This heuristic is very similar to the "function is not much better than
+    # median" checks in get_fitted. So far, doing it here as well is mostly
+    # a performance and not an algorithm quality decision.
+    # --df, 2018-04-18
+    def depends_on_param(self, state_or_trans, key, param):
+        if self.use_corrcoef:
+            return self.param_dependence_ratio(state_or_trans, key, param) > 0.1
+        else:
+            return self.param_dependence_ratio(state_or_trans, key, param) > 0.5
+
+    # See notes on depends_on_param
+    def depends_on_arg(self, state_or_trans, key, param):
+        if self.use_corrcoef:
+            return self.arg_dependence_ratio(state_or_trans, key, param) > 0.1
+        else:
+            return self.arg_dependence_ratio(state_or_trans, key, param) > 0.5
 
 class RawData:
     """
@@ -827,7 +845,7 @@ class EnergyModel:
 
 
     def _compute_all_param_statistics(self):
-        self.stats = ParamStats(self.by_name, self.by_param, self._parameter_names, self._num_args)
+        self.stats = ParamStats(self.by_name, self.by_param, self._parameter_names, self._num_args, self._use_corrcoef)
 
     @classmethod
     def from_model(self, model_data, parameter_names):
@@ -891,17 +909,11 @@ class EnergyModel:
     # a performance and not an algorithm quality decision.
     # --df, 2018-04-18
     def depends_on_param(self, state_or_trans, key, param):
-        if self._use_corrcoef:
-            return self.stats.param_dependence_ratio(state_or_trans, key, param, self._use_corrcoef) > 0.1
-        else:
-            return self.stats.param_dependence_ratio(state_or_trans, key, param, self._use_corrcoef) > 0.5
+        return self.stats.depends_on_param(state_or_trans, key, param)
 
     # See notes on depends_on_param
     def depends_on_arg(self, state_or_trans, key, param):
-        if self._use_corrcoef:
-            return self.stats.arg_dependence_ratio(state_or_trans, key, param, self._use_corrcoef) > 0.1
-        else:
-            return self.stats.arg_dependence_ratio(state_or_trans, key, param, self._use_corrcoef) > 0.5
+        return self.stats.depends_on_arg(state_or_trans, key, param)
 
     def _get_model_from_dict(self, model_dict, model_function):
         model = {}
