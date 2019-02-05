@@ -32,11 +32,18 @@ def _num_keys(json):
 
     return 0
 
-def _num_objects(json):
-    if type(json) == dict:
-        return 1 + sum(map(_num_objects, json.values()))
+def _num_of_type(json, wanted_type):
+    ret = 0
+    if type(json) == wanted_type:
+        ret = 1
 
-    return 0
+    if type(json) == dict:
+        ret += sum(map(lambda x: _num_of_type(x, wanted_type), json.values()))
+
+    if type(json) == list:
+        ret += sum(map(lambda x: _num_of_type(x, wanted_type), json))
+
+    return ret
 
 def json_to_param(json):
     """Return numeric parameters describing the structure of JSON data."""
@@ -45,8 +52,10 @@ def json_to_param(json):
 
     ret['strlen_keys'] = _string_key_length(json)
     ret['strlen_values'] = _string_value_length(json)
-    ret['num_keys'] = _num_keys(json)
-    ret['num_objects'] = _num_objects(json)
+    #ret['num_keys'] = _num_keys(json)
+    ret['num_int'] = _num_of_type(json, int)
+    ret['num_float'] = _num_of_type(json, float)
+    ret['num_str'] = _num_of_type(json, str)
 
     return ret
 
@@ -68,6 +77,10 @@ class Protolog:
         ['cycles_desdec', 'cycles', lambda x:
             int(np.mean(x['des']) + np.mean(x['dec']) - 2 * np.mean(x['nop']))
         ],
+        ['cycles_ser_arr', 'cycles', lambda x: np.array(x['ser']) - np.mean(x['nop'])],
+        ['cycles_des_arr', 'cycles', lambda x: np.array(x['des']) - np.mean(x['nop'])],
+        ['cycles_enc_arr', 'cycles', lambda x: np.array(x['enc']) - np.mean(x['nop'])],
+        ['cycles_dec_arr', 'cycles', lambda x: np.array(x['dec']) - np.mean(x['nop'])],
         ['data_nop', 'data_size_nop', idem],
         ['data_ser', 'data_size_ser', idem],
         ['data_serdes', 'data_size_serdes', idem],
