@@ -22,46 +22,46 @@ def plot_states(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if is_state(aggregate, key)]
     data = [aggregate[key]['means'] for key in keys]
     mdata = [int(model['state'][key]['power']['static']) for key in keys]
-    boxplot(keys, mdata, None, data, 'Zustand', 'µW')
+    boxplot(keys, data, 'Zustand', 'µW', modeldata = mdata)
 
 def plot_transitions(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if aggregate[key]['isa'] == 'transition']
     data = [aggregate[key]['rel_energies'] for key in keys]
     mdata = [int(model['transition'][key]['rel_energy']['static']) for key in keys]
-    boxplot(keys, mdata, None, data, 'Transition', 'pJ (rel)')
+    boxplot(keys, data, 'Transition', 'pJ (rel)', modeldata = mdata)
     data = [aggregate[key]['energies'] for key in keys]
     mdata = [int(model['transition'][key]['energy']['static']) for key in keys]
-    boxplot(keys, mdata, None, data, 'Transition', 'pJ')
+    boxplot(keys, data, 'Transition', 'pJ', modeldata = mdata)
 
 def plot_states_duration(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if is_state(aggregate, key)]
     data = [aggregate[key]['durations'] for key in keys]
-    boxplot(keys, None, None, data, 'Zustand', 'µs')
+    boxplot(keys, data, 'Zustand', 'µs')
 
 def plot_transitions_duration(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if aggregate[key]['isa'] == 'transition']
     data = [aggregate[key]['durations'] for key in keys]
-    boxplot(keys, None, None, data, 'Transition', 'µs')
+    boxplot(keys, data, 'Transition', 'µs')
 
 def plot_transitions_timeout(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if aggregate[key]['isa'] == 'transition']
     data = [aggregate[key]['timeouts'] for key in keys]
-    boxplot(keys, None, None, data, 'Timeout', 'µs')
+    boxplot(keys, data, 'Timeout', 'µs')
 
 def plot_states_clips(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if is_state(aggregate, key)]
     data = [np.array([100]) * aggregate[key]['clip_rate'] for key in keys]
-    boxplot(keys, None, None, data, 'Zustand', '% Clipping')
+    boxplot(keys, data, 'Zustand', '% Clipping')
 
 def plot_transitions_clips(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if aggregate[key]['isa'] == 'transition']
     data = [np.array([100]) * aggregate[key]['clip_rate'] for key in keys]
-    boxplot(keys, None, None, data, 'Transition', '% Clipping')
+    boxplot(keys, data, 'Transition', '% Clipping')
 
 def plot_substate_thresholds(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if is_state(aggregate, key)]
     data = [aggregate[key]['sub_thresholds'] for key in keys]
-    boxplot(keys, None, None, data, 'Zustand', 'substate threshold (mW/dmW)')
+    boxplot(keys, data, 'Zustand', 'substate threshold (mW/dmW)')
 
 def plot_histogram(data):
     n, bins, patches = plt.hist(data, 1000, normed=1, facecolor='green', alpha=0.75)
@@ -71,7 +71,7 @@ def plot_states_param(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if aggregate[key]['isa'] == 'state' and key[0] != 'UNINITIALIZED']
     data = [aggregate[key]['means'] for key in keys]
     mdata = [int(model['state'][key[0]]['power']['static']) for key in keys]
-    boxplot(keys, mdata, None, data, 'Transition', 'µW')
+    boxplot(keys, data, 'Transition', 'µW', modeldata = mdata)
 
 def plot_attribute(aggregate, attribute, attribute_unit = '', key_filter = lambda x: True):
     """
@@ -87,12 +87,12 @@ def plot_attribute(aggregate, attribute, attribute_unit = '', key_filter = lambd
     """
     keys = list(filter(key_filter, sorted(aggregate.keys())))
     data = [aggregate[key][attribute] for key in keys]
-    boxplot(keys, None, None, data, attribute, attribute_unit)
+    boxplot(keys, data, attribute, attribute_unit)
 
 def plot_substate_thresholds_p(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if aggregate[key]['isa'] == 'state' and key[0] != 'UNINITIALIZED']
     data = [aggregate[key]['sub_thresholds'] for key in keys]
-    boxplot(keys, None, None, data, 'Zustand', '% Clipping')
+    boxplot(keys, data, 'Zustand', '% Clipping')
 
 def plot_y(Y, **kwargs):
     plot_xy(np.arange(len(Y)), Y, **kwargs)
@@ -252,12 +252,12 @@ def plot_param_fit(function, name, fitfunc, funp, parameters, datatype, index, X
     plt.show()
 
 
-def boxplot(ticks, modeldata, onlinedata, mimosadata, xlabel, ylabel):
+def boxplot(ticks, measurements, xlabel = '', ylabel = '', modeldata = None):
     fig, ax1 = plt.subplots(figsize=(10,6))
     fig.canvas.set_window_title('DriverEval')
     plt.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1)
 
-    bp = plt.boxplot(mimosadata, notch=0, sym='+', vert=1, whis=1.5)
+    bp = plt.boxplot(measurements, notch=0, sym='+', vert=1, whis=1.5)
     plt.setp(bp['boxes'], color='black')
     plt.setp(bp['whiskers'], color='black')
     plt.setp(bp['fliers'], color='red', marker='+')
@@ -270,7 +270,7 @@ def boxplot(ticks, modeldata, onlinedata, mimosadata, xlabel, ylabel):
     ax1.set_xlabel(xlabel)
     ax1.set_ylabel(ylabel)
 
-    numBoxes = len(mimosadata)
+    numBoxes = len(measurements)
 
     xtickNames = plt.setp(ax1, xticklabels=ticks)
     plt.setp(xtickNames, rotation=0, fontsize=10)
@@ -300,7 +300,7 @@ def boxplot(ticks, modeldata, onlinedata, mimosadata, xlabel, ylabel):
             medians[i] = medianY[0]
         # Finally, overplot the sample averages, with horizontal alignment
         # in the center of each box
-        plt.plot([np.average(med.get_xdata())], [np.average(mimosadata[i])],
+        plt.plot([np.average(med.get_xdata())], [np.average(measurements[i])],
                 color='w', marker='*', markeredgecolor='k')
         if modeldata:
             plt.plot([np.average(med.get_xdata())], [modeldata[i]],
