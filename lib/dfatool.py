@@ -326,7 +326,7 @@ class ParamStats:
         if self.use_corrcoef:
             return 1 - np.abs(statistics['corr_by_param'][param])
         if statistics['std_by_param'][param] == 0:
-            return 0
+            return 1
         return statistics['std_param_lut'] / statistics['std_by_param'][param]
 
     def param_dependence_ratio(self, state_or_trans, attribute, param):
@@ -342,7 +342,7 @@ class ParamStats:
         if self.use_corrcoef:
             return 1 - np.abs(statistics['corr_by_arg'][arg_index])
         if statistics['std_by_arg'][arg_index] == 0:
-            return 0
+            return 1
         return statistics['std_param_lut'] / statistics['std_by_arg'][arg_index]
 
     def arg_dependence_ratio(self, state_or_trans, attribute, arg_index):
