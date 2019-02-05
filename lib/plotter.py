@@ -75,6 +75,22 @@ def plot_states_param(model, aggregate):
     mdata = [int(model['state'][key[0]]['power']['static']) for key in keys]
     boxplot(keys, mdata, None, data, 'Transition', 'µW')
 
+def plot_attribute(aggregate, attribute, attribute_unit = '', key_filter = lambda x: True):
+    """
+    Boxplot measurements of a single attribute according to the partitioning provided by aggregate.
+
+    Plots aggregate[*][attribute] with one column per aggregate key.
+
+    arguments:
+    aggregate -- measurements. aggregate[*][attribute] must be list of numbers
+    attribute -- attribute to plot, e.g. 'power' or 'duration'
+    attribute_init -- attribute unit for display in X axis legend
+    key_filter -- if set: Only plot keys where key_filter(key) returns True
+    """
+    keys = list(filter(key_filter, sorted(aggregate.keys())))
+    data = [aggregate[key][attribute] for key in keys]
+    boxplot(keys, None, None, data, attribute, attribute_unit)
+
 def plot_substate_thresholds_p(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if aggregate[key]['isa'] == 'state' and key[0] != 'UNINITIALIZED']
     data = [aggregate[key]['sub_thresholds'] for key in keys]
