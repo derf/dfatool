@@ -5,14 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import re
 from matplotlib.patches import Polygon
-
-def flatten(somelist):
-    """
-    Flatten a list.
-
-    Example: flatten([[1, 2], [3], [4, 5]]) -> [1, 2, 3, 4, 5]
-    """
-    return [item for sublist in somelist for item in sublist]
+from utils import flatten
 
 def is_state(aggregate, name):
     """Return true if name is a state and not UNINITIALIZED."""

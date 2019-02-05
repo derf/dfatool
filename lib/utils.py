@@ -21,6 +21,14 @@ def float_or_nan(n):
     except ValueError:
         return np.nan
 
+def flatten(somelist):
+    """
+    Flatten a list.
+
+    Example: flatten([[1, 2], [3], [4, 5]]) -> [1, 2, 3, 4, 5]
+    """
+    return [item for sublist in somelist for item in sublist]
+
 def param_slice_eq(a, b, index):
     """
     Check if by_param keys a and b are identical, ignoring the parameter at index.
