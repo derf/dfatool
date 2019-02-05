@@ -12,6 +12,15 @@ def is_numeric(n):
     except ValueError:
         return False
 
+def float_or_nan(n):
+    """Convert to float (if numeric) or NaN."""
+    if n == None:
+        return np.nan
+    try:
+        return float(n)
+    except ValueError:
+        return np.nan
+
 def param_slice_eq(a, b, index):
     """
     Check if by_param keys a and b are identical, ignoring the parameter at index.

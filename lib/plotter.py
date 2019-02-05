@@ -6,14 +6,6 @@ import matplotlib.pyplot as plt
 import re
 from matplotlib.patches import Polygon
 
-def float_or_nan(n):
-    if n == None:
-        return np.nan
-    try:
-        return float(n)
-    except ValueError:
-        return np.nan
-
 def flatten(somelist):
     """
     Flatten a list.

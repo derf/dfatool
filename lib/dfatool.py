@@ -44,15 +44,6 @@ def soft_cast_int(n):
     except ValueError:
         return n
 
-def float_or_nan(n):
-    """Convert to float (if numeric) or NaN."""
-    if n == None:
-        return np.nan
-    try:
-        return float(n)
-    except ValueError:
-        return np.nan
-
 def vprint(verbose, string):
     """
     Print string if verbose.
