@@ -15,9 +15,15 @@ def float_or_nan(n):
         return np.nan
 
 def flatten(somelist):
+    """
+    Flatten a list.
+
+    Example: flatten([[1, 2], [3], [4, 5]]) -> [1, 2, 3, 4, 5]
+    """
     return [item for sublist in somelist for item in sublist]
 
 def is_state(aggregate, name):
+    """Return true if name is a state and not UNINITIALIZED."""
     return aggregate[name]['isa'] == 'state' and name != 'UNINITIALIZED'
 
 def plot_states(model, aggregate):
