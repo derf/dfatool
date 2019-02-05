@@ -279,6 +279,11 @@ class ParamStats:
         """
         Compute standard deviation and correlation coefficient on parameterized data partitions.
 
+        It is strongly recommended to vary all parameter values evenly.
+        For instance, given two parameters, providing only the combinations
+        (1, 1), (5, 1), (7, 1,) (10, 1), (1, 2), (1, 6) will lead to bogus results.
+        It is better to provide (1, 1), (5, 1), (1, 2), (5, 2), ... (i.e. a cross product of all individual parameter values)
+
         arguments:
         by_name -- ground truth partitioned by state/transition name.
             by_name[state_or_trans][attribute] must be a list or 1-D numpy array.
@@ -304,6 +309,12 @@ class ParamStats:
                 self.stats[state_or_tran][attribute] = compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_tran, attribute)
 
     def _generic_param_independence_ratio(self, state_or_trans, attribute):
+        """
+        Return the heuristic ratio of parameter independence for state_or_trans and attribute.
+
+        This is not supported if the correlation coefficient is used.
+        A value close to 1 means no influence, a value close to 0 means high probability of influence.
+        """
         statistics = self.stats[state_or_trans][attribute]
         if self.use_corrcoef:
             # not supported
@@ -314,7 +325,7 @@ class ParamStats:
 
     def generic_param_dependence_ratio(self, state_or_trans, attribute):
         """
-        Return the heuristi ratio of parameter dependence for state_or_trans and attribute.
+        Return the heuristic ratio of parameter dependence for state_or_trans and attribute.
 
         This is not supported if the correlation coefficient is used.
         A value close to 0 means no influence, a value close to 1 means high probability of influence.
@@ -322,10 +333,19 @@ class ParamStats:
         return 1 - self._generic_param_independence_ratio(state_or_trans, attribute)
 
     def _param_independence_ratio(self, state_or_trans, attribute, param):
+        """
+        Return the heuristic ratio of parameter independence for state_or_trans, attribute, and param.
+
+        A value close to 1 means no influence, a value close to 0 means high probability of influence.
+        """
         statistics = self.stats[state_or_trans][attribute]
         if self.use_corrcoef:
             return 1 - np.abs(statistics['corr_by_param'][param])
         if statistics['std_by_param'][param] == 0:
+            if statistics['std_param_lut'] != 0:
+                raise RuntimeError("wat")
+            # In general, std_param_lut < std_by_param. So, if std_by_param == 0, std_param_lut == 0 follows.
+            # This means that the variation of param does not affect the model quality -> no influence, return 1
             return 1
         return statistics['std_param_lut'] / statistics['std_by_param'][param]
 
@@ -342,6 +362,10 @@ class ParamStats:
         if self.use_corrcoef:
             return 1 - np.abs(statistics['corr_by_arg'][arg_index])
         if statistics['std_by_arg'][arg_index] == 0:
+            if statistics['std_arg_lut'] != 0:
+                raise RuntimeError("wat")
+            # In general, std_arg_lut < std_by_arg. So, if std_by_arg == 0, std_arg_lut == 0 follows.
+            # This means that the variation of arg does not affect the model quality -> no influence, return 1
             return 1
         return statistics['std_param_lut'] / statistics['std_by_arg'][arg_index]
 
