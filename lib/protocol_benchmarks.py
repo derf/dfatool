@@ -1175,7 +1175,47 @@ class XDR(DummyProtocol):
 class Benchmark:
 
     def __init__(self, logfile):
+        self.atomic = True
         self.logfile = logfile
+
+    def __enter__(self):
+        self.atomic = False
+        with FileLock(self.logfile + '.lock'):
+            if os.path.exists(self.logfile):
+                with open(self.logfile, 'rb') as f:
+                    self.data = ubjson.load(f)
+            else:
+                self.data = {}
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        with FileLock(self.logfile + '.lock'):
+            with open(self.logfile, 'wb') as f:
+                ubjson.dump(self.data, f)
+
+    def _add_log_entry(self, benchmark_data, arch, libkey, bench_name, bench_index, data, key, value, error):
+        if not libkey in benchmark_data:
+            benchmark_data[libkey] = dict()
+        if not bench_name in benchmark_data[libkey]:
+            benchmark_data[libkey][bench_name] = dict()
+        if not bench_index in benchmark_data[libkey][bench_name]:
+            benchmark_data[libkey][bench_name][bench_index] = dict()
+        this_result = benchmark_data[libkey][bench_name][bench_index]
+        # data is unset for log(...) calls from postprocessing
+        if data != None:
+            this_result['data'] = data
+        if value != None:
+            this_result[key] = {
+                'v' : value
+            }
+            print('{} {} {} ({}) :: {} -> {}'.format(
+                libkey, bench_name, bench_index, data, key, value))
+        else:
+            this_result[key] = {
+                'e' : error
+            }
+            print('{} {} {} ({}) :: {} -> [E] {}'.format(
+                libkey, bench_name, bench_index, data, key, error))
 
     def log(self, arch, library, library_options, bench_name, bench_index, data, key, value = None, error = None):
         if not library_options:
@@ -1184,36 +1224,18 @@ class Benchmark:
         # JSON does not differentiate between int and str keys -> always use
         # str(bench_index)
         bench_index = str(bench_index)
-        with FileLock(self.logfile + '.lock'):
-            if os.path.exists(self.logfile):
-                with open(self.logfile, 'rb') as f:
-                    benchmark_data = ubjson.load(f)
-            else:
-                benchmark_data = {}
-            if not libkey in benchmark_data:
-                benchmark_data[libkey] = dict()
-            if not bench_name in benchmark_data[libkey]:
-                benchmark_data[libkey][bench_name] = dict()
-            if not bench_index in benchmark_data[libkey][bench_name]:
-                benchmark_data[libkey][bench_name][bench_index] = dict()
-            this_result = benchmark_data[libkey][bench_name][bench_index]
-            # data is unset for log(...) calls from postprocessing
-            if data != None:
-                this_result['data'] = data
-            if value != None:
-                this_result[key] = {
-                    'v' : value
-                }
-                print('{} {} {} ({}) :: {} -> {}'.format(
-                    libkey, bench_name, bench_index, data, key, value))
-            else:
-                this_result[key] = {
-                    'e' : error
-                }
-                print('{} {} {} ({}) :: {} -> [E] {}'.format(
-                    libkey, bench_name, bench_index, data, key, error))
-            with open(self.logfile, 'wb') as f:
-                ubjson.dump(benchmark_data, f)
+        if self.atomic:
+            with FileLock(self.logfile + '.lock'):
+                if os.path.exists(self.logfile):
+                    with open(self.logfile, 'rb') as f:
+                        benchmark_data = ubjson.load(f)
+                else:
+                    benchmark_data = {}
+                self._add_log_entry(benchmark_data, arch, libkey, bench_name, bench_index, data, key, value, error)
+                with open(self.logfile, 'wb') as f:
+                    ubjson.dump(benchmark_data, f)
+        else:
+            self._add_log_entry(self.data, arch, libkey, bench_name, bench_index, data, key, value, error)
 
     def get_snapshot(self):
         with FileLock(self.logfile + '.lock'):
