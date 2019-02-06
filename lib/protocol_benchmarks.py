@@ -71,6 +71,9 @@ class DummyProtocol:
     def get_extra_files(self):
         return dict()
 
+    def can_get_serialized_length(self):
+        return False
+
 class ArduinoJSON(DummyProtocol):
 
     def __init__(self, data, bufsize = 255, int_type = 'uint16_t', float_type = 'float'):
@@ -87,6 +90,9 @@ class ArduinoJSON(DummyProtocol):
 
     def get_serialized_length(self):
         return len(json.dumps(self.data))
+
+    def can_get_serialized_length(self):
+        return True
 
     def get_encode(self):
         return self.enc_buf
@@ -439,6 +445,9 @@ class ManualJSON(DummyProtocol):
     def get_serialized_length(self):
         return len(json.dumps(self.data))
 
+    def can_get_serialized_length(self):
+        return True
+
     def is_ascii(self):
         return True
 
@@ -548,6 +557,23 @@ class ModernJSON(DummyProtocol):
         else:
             raise ValueError('invalid output format {}'.format(self.output_format))
 
+    def get_serialized_length(self):
+        if self.output_format == 'json':
+            return len(json.dumps(self.data))
+        elif self.output_format == 'bson':
+            return len(bson.BSON.encode(self.data))
+        elif self.output_format == 'cbor':
+            return len(cbor.dumps(self.data))
+        elif self.output_format == 'msgpack':
+            return len(msgpack.dumps(self.data))
+        elif self.output_format == 'ubjson':
+            return len(ubjson.dumpb(self.data))
+        else:
+            raise ValueError('invalid output format {}'.format(self.output_format))
+
+    def can_get_serialized_length(self):
+        return True
+
     def get_length_var(self):
         return 'out.size()'
 
@@ -601,6 +627,9 @@ class MPack(DummyProtocol):
 
     def get_serialized_length(self):
         return len(msgpack.dumps(self.data))
+
+    def can_get_serialized_length(self):
+        return True
 
     def is_ascii(self):
         return False
@@ -915,6 +944,9 @@ class UBJ(DummyProtocol):
 
     def get_serialized_length(self):
         return len(ubjson.dumpb(self.data))
+
+    def can_get_serialized_length(self):
+        return True
 
     def is_ascii(self):
         return False
