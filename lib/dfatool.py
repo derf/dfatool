@@ -244,12 +244,21 @@ def _xv_partitions_montecarlo(length, num_slices):
         pairs.append((training, validation))
     return pairs
 
-class CrossValidation:
+class CrossValidator:
 
-    def __init__(self, em, num_partitions):
-        self._em = em
-        self._num_partitions = num_partitions
-        x = PTAModel.from_model(em.by_name, em._parameter_names)
+    def __init__(self, by_name, by_param, parameters):
+        """Create a new AnalyticModel and compute parameter statistics."""
+        self.by_name = np.array(by_name)
+        self.by_param = np.array(by_param)
+        self.names = sorted(by_name.keys())
+        self.parameters = sorted(parameters)
+
+    def montecarlo(self, count = 200):
+        for pair in _xv_partitions_montecarlo(count):
+            by_name_training = dict()
+            by_name_validation = dict()
+            by_param_training = dict()
+            by_param_validation = dict()
 
 
 def _preprocess_measurement(measurement):
