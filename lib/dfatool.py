@@ -225,6 +225,27 @@ class KeysightCSV:
                 currents[i] = float(row[2]) * -1
         return timestamps, currents
 
+def by_name_to_by_param(by_name):
+    """
+    Convert aggregation by name to aggregation by name and parameter values.
+    """
+    by_param = dict()
+    for name in by_name.keys():
+        for i, parameters in enumerate(by_name[name]['param']):
+            param_key = (name, tuple(parameters))
+            if param_key not in by_param:
+                by_param[param_key] = dict()
+                for key in by_name[name].keys():
+                    by_param[param_key][key] = list()
+                by_param[param_key]['attributes'] = by_name[name]['attributes']
+                # special case for PTA models
+                if 'isa' in by_name[name]:
+                    by_param[param_key]['isa'] = by_name[name]['isa']
+            for attribute in by_name[name]['attributes']:
+                by_param[param_key][attribute].append(by_name[name][attribute][i])
+    return by_param
+
+
 def _xv_partitions_kfold(length, num_slices):
     pairs = []
     indexes = np.arange(length)
@@ -812,11 +833,11 @@ class AnalyticModel:
     assess -- calculate model quality
     """
 
-    def __init__(self, by_name, by_param, parameters, verbose = True):
+    def __init__(self, by_name, parameters, verbose = True):
         """Create a new AnalyticModel and compute parameter statistics."""
         self.cache = dict()
         self.by_name = by_name
-        self.by_param = by_param
+        self.by_param = by_name_to_by_param(by_name)
         self.names = sorted(by_name.keys())
         self.parameters = sorted(parameters)
         self.verbose = verbose
