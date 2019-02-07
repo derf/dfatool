@@ -781,12 +781,34 @@ class AnalyticModel:
         e.g. ['power', 'duration']
     - for each attribute mentioned in 'attributes': A list with measurements.
       All list except for 'attributes' must have the same length.
+
+    For example:
+    parameters = ['foo_count', 'irrelevant']
+    by_name = {
+        'foo' : [1, 1, 2],
+        'bar' : [5, 6, 7],
+        'attributes' : ['foo', 'bar'],
+        'param' : [[1, 0], [1, 0], [2, 0]]
+    }
+
+    methods:
+    get_static -- return static (parameter-unaware) model.
+    get_param_lut -- return parameter-aware look-up-table model. Cannot model parameter combinations not present in by_param.
+    get_fitted -- return parameter-aware model using fitted functions for behaviour prediction.
+
+    variables:
+    names -- function/state/... names (i.e., the keys of by_name)
+    parameters -- parameter names
+    stats -- ParamStats object providing parameter-dependency statistics for each name and attribute
+    assess -- calculate model quality
     """
 
     def __init__(self, by_name, by_param, parameters, verbose = True):
+        """Create a new AnalyticModel and compute parameter statistics."""
         self.cache = dict()
         self.by_name = by_name
         self.by_param = by_param
+        self.names = sorted(by_name.keys())
         self.parameters = sorted(parameters)
         self.verbose = verbose
 
@@ -814,9 +836,6 @@ class AnalyticModel:
                     x = analytic.function_powerset(fit_result, parameters)
                     x.fit(by_param, fname, attribute)
 
-    def names(self):
-        return sorted(self.by_name.keys())
-
     def _get_model_from_dict(self, model_dict, model_function):
         model = {}
         for name, elem in model_dict.items():
@@ -831,6 +850,11 @@ class AnalyticModel:
         return model
 
     def get_static(self):
+        """
+        Get static model function: name, attribute -> model value.
+
+        Uses the median of by_name for modeling.
+        """
         static_model = self._get_model_from_dict(self.by_name, np.median)
 
         def static_median_getter(name, key, **kwargs):
@@ -839,6 +863,11 @@ class AnalyticModel:
         return static_median_getter
 
     def get_static_using_mean(self):
+        """
+        Get static model function: name, attribute -> model value.
+
+        Uses the mean of by_name for modeling.
+        """
         static_model = self._get_model_from_dict(self.by_name, np.mean)
 
         def static_mean_getter(name, key, **kwargs):
@@ -847,6 +876,12 @@ class AnalyticModel:
         return static_mean_getter
 
     def get_param_lut(self):
+        """
+        Get parameter-look-up-table model function: name, attribute, parameter values -> model value.
+
+        The function can only give model values for parameter combinations
+        present in by_param. It raises KeyError for other values.
+        """
         lut_model = self._get_model_from_dict(self.by_param, np.median)
 
         def lut_median_getter(name, key, param, arg = [], **kwargs):
@@ -856,7 +891,13 @@ class AnalyticModel:
         return lut_median_getter
 
     def get_fitted(self, safe_functions_enabled = False):
+        """
+        Get paramete-aware model function and model information function.
 
+        Returns two functions:
+        model_function(name, attribute, param=parameter values) -> model value.
+        model_info(name, attribute) -> {'fit_result' : ..., 'function' : ... } or None
+        """
         if 'fitted_model_getter' in self.cache and 'fitted_info_getter' in self.cache:
             return self.cache['fitted_model_getter'], self.cache['fitted_info_getter']
 
@@ -920,6 +961,18 @@ class AnalyticModel:
         return model_getter, info_getter
 
     def assess(self, model_function):
+        """
+        Calculate MAE, SMAPE, etc. of model_function for each by_name entry.
+
+        state/transition/... name and parameter values are fed into model_function.
+        The by_name entries of this AnalyticModel are used as ground truth and
+        compared with the values predicted by model_function.
+
+        For proper model assessments, the data used to generate model_function
+        and the data fed into this AnalyticModel instance must be mutually
+        exclusive (e.g. by performing cross validation). Otherwise,
+        overfitting cannot be detected.
+        """
         detailed_results = {}
         for name, elem in sorted(self.by_name.items()):
             detailed_results[name] = {}
