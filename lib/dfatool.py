@@ -249,7 +249,7 @@ class CrossValidation:
     def __init__(self, em, num_partitions):
         self._em = em
         self._num_partitions = num_partitions
-        x = EnergyModel.from_model(em.by_name, em._parameter_names)
+        x = PTAModel.from_model(em.by_name, em._parameter_names)
 
 
 def _preprocess_measurement(measurement):
@@ -397,7 +397,7 @@ class RawData:
 
     Expects a specific trace format and UART log output (as produced by the
     dfatool benchmark generator). Loads data, prunes bogus measurements, and
-    provides preprocessed data suitable for EnergyModel.
+    provides preprocessed data suitable for PTAModel.
     """
 
     def __init__(self, filenames):
@@ -586,8 +586,8 @@ class RawData:
         """
         Return a list of DFA traces annotated with energy, timing, and parameter data.
 
-        Suitable for the EnergyModel constructor.
-        See EnergyModel(...) docstring for format details.
+        Suitable for the PTAModel constructor.
+        See PTAModel(...) docstring for format details.
         """
         self.verbose = verbose
         if self.preprocessed:
@@ -758,14 +758,69 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
         'results' : results
     }
 
-class EnergyModel:
+class AnalyticModel:
     u"""
-    parameter-aware PTA-based energy model.
+    Parameter-aware analytic energy/data size/... model.
 
     Supports both static and parameter-based model attributes, and automatic detection of parameter-dependence.
 
     The model heavily relies on two internal data structures:
-    EnergyModel.by_name and EnergyModel.by_param.
+    PTAModel.by_name and PTAModel.by_param.
+
+    These provide measurements aggregated by (function/state/...) name
+    and (for by_param) parameter values. Layout:
+    dictionary with one key per name ('send', 'TX', ...) or
+    one key per name and parameter combination
+    (('send', (1, 2)), ('send', (2, 3)), ('TX', (1, 2)), ('TX', (2, 3)), ...).
+
+    Parameter values must be ordered corresponding to the lexically sorted parameter names.
+
+    Each element is in turn a dict with the following elements:
+    - param: list of parameter values in each measurement (-> list of lists)
+    - attributes: list of keys that should be analyzed,
+        e.g. ['power', 'duration']
+    - for each attribute mentioned in 'attributes': A list with measurements.
+      All list except for 'attributes' must have the same length.
+    """
+
+    def __init__(self, by_name, by_param, parameters):
+        self.by_name = by_name
+        self.by_param = by_param
+        self.parameters = sorted(parameters)
+
+        self.stats = ParamStats(self.by_name, self.by_param, self.parameters)
+
+    def _fit(self):
+        paramfit = ParallelParamFit(self.by_param)
+
+        for name in self.by_name.keys():
+            for attribute in self.by_name[fname]['attributes']:
+                for param_index, param in enumerate(self.parameters):
+                    ratio = self.stats.param_dependence_ratio(fname, attribute, param)
+                    if self.stats.depends_on_param(fname, attribute, param):
+                        paramfit.enqueue(fname, attribute, param_index, param, False)
+
+        paramfit.fit()
+
+        for name in self.by_name.keys():
+            for attribute in self.by_name[fname]['attributes']:
+                fit_result = {}
+                for result in paramfit.results:
+                    if result['key'][0] == name and result['key'][1] == attribute and result['result']['best'] != None:
+                        fit_result[result['key'][2]] = result['result']
+                if len(fit_result.keys()):
+                    x = analytic.function_powerset(fit_result, parameters)
+                    x.fit(by_param, fname, attribute)
+
+
+class PTAModel:
+    u"""
+    Parameter-aware PTA-based energy model.
+
+    Supports both static and parameter-based model attributes, and automatic detection of parameter-dependence.
+
+    The model heavily relies on two internal data structures:
+    PTAModel.by_name and PTAModel.by_param.
 
     These provide measurements aggregated by state/transition name
     and (in case of by_para) parameter values. Layout:

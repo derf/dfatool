@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-from dfatool import EnergyModel, RawData, analytic
+from dfatool import PTAModel, RawData, analytic
 import unittest
 
 class TestStaticModel(unittest.TestCase):
     def test_model_singlefile_rf24(self):
         raw_data = RawData(['../data/20170220_164723_RF24_int_A.tar'])
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
-        model = EnergyModel(preprocessed_data, verbose = False)
+        model = PTAModel(preprocessed_data, verbose = False)
         self.assertEqual(model.states(), 'POWERDOWN RX STANDBY1 TX'.split(' '))
         self.assertEqual(model.transitions(), 'begin epilogue powerDown powerUp setDataRate_num setPALevel_num startListening stopListening write_nb'.split(' '))
         static_model = model.get_static()
@@ -72,7 +72,7 @@ class TestStaticModel(unittest.TestCase):
     def test_model_singlefile_mmparam(self):
         raw_data = RawData(['../data/20161221_123347_mmparam.tar'])
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
-        model = EnergyModel(preprocessed_data, verbose = False)
+        model = PTAModel(preprocessed_data, verbose = False)
         self.assertEqual(model.states(), 'OFF ON'.split(' '))
         self.assertEqual(model.transitions(), 'off setBrightness'.split(' '))
         static_model = model.get_static()
@@ -100,7 +100,7 @@ class TestStaticModel(unittest.TestCase):
         ]
         raw_data = RawData(testfiles)
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
-        model = EnergyModel(preprocessed_data, verbose = False)
+        model = PTAModel(preprocessed_data, verbose = False)
         self.assertEqual(model.states(), 'ACTIVE POWEROFF'.split(' '))
         self.assertEqual(model.transitions(), 'getTemp setHyst setOS shutdown start'.split(' '))
         static_model = model.get_static()
@@ -129,7 +129,7 @@ class TestStaticModel(unittest.TestCase):
         ]
         raw_data = RawData(testfiles)
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
-        model = EnergyModel(preprocessed_data, verbose = False)
+        model = PTAModel(preprocessed_data, verbose = False)
         self.assertEqual(model.states(), 'DISABLED ENABLED'.split(' '))
         self.assertEqual(model.transitions(), 'clear disable enable ioInit sendLine toggleVCOM'.split(' '))
         static_model = model.get_static()
@@ -161,7 +161,7 @@ class TestStaticModel(unittest.TestCase):
         ]
         raw_data = RawData(testfiles)
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
-        model = EnergyModel(preprocessed_data, verbose = False)
+        model = PTAModel(preprocessed_data, verbose = False)
         self.assertEqual(model.states(), 'B G OFF R'.split(' '))
         self.assertEqual(model.transitions(), 'blue green off red'.split(' '))
         static_model = model.get_static()
@@ -193,7 +193,7 @@ class TestStaticModel(unittest.TestCase):
         ]
         raw_data = RawData(testfiles)
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
-        model = EnergyModel(preprocessed_data, verbose = False)
+        model = PTAModel(preprocessed_data, verbose = False)
         self.assertEqual(model.states(), 'IDLE RX SLEEP SLEEP_EWOR SYNTH_ON TX XOFF'.split(' '))
         self.assertEqual(model.transitions(), 'crystal_off eWOR idle init prepare_xmit receive send setSymbolRate setTxPower sleep txDone'.split(' '))
         static_model = model.get_static()

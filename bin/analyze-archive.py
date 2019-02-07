@@ -5,7 +5,7 @@ import json
 import plotter
 import re
 import sys
-from dfatool import EnergyModel, RawData
+from dfatool import PTAModel, RawData
 from dfatool import soft_cast_int, is_numeric, gplearn_to_function
 
 opts = {}
@@ -147,7 +147,7 @@ if __name__ == '__main__':
     raw_data = RawData(args)
 
     preprocessed_data = raw_data.get_preprocessed_data()
-    model = EnergyModel(preprocessed_data,
+    model = PTAModel(preprocessed_data,
         ignore_trace_indexes = ignored_trace_indexes,
         discard_outliers = discard_outliers,
         function_override = function_override,
