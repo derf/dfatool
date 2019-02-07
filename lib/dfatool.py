@@ -696,6 +696,14 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
             median_measures = aggregate_measures(np.median(Y), Y)
             ref_results['median'].append(median_measures['rmsd'])
 
+    if not len(ref_results['mean']):
+        # Insufficient data for fitting
+        return {
+            'best' : None,
+            'best_rmsd' : np.inf,
+            'results' : results,
+        }
+
     best_fit_val = np.inf
     best_fit_name = None
     for function_name, result in raw_results.items():
