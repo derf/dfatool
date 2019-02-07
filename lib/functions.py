@@ -408,7 +408,7 @@ class analytic:
             return 'np.sqrt({})'.format(ref_str)
         return 'analytic._{}({})'.format(function_type, ref_str)
 
-    def function_powerset(fit_results, parameter_names, num_args):
+    def function_powerset(fit_results, parameter_names, num_args = 0):
         """
         Combine per-parameter regression results into a single multi-dimensional function.
 
