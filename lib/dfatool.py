@@ -1031,6 +1031,93 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
         aggregate[key][datakey].extend(dataval)
 
 def pta_trace_to_aggregate(traces, ignore_trace_indexes = []):
+    u"""
+    Convert preprocessed DFA traces from peripherals/drivers to by_name aggregate for PTAModel.
+
+    arguments:
+    traces -- [ ... Liste von einzelnen Läufen (d.h. eine Zustands- und Transitionsfolge UNINITIALIZED -> foo -> FOO -> bar -> BAR -> ...)
+        Jeder Lauf:
+        - id: int Nummer des Laufs, beginnend bei 1
+        - trace: [ ... Liste von Zuständen und Transitionen
+            Jeweils:
+            - name: str Name
+            - isa: str state // transition
+            - parameter: { ... globaler Parameter: aktueller wert. null falls noch nicht eingestellt }
+            - plan:
+                Falls isa == 'state':
+                - power: int(uW?)
+                - time: int(us) geplante Dauer
+                - energy: int(pJ?)
+                Falls isa == 'transition':
+                - timeout: int(us) oder null
+                - energy: int (pJ?)
+                - level: str 'user' 'epilogue'
+            - offline_attributes: [ ... Namen der in offline_aggregates gespeicherten Modellattribute, z.B. param, duration, energy, timeout ]
+            - offline_aggregates:
+                - power: [float(uW)] Mittlere Leistung während Zustand/Transitions
+                - power_std: [float(uW^2)] Standardabweichung der Leistung
+                - duration: [int(us)] Dauer
+                - energy: [float(pJ)] Energieaufnahme des Zustands / der Transition
+                - clip_rate: [float(0..1)] Clipping
+                - paramkeys: [[str]] Name der berücksichtigten Parameter
+                - param: [int // str] Parameterwerte. Quasi-Duplikat von 'parameter' oben
+                Falls isa == 'transition':
+                - timeout: [int(us)] Dauer des vorherigen Zustands
+                - rel_energy_prev: [int(pJ)]
+                - rel_energy_next: [int(pJ)]
+            - offline: [ ... Während der Messung von MIMOSA o.ä. gemessene Werte
+                -> siehe doc/MIMOSA analyze_states
+                - isa: 'state' oder 'transition'
+                - clip_rate: range(0..1) Anteil an Clipping im Energieverbrauch
+                - raw_mean: Mittelwert der Rohwerte
+                - raw_std: Standardabweichung der Rohwerte
+                - uW_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
+                - uW_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
+                - us: Dauer
+                Nur falls isa 'transition':
+                - timeout: Dauer des vorherigen Zustands
+                - uW_mean_delta_prev
+                - uW_mean_delta_next
+            ]
+            - online: [ ... Während der Messung vom Betriebssystem bestimmte Daten
+                Falls isa == 'state':
+                - power: int(uW?)
+                - time: int(us) geplante Dauer
+                - energy: int(pJ?)
+                Falls isa == 'transition':
+                - timeout: int(us) oder null
+                - energy: int (pJ?)
+                - level: str ('user' oder 'epilogue')
+            ]
+            Falls isa == 'transition':
+            - code: [str] Name und Argumente der aufgerufenen Funktion
+            - args: [str] Argumente der aufgerufenen Funktion
+        ]
+    ]
+    ignore_trace_indexes -- list of trace indexes. The corresponding taces will be ignored.
+
+    returns a tuple of three elements:
+    by_name -- measurements aggregated by state/transition name, annotated with parameter values
+    parameter_names -- list of parameter names
+    arg_count -- dict mapping transition names to the number of arguments of their corresponding driver function
+
+    by_name layout:
+    Dictionary with one key per state/transition ('send', 'TX', ...).
+    Each element is in turn a dict with the following elements:
+    - isa: 'state' or 'transition'
+    - power: list of mean power measurements in µW
+    - duration: list of durations in µs
+    - power_std: list of stddev of power per state/transition
+    - energy: consumed energy (power*duration) in pJ
+    - paramkeys: list of parameter names in each measurement (-> list of lists)
+    - param: list of parameter values in each measurement (-> list of lists)
+    - attributes: list of keys that should be analyzed,
+        e.g. ['power', 'duration']
+    additionally, only if isa == 'transition':
+    - timeout: list of duration of previous state in µs
+    - rel_energy_prev: transition energy relative to previous state mean power in pJ
+    - rel_energy_next: transition energy relative to next state mean power in pJ
+    """
     arg_count = dict()
     by_name = dict()
     parameter_names = sorted(traces[0]['trace'][0]['parameter'].keys())
@@ -1083,9 +1170,12 @@ class PTAModel:
         Actual model generation is done on-demand by calling the respective functions.
 
         arguments:
-        preprocessed_data -- list of preprocessed DFA traces.
+        by_name -- state/transition measurements aggregated by name, as returned by pta_trace_to_aggregate.
+        parameters -- list of parameter names, as returned by pta_trace_to_aggregate
+        arg_count -- function arguments, as returned by pta_trace_to_aggregate
+        traces -- list of preprocessed DFA traces, as returned by RawData.get_preprocessed_data()
         ignore_trace_indexes -- list of trace indexes. The corresponding taces will be ignored.
-        discard_outliers -- experimental: threshold for outlier detection and removel (float).
+        discard_outliers -- currently not supported: threshold for outlier detection and removel (float).
             Outlier detection is performed individually for each state/transition in each trace,
             so it only works if the benchmark ran several times.
             Given "data" (a set of measurements of the same thing, e.g. TX duration in the third benchmark trace),
@@ -1103,67 +1193,6 @@ class PTAModel:
         use_corrcoef -- use correlation coefficient instead of stddev comparison
             to detect whether a model attribute depends on a parameter
         hwmodel -- hardware model suitable for PTA.from_hwmodel
-
-        Detailed layout of preprocessed_data:
-        [ ... Liste von einzelnen Läufen (d.h. eine Zustands- und Transitionsfolge UNINITIALIZED -> foo -> FOO -> bar -> BAR -> ...)
-            Jeder Lauf:
-            - id: int Nummer des Laufs, beginnend bei 1
-            - trace: [ ... Liste von Zuständen und Transitionen
-                Jeweils:
-                - name: str Name
-                - isa: str state // transition
-                - parameter: { ... globaler Parameter: aktueller wert. null falls noch nicht eingestellt }
-                - plan:
-                    Falls isa == 'state':
-                    - power: int(uW?)
-                    - time: int(us) geplante Dauer
-                    - energy: int(pJ?)
-                    Falls isa == 'transition':
-                    - timeout: int(us) oder null
-                    - energy: int (pJ?)
-                    - level: str 'user' 'epilogue'
-                - offline_attributes: [ ... Namen der in offline_aggregates gespeicherten Modellattribute, z.B. param, duration, energy, timeout ]
-                - offline_aggregates:
-                    - power: [float(uW)] Mittlere Leistung während Zustand/Transitions
-                    - power_std: [float(uW^2)] Standardabweichung der Leistung
-                    - duration: [int(us)] Dauer
-                    - energy: [float(pJ)] Energieaufnahme des Zustands / der Transition
-                    - clip_rate: [float(0..1)] Clipping
-                    - paramkeys: [[str]] Name der berücksichtigten Parameter
-                    - param: [int // str] Parameterwerte. Quasi-Duplikat von 'parameter' oben
-                    Falls isa == 'transition':
-                    - timeout: [int(us)] Dauer des vorherigen Zustands
-                    - rel_energy_prev: [int(pJ)]
-                    - rel_energy_next: [int(pJ)]
-                - offline: [ ... Während der Messung von MIMOSA o.ä. gemessene Werte
-                    -> siehe doc/MIMOSA analyze_states
-                    - isa: 'state' oder 'transition'
-                    - clip_rate: range(0..1) Anteil an Clipping im Energieverbrauch
-                    - raw_mean: Mittelwert der Rohwerte
-                    - raw_std: Standardabweichung der Rohwerte
-                    - uW_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
-                    - uW_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
-                    - us: Dauer
-                    Nur falls isa 'transition':
-                    - timeout: Dauer des vorherigen Zustands
-                    - uW_mean_delta_prev
-                    - uW_mean_delta_next
-                ]
-                - online: [ ... Während der Messung vom Betriebssystem bestimmte Daten
-                    Falls isa == 'state':
-                    - power: int(uW?)
-                    - time: int(us) geplante Dauer
-                    - energy: int(pJ?)
-                    Falls isa == 'transition':
-                    - timeout: int(us) oder null
-                    - energy: int (pJ?)
-                    - level: str ('user' oder 'epilogue')
-                ]
-                Falls isa == 'transition':
-                - code: [str] Name und Argumente der aufgerufenen Funktion
-                - args: [str] Argumente der aufgerufenen Funktion
-            ]
-        ]
         """
         self.by_name = by_name
         self.by_param = by_name_to_by_param(by_name)
