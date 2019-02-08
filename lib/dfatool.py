@@ -1014,6 +1014,36 @@ class AnalyticModel:
         return detailed_results
 
 
+def _add_trace_data_to_aggregate(aggregate, key, element):
+    if not key in aggregate:
+        aggregate[key] = {
+            'isa' : element['isa']
+        }
+        for datakey in element['offline_aggregates'].keys():
+            aggregate[key][datakey] = []
+        if element['isa'] == 'state':
+            aggregate[key]['attributes'] = ['power']
+        else:
+            aggregate[key]['attributes'] = ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']
+            if element['plan']['level'] == 'epilogue':
+                aggregate[key]['attributes'].insert(0, 'timeout')
+    for datakey, dataval in element['offline_aggregates'].items():
+        aggregate[key][datakey].extend(dataval)
+
+def pta_trace_to_aggregate(traces, ignore_trace_indexes = []):
+    arg_count = dict()
+    by_name = dict()
+    parameter_names = sorted(traces[0]['trace'][0]['parameter'].keys())
+    for run in traces:
+        if run['id'] not in ignore_trace_indexes:
+            for elem in run['trace']:
+                if elem['isa'] == 'transition' and not elem['name'] in arg_count and 'args' in elem:
+                    arg_count[elem['name']] = len(elem['args'])
+                if elem['name'] != 'UNINITIALIZED':
+                    _add_trace_data_to_aggregate(by_name, elem['name'], elem)
+    return by_name, parameter_names, arg_count
+
+
 class PTAModel:
     u"""
     Parameter-aware PTA-based energy model.
@@ -1046,7 +1076,7 @@ class PTAModel:
     - rel_energy_next: transition energy relative to next state mean power in pJ
     """
 
-    def __init__(self, preprocessed_data, ignore_trace_indexes = [], discard_outliers = None, function_override = {}, verbose = True, use_corrcoef = False, hwmodel = None):
+    def __init__(self, by_name, parameters, arg_count, traces = [], ignore_trace_indexes = [], discard_outliers = None, function_override = {}, verbose = True, use_corrcoef = False, hwmodel = None):
         """
         Prepare a new PTA energy model.
 
@@ -1135,29 +1165,19 @@ class PTAModel:
             ]
         ]
         """
-        self.traces = preprocessed_data
-        self.by_name = {}
-        self.by_param = {}
-        self.by_trace = {}
+        self.by_name = by_name
+        self.by_param = by_name_to_by_param(by_name)
+        self._parameter_names = sorted(parameters)
+        self._num_args = arg_count
+        self.traces = traces
         self.cache = {}
         np.seterr('raise')
-        self._parameter_names = sorted(self.traces[0]['trace'][0]['parameter'].keys())
-        self._num_args = {}
         self._outlier_threshold = discard_outliers
         self._use_corrcoef = use_corrcoef
         self.function_override = function_override
         self.verbose = verbose
         self.hwmodel = hwmodel
         self.ignore_trace_indexes = ignore_trace_indexes
-        if discard_outliers != None:
-            self._compute_outlier_stats(ignore_trace_indexes, discard_outliers)
-        for run in self.traces:
-            if run['id'] not in ignore_trace_indexes:
-                for i, elem in enumerate(run['trace']):
-                    if elem['name'] != 'UNINITIALIZED':
-                        self._load_run_elem(i, elem)
-                    if elem['isa'] == 'transition' and not elem['name'] in self._num_args and 'args' in elem:
-                        self._num_args[elem['name']] = len(elem['args'])
         self._aggregate_to_ndarray(self.by_name)
         self._compute_all_param_statistics()
 
@@ -1166,85 +1186,13 @@ class PTAModel:
             param_values = map(lambda x: x[param_index], self.by_name[state_or_tran]['param'])
         return sorted(set(param_values))
 
-    def _compute_outlier_stats(self, ignore_trace_indexes, threshold):
-        tmp_by_param = {}
-        self.median_by_param = {}
-        for run in self.traces:
-            if run['id'] not in ignore_trace_indexes:
-                for i, elem in enumerate(run['trace']):
-                    key = (elem['name'], tuple(_elem_param_and_arg_list(elem)))
-                    if not key in tmp_by_param:
-                        tmp_by_param[key] = {}
-                        for attribute in elem['offline_attributes']:
-                            tmp_by_param[key][attribute] = []
-                    for attribute in elem['offline_attributes']:
-                        tmp_by_param[key][attribute].extend(elem['offline_aggregates'][attribute])
-        for key, elem in tmp_by_param.items():
-            if not key in self.median_by_param:
-                self.median_by_param[key] = {}
-            for attribute in tmp_by_param[key].keys():
-                self.median_by_param[key][attribute] = np.median(tmp_by_param[key][attribute])
-
-
     def _compute_all_param_statistics(self):
         self.stats = ParamStats(self.by_name, self.by_param, self._parameter_names, self._num_args, self._use_corrcoef)
-
-    @classmethod
-    def from_model(self, model_data, parameter_names):
-        self.by_name = {}
-        self.by_param = {}
-        np.seterr('raise')
-        self._parameter_names = parameter_names
-        for state_or_tran, values in model_data.items():
-            for elem in values:
-                self._load_agg_elem(state_or_tran, elem)
-                #if elem['isa'] == 'transition' and not state_or_tran in self._num_args and 'args' in elem:
-                #    self._num_args = len(elem['args'])
-        self._aggregate_to_ndarray(self.by_name)
-        self._compute_all_param_statistics()
 
     def _aggregate_to_ndarray(self, aggregate):
         for elem in aggregate.values():
             for key in elem['attributes']:
                 elem[key] = np.array(elem[key])
-
-    def _prune_outliers(self, key, attribute, data):
-        if self._outlier_threshold == None:
-            return data
-        median = self.median_by_param[key][attribute]
-        if np.median(np.abs(data - median)) == 0:
-            return data
-        pruned_data = list(filter(lambda x: np.abs(0.6745 * (x - median) / np.median(np.abs(data - median))) > self._outlier_threshold, data ))
-        if len(pruned_data):
-            vprint(self.verbose, '[I] Pruned outliers from ({}) {}: {}'.format(key, attribute, pruned_data))
-            data = list(filter(lambda x: np.abs(0.6745 * (x - median) / np.median(np.abs(data - median))) <= self._outlier_threshold, data ))
-        return data
-
-    def _add_data_to_aggregate(self, aggregate, key, element):
-        if not key in aggregate:
-            aggregate[key] = {
-                'isa' : element['isa']
-            }
-            for datakey in element['offline_aggregates'].keys():
-                aggregate[key][datakey] = []
-            if element['isa'] == 'state':
-                aggregate[key]['attributes'] = ['power']
-            else:
-                aggregate[key]['attributes'] = ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']
-                if element['plan']['level'] == 'epilogue':
-                    aggregate[key]['attributes'].insert(0, 'timeout')
-        for datakey, dataval in element['offline_aggregates'].items():
-            if datakey in element['offline_attributes']:
-                dataval = self._prune_outliers((element['name'], tuple(_elem_param_and_arg_list(element))), datakey, dataval)
-            aggregate[key][datakey].extend(dataval)
-
-    def _load_agg_elem(self, name, elem):
-        self._add_data_to_aggregate(self.by_name, name, elem)
-        self._add_data_to_aggregate(self.by_param, (name, tuple(elem['param'])), elem)
-
-    def _load_run_elem(self, i, elem):
-        self._add_data_to_aggregate(self.by_name, elem['name'], elem)
-        self._add_data_to_aggregate(self.by_param, (elem['name'], tuple(_elem_param_and_arg_list(elem))), elem)
 
     # This heuristic is very similar to the "function is not much better than
     # median" checks in get_fitted. So far, doing it here as well is mostly
@@ -1475,13 +1423,17 @@ class PTAModel:
                     real_timeout_list.append(real_timeout)
                     model_timeout_list.append(model_timeout)
 
+        if len(self.traces):
+            return {
+                'by_dfa_component' : detailed_results,
+                'duration_by_trace' : regression_measures(np.array(model_duration_list), np.array(real_duration_list)),
+                'energy_by_trace' : regression_measures(np.array(model_energy_list), np.array(real_energy_list)),
+                'timeout_by_trace' : regression_measures(np.array(model_timeout_list), np.array(real_timeout_list)),
+                'rel_energy_by_trace' : regression_measures(np.array(model_rel_energy_list), np.array(real_energy_list)),
+                'state_energy_by_trace' : regression_measures(np.array(model_state_energy_list), np.array(real_energy_list)),
+            }
         return {
-            'by_dfa_component' : detailed_results,
-            'duration_by_trace' : regression_measures(np.array(model_duration_list), np.array(real_duration_list)),
-            'energy_by_trace' : regression_measures(np.array(model_energy_list), np.array(real_energy_list)),
-            'timeout_by_trace' : regression_measures(np.array(model_timeout_list), np.array(real_timeout_list)),
-            'rel_energy_by_trace' : regression_measures(np.array(model_rel_energy_list), np.array(real_energy_list)),
-            'state_energy_by_trace' : regression_measures(np.array(model_state_energy_list), np.array(real_energy_list)),
+            'by_dfa_component' : detailed_results
         }
 
 
