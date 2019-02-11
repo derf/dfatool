@@ -1198,12 +1198,12 @@ class PTAModel:
         self.by_param = by_name_to_by_param(by_name)
         self._parameter_names = sorted(parameters)
         self._num_args = arg_count
+        self._use_corrcoef = use_corrcoef
         self.traces = traces
         self.stats = ParamStats(self.by_name, self.by_param, self._parameter_names, self._num_args, self._use_corrcoef)
         self.cache = {}
         np.seterr('raise')
         self._outlier_threshold = discard_outliers
-        self._use_corrcoef = use_corrcoef
         self.function_override = function_override
         self.verbose = verbose
         self.hwmodel = hwmodel
