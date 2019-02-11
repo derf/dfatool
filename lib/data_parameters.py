@@ -20,6 +20,22 @@ def _string_value_length(json):
 
     return 0
 
+def _int_value_length(json):
+    if type(json) == int:
+        if json < 256:
+            return 1
+        if json < 65536:
+            return 2
+        return 4
+
+    if type(json) == dict:
+        return sum(map(_int_value_length, json.values()))
+
+    if type(json) == list:
+        return sum(map(_int_value_length, json))
+
+    return 0
+
 def _string_key_length(json):
     if type(json) == dict:
         return sum(map(len, json.keys())) + sum(map(_string_key_length, json.values()))
@@ -52,7 +68,7 @@ def json_to_param(json):
 
     ret['strlen_keys'] = _string_key_length(json)
     ret['strlen_values'] = _string_value_length(json)
-    #ret['num_keys'] = _num_keys(json)
+    ret['bytelen_int'] = _int_value_length(json)
     ret['num_int'] = _num_of_type(json, int)
     ret['num_float'] = _num_of_type(json, float)
     ret['num_str'] = _num_of_type(json, str)
