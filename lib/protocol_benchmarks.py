@@ -468,7 +468,7 @@ class ManualJSON(DummyProtocol):
             if len(value) and value[0] == '$':
                 self.buf += 'bout << dec << {}'.format(value[1:])
             else:
-                self.buf += 'bout << "\"{}\""'.format(value)
+                self.buf += 'bout << "\\"{}\\""'.format(value)
 
         elif type(value) == list:
             self.buf += 'bout << "[";\n'
