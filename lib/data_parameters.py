@@ -20,6 +20,8 @@ def _string_value_length(json):
 
     return 0
 
+# TODO distinguish between int and uint, which is not visible from the
+# data value alone
 def _int_value_length(json):
     if type(json) == int:
         if json < 256:

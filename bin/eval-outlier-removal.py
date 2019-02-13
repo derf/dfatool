@@ -9,11 +9,11 @@ from dfatool import PTAModel, RawData, soft_cast_int, pta_trace_to_aggregate
 opts = {}
 
 def model_quality_table(result_lists, info_list):
-    for state_or_tran in result_lists[0]['by_dfa_component'].keys():
-        for key in result_lists[0]['by_dfa_component'][state_or_tran].keys():
+    for state_or_tran in result_lists[0]['by_name'].keys():
+        for key in result_lists[0]['by_name'][state_or_tran].keys():
             buf = '{:20s} {:15s}'.format(state_or_tran, key)
             for i, results in enumerate(result_lists):
-                results = results['by_dfa_component']
+                results = results['by_name']
                 info = info_list[i]
                 buf += '  |||  '
                 if info == None or info(state_or_tran, key):
@@ -27,12 +27,12 @@ def model_quality_table(result_lists, info_list):
             print(buf)
 
 def combo_model_quality_table(result_lists, info_list):
-    for state_or_tran in result_lists[0][0]['by_dfa_component'].keys():
-        for key in result_lists[0][0]['by_dfa_component'][state_or_tran].keys():
+    for state_or_tran in result_lists[0][0]['by_name'].keys():
+        for key in result_lists[0][0]['by_name'][state_or_tran].keys():
             for sub_result_lists in result_lists:
                 buf = '{:20s} {:15s}'.format(state_or_tran, key)
                 for i, results in enumerate(sub_result_lists):
-                    results = results['by_dfa_component']
+                    results = results['by_name']
                     info = info_list[i]
                     buf += '  |||  '
                     if info == None or info(state_or_tran, key):

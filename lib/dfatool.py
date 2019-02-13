@@ -255,31 +255,139 @@ def _xv_partitions_kfold(length, num_slices):
         pairs.append((training, validation))
     return pairs
 
-def _xv_partitions_montecarlo(length, num_slices):
-    pairs = []
-    for i in range(0, num_slices):
-        shuffled = np.random.permutation(np.arange(length))
-        border = int(length * float(2) / 3)
-        training = shuffled[:border]
-        validation = shuffled[border:]
-        pairs.append((training, validation))
-    return pairs
+def _xv_partition_montecarlo(length):
+    shuffled = np.random.permutation(np.arange(length))
+    border = int(length * float(2) / 3)
+    training = shuffled[:border]
+    validation = shuffled[border:]
+    return (training, validation)
 
 class CrossValidator:
+    """
+    Cross-Validation helper for model generation.
 
-    def __init__(self, by_name, by_param, parameters):
-        """Create a new AnalyticModel and compute parameter statistics."""
-        self.by_name = np.array(by_name)
-        self.by_param = np.array(by_param)
+    Given a set of measurements and a model class, it will partition the
+    data into training and validation sets, train the model on the training
+    set, and assess its quality on the validation set. This is repeated
+    several times depending on cross-validation algorithm and configuration.
+    Reports the mean model error over all cross-validation runs.
+    """
+
+    def __init__(self, model_class, by_name, parameters, arg_count):
+        """
+        Create a new CrossValidator object.
+
+        Does not perform cross-validation yet.
+
+        arguments:
+        model_class -- model class/type used for model synthesis,
+            e.g. PTAModel or AnalyticModel. model_class must have a
+            constructor accepting (by_name, parameters, arg_count, verbose = False)
+            and provide an assess method.
+        by_name -- measurements aggregated by state/transition/function/... name.
+            Layout: by_name[name][attribute] = list of data. Additionally,
+            by_name[name]['attributes'] must be set to the list of attributes,
+            e.g. ['power'] or ['duration', 'energy'].
+        """
+        self.model_class = model_class
+        self.by_name = by_name
         self.names = sorted(by_name.keys())
         self.parameters = sorted(parameters)
+        self.arg_count = arg_count
 
-    def montecarlo(self, count = 200):
-        for pair in _xv_partitions_montecarlo(count):
-            by_name_training = dict()
-            by_name_validation = dict()
-            by_param_training = dict()
-            by_param_validation = dict()
+    def montecarlo(self, model_getter, count = 2):
+        """
+        Perform Monte Carlo cross-validation and return average model quality.
+
+        The by_name data is randomly divided into 2/3 training and 1/3
+        validation. After creating a model for the training set, the
+        model type returned by model_getter is evaluated on the validation set.
+        This is repeated count times (defaulting to 200); the average of all
+        measures is returned to the user.
+
+        arguments:
+        model_getter -- function with signature (model_object) -> model,
+            e.g. lambda m: m.get_fitted()[0] to evaluate the parameter-aware
+            model with automatic parameter detection.
+        count -- number of validation runs to perform, defaults to 200
+
+        return value:
+        dict of model quality measures.
+        {
+            'by_name' : {
+                for each name: {
+                    for each attribute: {
+                        'mae' : mean of all mean absolute errors
+                        'mae_list' : list of the individual MAE values encountered during cross-validation
+                        'smape' : mean of all symmetric mean absolute percentage errors
+                        'smape_list' : list of the individual SMAPE values encountered during cross-validation
+                    }
+                }
+            }
+        }
+        """
+        ret = {
+            'by_name' : dict()
+        }
+
+        for name in self.names:
+            ret['by_name'][name] = dict()
+            for attribute in self.by_name[name]['attributes']:
+                ret['by_name'][name][attribute] = {
+                    'mae_list': list(),
+                    'smape_list': list()
+                }
+
+        for i in range(count):
+            res = self._single_montecarlo(model_getter)
+            for name in self.names:
+                for attribute in self.by_name[name]['attributes']:
+                    ret['by_name'][name][attribute]['mae_list'].append(res['by_name'][name][attribute]['mae'])
+                    ret['by_name'][name][attribute]['smape_list'].append(res['by_name'][name][attribute]['smape'])
+
+        for name in self.names:
+            for attribute in self.by_name[name]['attributes']:
+                ret['by_name'][name][attribute]['mae'] = np.mean(ret['by_name'][name][attribute]['mae_list'])
+                ret['by_name'][name][attribute]['smape'] = np.mean(ret['by_name'][name][attribute]['smape_list'])
+
+        return ret
+
+    def _single_montecarlo(self, model_getter):
+        training = dict()
+        validation = dict()
+        for name in self.names:
+            training[name] = {
+                'attributes' : self.by_name[name]['attributes']
+            }
+            validation[name] = {
+                'attributes' : self.by_name[name]['attributes']
+            }
+
+            if 'isa' in self.by_name[name]:
+                training[name]['isa'] = self.by_name[name]['isa']
+                validation[name]['isa'] = self.by_name[name]['isa']
+
+            data_count = len(self.by_name[name]['param'])
+            training_subset, validation_subset = _xv_partition_montecarlo(data_count)
+
+            for attribute in self.by_name[name]['attributes']:
+                self.by_name[name][attribute] = np.array(self.by_name[name][attribute])
+                training[name][attribute] = self.by_name[name][attribute][training_subset]
+                validation[name][attribute] = self.by_name[name][attribute][validation_subset]
+
+            # We can't use slice syntax for 'param', which may contain strings and other odd values
+            training[name]['param'] = list()
+            validation[name]['param'] = list()
+            for idx in training_subset:
+                training[name]['param'].append(self.by_name[name]['param'][idx])
+            for idx in validation_subset:
+                validation[name]['param'].append(self.by_name[name]['param'][idx])
+
+        training_data = self.model_class(training, self.parameters, self.arg_count, verbose = False)
+        training_model = model_getter(training_data)
+        validation_data = self.model_class(validation, self.parameters, self.arg_count, verbose = False)
+
+        return validation_data.assess(training_model)
 
 
 def _preprocess_measurement(measurement):
@@ -1011,7 +1119,9 @@ class AnalyticModel:
                 measures = regression_measures(predicted_data, elem[attribute])
                 detailed_results[name][attribute] = measures
 
-        return detailed_results
+        return {
+            'by_name' : detailed_results,
+        }
 
 
 def _add_trace_data_to_aggregate(aggregate, key, element):
@@ -1277,11 +1387,14 @@ class PTAModel:
         The function can only give model values for parameter combinations
         present in by_param. It raises KeyError for other values.
         """
+        static_model = self._get_model_from_dict(self.by_name, np.median)
         lut_model = self._get_model_from_dict(self.by_param, np.median)
 
         def lut_median_getter(name, key, param, arg = [], **kwargs):
             param.extend(map(soft_cast_int, arg))
-            return lut_model[(name, tuple(param))][key]
+            if (name, tuple(param)) in lut_model:
+                return lut_model[(name, tuple(param))][key]
+            return static_model[name][key]
 
         return lut_median_getter
 
@@ -1488,7 +1601,7 @@ class PTAModel:
 
         if len(self.traces):
             return {
-                'by_dfa_component' : detailed_results,
+                'by_name' : detailed_results,
                 'duration_by_trace' : regression_measures(np.array(model_duration_list), np.array(real_duration_list)),
                 'energy_by_trace' : regression_measures(np.array(model_energy_list), np.array(real_energy_list)),
                 'timeout_by_trace' : regression_measures(np.array(model_timeout_list), np.array(real_timeout_list)),
@@ -1496,7 +1609,7 @@ class PTAModel:
                 'state_energy_by_trace' : regression_measures(np.array(model_state_energy_list), np.array(real_energy_list)),
             }
         return {
-            'by_dfa_component' : detailed_results
+            'by_name' : detailed_results
         }
 
 
