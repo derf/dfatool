@@ -87,13 +87,15 @@ class TestStaticModel(unittest.TestCase):
         self.assertAlmostEqual(static_model('off', 'duration'), 9130, places=0)
         self.assertAlmostEqual(static_model('setBrightness', 'duration'), 9130, places=0)
 
-        param_lut_model = model.get_param_lut(fallback=True)
+        param_lut_model = model.get_param_lut()
         self.assertAlmostEqual(param_lut_model('OFF', 'power', param=[None, None]), 7124, places=0)
         with self.assertRaises(KeyError):
             param_lut_model('ON', 'power', param=[None, None])
             param_lut_model('ON', 'power', param=['a'])
             param_lut_model('ON', 'power', param=[0])
         self.assertTrue(param_lut_model('ON', 'power', param=[0, 0]))
+        param_lut_model = model.get_param_lut(fallback = True)
+        self.assertAlmostEqual(param_lut_model('ON', 'power', param=[None, None]), 17866, places=0)
 
     def test_model_multifile_lm75x(self):
         testfiles = [
