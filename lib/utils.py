@@ -2,6 +2,15 @@ import numpy as np
 
 arg_support_enabled = True
 
+def vprint(verbose, string):
+    """
+    Print string if verbose.
+
+    Prints string if verbose is a True value
+    """
+    if verbose:
+        print(string)
+
 def is_numeric(n):
     """Check if n is numeric (i.e., can be converted to int)."""
     if n == None:
@@ -49,7 +58,7 @@ def param_slice_eq(a, b, index):
         return True
     return False
 
-def compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_trans, attribute):
+def compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_trans, attribute, verbose = False):
     """
     Compute standard deviation and correlation coefficient for various data partitions.
 
@@ -72,6 +81,7 @@ def compute_param_statistics(by_name, by_param, parameter_names, arg_count, stat
     arg_count -- dict providing the number of functions args ("local parameters") for each function.
     state_or_trans -- state or transition name, e.g. 'send' or 'TX'
     attribute -- model attribute, e.g. 'power' or 'duration'
+    verbose -- print warning if some parameter partitions are too small for fitting
 
     returns a dict with the following content:
     std_static -- static parameter-unaware model error: stddev of by_name[state_or_trans][attribute]
@@ -99,16 +109,16 @@ def compute_param_statistics(by_name, by_param, parameter_names, arg_count, stat
     np.seterr('raise')
 
     for param_idx, param in enumerate(parameter_names):
-        ret['std_by_param'][param] = _mean_std_by_param(by_param, state_or_trans, attribute, param_idx)
+        ret['std_by_param'][param] = _mean_std_by_param(by_param, state_or_trans, attribute, param_idx, verbose)
         ret['corr_by_param'][param] = _corr_by_param(by_name, state_or_trans, attribute, param_idx)
     if arg_support_enabled and state_or_trans in arg_count:
         for arg_index in range(arg_count[state_or_trans]):
-            ret['std_by_arg'].append(_mean_std_by_param(by_param, state_or_trans, attribute, len(parameter_names) + arg_index))
+            ret['std_by_arg'].append(_mean_std_by_param(by_param, state_or_trans, attribute, len(parameter_names) + arg_index, verbose))
             ret['corr_by_arg'].append(_corr_by_param(by_name, state_or_trans, attribute, len(parameter_names) + arg_index))
 
     return ret
 
-def _mean_std_by_param(by_param, state_or_tran, attribute, param_index):
+def _mean_std_by_param(by_param, state_or_tran, attribute, param_index, verbose = False):
     u"""
     Calculate the mean standard deviation for a static model where all parameters but param_index are constant.
 
@@ -135,9 +145,9 @@ def _mean_std_by_param(by_param, state_or_tran, attribute, param_index):
         if len(param_partition) > 1:
             partitions.append(param_partition)
         elif len(param_partition) == 1:
-            print('[W] parameter value partition for {} contains only one element -- skipping'.format(param_value))
+            vprint(verbose, '[W] parameter value partition for {} contains only one element -- skipping'.format(param_value))
         else:
-            print('[W] parameter value partition for {} is empty'.format(param_value))
+            vprint(verbose, '[W] parameter value partition for {} is empty'.format(param_value))
     return np.mean([np.std(partition) for partition in partitions])
 
 def _corr_by_param(by_name, state_or_trans, attribute, param_index):

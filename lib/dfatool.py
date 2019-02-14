@@ -413,7 +413,7 @@ def _preprocess_measurement(measurement):
 
 class ParamStats:
 
-    def __init__(self, by_name, by_param, parameter_names, arg_count, use_corrcoef = False):
+    def __init__(self, by_name, by_param, parameter_names, arg_count, use_corrcoef = False, verbose = False):
         """
         Compute standard deviation and correlation coefficient on parameterized data partitions.
 
@@ -444,7 +444,7 @@ class ParamStats:
         for state_or_tran in by_name.keys():
             self.stats[state_or_tran] = dict()
             for attribute in by_name[state_or_tran]['attributes']:
-                self.stats[state_or_tran][attribute] = compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_tran, attribute)
+                self.stats[state_or_tran][attribute] = compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_tran, attribute, verbose = verbose)
 
     def _generic_param_independence_ratio(self, state_or_trans, attribute):
         """
@@ -950,7 +950,7 @@ class AnalyticModel:
         self.parameters = sorted(parameters)
         self.verbose = verbose
 
-        self.stats = ParamStats(self.by_name, self.by_param, self.parameters, {})
+        self.stats = ParamStats(self.by_name, self.by_param, self.parameters, {}, verbose = verbose)
 
     def _fit(self):
         paramfit = ParallelParamFit(self.by_param)
@@ -1319,7 +1319,7 @@ class PTAModel:
         self._num_args = arg_count
         self._use_corrcoef = use_corrcoef
         self.traces = traces
-        self.stats = ParamStats(self.by_name, self.by_param, self._parameter_names, self._num_args, self._use_corrcoef)
+        self.stats = ParamStats(self.by_name, self.by_param, self._parameter_names, self._num_args, self._use_corrcoef, verbose = verbose)
         self.cache = {}
         np.seterr('raise')
         self._outlier_threshold = discard_outliers
