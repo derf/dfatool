@@ -30,8 +30,8 @@ class Transition:
             arguments = [], param_update_function = None,
             arg_to_param_map = None, set_param = None):
         self.name = name
-        self.origin = orig_state.name
-        self.destination = dest_state.name
+        self.origin = orig_state
+        self.destination = dest_state
         self.energy = energy
         self.energy_function = energy_function
         self.duration = duration
@@ -74,8 +74,8 @@ class Transition:
     def to_json(self):
         ret = {
             'name' : self.name,
-            'origin' : self.origin,
-            'destination' : self.destination,
+            'origin' : self.origin.name,
+            'destination' : self.destination.name,
             'is_interrupt' : self.is_interrupt,
             'arguments' : self.arguments,
             'arg_to_param_map' : self.arg_to_param_map,
