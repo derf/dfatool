@@ -249,7 +249,7 @@ class PTA:
         parameters -- names of PTA parameters
         initial_param_values -- initial value for each parameter
         """
-        self.states = dict([[state_name, State(state_name)] for state_name in state_names])
+        self.state = dict([[state_name, State(state_name)] for state_name in state_names])
         self.parameters = parameters.copy()
         if initial_param_values:
             self.initial_param_values = initial_param_values.copy()
@@ -258,7 +258,7 @@ class PTA:
         self.transitions = []
 
         if not 'UNINITIALIZED' in state_names:
-            self.states['UNINITIALIZED'] = State('UNINITIALIZED')
+            self.state['UNINITIALIZED'] = State('UNINITIALIZED')
 
     @classmethod
     def from_json(cls, json_input: dict):
@@ -272,7 +272,7 @@ class PTA:
             if key in json_input:
                 kwargs[key] = json_input[key]
         pta = cls(**kwargs)
-        for name, state in json_input['states'].items():
+        for name, state in json_input['state'].items():
             power_function = _json_function_to_analytic_function(state, 'power', pta.parameters)
             pta.add_state(name, power = _json_get_static(state, 'power'), power_function = power_function)
         for transition in json_input['transitions']:
@@ -308,7 +308,7 @@ class PTA:
         ret = {
             'parameters' : self.parameters,
             'initial_param_values' : self.initial_param_values,
-            'states' : dict([[state.name, state.to_json()] for state in self.states.values()]),
+            'state' : dict([[state.name, state.to_json()] for state in self.state.values()]),
             'transitions' : [trans.to_json() for trans in self.transitions]
         }
         return ret
@@ -322,7 +322,7 @@ class PTA:
         if 'power_function' in kwargs and type(kwargs['power_function']) != AnalyticFunction:
             kwargs['power_function'] = AnalyticFunction(kwargs['power_function'],
                 self.parameters, 0)
-        self.states[state_name] = State(state_name, **kwargs)
+        self.state[state_name] = State(state_name, **kwargs)
 
     def add_transition(self, orig_state: str, dest_state: str, function_name: str, **kwargs):
         """
@@ -334,8 +334,8 @@ class PTA:
         function_name -- function name
         kwargs -- see Transition() documentation
         """
-        orig_state = self.states[orig_state]
-        dest_state = self.states[dest_state]
+        orig_state = self.state[orig_state]
+        dest_state = self.state[dest_state]
         for key in ('duration_function', 'energy_function', 'timeout_function'):
             if key in kwargs and type(kwargs[key]) != AnalyticFunction:
                 kwargs[key] = AnalyticFunction(kwargs[key], self.parameters, 0)
@@ -352,12 +352,12 @@ class PTA:
         depth -- search depth
         orig_state -- initial state for depth-first search
         """
-        return self.states[orig_state].dfs(depth, **kwargs)
+        return self.state[orig_state].dfs(depth, **kwargs)
 
     def simulate(self, trace: list, orig_state: str = 'UNINITIALIZED'):
         total_duration = 0.
         total_energy = 0.
-        state = self.states[orig_state]
+        state = self.state[orig_state]
         param_dict = dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
         for function in trace:
             function_name = function[0]
@@ -383,7 +383,7 @@ class PTA:
         return total_energy, total_duration, state, param_dict
 
     def update(self, static_model, param_model):
-        for state in self.states.values():
+        for state in self.state.values():
             if state.name != 'UNINITIALIZED':
                 state.power = static_model(state.name, 'power')
                 if param_model(state.name, 'power'):
