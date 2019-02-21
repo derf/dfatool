@@ -292,7 +292,7 @@ class PTA:
             return cls.from_legacy_json(json_input)
 
         kwargs = dict()
-        for key in ('state_names', 'parameters', 'initial_param_values'):
+        for key in ('state_names', 'parameters', 'initial_param_values', 'accepting_states'):
             if key in json_input:
                 kwargs[key] = json_input[key]
         pta = cls(**kwargs)
@@ -375,7 +375,8 @@ class PTA:
             'parameters' : self.parameters,
             'initial_param_values' : self.initial_param_values,
             'state' : dict([[state.name, state.to_json()] for state in self.state.values()]),
-            'transitions' : [trans.to_json() for trans in self.transitions]
+            'transitions' : [trans.to_json() for trans in self.transitions],
+            'accepting_states' : self.accepting_states,
         }
         return ret
 
