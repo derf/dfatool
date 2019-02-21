@@ -267,6 +267,9 @@ class PTA:
 
         Compatible with the to_json method.
         """
+        if 'transition' in json_input:
+            return cls.from_legacy_json(json_input)
+
         kwargs = {}
         for key in ('state_names', 'parameters', 'initial_param_values'):
             if key in json_input:
@@ -296,6 +299,37 @@ class PTA:
                     timeout_function = timeout_function,
                     arg_to_param_map = arg_to_param_map
                 )
+
+        return pta
+
+    @classmethod
+    def from_legacy_json(cls, json_input: dict):
+        """
+        Return a PTA created from the provided JSON data.
+
+        Compatible with the legacy dfatool/perl format.
+        """
+        kwargs = {
+            'parameters' : list(),
+            'initial_param_values': list(),
+        }
+
+        for param in sorted(json_input['parameter'].keys()):
+            kwargs['parameters'].append(param)
+            kwargs['initial_param_values'].append(json_input['parameter'][param]['default'])
+
+        pta = cls(**kwargs)
+
+        for name, state in json_input['state'].items():
+            pta.add_state(name, power = float(state['power']['static']))
+
+        for trans_name in sorted(json_input['transition'].keys()):
+            transition = json_input['transition'][trans_name]
+            destination = transition['destination']
+            if type(destination) == list:
+                destination = destination[0]
+            for origin in transition['origins']:
+                pta.add_transition(origin, destination, trans_name)
 
         return pta
 
