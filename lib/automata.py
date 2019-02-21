@@ -257,6 +257,7 @@ class PTA:
     """
 
     def __init__(self, state_names: list = [],
+            accepting_states: list = None,
             parameters: list = [], initial_param_values: list = None):
         """
         Return a new PTA object.
@@ -264,10 +265,12 @@ class PTA:
         arguments:
         state_names -- names of PTA states. Note that the PTA always contains
             an initial UNINITIALIZED state, regardless of the content of state_names.
+        accepting_states -- names of accepting states. By default, all states are accepting
         parameters -- names of PTA parameters
         initial_param_values -- initial value for each parameter
         """
         self.state = dict([[state_name, State(state_name)] for state_name in state_names])
+        self.accepting_states = accepting_states.copy() if accepting_states else None
         self.parameters = parameters.copy()
         if initial_param_values:
             self.initial_param_values = initial_param_values.copy()
@@ -415,7 +418,11 @@ class PTA:
         depth -- search depth
         orig_state -- initial state for depth-first search
         """
-        return self.state[orig_state].dfs(depth, **kwargs)
+        if self.accepting_states:
+            return filter(lambda x: x[-1][0].destination.name in self.accepting_states,
+                self.state[orig_state].dfs(depth, **kwargs))
+        else:
+            return self.state[orig_state].dfs(depth, **kwargs)
 
     def simulate(self, trace: list, orig_state: str = 'UNINITIALIZED'):
         total_duration = 0.

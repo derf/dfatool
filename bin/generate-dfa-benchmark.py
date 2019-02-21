@@ -41,6 +41,7 @@ if __name__ == '__main__':
 
     for run in pta.dfs(opt['depth'], with_arguments = True):
         for transition, arguments in run:
+            print('// {} -> {}'.format(transition.origin.name, transition.destination.name))
             if transition.is_interrupt:
                 print('// wait for {} interrupt'.format(transition.name))
             else:
