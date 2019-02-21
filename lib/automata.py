@@ -93,7 +93,7 @@ class State:
                         for args in zip(*trans.argument_values):
                             yield [(trans, args)]
                 else:
-                    yield [trans]
+                    yield [(trans,)]
         else:
             for trans in self.outgoing_transitions.values():
                 for suffix in trans.destination.dfs(depth - 1, with_arguments = with_arguments):
@@ -113,7 +113,7 @@ class State:
                                 new_suffix.extend(suffix)
                                 yield new_suffix
                     else:
-                        new_suffix = [trans]
+                        new_suffix = [(trans,)]
                         new_suffix.extend(suffix)
                         yield new_suffix
 

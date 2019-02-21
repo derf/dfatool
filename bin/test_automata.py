@@ -88,7 +88,7 @@ example_json_1 = {
 def dfs_tran_to_name(runs: list, with_args: bool) -> list:
     if with_args:
         return list(map(lambda run: list(map(lambda x: (x[0].name, x[1]), run)), runs))
-    return list(map(lambda run: list(map(lambda transition: transition.name, run)), runs))
+    return list(map(lambda run: list(map(lambda x: (x[0].name), run)), runs))
 
 class TestPTA(unittest.TestCase):
     def test_dfs(self):
@@ -105,9 +105,9 @@ class TestPTA(unittest.TestCase):
         pta.add_transition('UNINITIALIZED', 'IDLE', 'init')
         pta.add_transition('IDLE', 'IDLE', 'set1')
         pta.add_transition('IDLE', 'IDLE', 'set2')
-        self.assertEqual(list(map(lambda x: list(map(lambda y: y.name, x)), pta.dfs(0))), [['init']])
-        self.assertEqual(sorted(map(lambda x: list(map(lambda y: y.name, x)), pta.dfs(1))), [['init', 'set1'], ['init', 'set2']])
-        self.assertEqual(sorted(map(lambda x: list(map(lambda y: y.name, x)), pta.dfs(2))), [['init', 'set1', 'set1'],
+        self.assertEqual(dfs_tran_to_name(pta.dfs(0), False), [['init']])
+        self.assertEqual(sorted(dfs_tran_to_name(pta.dfs(1), False)), [['init', 'set1'], ['init', 'set2']])
+        self.assertEqual(sorted(dfs_tran_to_name(pta.dfs(2), False)), [['init', 'set1', 'set1'],
             ['init', 'set1', 'set2'],
             ['init', 'set2', 'set1'],
             ['init', 'set2', 'set2']])
