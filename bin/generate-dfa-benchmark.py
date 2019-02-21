@@ -14,6 +14,7 @@ if __name__ == '__main__':
         optspec = (
             'depth= '
             'instance= '
+            'sleep= '
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
 
@@ -26,6 +27,9 @@ if __name__ == '__main__':
         else:
             opt['depth'] = 3
 
+        if 'sleep' in opt:
+            opt['sleep'] = int(opt['sleep'])
+
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)
@@ -36,11 +40,18 @@ if __name__ == '__main__':
         pta = PTA.from_json(json.load(f))
 
     for run in pta.dfs(opt['depth'], with_arguments = True):
-        for function_name, arguments in run:
-            if 'instance' in opt:
-                print('{}.{}({});'.format(opt['instance'], function_name, ', '.join(arguments)))
+        for transition, arguments in run:
+            if transition.is_interrupt:
+                print('// wait for {} interrupt'.format(transition.name))
             else:
-                print('{}({});'.format(function_name, ', '.join(arguments)))
+                if 'instance' in opt:
+                    print('{}.{}({});'.format(opt['instance'], transition.name, ', '.join(arguments)))
+                else:
+                    print('{}({});'.format(transition.name, ', '.join(arguments)))
+
+            if 'sleep' in opt:
+                print('arch.delay_ms({:d});'.format(opt['sleep']))
+
         print()
 
     sys.exit(0)
