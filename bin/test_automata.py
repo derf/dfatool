@@ -42,6 +42,7 @@ example_json_1 = {
             'duration' : { 'static' : 120 },
             'energy ' : { 'static' : 10000 },
             'arg_to_param_map' : { 'txpower' : 0 },
+            'argument_values' : [ [10, 20, 30] ],
         },
         {
             'name' : 'send',
@@ -64,6 +65,8 @@ example_json_1 = {
                 },
             },
             'arg_to_param_map' : { 'txbytes' : 1 },
+            'argument_values' : [ ['"foo"', '"hodor"'], [3, 5] ],
+            'argument_combination' : 'zip',
         },
         {
             'name' : 'txComplete',
@@ -120,6 +123,16 @@ class TestPTA(unittest.TestCase):
     def test_from_json_dfs(self):
         pta = PTA.from_json(example_json_1)
         self.assertEqual(sorted(pta.dfs(1)), [['init', 'init'], ['init', 'send'], ['init', 'setTxPower']])
+        self.assertEqual(sorted(pta.dfs(1, with_arguments = True)),
+            [
+                [('init', ()), ('init', ())],
+                [('init', ()), ('send', ('"foo"', 3))],
+                [('init', ()), ('send', ('"hodor"', 5))],
+                [('init', ()), ('setTxPower', (10,))],
+                [('init', ()), ('setTxPower', (20,))],
+                [('init', ()), ('setTxPower', (30,))],
+            ]
+        )
 
     def test_from_json_function(self):
         pta = PTA.from_json(example_json_1)
