@@ -87,7 +87,7 @@ class State:
             for trans in self.outgoing_transitions.values():
                 if with_arguments:
                     for args in itertools.product(*trans.argument_values):
-                        yield [[trans.name, args]]
+                        yield [(trans.name, args)]
                 else:
                     yield [trans.name]
         else:
@@ -95,7 +95,7 @@ class State:
                 for suffix in trans.destination.dfs(depth - 1, with_arguments = with_arguments):
                     if with_arguments:
                         for args in itertools.product(*trans.argument_values):
-                            new_suffix = [[trans.name, args]]
+                            new_suffix = [(trans.name, args)]
                             new_suffix.extend(suffix)
                             yield new_suffix
                     else:
@@ -212,6 +212,7 @@ class Transition:
             'destination' : self.destination.name,
             'is_interrupt' : self.is_interrupt,
             'arguments' : self.arguments,
+            'argument_values' : self.argument_values,
             'arg_to_param_map' : self.arg_to_param_map,
             'set_param' : self.set_param,
             'duration' : _attribute_to_json(self.duration, self.duration_function),
@@ -326,10 +327,16 @@ class PTA:
         for trans_name in sorted(json_input['transition'].keys()):
             transition = json_input['transition'][trans_name]
             destination = transition['destination']
+            arguments = list()
+            argument_values = list()
             if type(destination) == list:
                 destination = destination[0]
+            for arg in transition['parameters']:
+                arguments.append(arg['name'])
+                argument_values.append(arg['values'])
             for origin in transition['origins']:
-                pta.add_transition(origin, destination, trans_name)
+                pta.add_transition(origin, destination, trans_name,
+                    arguments = arguments, argument_values = argument_values)
 
         return pta
 
