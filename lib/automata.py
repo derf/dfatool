@@ -88,19 +88,19 @@ class State:
                 if with_arguments:
                     if trans.argument_combination == 'cartesian':
                         for args in itertools.product(*trans.argument_values):
-                            yield [(trans.name, args)]
+                            yield [(trans, args)]
                     else:
                         for args in zip(*trans.argument_values):
-                            yield [(trans.name, args)]
+                            yield [(trans, args)]
                 else:
-                    yield [trans.name]
+                    yield [trans]
         else:
             for trans in self.outgoing_transitions.values():
                 for suffix in trans.destination.dfs(depth - 1, with_arguments = with_arguments):
                     if with_arguments:
                         if trans.argument_combination == 'cartesian':
                             for args in itertools.product(*trans.argument_values):
-                                new_suffix = [(trans.name, args)]
+                                new_suffix = [(trans, args)]
                                 new_suffix.extend(suffix)
                                 yield new_suffix
                         else:
@@ -109,11 +109,11 @@ class State:
                             else:
                                 arg_values = [tuple()]
                             for args in arg_values:
-                                new_suffix = [(trans.name, args)]
+                                new_suffix = [(trans, args)]
                                 new_suffix.extend(suffix)
                                 yield new_suffix
                     else:
-                        new_suffix = [trans.name]
+                        new_suffix = [trans]
                         new_suffix.extend(suffix)
                         yield new_suffix
 
@@ -347,6 +347,9 @@ class PTA:
             destination = transition['destination']
             arguments = list()
             argument_values = list()
+            is_interrupt = False
+            if transition['level'] == 'epilogue':
+                is_interrupt = True
             if type(destination) == list:
                 destination = destination[0]
             for arg in transition['parameters']:
@@ -354,7 +357,8 @@ class PTA:
                 argument_values.append(arg['values'])
             for origin in transition['origins']:
                 pta.add_transition(origin, destination, trans_name,
-                    arguments = arguments, argument_values = argument_values)
+                    arguments = arguments, argument_values = argument_values,
+                    is_interrupt = is_interrupt)
 
         return pta
 
