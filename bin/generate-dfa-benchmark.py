@@ -39,20 +39,28 @@ if __name__ == '__main__':
     with open(modelfile, 'r') as f:
         pta = PTA.from_json(json.load(f))
 
+    print('ptalog.startBenchmark(0);')
+
     for run in pta.dfs(opt['depth'], with_arguments = True):
+        print('ptalog.reset();')
         for transition, arguments in run:
             print('// {} -> {}'.format(transition.origin.name, transition.destination.name))
+            print('ptalog.passTransition({:d});'.format(pta.get_transition_id(transition)))
             if transition.is_interrupt:
                 print('// wait for {} interrupt'.format(transition.name))
+                print('// TODO add startTransition / stopTransition calls to interrupt routine')
             else:
+                print('ptalog.startTransition();')
                 if 'instance' in opt:
                     print('{}.{}({});'.format(opt['instance'], transition.name, ', '.join(arguments)))
                 else:
                     print('{}({});'.format(transition.name, ', '.join(arguments)))
+                print('ptalog.stopTransition();')
 
             if 'sleep' in opt:
                 print('arch.delay_ms({:d});'.format(opt['sleep']))
 
+        print('ptalog.dump();')
         print()
 
     sys.exit(0)

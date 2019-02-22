@@ -411,6 +411,9 @@ class PTA:
         self.transitions.append(new_transition)
         orig_state.add_outgoing_transition(new_transition)
 
+    def get_transition_id(self, transition: Transition) -> int:
+        return self.transitions.index(transition)
+
     def dfs(self, depth: int = 10, orig_state: str = 'UNINITIALIZED', **kwargs):
         """
         Return a generator object for depth-first search starting at orig_state.
