@@ -386,7 +386,7 @@ class PTA:
 
         See the State() documentation for acceptable arguments.
         """
-        if 'power_function' in kwargs and type(kwargs['power_function']) != AnalyticFunction:
+        if 'power_function' in kwargs and type(kwargs['power_function']) != AnalyticFunction and kwargs['power_function'] != None:
             kwargs['power_function'] = AnalyticFunction(kwargs['power_function'],
                 self.parameters, 0)
         self.state[state_name] = State(state_name, **kwargs)
@@ -404,7 +404,7 @@ class PTA:
         orig_state = self.state[orig_state]
         dest_state = self.state[dest_state]
         for key in ('duration_function', 'energy_function', 'timeout_function'):
-            if key in kwargs and type(kwargs[key]) != AnalyticFunction:
+            if key in kwargs and kwargs[key] != None and type(kwargs[key]) != AnalyticFunction:
                 kwargs[key] = AnalyticFunction(kwargs[key], self.parameters, 0)
 
         new_transition = Transition(orig_state, dest_state, function_name, **kwargs)
@@ -412,6 +412,7 @@ class PTA:
         orig_state.add_outgoing_transition(new_transition)
 
     def get_transition_id(self, transition: Transition) -> int:
+        """Return PTA-specific ID of transition."""
         return self.transitions.index(transition)
 
     def dfs(self, depth: int = 10, orig_state: str = 'UNINITIALIZED', **kwargs):
