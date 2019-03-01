@@ -3,7 +3,7 @@
 from dfatool import PTAModel, RawData, pta_trace_to_aggregate
 import unittest
 
-class TestStaticModel(unittest.TestCase):
+class TestModels(unittest.TestCase):
     def test_model_singlefile_rf24(self):
         raw_data = RawData(['../data/20170220_164723_RF24_int_A.tar'])
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
@@ -61,6 +61,8 @@ class TestStaticModel(unittest.TestCase):
         self.assertEqual(param_info('POWERDOWN', 'power'), None)
         self.assertEqual(param_info('RX', 'power')['function']._model_str,
             '0 + regression_arg(0) + regression_arg(1) * np.sqrt(parameter(datarate))')
+        self.assertAlmostEqual(param_info('RX', 'power')['function']._regression_args[0], 48530.7, places=0)
+        self.assertAlmostEqual(param_info('RX', 'power')['function']._regression_args[1], 117, places=0)
         self.assertEqual(param_info('STANDBY1', 'power'), None)
         self.assertEqual(param_info('TX', 'power')['function']._model_str,
             '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate)) + regression_arg(2) * parameter(txpower) + regression_arg(3) * 1/(parameter(datarate)) * parameter(txpower)')
@@ -68,6 +70,8 @@ class TestStaticModel(unittest.TestCase):
             '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate))')
         self.assertEqual(param_info('stopListening', 'duration')['function']._model_str,
             '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate))')
+
+        self.assertAlmostEqual(param_model('RX', 'power', param=[1, None, None]), 48647, places=-1)
 
 
     def test_model_singlefile_mmparam(self):
