@@ -112,6 +112,32 @@ class TestPTA(unittest.TestCase):
             ['init', 'set2', 'set1'],
             ['init', 'set2', 'set2']])
 
+    def test_dfs_accepting(self):
+        pta = PTA(['IDLE', 'TX'], accepting_states = ['IDLE'])
+        pta.add_transition('UNINITIALIZED', 'IDLE', 'init')
+        pta.add_transition('IDLE', 'TX', 'send')
+        pta.add_transition('TX', 'IDLE', 'txComplete')
+        self.assertEqual(dfs_tran_to_name(pta.dfs(0), False), [['init']])
+        self.assertEqual(dfs_tran_to_name(pta.dfs(1), False), [])
+        self.assertEqual(dfs_tran_to_name(pta.dfs(2), False), [['init', 'send', 'txComplete']])
+        self.assertEqual(dfs_tran_to_name(pta.dfs(3), False), [])
+
+    def test_dfs_objects(self):
+        pta = PTA(['IDLE', 'TX'])
+        pta.add_transition('UNINITIALIZED', 'IDLE', 'init')
+        pta.add_transition('IDLE', 'TX', 'send')
+        pta.add_transition('TX', 'IDLE', 'txComplete')
+        traces = list(pta.dfs(2))
+        self.assertEqual(len(traces), 1)
+        trace = traces[0]
+        self.assertEqual(len(trace), 3)
+        self.assertEqual(trace[0][0].name, 'init')
+        self.assertEqual(trace[1][0].name, 'send')
+        self.assertEqual(trace[2][0].name, 'txComplete')
+        self.assertEqual(pta.get_transition_id(trace[0][0]), 0)
+        self.assertEqual(pta.get_transition_id(trace[1][0]), 1)
+        self.assertEqual(pta.get_transition_id(trace[2][0]), 2)
+
     def test_from_json(self):
         pta = PTA.from_json(example_json_1)
         self.assertEqual(pta.parameters, ['datarate', 'txbytes', 'txpower'])
@@ -124,6 +150,13 @@ class TestPTA(unittest.TestCase):
         self.assertEqual(pta.transitions[2].name, 'setTxPower')
         self.assertEqual(pta.transitions[3].name, 'send')
         self.assertEqual(pta.transitions[4].name, 'txComplete')
+
+    #def test_to_json(self):
+    #    pta = PTA.from_json(example_json_1)
+    #    json = pta.to_json()
+    #    json['state'].pop('UNINITIALIZED')
+    #    print(json)
+    #    self.assertDictEqual(json, example_json_1)
 
     def test_from_json_dfs(self):
         pta = PTA.from_json(example_json_1)
