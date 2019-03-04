@@ -4,7 +4,9 @@ import getopt
 import json
 import re
 import sys
+import yaml
 from automata import PTA
+from harness import TransitionHarness
 
 opt = {}
 
@@ -37,30 +39,37 @@ if __name__ == '__main__':
     modelfile = args[0]
 
     with open(modelfile, 'r') as f:
-        pta = PTA.from_json(json.load(f))
+        if '.json' in modelfile:
+            pta = PTA.from_json(json.load(f))
+        else:
+            pta = PTA.from_yaml(yaml.safe_load(f))
 
-    print('ptalog.startBenchmark(0);')
+    harness = TransitionHarness('GPIO::p1_0')
+
+    print('#include "arch.h"')
+    print(harness.global_code())
+
+    print(harness.start_benchmark())
 
     for run in pta.dfs(opt['depth'], with_arguments = True):
-        print('ptalog.reset();')
+        print(harness.start_run())
         for transition, arguments in run:
             print('// {} -> {}'.format(transition.origin.name, transition.destination.name))
-            print('ptalog.passTransition({:d});'.format(pta.get_transition_id(transition)))
             if transition.is_interrupt:
                 print('// wait for {} interrupt'.format(transition.name))
-                print('// TODO add startTransition / stopTransition calls to interrupt routine')
+                transition_code = '// TODO add startTransition / stopTransition calls to interrupt routine'
             else:
-                print('ptalog.startTransition();')
                 if 'instance' in opt:
-                    print('{}.{}({});'.format(opt['instance'], transition.name, ', '.join(arguments)))
+                    transition_code = '{}.{}({});'.format(opt['instance'], transition.name, ', '.join(map(str, arguments)))
                 else:
-                    print('{}({});'.format(transition.name, ', '.join(arguments)))
-                print('ptalog.stopTransition();')
+                    transition_code = '{}({});'.format(transition.name, ', '.join(arguments))
+            print(harness.pass_transition(pta.get_transition_id(transition), transition_code))
 
             if 'sleep' in opt:
                 print('arch.delay_ms({:d});'.format(opt['sleep']))
 
-        print('ptalog.dump();')
+        print(harness.stop_run())
         print()
 
+    print(harness.stop_benchmark())
     sys.exit(0)

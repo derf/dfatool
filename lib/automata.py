@@ -365,6 +365,38 @@ class PTA:
 
         return pta
 
+    @classmethod
+    def from_yaml(cls, yaml_input: dict):
+        """Return a PTA created from the YAML DFA format (passed as dict)."""
+
+        kwargs = dict()
+
+        if 'parameters' in yaml_input:
+            kwargs['parameters'] = yaml_input['parameters']
+
+        if 'initial_param_values' in yaml_input:
+            kwargs['initial_param_values'] = yaml_input['initial_param_values']
+
+        if 'states' in yaml_input:
+            kwargs['state_names'] = yaml_input['states']
+
+        pta = cls(**kwargs)
+
+        for trans_name in sorted(yaml_input['transition'].keys()):
+            transition = yaml_input['transition'][trans_name]
+            arguments = list()
+            argument_values = list()
+            is_interrupt = False
+            if 'arguments' in transition:
+                for argument in transition['arguments']:
+                    arguments.append(argument['name'])
+                    argument_values.append(argument['values'])
+            for origin in transition['src']:
+                pta.add_transition(origin, transition['dst'], trans_name,
+                    arguments = arguments, argument_values = argument_values)
+
+        return pta
+
     def to_json(self) -> dict:
         """
         Return JSON encoding of this PTA.
