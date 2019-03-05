@@ -22,7 +22,11 @@ class OnboardTimerHarness:
         return ret
 
     def start_benchmark(self):
-        return 'ptalog.startBenchmark(0);\n'
+        ret = 'counter.start();\n'
+        ret += 'counter.stop();\n'
+        ret += 'ptalog.passNop(counter);\n'
+        ret += 'ptalog.startBenchmark(0);\n'
+        return ret
 
     def start_run(self):
         return 'ptalog.reset();\n'
