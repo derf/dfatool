@@ -3,7 +3,7 @@
 Generate a driver/library benchmark based on DFA/PTA traces.
 
 Usage:
-PYTHONPATH=lib bin/generate-dfa-benchmark.py [options] <pta/dfa definition>
+PYTHONPATH=lib bin/generate-dfa-benchmark.py [options] <pta/dfa definition> [output.cc]
 
 generate-dfa-benchmarks reads in a DFA definition and generates runs
 (i.e., all words accepted by the DFA up to a configurable length). Each symbol
@@ -26,6 +26,7 @@ import getopt
 import json
 import re
 import sys
+import io
 import yaml
 from automata import PTA
 from harness import OnboardTimerHarness
@@ -68,16 +69,18 @@ if __name__ == '__main__':
 
     harness = OnboardTimerHarness('GPIO::p1_0')
 
-    print('#include "arch.h"')
+    outbuf = io.StringIO()
+
+    outbuf.write('#include "arch.h"\n')
     if 'includes' in pta.codegen:
         for include in pta.codegen['includes']:
-            print('#include "{}"'.format(include))
-    print(harness.global_code())
+            outbuf.write('#include "{}"\n'.format(include))
+    outbuf.write(harness.global_code())
 
-    print('void loop(void)')
-    print('{')
+    outbuf.write('void loop(void)\n')
+    outbuf.write('{\n')
 
-    print(harness.start_benchmark())
+    outbuf.write(harness.start_benchmark())
 
     class_prefix = ''
     if 'instance' in opt:
@@ -86,32 +89,38 @@ if __name__ == '__main__':
         class_prefix = '{}.'.format(pta.codegen['instance'])
 
     for run in pta.dfs(opt['depth'], with_arguments = True):
-        print(harness.start_run())
+        outbuf.write(harness.start_run())
         for transition, arguments in run:
-            print('// {} -> {}'.format(transition.origin.name, transition.destination.name))
+            outbuf.write('// {} -> {}\n'.format(transition.origin.name, transition.destination.name))
             if transition.is_interrupt:
-                print('// wait for {} interrupt'.format(transition.name))
+                outbuf.write('// wait for {} interrupt\n'.format(transition.name))
                 transition_code = '// TODO add startTransition / stopTransition calls to interrupt routine'
             else:
                 transition_code = '{}{}({});'.format(class_prefix, transition.name, ', '.join(map(str, arguments)))
-            print(harness.pass_transition(pta.get_transition_id(transition), transition_code))
+            outbuf.write(harness.pass_transition(pta.get_transition_id(transition), transition_code))
 
             if 'sleep' in opt:
-                print('arch.delay_ms({:d});'.format(opt['sleep']))
+                outbuf.write('arch.delay_ms({:d});\n'.format(opt['sleep']))
 
-        print(harness.stop_run())
-        print()
+        outbuf.write(harness.stop_run())
+        outbuf.write('\n')
 
-    print(harness.stop_benchmark())
-    print('}\n')
-    print('int main(void)')
-    print('{')
+    outbuf.write(harness.stop_benchmark())
+    outbuf.write('}\n')
+    outbuf.write('int main(void)\n')
+    outbuf.write('{\n')
     for driver in ('arch', 'gpio', 'kout'):
-        print('{}.setup();'.format(driver))
+        outbuf.write('{}.setup();\n'.format(driver))
     if 'setup' in pta.codegen:
         for call in pta.codegen['setup']:
-            print(call)
-    print('arch.idle_loop();')
-    print('return 0;')
-    print('}')
+            outbuf.write(call)
+    outbuf.write('arch.idle_loop();\n')
+    outbuf.write('return 0;\n')
+    outbuf.write('}\n')
+
+    if len(args) > 1:
+        with open(args[1], 'w') as f:
+            f.write(outbuf.getvalue())
+    else:
+        print(outbuf.getvalue())
     sys.exit(0)
