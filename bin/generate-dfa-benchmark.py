@@ -47,7 +47,12 @@ if __name__ == '__main__':
     harness = TransitionHarness('GPIO::p1_0')
 
     print('#include "arch.h"')
+    if pta.header:
+        print('#include "{}"'.format(pta.header))
     print(harness.global_code())
+
+    print('void loop(void)')
+    print('{')
 
     print(harness.start_benchmark())
 
@@ -75,4 +80,12 @@ if __name__ == '__main__':
         print()
 
     print(harness.stop_benchmark())
+    print('}\n')
+    print('int main(void)')
+    print('{')
+    for driver in ('arch', 'gpio', 'kout'):
+        print('{}.setup();'.format(driver))
+    print('arch.idle_loop();')
+    print('return 0;')
+    print('}')
     sys.exit(0)

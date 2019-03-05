@@ -259,7 +259,7 @@ class PTA:
     def __init__(self, state_names: list = [],
             accepting_states: list = None,
             parameters: list = [], initial_param_values: list = None,
-            instance: str = None):
+            instance: str = None, header: str = None):
         """
         Return a new PTA object.
 
@@ -270,11 +270,13 @@ class PTA:
         parameters -- names of PTA parameters
         initial_param_values -- initial value for each parameter
         instance -- class used for generated C++ code
+        header -- header include path for C++ class definition
         """
         self.state = dict([[state_name, State(state_name)] for state_name in state_names])
         self.accepting_states = accepting_states.copy() if accepting_states else None
         self.parameters = parameters.copy()
         self.instance = instance
+        self.header = header
         if initial_param_values:
             self.initial_param_values = initial_param_values.copy()
         else:
@@ -385,6 +387,9 @@ class PTA:
 
         if 'instance' in yaml_input:
             kwargs['instance'] = yaml_input['instance']
+
+        if 'header' in yaml_input:
+            kwargs['header'] = yaml_input['header']
 
         pta = cls(**kwargs)
 

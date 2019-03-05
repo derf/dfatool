@@ -15,6 +15,10 @@ class OnboardTimerHarness:
         if self.gpio_pin != None:
             ret += '#define PTALOG_GPIO {}\n'.format(self.gpio_pin)
         ret += '#include "object/ptalog.h"\n'
+        if self.gpio_pin != None:
+            ret += 'PTALog ptalog({});\n'.format(self.gpio_pin)
+        else:
+            ret += 'PTALog ptalog;\n'
         return ret
 
     def start_benchmark(self):
@@ -48,6 +52,10 @@ class TransitionHarness:
         if self.gpio_pin != None:
             ret += '#define PTALOG_GPIO {}\n'.format(self.gpio_pin)
         ret += '#include "object/ptalog.h"\n'
+        if self.gpio_pin != None:
+            ret += 'PTALog ptalog({});\n'.format(self.gpio_pin)
+        else:
+            ret += 'PTALog ptalog;\n'
         return ret
 
     def start_benchmark(self):
