@@ -51,6 +51,12 @@ if __name__ == '__main__':
 
     print(harness.start_benchmark())
 
+    class_prefix = ''
+    if 'instance' in opt:
+        class_prefix = '{}.'.format(opt['instance'])
+    elif pta.instance:
+        class_prefix = '{}.'.format(pta.instance)
+
     for run in pta.dfs(opt['depth'], with_arguments = True):
         print(harness.start_run())
         for transition, arguments in run:
@@ -59,10 +65,7 @@ if __name__ == '__main__':
                 print('// wait for {} interrupt'.format(transition.name))
                 transition_code = '// TODO add startTransition / stopTransition calls to interrupt routine'
             else:
-                if 'instance' in opt:
-                    transition_code = '{}.{}({});'.format(opt['instance'], transition.name, ', '.join(map(str, arguments)))
-                else:
-                    transition_code = '{}({});'.format(transition.name, ', '.join(arguments))
+                transition_code = '{}{}({});'.format(class_prefix, transition.name, ', '.join(map(str, arguments)))
             print(harness.pass_transition(pta.get_transition_id(transition), transition_code))
 
             if 'sleep' in opt:
