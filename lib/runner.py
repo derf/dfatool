@@ -4,6 +4,7 @@ Utilities for running benchmarks.
 Foo.
 """
 
+import re
 import serial
 import serial.threaded
 import subprocess
@@ -86,3 +87,30 @@ class ShellMonitor:
     def close(self):
         pass
 
+def get_info(arch, opts = []):
+    command = ['make', 'arch={}'.format(arch), 'info']
+    command.extend(opts)
+    res = subprocess.run(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE,
+        universal_newlines = True)
+    if res.returncode != 0:
+        raise RuntimeError('make info Failure')
+    return res.stdout.split('\n')
+
+def get_monitor(arch):
+    for line in get_info(arch):
+        if 'Monitor:' in line:
+            _, port, arg = line.split(' ')
+            if port == 'run':
+                return ShellMonitor(arg)
+            else:
+                return SerialMonitor(port, arg)
+    raise RuntimeError('Monitor failure')
+
+def get_counter_limits(arch):
+    for line in get_info(arch):
+        match = re.match('Counter Overflow: ([^/]*)/(.*)', line)
+        if match:
+            overflow_value = int(match.group(1))
+            max_overflow = int(match.group(2))
+            return overflow_value, max_overflow
+    raise RuntimeError('Did not find Counter Overflow limits')
