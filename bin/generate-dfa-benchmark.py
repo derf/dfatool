@@ -25,7 +25,9 @@ Options:
 import getopt
 import json
 import re
+import runner
 import sys
+import time
 import io
 import yaml
 from automata import PTA
@@ -37,8 +39,11 @@ if __name__ == '__main__':
 
     try:
         optspec = (
+            'arch= '
+            'app= '
             'depth= '
             'instance= '
+            'run= '
             'sleep= '
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
@@ -88,9 +93,11 @@ if __name__ == '__main__':
     elif 'intance' in pta.codegen:
         class_prefix = '{}.'.format(pta.codegen['instance'])
 
+    num_transitions = 0
     for run in pta.dfs(opt['depth'], with_arguments = True):
         outbuf.write(harness.start_run())
         for transition, arguments in run:
+            num_transitions += 1
             outbuf.write('// {} -> {}\n'.format(transition.origin.name, transition.destination.name))
             if transition.is_interrupt:
                 outbuf.write('// wait for {} interrupt\n'.format(transition.name))
@@ -123,4 +130,26 @@ if __name__ == '__main__':
             f.write(outbuf.getvalue())
     else:
         print(outbuf.getvalue())
+
+    if 'run' in opt:
+        if 'sleep' in opt:
+            run_timeout = num_transitions * opt['sleep'] / 1000
+        else:
+            run_timeout = num_transitions * 10 / 1000
+        monitor = runner.get_monitor(opt['arch'], peek = True)
+        runner.build(opt['arch'], opt['app'], opt['run'].split())
+        runner.flash(opt['arch'], opt['app'], opt['run'].split())
+        try:
+            slept = 0
+            while True:
+                time.sleep(5)
+                slept += 5
+                if slept < run_timeout:
+                    print('[MON] approx. {:.0f}% done'.format(slept * 100 / run_timeout))
+        except KeyboardInterrupt:
+            pass
+        lines = monitor.get_lines()
+        monitor.close()
+        print(lines)
+
     sys.exit(0)

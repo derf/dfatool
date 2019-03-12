@@ -23,8 +23,9 @@ class SerialReader(serial.threaded.Protocol):
     Reads in new data whenever it becomes available and exposes a line-based
     interface to applications.
     """
-    def __init__(self):
+    def __init__(self, peek = False):
         """Create a new SerialReader object."""
+        self.peek = peek
         self.recv_buf = ''
         self.lines = []
 
@@ -41,6 +42,8 @@ class SerialReader(serial.threaded.Protocol):
             if len(lines) > 1:
                 self.lines.extend(lines[:-1])
                 self.recv_buf = lines[-1]
+                if self.peek:
+                    print('\n'.join(lines[:-1]))
 
         except UnicodeDecodeError:
             pass
@@ -73,13 +76,14 @@ class SerialReader(serial.threaded.Protocol):
 class SerialMonitor:
     """SerialMonitor captures serial output for a specific amount of time."""
 
-    def __init__(self, port: str, baud: int):
+    def __init__(self, port: str, baud: int, peek = False):
         """
         Create a new SerialMonitor connected to port at the specified baud rate.
 
         Communication uses no parity, no flow control, and one stop bit.
         Data collection starts immediately.
         """
+        self.peek = peek
         self.ser = serial.serial_for_url(port, do_not_open=True)
         self.ser.baudrate = baud
         self.ser.parity = 'N'
@@ -92,7 +96,7 @@ class SerialMonitor:
             sys.stderr.write('Could not open serial port {}: {}\n'.format(self.ser.name, e))
             sys.exit(1)
 
-        self.reader = SerialReader()
+        self.reader = SerialReader(peek = peek)
         self.worker = serial.threaded.ReaderThread(self.ser, self.reader)
         self.worker.start()
 
@@ -103,6 +107,9 @@ class SerialMonitor:
         Blocks until data collection is complete.
         """
         time.sleep(timeout)
+        return self.reader.get_lines()
+
+    def get_lines(self) ->list:
         return self.reader.get_lines()
 
     def close(self):
@@ -131,6 +138,9 @@ class ShellMonitor:
             universal_newlines = True)
         return res.stdout.split('\n')
 
+    def monitor(self):
+        raise NotImplementedError
+
     def close(self):
         """
         Do nothing, successfully.
@@ -138,6 +148,24 @@ class ShellMonitor:
         Intended for compatibility with SerialMonitor.
         """
         pass
+
+def build(arch, app, opts = []):
+    command = ['make', '-B', 'arch={}'.format(arch), 'app={}'.format(app)]
+    command.extend(opts)
+    res = subprocess.run(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE,
+        universal_newlines = True)
+    if res.returncode != 0:
+        raise RuntimeError('Build failure: ' + res.stderr)
+    return command
+
+def flash(arch, app, opts = []):
+    command = ['make', 'arch={}'.format(arch), 'app={}'.format(app), 'program']
+    command.extend(opts)
+    res = subprocess.run(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE,
+        universal_newlines = True)
+    if res.returncode != 0:
+        raise RuntimeError('Flash failure')
+    return command
 
 def get_info(arch, opts: list = []) -> list:
     """
@@ -153,15 +181,15 @@ def get_info(arch, opts: list = []) -> list:
         raise RuntimeError('make info Failure')
     return res.stdout.split('\n')
 
-def get_monitor(arch: str) -> object:
+def get_monitor(arch: str, **kwargs) -> object:
     """Return a SerialMonitor or ShellMonitor."""
     for line in get_info(arch):
         if 'Monitor:' in line:
             _, port, arg = line.split(' ')
             if port == 'run':
-                return ShellMonitor(arg)
+                return ShellMonitor(arg, **kwargs)
             else:
-                return SerialMonitor(port, arg)
+                return SerialMonitor(port, arg, **kwargs)
     raise RuntimeError('Monitor failure')
 
 def get_counter_limits(arch: str) -> tuple:
