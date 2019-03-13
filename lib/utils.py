@@ -1,4 +1,5 @@
 import numpy as np
+import re
 
 arg_support_enabled = True
 
@@ -168,3 +169,31 @@ def _all_params_are_numeric(data, param_idx):
     if len(list(filter(is_numeric, param_values))) == len(param_values):
         return True
     return False
+
+class TimingAnalysis:
+    def __init__(self, enabled = True):
+        self.enabled = enabled
+        self.index = 1
+
+    def get_header(self):
+        ret = ''
+        if self.enabled:
+            ret += '#define TIMEIT(index, functioncall) '
+            ret += 'counter.start(); '
+            ret += 'functioncall; '
+            ret += 'counter.stop();'
+            ret += 'kout << endl << index << " :: " << counter.value << "/" << counter.overflow << endl;'
+        return ret
+
+    def wrap_codeblock(self, codeblock):
+        if not self.enabled:
+            return codeblock
+        lines = codeblock.split('\n')
+        ret = list()
+        for line in lines:
+            if re.fullmatch('.+;', line):
+                ret.append('TIMEIT( {:d}, {} )'.format(self.index, line))
+                self.index += 1
+            else:
+                ret.append(line)
+        return '\n'.join(ret)
