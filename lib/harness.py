@@ -4,9 +4,15 @@ Harnesses for various types of benchmark logs.
 tbd
 """
 
+# TODO prepare benchmark log JSON with parameters etc.
+# Should be independent of PTA class, as benchmarks may also be
+# generated otherwise and it should also work with AnalyticModel (which does
+# not have states)
 class TransitionHarness:
     def __init__(self, gpio_pin = None):
         self.gpio_pin = gpio_pin
+        self.traces = []
+        self.trace_id = 1
         pass
 
     def global_code(self):
@@ -23,10 +29,27 @@ class TransitionHarness:
     def start_benchmark(self):
         return 'ptalog.startBenchmark(0);\n'
 
+    def start_trace(self):
+        self.traces.append({
+            'id' : self.trace_id,
+            'trace' : [{
+                'name' : 'UNINITIALIZED',
+                'isa' : 'state',
+                'parameter' : dict(),
+                'offline_aggregates' : list(),
+            }]
+        })
+        self.trace_id += 1
+
+    #def append_state(self):
+
+    #def append_transition(self, ):
+
     def start_run(self):
+        self.start_trace()
         return 'ptalog.reset();\n'
 
-    def pass_transition(self, transition_id, transition_code):
+    def pass_transition(self, transition_id, transition_code, parameter = dict()):
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
         ret += 'ptalog.startTransition();\n'
         ret += '{}\n'.format(transition_code)
@@ -56,7 +79,7 @@ class OnboardTimerHarness(TransitionHarness):
         ret += super().start_benchmark()
         return ret
 
-    def pass_transition(self, transition_id, transition_code):
+    def pass_transition(self, transition_id, transition_code, parameter = dict()):
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
         ret += 'ptalog.startTransition();\n'
         ret += 'counter.start();\n'

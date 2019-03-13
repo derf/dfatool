@@ -1134,6 +1134,8 @@ class AnalyticModel:
 
 
 def _add_trace_data_to_aggregate(aggregate, key, element):
+    # Only cares about element['isa'], element['offline_aggregates'], and
+    # element['plan']['level']
     if not key in aggregate:
         aggregate[key] = {
             'isa' : element['isa']
@@ -1143,6 +1145,7 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
         if element['isa'] == 'state':
             aggregate[key]['attributes'] = ['power']
         else:
+            # TODO do not hardcode values
             aggregate[key]['attributes'] = ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']
             if element['plan']['level'] == 'epilogue':
                 aggregate[key]['attributes'].insert(0, 'timeout')
@@ -1162,16 +1165,6 @@ def pta_trace_to_aggregate(traces, ignore_trace_indexes = []):
             - name: str Name
             - isa: str state // transition
             - parameter: { ... globaler Parameter: aktueller wert. null falls noch nicht eingestellt }
-            - plan:
-                Falls isa == 'state':
-                - power: int(uW?)
-                - time: int(us) geplante Dauer
-                - energy: int(pJ?)
-                Falls isa == 'transition':
-                - timeout: int(us) oder null
-                - energy: int (pJ?)
-                - level: str 'user' 'epilogue'
-            - offline_attributes: [ ... Namen der in offline_aggregates gespeicherten Modellattribute, z.B. param, duration, energy, timeout ]
             - offline_aggregates:
                 - power: [float(uW)] Mittlere Leistung während Zustand/Transitions
                 - power_std: [float(uW^2)] Standardabweichung der Leistung
@@ -1184,33 +1177,6 @@ def pta_trace_to_aggregate(traces, ignore_trace_indexes = []):
                 - timeout: [int(us)] Dauer des vorherigen Zustands
                 - rel_energy_prev: [int(pJ)]
                 - rel_energy_next: [int(pJ)]
-            - offline: [ ... Während der Messung von MIMOSA o.ä. gemessene Werte
-                -> siehe doc/MIMOSA analyze_states
-                - isa: 'state' oder 'transition'
-                - clip_rate: range(0..1) Anteil an Clipping im Energieverbrauch
-                - raw_mean: Mittelwert der Rohwerte
-                - raw_std: Standardabweichung der Rohwerte
-                - uW_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
-                - uW_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
-                - us: Dauer
-                Nur falls isa 'transition':
-                - timeout: Dauer des vorherigen Zustands
-                - uW_mean_delta_prev
-                - uW_mean_delta_next
-            ]
-            - online: [ ... Während der Messung vom Betriebssystem bestimmte Daten
-                Falls isa == 'state':
-                - power: int(uW?)
-                - time: int(us) geplante Dauer
-                - energy: int(pJ?)
-                Falls isa == 'transition':
-                - timeout: int(us) oder null
-                - energy: int (pJ?)
-                - level: str ('user' oder 'epilogue')
-            ]
-            Falls isa == 'transition':
-            - code: [str] Name und Argumente der aufgerufenen Funktion
-            - args: [str] Argumente der aufgerufenen Funktion
         ]
     ]
     ignore_trace_indexes -- list of trace indexes. The corresponding taces will be ignored.

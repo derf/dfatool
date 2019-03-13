@@ -94,9 +94,9 @@ if __name__ == '__main__':
         class_prefix = '{}.'.format(pta.codegen['instance'])
 
     num_transitions = 0
-    for run in pta.dfs(opt['depth'], with_arguments = True):
+    for run in pta.dfs(opt['depth'], with_arguments = True, with_parameters = True):
         outbuf.write(harness.start_run())
-        for transition, arguments in run:
+        for transition, arguments, parameter in run:
             num_transitions += 1
             outbuf.write('// {} -> {}\n'.format(transition.origin.name, transition.destination.name))
             if transition.is_interrupt:
@@ -104,7 +104,7 @@ if __name__ == '__main__':
                 transition_code = '// TODO add startTransition / stopTransition calls to interrupt routine'
             else:
                 transition_code = '{}{}({});'.format(class_prefix, transition.name, ', '.join(map(str, arguments)))
-            outbuf.write(harness.pass_transition(pta.get_transition_id(transition), transition_code))
+            outbuf.write(harness.pass_transition(pta.get_transition_id(transition), transition_code, parameter))
 
             if 'sleep' in opt:
                 outbuf.write('arch.delay_ms({:d});\n'.format(opt['sleep']))
