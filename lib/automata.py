@@ -393,11 +393,14 @@ class PTA:
             transition = yaml_input['transition'][trans_name]
             arguments = list()
             argument_values = list()
+            arg_to_param_map = dict()
             is_interrupt = False
             if 'arguments' in transition:
-                for argument in transition['arguments']:
+                for i, argument in enumerate(transition['arguments']):
                     arguments.append(argument['name'])
                     argument_values.append(argument['values'])
+                    if 'parameter' in argument:
+                        arg_to_param_map[argument['parameter']] = i
             for origin in transition['src']:
                 pta.add_transition(origin, transition['dst'], trans_name,
                     arguments = arguments, argument_values = argument_values)
@@ -454,7 +457,17 @@ class PTA:
         """Return PTA-specific ID of transition."""
         return self.transitions.index(transition)
 
-    def dfs(self, depth: int = 10, orig_state: str = 'UNINITIALIZED', **kwargs):
+    def _dfs_with_param(self, generator, param_dict):
+        for trace in generator:
+            param = param_dict.copy()
+            ret = list()
+            for elem in trace:
+                transition, arguments = elem
+                param = transition.get_params_after_transition(param, arguments)
+                ret.append((transition, arguments, param.copy()))
+            yield ret
+
+    def dfs(self, depth: int = 10, orig_state: str = 'UNINITIALIZED', param_dict: dict = None, with_parameters: bool = False, **kwargs):
         """
         Return a generator object for depth-first search starting at orig_state.
 
@@ -462,11 +475,22 @@ class PTA:
         depth -- search depth
         orig_state -- initial state for depth-first search
         """
+        if with_parameters and not param_dict:
+            param_dict = dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
+
+        if with_parameters and not 'with_arguments' in kwargs:
+            raise ValueError("with_parameters = True requires with_arguments = True")
+
         if self.accepting_states:
-            return filter(lambda x: x[-1][0].destination.name in self.accepting_states,
+            generator = filter(lambda x: x[-1][0].destination.name in self.accepting_states,
                 self.state[orig_state].dfs(depth, **kwargs))
         else:
-            return self.state[orig_state].dfs(depth, **kwargs)
+            generator = self.state[orig_state].dfs(depth, **kwargs)
+
+        if with_parameters:
+            return self._dfs_with_param(generator, param_dict)
+        else:
+            return generator
 
     def simulate(self, trace: list, orig_state: str = 'UNINITIALIZED'):
         total_duration = 0.

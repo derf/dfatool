@@ -5,7 +5,7 @@ import unittest
 
 example_json_1 = {
     'parameters' : ['datarate', 'txbytes', 'txpower'],
-    'initial_param_values' : [None, None],
+    'initial_param_values' : [None, None, None],
     'state' : {
         'IDLE' : {
             'power' : {
@@ -85,7 +85,9 @@ example_json_1 = {
     ],
 }
 
-def dfs_tran_to_name(runs: list, with_args: bool) -> list:
+def dfs_tran_to_name(runs: list, with_args: bool = False, with_param: bool = False) -> list:
+    if with_param:
+        return list(map(lambda run: list(map(lambda x: (x[0].name, x[1], x[2]), run)), runs))
     if with_args:
         return list(map(lambda run: list(map(lambda x: (x[0].name, x[1]), run)), runs))
     return list(map(lambda run: list(map(lambda x: (x[0].name), run)), runs))
@@ -158,7 +160,7 @@ class TestPTA(unittest.TestCase):
     #    print(json)
     #    self.assertDictEqual(json, example_json_1)
 
-    def test_from_json_dfs(self):
+    def test_from_json_dfs_arg(self):
         pta = PTA.from_json(example_json_1)
         self.assertEqual(sorted(dfs_tran_to_name(pta.dfs(1), False)), [['init', 'init'], ['init', 'send'], ['init', 'setTxPower']])
         self.assertEqual(sorted(dfs_tran_to_name(pta.dfs(1, with_arguments = True), True)),
@@ -169,6 +171,49 @@ class TestPTA(unittest.TestCase):
                 [('init', ()), ('setTxPower', (10,))],
                 [('init', ()), ('setTxPower', (20,))],
                 [('init', ()), ('setTxPower', (30,))],
+            ]
+        )
+
+    def test_from_json_dfs_param(self):
+        pta = PTA.from_json(example_json_1)
+        no_param = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : None,
+        }
+        param_tx3 = {
+            'datarate' : None,
+            'txbytes' : 3,
+            'txpower' : None,
+        }
+        param_tx5 = {
+            'datarate' : None,
+            'txbytes' : 5,
+            'txpower' : None,
+        }
+        param_txp10 = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : 10,
+        }
+        param_txp20 = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : 20,
+        }
+        param_txp30 = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : 30,
+        }
+        self.assertEqual(sorted(dfs_tran_to_name(pta.dfs(1, with_arguments = True, with_parameters = True), True, True)),
+            [
+                [('init', (), no_param), ('init', (), no_param)],
+                [('init', (), no_param), ('send', ('"foo"', 3), param_tx3)],
+                [('init', (), no_param), ('send', ('"hodor"', 5), param_tx5)],
+                [('init', (), no_param), ('setTxPower', (10,), param_txp10)],
+                [('init', (), no_param), ('setTxPower', (20,), param_txp20)],
+                [('init', (), no_param), ('setTxPower', (30,), param_txp30)],
             ]
         )
 
