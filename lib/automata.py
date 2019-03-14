@@ -383,6 +383,7 @@ class PTA:
 
         if 'states' in yaml_input:
             kwargs['state_names'] = yaml_input['states']
+        # else: set to UNINITIALIZED by class constructor
 
         if 'codegen' in yaml_input:
             kwargs['codegen'] = yaml_input['codegen']
@@ -390,6 +391,7 @@ class PTA:
         pta = cls(**kwargs)
 
         for trans_name in sorted(yaml_input['transition'].keys()):
+            kwargs = dict()
             transition = yaml_input['transition'][trans_name]
             arguments = list()
             argument_values = list()
@@ -401,9 +403,19 @@ class PTA:
                     argument_values.append(argument['values'])
                     if 'parameter' in argument:
                         arg_to_param_map[argument['parameter']] = i
+            if 'argument_combination' in transition:
+                kwargs['argument_combination'] = transition['argument_combination']
+            if 'is_interrupt' in transition:
+                kwargs['is_interrupt'] = transition['is_interrupt']
+            if not 'src' in transition:
+                transition['src'] = ['UNINITIALIZED']
+            if not 'dst' in transition:
+                transition['dst'] = 'UNINITIALIZED'
             for origin in transition['src']:
                 pta.add_transition(origin, transition['dst'], trans_name,
-                    arguments = arguments, argument_values = argument_values)
+                    arguments = arguments, argument_values = argument_values,
+                    arg_to_param_map = arg_to_param_map,
+                    **kwargs)
 
         return pta
 
@@ -457,6 +469,10 @@ class PTA:
         """Return PTA-specific ID of transition."""
         return self.transitions.index(transition)
 
+    def get_initial_param_dict(self):
+        return dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
+
+
     def _dfs_with_param(self, generator, param_dict):
         for trace in generator:
             param = param_dict.copy()
@@ -476,7 +492,7 @@ class PTA:
         orig_state -- initial state for depth-first search
         """
         if with_parameters and not param_dict:
-            param_dict = dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
+            param_dict = self.get_initial_param_dict()
 
         if with_parameters and not 'with_arguments' in kwargs:
             raise ValueError("with_parameters = True requires with_arguments = True")
