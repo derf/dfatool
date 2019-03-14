@@ -2,6 +2,7 @@
 
 from automata import PTA
 import unittest
+import yaml
 
 example_json_1 = {
     'parameters' : ['datarate', 'txbytes', 'txpower'],
@@ -84,6 +85,46 @@ example_json_1 = {
         }
     ],
 }
+
+example_yaml_1 = yaml.safe_load("""
+codegen:
+  instance: cc1200
+
+states:
+  - IDLE
+  - TX
+
+parameters:
+  - datarate
+  - txbytes
+  - txpower
+
+transition:
+  init:
+    src: [UNINITIALIZED, IDLE]
+    dst: IDLE
+  setTxPower:
+    src: [IDLE]
+    dst: IDLE
+    arguments:
+      - name: txpower
+        values: [10, 20, 30]
+        parameter: txpower
+  send:
+    src: [IDLE]
+    dst: TX
+    arguments:
+      - name: data
+        values: ['"foo"', '"hodor"']
+      - name: length
+        values: [3, 5]
+        parameter: txbytes
+    argument_combination: zip
+  txComplete:
+    src: [TX]
+    dst: IDLE
+    is_interrupt: true
+""")
 
 def dfs_tran_to_name(runs: list, with_args: bool = False, with_param: bool = False) -> list:
     if with_param:
@@ -221,6 +262,52 @@ class TestPTA(unittest.TestCase):
         pta = PTA.from_json(example_json_1)
         self.assertEqual(pta.state['TX'].get_energy(1000, {'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 1000 * (100 + 2 * 10))
         self.assertEqual(pta.transitions[4].get_timeout({'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 500 + 16 * 6)
+
+    def test_from_yaml(self):
+        pta = PTA.from_yaml(example_yaml_1)
+
+    def test_from_yaml_dfs_param(self):
+        pta = PTA.from_yaml(example_yaml_1)
+        no_param = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : None,
+        }
+        param_tx3 = {
+            'datarate' : None,
+            'txbytes' : 3,
+            'txpower' : None,
+        }
+        param_tx5 = {
+            'datarate' : None,
+            'txbytes' : 5,
+            'txpower' : None,
+        }
+        param_txp10 = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : 10,
+        }
+        param_txp20 = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : 20,
+        }
+        param_txp30 = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : 30,
+        }
+        self.assertEqual(sorted(dfs_tran_to_name(pta.dfs(1, with_arguments = True, with_parameters = True), True, True)),
+            [
+                [('init', (), no_param), ('init', (), no_param)],
+                [('init', (), no_param), ('send', ('"foo"', 3), param_tx3)],
+                [('init', (), no_param), ('send', ('"hodor"', 5), param_tx5)],
+                [('init', (), no_param), ('setTxPower', (10,), param_txp10)],
+                [('init', (), no_param), ('setTxPower', (20,), param_txp20)],
+                [('init', (), no_param), ('setTxPower', (30,), param_txp30)],
+            ]
+        )
 
     def test_simulation(self):
         pta = PTA()
