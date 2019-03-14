@@ -14,6 +14,7 @@ import re
 import serial
 import serial.threaded
 import subprocess
+import sys
 import time
 
 class SerialReader(serial.threaded.Protocol):
