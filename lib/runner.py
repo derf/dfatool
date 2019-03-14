@@ -84,7 +84,6 @@ class SerialMonitor:
         Communication uses no parity, no flow control, and one stop bit.
         Data collection starts immediately.
         """
-        self.peek = peek
         self.ser = serial.serial_for_url(port, do_not_open=True)
         self.ser.baudrate = baud
         self.ser.parity = 'N'
@@ -120,13 +119,14 @@ class SerialMonitor:
 
 class ShellMonitor:
     """SerialMonitor runs a program and captures its output for a specific amount of time."""
-    def __init__(self, script: str):
+    def __init__(self, script: str, peek = None):
         """
         Create a new ShellMonitor object.
 
         Does not start execution and monitoring yet.
         """
         self.script = script
+        self.peek = peek
 
     def run(self, timeout: int = 4) -> list:
         """
@@ -134,9 +134,13 @@ class ShellMonitor:
 
         stderr and return status are discarded at the moment.
         """
+        if type(timeout) != int:
+            raise ValueError('timeout argument must be int')
         res = subprocess.run(['timeout', '{:d}s'.format(timeout), self.script],
             stdout = subprocess.PIPE, stderr = subprocess.PIPE,
             universal_newlines = True)
+        if self.peek:
+            print(res.stdout)
         return res.stdout.split('\n')
 
     def monitor(self):
