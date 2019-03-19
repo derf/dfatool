@@ -85,10 +85,10 @@ class Protolog:
         ['bss_nop', 'bss_size_nop', idem],
         ['bss_ser', 'bss_size_ser', idem],
         ['bss_serdes', 'bss_size_serdes', idem],
-        ['cycles_ser', 'cycles', lambda x: int(np.mean(x['ser']) - np.mean(x['nop']))],
-        ['cycles_des', 'cycles', lambda x: int(np.mean(x['des']) - np.mean(x['nop']))],
-        ['cycles_enc', 'cycles', lambda x: int(np.mean(x['enc']) - np.mean(x['nop']))],
-        ['cycles_dec', 'cycles', lambda x: int(np.mean(x['dec']) - np.mean(x['nop']))],
+        ['cycles_ser', 'cycles', lambda x: max(0, int(np.mean(x['ser']) - np.mean(x['nop'])))],
+        ['cycles_des', 'cycles', lambda x: max(0, int(np.mean(x['des']) - np.mean(x['nop'])))],
+        ['cycles_enc', 'cycles', lambda x: max(0, int(np.mean(x['enc']) - np.mean(x['nop'])))],
+        ['cycles_dec', 'cycles', lambda x: max(0, int(np.mean(x['dec']) - np.mean(x['nop'])))],
         ['cycles_encser', 'cycles', lambda x:
             int(np.mean(x['ser']) + np.mean(x['enc']) - 2 * np.mean(x['nop']))
         ],
@@ -131,6 +131,11 @@ class Protolog:
                         try:
                             self.add_datapoint(arch, library, (benchmark, benchmark_item), subv, aggregate_label, data_label, getter)
                         except KeyError:
+                            pass
+                        except TypeError as e:
+                            print('TypeError in {} {} {} {}: {}'.format(
+                                arch_lib, benchmark, benchmark_item, aggregate_label,
+                                str(e)))
                             pass
 
         for key in self.aggregate.keys():
