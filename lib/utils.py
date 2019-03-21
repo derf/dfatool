@@ -182,7 +182,7 @@ class TimingAnalysis:
             ret += 'counter.start(); '
             ret += 'functioncall; '
             ret += 'counter.stop();'
-            ret += 'kout << endl << index << " :: " << counter.value << "/" << counter.overflow << endl;'
+            ret += 'kout << endl << index << " :: " << counter.value << "/" << counter.overflow << endl;\n'
         return ret
 
     def wrap_codeblock(self, codeblock):
