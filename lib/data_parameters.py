@@ -116,26 +116,35 @@ class Protolog:
     text_{nop,ser,serdes} : whole-program Text Segment (code/Flash) size
     """
 
+    def _mean_cycles(data, key):
+        # There should always be more than just one measurement -- otherwise
+        # something went wrong
+        if len(data[key]) <= 1:
+            return np.nan
+        for val in data[key]:
+            # bogus data
+            if val > 10_000_000:
+                return np.nan
+        for val in data['nop']:
+            # bogus data
+            if val > 10_000_000:
+                return np.nan
+        return max(0, int(np.mean(data[key][1:]) - np.mean(data['nop'][1:])))
+
     idem = lambda x: x
     datamap = [
         ['bss_nop', 'bss_size_nop', idem],
         ['bss_ser', 'bss_size_ser', idem],
         ['bss_serdes', 'bss_size_serdes', idem],
         ['callcycles_raw', 'callcycles', idem],
-        ['cycles_ser', 'cycles', lambda x: max(0, int(np.mean(x['ser']) - np.mean(x['nop'])))],
-        ['cycles_des', 'cycles', lambda x: max(0, int(np.mean(x['des']) - np.mean(x['nop'])))],
-        ['cycles_enc', 'cycles', lambda x: max(0, int(np.mean(x['enc']) - np.mean(x['nop'])))],
-        ['cycles_dec', 'cycles', lambda x: max(0, int(np.mean(x['dec']) - np.mean(x['nop'])))],
-        ['cycles_encser', 'cycles', lambda x:
-            int(np.mean(x['ser']) + np.mean(x['enc']) - 2 * np.mean(x['nop']))
-        ],
-        ['cycles_desdec', 'cycles', lambda x:
-            int(np.mean(x['des']) + np.mean(x['dec']) - 2 * np.mean(x['nop']))
-        ],
-        ['cycles_ser_arr', 'cycles', lambda x: np.array(x['ser']) - np.mean(x['nop'])],
-        ['cycles_des_arr', 'cycles', lambda x: np.array(x['des']) - np.mean(x['nop'])],
-        ['cycles_enc_arr', 'cycles', lambda x: np.array(x['enc']) - np.mean(x['nop'])],
-        ['cycles_dec_arr', 'cycles', lambda x: np.array(x['dec']) - np.mean(x['nop'])],
+        ['cycles_ser', 'cycles', lambda x: Protolog._mean_cycles(x, 'ser')],
+        ['cycles_des', 'cycles', lambda x: Protolog._mean_cycles(x, 'des')],
+        ['cycles_enc', 'cycles', lambda x: Protolog._mean_cycles(x, 'enc')],
+        ['cycles_dec', 'cycles', lambda x: Protolog._mean_cycles(x, 'dec')],
+        #['cycles_ser_arr', 'cycles', lambda x: np.array(x['ser'][1:]) - np.mean(x['nop'][1:])],
+        #['cycles_des_arr', 'cycles', lambda x: np.array(x['des'][1:]) - np.mean(x['nop'][1:])],
+        #['cycles_enc_arr', 'cycles', lambda x: np.array(x['enc'][1:]) - np.mean(x['nop'][1:])],
+        #['cycles_dec_arr', 'cycles', lambda x: np.array(x['dec'][1:]) - np.mean(x['nop'][1:])],
         ['data_nop', 'data_size_nop', idem],
         ['data_ser', 'data_size_ser', idem],
         ['data_serdes', 'data_size_serdes', idem],
@@ -176,14 +185,22 @@ class Protolog:
                         except KeyError:
                             pass
                         except TypeError as e:
-                            print('TypeError in {} {} {} {}: {}'.format(
+                            print('TypeError in {} {} {} {}: {} -> {}'.format(
                                 arch_lib, benchmark, benchmark_item, aggregate_label,
-                                str(e)))
+                                subv[data_label]['v'], str(e)))
                             pass
 
         for key in self.aggregate.keys():
             for arch in self.aggregate[key].keys():
                 for lib, val in self.aggregate[key][arch].items():
+                    try:
+                        val['cycles_encser'] = val['cycles_enc'] + val['cycles_ser']
+                    except KeyError:
+                        pass
+                    try:
+                        val['cycles_desdec'] = val['cycles_des'] + val['cycles_dec']
+                    except KeyError:
+                        pass
                     try:
                         val['total_dmem_ser'] = val['stack_alloc_ser']
                         val['total_dmem_ser'] += val['heap_ser']
