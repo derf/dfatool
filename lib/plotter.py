@@ -66,7 +66,7 @@ def plot_states_param(model, aggregate):
     mdata = [int(model['state'][key[0]]['power']['static']) for key in keys]
     boxplot(keys, data, 'Transition', 'µW', modeldata = mdata)
 
-def plot_attribute(aggregate, attribute, attribute_unit = '', key_filter = lambda x: True):
+def plot_attribute(aggregate, attribute, attribute_unit = '', key_filter = lambda x: True, **kwargs):
     """
     Boxplot measurements of a single attribute according to the partitioning provided by aggregate.
 
@@ -80,7 +80,7 @@ def plot_attribute(aggregate, attribute, attribute_unit = '', key_filter = lambd
     """
     keys = list(filter(key_filter, sorted(aggregate.keys())))
     data = [aggregate[key][attribute] for key in keys]
-    boxplot(keys, data, attribute, attribute_unit)
+    boxplot(keys, data, attribute, attribute_unit, **kwargs)
 
 def plot_substate_thresholds_p(model, aggregate):
     keys = [key for key in sorted(aggregate.keys()) if aggregate[key]['isa'] == 'state' and key[0] != 'UNINITIALIZED']
@@ -245,7 +245,7 @@ def plot_param_fit(function, name, fitfunc, funp, parameters, datatype, index, X
     plt.show()
 
 
-def boxplot(ticks, measurements, xlabel = '', ylabel = '', modeldata = None):
+def boxplot(ticks, measurements, xlabel = '', ylabel = '', modeldata = None, output = None):
     fig, ax1 = plt.subplots(figsize=(10,6))
     fig.canvas.set_window_title('DriverEval')
     plt.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1)
@@ -311,4 +311,12 @@ def boxplot(ticks, measurements, xlabel = '', ylabel = '', modeldata = None):
                 horizontalalignment='center', size='small',
                 color='royalblue')
 
-    plt.show()
+    if output:
+        plt.savefig(output)
+        with open('{}.txt'.format(output), 'w') as f:
+            print('X Y', file=f)
+            for i, data in enumerate(measurements):
+                for value in data:
+                    print('{} {}'.format(ticks[i], value), file=f)
+    else:
+        plt.show()
