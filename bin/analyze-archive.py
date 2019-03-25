@@ -185,35 +185,35 @@ if __name__ == '__main__':
             optname = re.sub(r'^--', '', option)
             opts[optname] = parameter
 
-            if 'ignored-trace-indexes' in opts:
-                ignored_trace_indexes = list(map(int, opts['ignored-trace-indexes'].split(',')))
-                if 0 in ignored_trace_indexes:
-                    print('[E] arguments to --ignored-trace-indexes start from 1')
+        if 'ignored-trace-indexes' in opts:
+            ignored_trace_indexes = list(map(int, opts['ignored-trace-indexes'].split(',')))
+            if 0 in ignored_trace_indexes:
+                print('[E] arguments to --ignored-trace-indexes start from 1')
 
-            if 'discard-outliers' in opts:
-                discard_outliers = float(opts['discard-outliers'])
+        if 'discard-outliers' in opts:
+            discard_outliers = float(opts['discard-outliers'])
 
-            if 'function-override' in opts:
-                for function_desc in opts['function-override'].split(';'):
-                    state_or_tran, attribute, *function_str = function_desc.split(' ')
-                    function_override[(state_or_tran, attribute)] = ' '.join(function_str)
+        if 'function-override' in opts:
+            for function_desc in opts['function-override'].split(';'):
+                state_or_tran, attribute, *function_str = function_desc.split(' ')
+                function_override[(state_or_tran, attribute)] = ' '.join(function_str)
 
-            if 'show-models' in opts:
-                show_models = opts['show-models'].split(',')
+        if 'show-models' in opts:
+            show_models = opts['show-models'].split(',')
 
-            if 'show-quality' in opts:
-                show_quality = opts['show-quality'].split(',')
+        if 'show-quality' in opts:
+            show_quality = opts['show-quality'].split(',')
 
-            if 'cross-validate' in opts:
-                xv_method, xv_count = opts['cross-validate'].split(':')
-                xv_count = int(xv_count)
+        if 'cross-validate' in opts:
+            xv_method, xv_count = opts['cross-validate'].split(':')
+            xv_count = int(xv_count)
 
-            if 'with-safe-functions' in opts:
-                safe_functions_enabled = True
+        if 'with-safe-functions' in opts:
+            safe_functions_enabled = True
 
-            if 'hwmodel' in opts:
-                with open(opts['hwmodel'], 'r') as f:
-                    hwmodel = json.load(f)
+        if 'hwmodel' in opts:
+            with open(opts['hwmodel'], 'r') as f:
+                hwmodel = json.load(f)
 
     except getopt.GetoptError as err:
         print(err)
