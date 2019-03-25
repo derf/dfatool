@@ -221,15 +221,20 @@ class Protolog:
                     except KeyError:
                         pass
                     try:
+                        val['text_ser_delta'] = val['text_ser'] - val['text_nop']
                         val['text_serdes_delta'] = val['text_serdes'] - val['text_nop']
                     except KeyError:
                         pass
-                    #try:
-                    #    val['text_ser'] = val['text_nopser'] - val['text_nop']
-                    #    val['text_des'] = val['text_nopserdes'] - val['text_nopser'] # use with care, probably bogus
-                    #    val['text_serdes'] = val['text_nopserdes'] - val['text_nop']
-                    #except KeyError:
-                    #    pass
+                    try:
+                        val['bss_ser_delta'] = val['bss_ser'] - val['bss_nop']
+                        val['bss_serdes_delta'] = val['bss_serdes'] - val['bss_nop']
+                    except KeyError:
+                        pass
+                    try:
+                        val['data_ser_delta'] = val['data_ser'] - val['data_nop']
+                        val['data_serdes_delta'] = val['data_serdes'] - val['data_nop']
+                    except KeyError:
+                        pass
 
     def add_datapoint(self, arch, lib, key, value, aggregate_label, data_label, getter):
         """
