@@ -481,7 +481,7 @@ class ManualJSON(DummyProtocol):
             self.buf += 'bout << "}"'
 
         else:
-            self.buf += 'bout << "{}"'.format(value)
+            self.buf += 'bout << {}'.format(value)
 
         if is_last:
             self.buf += ';\n';
@@ -507,7 +507,7 @@ class ManualJSON(DummyProtocol):
             self.buf += 'bout << "}"'
 
         else:
-            self.buf += 'bout << "\\"{}\\":{}"'.format(key, value)
+            self.buf += 'bout << "\\"{}\\":" << {}'.format(key, value)
 
         if is_last:
             self.buf += ';\n'
