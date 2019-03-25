@@ -149,6 +149,9 @@ def _mean_std_by_param(by_param, state_or_tran, attribute, param_index, verbose 
             vprint(verbose, '[W] parameter value partition for {} contains only one element -- skipping'.format(param_value))
         else:
             vprint(verbose, '[W] parameter value partition for {} is empty'.format(param_value))
+    if len(partitions) == 0:
+        vprint(verbose, '[W] Found no partitions for {}/{}/{} ???'.format(state_or_tran, attribute, param_index))
+        return 0.
     return np.mean([np.std(partition) for partition in partitions])
 
 def _corr_by_param(by_name, state_or_trans, attribute, param_index):
@@ -170,9 +173,10 @@ def _all_params_are_numeric(data, param_idx):
         return True
     return False
 
-class TimingAnalysis:
+class OptionalTimingAnalysis:
     def __init__(self, enabled = True):
         self.enabled = enabled
+        self.wrapped_lines = list()
         self.index = 1
 
     def get_header(self):
@@ -193,6 +197,7 @@ class TimingAnalysis:
         for line in lines:
             if re.fullmatch('.+;', line):
                 ret.append('TIMEIT( {:d}, {} )'.format(self.index, line))
+                self.wrapped_lines.append(line)
                 self.index += 1
             else:
                 ret.append(line)
