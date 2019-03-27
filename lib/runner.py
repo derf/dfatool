@@ -24,9 +24,9 @@ class SerialReader(serial.threaded.Protocol):
     Reads in new data whenever it becomes available and exposes a line-based
     interface to applications.
     """
-    def __init__(self, peek = False):
+    def __init__(self, callback = None):
         """Create a new SerialReader object."""
-        self.peek = peek
+        self.callback = callback
         self.recv_buf = ''
         self.lines = []
 
@@ -48,8 +48,8 @@ class SerialReader(serial.threaded.Protocol):
             if len(lines) > 1:
                 self.lines.extend(lines[:-1])
                 self.recv_buf = lines[-1]
-                if self.peek:
-                    print('\n'.join(lines[:-1]))
+                if self.callback:
+                    self.callback(lines[:-1])
 
         except UnicodeDecodeError:
             pass
@@ -82,7 +82,7 @@ class SerialReader(serial.threaded.Protocol):
 class SerialMonitor:
     """SerialMonitor captures serial output for a specific amount of time."""
 
-    def __init__(self, port: str, baud: int, peek = False):
+    def __init__(self, port: str, baud: int, callback = None):
         """
         Create a new SerialMonitor connected to port at the specified baud rate.
 
@@ -101,7 +101,7 @@ class SerialMonitor:
             sys.stderr.write('Could not open serial port {}: {}\n'.format(self.ser.name, e))
             sys.exit(1)
 
-        self.reader = SerialReader(peek = peek)
+        self.reader = SerialReader(callback = callback)
         self.worker = serial.threaded.ReaderThread(self.ser, self.reader)
         self.worker.start()
 
@@ -124,14 +124,14 @@ class SerialMonitor:
 
 class ShellMonitor:
     """SerialMonitor runs a program and captures its output for a specific amount of time."""
-    def __init__(self, script: str, peek = None):
+    def __init__(self, script: str, callback = None):
         """
         Create a new ShellMonitor object.
 
         Does not start execution and monitoring yet.
         """
         self.script = script
-        self.peek = peek
+        self.callback = callback
 
     def run(self, timeout: int = 4) -> list:
         """
@@ -144,8 +144,8 @@ class ShellMonitor:
         res = subprocess.run(['timeout', '{:d}s'.format(timeout), self.script],
             stdout = subprocess.PIPE, stderr = subprocess.PIPE,
             universal_newlines = True)
-        if self.peek:
-            print(res.stdout)
+        if self.callback:
+            self.callback(res.stdout.split('\n'))
         return res.stdout.split('\n')
 
     def monitor(self):

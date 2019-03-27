@@ -3,6 +3,7 @@ Harnesses for various types of benchmark logs.
 
 tbd
 """
+import re
 
 # TODO prepare benchmark log JSON with parameters etc.
 # Should be independent of PTA class, as benchmarks may also be
@@ -32,24 +33,28 @@ class TransitionHarness:
     def start_trace(self):
         self.traces.append({
             'id' : self.trace_id,
-            'trace' : [{
-                'name' : 'UNINITIALIZED',
-                'isa' : 'state',
-                'parameter' : dict(),
-                'offline_aggregates' : list(),
-            }]
+            'trace' : list(),
         })
         self.trace_id += 1
 
-    #def append_state(self):
+    def append_state(self, state_name, param):
+        self.traces[-1]['trace'].append({
+            'name': state_name,
+            'isa': 'state',
+            'parameter': param,
+        })
 
-    #def append_transition(self, ):
+    def append_transition(self, transition_name, param):
+        self.traces[-1]['trace'].append({
+            'name': transition_name,
+            'isa': 'transition',
+            'parameter': param,
+        })
 
     def start_run(self):
-        self.start_trace()
         return 'ptalog.reset();\n'
 
-    def pass_transition(self, transition_id, transition_code, parameter = dict()):
+    def pass_transition(self, transition_id, transition_code, transition: object = None, parameter: dict = dict()):
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
         ret += 'ptalog.startTransition();\n'
         ret += '{}\n'.format(transition_code)
@@ -61,6 +66,23 @@ class TransitionHarness:
 
     def stop_benchmark(self):
         return ''
+
+    def parse_log(self, lines):
+        sync = False
+        for line in lines:
+            print(line)
+            res = re.fullmatch('\[PTA\] (.*=.*)', line)
+            if re.fullmatch('\[PTA\] benchmark start, id=(.*)', line):
+                print('> got sync')
+                sync = True
+            elif not sync:
+                continue
+            elif re.fullmatch('\[PTA\] trace, count=(.*)', line):
+                print('> got transition')
+                pass
+            elif res:
+                print(dict(map(lambda x: x.split('='), res.group(1).split())))
+                pass
 
 class OnboardTimerHarness(TransitionHarness):
     def __init__(self, gpio_pin = None):
@@ -79,7 +101,7 @@ class OnboardTimerHarness(TransitionHarness):
         ret += super().start_benchmark()
         return ret
 
-    def pass_transition(self, transition_id, transition_code, parameter = dict()):
+    def pass_transition(self, transition_id, transition_code, transition: object = None, parameter: dict = dict()):
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
         ret += 'ptalog.startTransition();\n'
         ret += 'counter.start();\n'

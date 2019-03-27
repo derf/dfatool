@@ -45,6 +45,7 @@ if __name__ == '__main__':
             'instance= '
             'run= '
             'sleep= '
+            'timer-pin= '
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
 
@@ -72,7 +73,12 @@ if __name__ == '__main__':
         else:
             pta = PTA.from_yaml(yaml.safe_load(f))
 
-    harness = OnboardTimerHarness('GPIO::p1_0')
+    if 'timer-pin' in opt:
+        timer_pin = opt['timer-pin']
+    else:
+        timer_pin = 'GPIO::p1_0'
+
+    harness = OnboardTimerHarness(timer_pin)
 
     outbuf = io.StringIO()
 
@@ -90,21 +96,27 @@ if __name__ == '__main__':
     class_prefix = ''
     if 'instance' in opt:
         class_prefix = '{}.'.format(opt['instance'])
-    elif 'intance' in pta.codegen:
+    elif 'instance' in pta.codegen:
         class_prefix = '{}.'.format(pta.codegen['instance'])
 
     num_transitions = 0
     for run in pta.dfs(opt['depth'], with_arguments = True, with_parameters = True):
         outbuf.write(harness.start_run())
+        harness.start_trace()
+        param = pta.get_initial_param_dict()
         for transition, arguments, parameter in run:
             num_transitions += 1
+            harness.append_state(transition.origin.name, param)
+            harness.append_transition(transition.name, param)
             outbuf.write('// {} -> {}\n'.format(transition.origin.name, transition.destination.name))
             if transition.is_interrupt:
                 outbuf.write('// wait for {} interrupt\n'.format(transition.name))
                 transition_code = '// TODO add startTransition / stopTransition calls to interrupt routine'
             else:
                 transition_code = '{}{}({});'.format(class_prefix, transition.name, ', '.join(map(str, arguments)))
-            outbuf.write(harness.pass_transition(pta.get_transition_id(transition), transition_code, parameter))
+            outbuf.write(harness.pass_transition(pta.get_transition_id(transition), transition_code, transition = transition, parameter = parameter))
+
+            param = parameter
 
             if 'sleep' in opt:
                 outbuf.write('arch.delay_ms({:d});\n'.format(opt['sleep']))
@@ -113,6 +125,7 @@ if __name__ == '__main__':
         outbuf.write('\n')
 
     outbuf.write(harness.stop_benchmark())
+    print(harness.traces)
     outbuf.write('}\n')
     outbuf.write('int main(void)\n')
     outbuf.write('{\n')
@@ -136,20 +149,24 @@ if __name__ == '__main__':
             run_timeout = num_transitions * opt['sleep'] / 1000
         else:
             run_timeout = num_transitions * 10 / 1000
-        monitor = runner.get_monitor(opt['arch'], peek = True)
+        monitor = runner.get_monitor(opt['arch'], callback = harness.parser_cb)
         runner.build(opt['arch'], opt['app'], opt['run'].split())
         runner.flash(opt['arch'], opt['app'], opt['run'].split())
-        try:
-            slept = 0
-            while True:
-                time.sleep(5)
-                slept += 5
-                if slept < run_timeout:
-                    print('[MON] approx. {:.0f}% done'.format(slept * 100 / run_timeout))
-        except KeyboardInterrupt:
-            pass
-        lines = monitor.get_lines()
-        monitor.close()
+        if opt['arch'] != 'posix':
+            try:
+                slept = 0
+                while True:
+                    time.sleep(5)
+                    slept += 5
+                    if slept < run_timeout:
+                        print('[MON] approx. {:.0f}% done'.format(slept * 100 / run_timeout))
+            except KeyboardInterrupt:
+                pass
+            lines = monitor.get_lines()
+            monitor.close()
+        else:
+            print('[MON] Will run benchmark for {:.0f} seconds'.format(2 * run_timeout))
+            lines = monitor.run(int(2 * run_timeout))
         print(lines)
 
     sys.exit(0)
