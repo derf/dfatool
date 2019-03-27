@@ -5,6 +5,7 @@ import msgpack
 import ubjson
 
 import os
+import time
 from filelock import FileLock
 
 class DummyProtocol:
@@ -1238,13 +1239,15 @@ class Benchmark:
             this_result['data'] = data
         if value != None:
             this_result[key] = {
-                'v' : value
+                'v' : value,
+                'ts' : int(time.time())
             }
             print('{} {} {} ({}) :: {} -> {}'.format(
                 libkey, bench_name, bench_index, data, key, value))
         else:
             this_result[key] = {
-                'e' : error
+                'e' : error,
+                'ts' : int(time.time())
             }
             print('{} {} {} ({}) :: {} -> [E] {}'.format(
                 libkey, bench_name, bench_index, data, key, error))
@@ -1277,3 +1280,37 @@ class Benchmark:
             else:
                 benchmark_data = {}
         return benchmark_data
+
+def codegen_for_lib(library, library_options, data):
+    if library == 'arduinojson':
+        return ArduinoJSON(data, bufsize = 512)
+
+    if library == 'capnproto_c':
+        packed = bool(int(library_options[0]))
+        return CapnProtoC(data, packed = packed)
+
+    if library == 'manualjson':
+        return ManualJSON(data)
+
+    if library == 'modernjson':
+        dataformat, = library_options
+        return ModernJSON(data, dataformat)
+
+    if library == 'mpack':
+        return MPack(data)
+
+    if library == 'nanopb':
+        cardinality, strbuf = library_options
+        if not len(strbuf) or strbuf == '0':
+            strbuf = None
+        else:
+            strbuf = int(strbuf)
+        return NanoPB(data, cardinality = cardinality, max_string_length = strbuf)
+
+    if library == 'ubjson':
+        return UBJ(data)
+
+    if library == 'xdr':
+        return XDR(data)
+
+    raise ValueError('Unsupported library: {}'.format(library))
