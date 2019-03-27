@@ -5,6 +5,7 @@ Parameters include the amount of keys, length of strings (both keys and values),
 length of lists, ane more.
 """
 
+from protocol_benchmarks import codegen_for_lib
 import numpy as np
 import ubjson
 
@@ -189,6 +190,13 @@ class Protolog:
                                 arch_lib, benchmark, benchmark_item, aggregate_label,
                                 subv[data_label]['v'], str(e)))
                             pass
+                    codegen = codegen_for_lib(lib, libopts.split(','), subv['data'])
+                    if codegen.max_serialized_bytes != None:
+                        self.add_datapoint(arch, library, (benchmark, benchmark_item), subv, 'buffer_size', data_label, lambda x: codegen.max_serialized_bytes)
+                    else:
+                        self.add_datapoint(arch, library, (benchmark, benchmark_item), subv, 'buffer_size', data_label, lambda x: 0)
+                    #self.aggregate[(benchmark, benchmark_item)][arch][lib][aggregate_label] = getter(value[data_label]['v'])
+
 
         for key in self.aggregate.keys():
             for arch in self.aggregate[key].keys():
@@ -212,12 +220,7 @@ class Protolog:
                     except KeyError:
                         pass
                     try:
-                        val['total_smem_ser'] = val['data_ser'] + val['bss_ser'] - val['data_nop'] - val['bss_nop']
-                        val['total_smem_serdes'] = val['data_serdes'] + val['bss_serdes'] - val['data_nop'] - val['bss_nop']
-                    except KeyError:
-                        pass
-                    try:
-                        val['total_mem_ser'] = val['total_smem_ser'] + val['total_dmem_ser']
+                        val['total_dmem_serdes'] = max(val['total_dmem_ser'], val['total_dmem_des'])
                     except KeyError:
                         pass
                     try:
@@ -233,6 +236,11 @@ class Protolog:
                     try:
                         val['data_ser_delta'] = val['data_ser'] - val['data_nop']
                         val['data_serdes_delta'] = val['data_serdes'] - val['data_nop']
+                    except KeyError:
+                        pass
+                    try:
+                        val['allmem_ser'] = val['text_ser'] + val['data_ser'] + val['bss_ser'] + val['total_dmem_ser'] - val['buffer_size']
+                        val['allmem_serdes'] = val['text_serdes'] + val['data_serdes'] + val['bss_serdes'] + val['total_dmem_serdes'] - val['buffer_size']
                     except KeyError:
                         pass
 
