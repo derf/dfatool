@@ -18,18 +18,22 @@ class DummyProtocol:
         self.dec_buf1 = ''
         self.dec_buf2 = ''
         self.dec_index = 0
+        self.transition_map = dict()
 
-    def assign_and_kout(self, signature, assignment):
+    def assign_and_kout(self, signature, assignment, transition_args = None):
         self.new_var(signature)
-        self.assign_var(assignment)
+        self.assign_var(assignment, transition_args = transition_args)
         self.kout_var()
 
     def new_var(self, signature):
         self.dec_index += 1
         self.dec_buf0 += '{} dec_{:d};\n'.format(signature, self.dec_index)
 
-    def assign_var(self, assignment):
-        self.dec_buf1 += 'dec_{:d} = {};\n'.format(self.dec_index, assignment)
+    def assign_var(self, assignment, transition_args = None):
+        snippet = 'dec_{:d} = {};\n'.format(self.dec_index, assignment)
+        self.dec_buf1 += snippet
+        if transition_args:
+            self.add_transition(snippet, transition_args)
 
     def get_var(self):
         return 'dec_{:d}'.format(self.dec_index)
@@ -76,6 +80,10 @@ class DummyProtocol:
     def can_get_serialized_length(self):
         return False
 
+    def add_transition(self, code_snippet: str, args: list):
+        self.transition_map[code_snippet] = args
+        return code_snippet
+
 class ArduinoJSON(DummyProtocol):
 
     def __init__(self, data, bufsize = 255, int_type = 'uint16_t', float_type = 'float'):
@@ -86,7 +94,7 @@ class ArduinoJSON(DummyProtocol):
         self.bufsize = bufsize
         self.int_type = int_type
         self.float_type = float_type
-        self.enc_buf += 'ArduinoJson::StaticJsonBuffer<{:d}> jsonBuffer;\n'.format(bufsize)
+        self.enc_buf += self.add_transition('ArduinoJson::StaticJsonBuffer<{:d}> jsonBuffer;\n'.format(bufsize), [bufsize])
         self.enc_buf += 'ArduinoJson::JsonObject& root = jsonBuffer.createObject();\n'
         self.from_json(data, 'root')
 
@@ -109,11 +117,11 @@ class ArduinoJSON(DummyProtocol):
         return 'serialized_size'
 
     def get_serialize(self):
-        return 'uint16_t serialized_size = root.printTo(buf);\n'
+        return self.add_transition('uint16_t serialized_size = root.printTo(buf);\n', [self.max_serialized_bytes])
 
     def get_deserialize(self):
-        ret = 'ArduinoJson::StaticJsonBuffer<{:d}> jsonBuffer;\n'.format(self.bufsize)
-        ret += 'ArduinoJson::JsonObject& root = jsonBuffer.parseObject(buf);\n'
+        ret = self.add_transition('ArduinoJson::StaticJsonBuffer<{:d}> jsonBuffer;\n'.format(self.bufsize), [self.bufsize])
+        ret += self.add_transition('ArduinoJson::JsonObject& root = jsonBuffer.parseObject(buf);\n', [self.max_serialized_bytes])
         return ret
 
     def get_decode_and_output(self):
@@ -135,9 +143,9 @@ class ArduinoJSON(DummyProtocol):
                 self.dec_buf += 'kout << {}[{:d}].as<{}>();\n'.format(dec_node, offset, self.int_type)
                 self.assign_and_kout(self.int_type, '{}[{:d}].as<{}>()'.format(dec_node, offset, self.int_type))
             else:
-                self.enc_buf += '{}.add("{}");\n'.format(enc_node, value)
+                self.enc_buf += self.add_transition('{}.add("{}");\n'.format(enc_node, value), [len(value)])
                 self.dec_buf += 'kout << {}[{:d}].as<const char *>();\n'.format(dec_node, offset)
-                self.assign_and_kout('char const*', '{}[{:d}].as<char const *>()'.format(dec_node, offset))
+                self.assign_and_kout('char const*', '{}[{:d}].as<char const *>()'.format(dec_node, offset), transition_args = [len(value)])
 
         elif type(value) == list:
             child = enc_node + 'l'
@@ -173,20 +181,20 @@ class ArduinoJSON(DummyProtocol):
     def add_to_dict(self, enc_node, dec_node, key, value):
         if type(value) == str:
             if len(value) and value[0] == '$':
-                self.enc_buf += '{}["{}"] = {};\n'.format(enc_node, key, value[1:])
+                self.enc_buf += self.add_transition('{}["{}"] = {};\n'.format(enc_node, key, value[1:]), [len(key)])
                 self.dec_buf += 'kout << {}["{}"].as<{}>();\n'.format(dec_node, key, self.int_type)
                 self.assign_and_kout(self.int_type, '{}["{}"].as<{}>()'.format(dec_node, key, self.int_type))
             else:
-                self.enc_buf += '{}["{}"] = "{}";\n'.format(enc_node, key, value)
+                self.enc_buf += self.add_transition('{}["{}"] = "{}";\n'.format(enc_node, key, value), [len(key), len(value)])
                 self.dec_buf += 'kout << {}["{}"].as<const char *>();\n'.format(dec_node, key)
-                self.assign_and_kout('char const*', '{}["{}"].as<const char *>()'.format(dec_node, key))
+                self.assign_and_kout('char const*', '{}["{}"].as<const char *>()'.format(dec_node, key), transition_args = [len(key), len(value)])
 
         elif type(value) == list:
             child = enc_node + 'l'
             while child in self.children:
                 child += '_'
-            self.enc_buf += 'ArduinoJson::JsonArray& {} = {}.createNestedArray("{}");\n'.format(
-                child, enc_node, key)
+            self.enc_buf += self.add_transition('ArduinoJson::JsonArray& {} = {}.createNestedArray("{}");\n'.format(
+                child, enc_node, key), [len(key)])
             self.children.add(child)
             self.from_json(value, child, '{}["{}"]'.format(dec_node, key))
 
@@ -194,20 +202,20 @@ class ArduinoJSON(DummyProtocol):
             child = enc_node + 'o'
             while child in self.children:
                 child += '_'
-            self.enc_buf += 'ArduinoJson::JsonObject& {} = {}.createNestedObject("{}");\n'.format(
-                child, enc_node, key)
+            self.enc_buf += self.add_transition('ArduinoJson::JsonObject& {} = {}.createNestedObject("{}");\n'.format(
+                child, enc_node, key), [len(key)])
             self.children.add(child)
             self.from_json(value, child, '{}["{}"]'.format(dec_node, key))
 
         elif type(value) == float:
-            self.enc_buf += '{}["{}"] = {};\n'.format(enc_node, key, value)
+            self.enc_buf += self.add_transition('{}["{}"] = {};\n'.format(enc_node, key, value), [len(key)])
             self.dec_buf += 'kout << {}["{}"].as<{}>();\n'.format(dec_node, key, self.float_type)
-            self.assign_and_kout(self.float_type, '{}["{}"].as<{}>()'.format(dec_node, key, self.float_type))
+            self.assign_and_kout(self.float_type, '{}["{}"].as<{}>()'.format(dec_node, key, self.float_type), transition_args = [len(key)])
 
         elif type(value) == int:
-            self.enc_buf += '{}["{}"] = {};\n'.format(enc_node, key, value)
+            self.enc_buf += self.add_transition('{}["{}"] = {};\n'.format(enc_node, key, value), [len(key)])
             self.dec_buf += 'kout << {}["{}"].as<{}>();\n'.format(dec_node, key, self.int_type)
-            self.assign_and_kout(self.int_type, '{}["{}"].as<{}>()'.format(dec_node, key, self.int_type))
+            self.assign_and_kout(self.int_type, '{}["{}"].as<{}>()'.format(dec_node, key, self.int_type), transition_args = [len(key)])
 
         else:
             self.note_unsupported(tvalue)
@@ -365,8 +373,8 @@ class CapnProtoC(DummyProtocol):
             pass # content is handled recursively in add_to_dict
         elif type(value) == list:
             if type(value[0]) == float:
-                self.enc_buf += '{}.{} = capn_new_list{:d}(cs, {:d});\n'.format(
-                    self.name, key, self.float_bits, len(value))
+                self.enc_buf += self.add_transition('{}.{} = capn_new_list{:d}(cs, {:d});\n'.format(
+                    self.name, key, self.float_bits, len(value)), [len(value)])
                 for i, elem in enumerate(value):
                     self.enc_buf += 'capn_set{:d}({}.{}, {:d}, capn_from_f{:d}({:f}));\n'.format(
                         self.float_bits, self.name, key, i, self.float_bits, elem)
@@ -374,8 +382,8 @@ class CapnProtoC(DummyProtocol):
                         self.float_bits, self.float_bits, self.name, key, i)
                     self.assign_and_kout(self.float_type, 'capn_to_f{:d}(capn_get{:d}({}.{}, {:d}))'.format(self.float_bits, self.float_bits, self.name, key, i))
             else:
-                self.enc_buf += '{}.{} = capn_new_list{:d}(cs, {:d});\n'.format(
-                    self.name, key, self.int_bits, len(value))
+                self.enc_buf += self.add_transition('{}.{} = capn_new_list{:d}(cs, {:d});\n'.format(
+                    self.name, key, self.int_bits, len(value)), [len(value)])
                 for i, elem in enumerate(value):
                     self.enc_buf += 'capn_set{:d}({}.{}, {:d}, {:d});\n'.format(
                         self.int_bits, self.name, key, i, elem)
@@ -470,7 +478,7 @@ class ManualJSON(DummyProtocol):
             if len(value) and value[0] == '$':
                 self.buf += 'bout << dec << {}'.format(value[1:])
             else:
-                self.buf += 'bout << "\\"{}\\""'.format(value)
+                self.buf += self.add_transition('bout << "\\"{}\\""'.format(value), [len(value)])
 
         elif type(value) == list:
             self.buf += 'bout << "[";\n'
@@ -495,21 +503,21 @@ class ManualJSON(DummyProtocol):
             if len(value) and value[0] == '$':
                 self.buf += 'bout << "\\"{}\\":" << dec << {}'.format(key, value[1:])
             else:
-                self.buf += 'bout << "\\"{}\\":\\"{}\\""'.format(key, value)
+                self.buf += self.add_transition('bout << "\\"{}\\":\\"{}\\""'.format(key, value), [len(key), len(value)])
 
         elif type(value) == list:
-            self.buf += 'bout << "\\"{}\\":[";\n'.format(key)
+            self.buf += self.add_transition('bout << "\\"{}\\":[";\n'.format(key), [len(key)])
             self.from_json(value)
             self.buf += 'bout << "]"'
 
         elif type(value) == dict:
             # '{{' is an escaped '{' character
-            self.buf += 'bout << "\\"{}\\":{{";\n'.format(key)
+            self.buf += self.add_transition('bout << "\\"{}\\":{{";\n'.format(key), [len(key)])
             self.from_json(value)
             self.buf += 'bout << "}"'
 
         else:
-            self.buf += 'bout << "\\"{}\\":" << {}'.format(key, value)
+            self.buf += self.add_transition('bout << "\\"{}\\":" << {}'.format(key, value), [len(key)])
 
         if is_last:
             self.buf += ';\n'
@@ -623,7 +631,7 @@ class MPack(DummyProtocol):
         self.int_type = int_type
         self.float_type = float_type
         self.enc_buf += 'mpack_writer_t writer;\n'
-        self.enc_buf += 'mpack_writer_init(&writer, buf, sizeof(buf));\n'
+        self.enc_buf += self.add_transition('mpack_writer_init(&writer, buf, sizeof(buf));\n', [self.max_serialized_bytes])
         self.dec_buf0 += 'char strbuf[16];\n'
         self.from_json(data)
 
@@ -656,7 +664,7 @@ class MPack(DummyProtocol):
 
     def get_deserialize(self):
         ret = 'mpack_reader_t reader;\n'
-        ret += 'mpack_reader_init_data(&reader, buf, serialized_size);\n'
+        ret += self.add_transition('mpack_reader_init_data(&reader, buf, serialized_size);\n', [self.max_serialized_bytes])
         return ret
 
     def get_decode_and_output(self):
@@ -683,10 +691,10 @@ class MPack(DummyProtocol):
                 self.dec_buf += 'kout << mpack_expect_uint(&reader);\n'
                 self.assign_and_kout(self.int_type, 'mpack_expect_uint(&reader)')
             else:
-                self.enc_buf += 'mpack_write_cstr_or_nil(&writer, "{}");\n'.format(value)
+                self.enc_buf += self.add_transition('mpack_write_cstr_or_nil(&writer, "{}");\n'.format(value), [len(value)])
                 self.dec_buf += 'mpack_expect_cstr(&reader, strbuf, sizeof(strbuf));\n'
                 self.dec_buf += 'kout << strbuf;\n'
-                self.dec_buf1 += 'mpack_expect_cstr(&reader, strbuf, sizeof(strbuf));\n'
+                self.dec_buf1 += self.add_transition('mpack_expect_cstr(&reader, strbuf, sizeof(strbuf));\n', [len(value)])
                 self.dec_buf2 += 'kout << strbuf;\n'
         elif type(value) == list:
             self.from_json(value)
@@ -705,21 +713,21 @@ class MPack(DummyProtocol):
 
     def from_json(self, data):
         if type(data) == dict:
-            self.enc_buf += 'mpack_start_map(&writer, {:d});\n'.format(len(data))
+            self.enc_buf += self.add_transition('mpack_start_map(&writer, {:d});\n'.format(len(data)), [len(data)])
             self.dec_buf += 'mpack_expect_map_max(&reader, {:d});\n'.format(len(data))
-            self.dec_buf1 += 'mpack_expect_map_max(&reader, {:d});\n'.format(len(data))
+            self.dec_buf1 += self.add_transition('mpack_expect_map_max(&reader, {:d});\n'.format(len(data)), [len(data)])
             for key in sorted(data.keys()):
-                self.enc_buf += 'mpack_write_cstr(&writer, "{}");\n'.format(key)
+                self.enc_buf += self.add_transition('mpack_write_cstr(&writer, "{}");\n'.format(key), [len(key)])
                 self.dec_buf += 'mpack_expect_cstr(&reader, strbuf, sizeof(strbuf));\n'
-                self.dec_buf1 += 'mpack_expect_cstr(&reader, strbuf, sizeof(strbuf));\n'
+                self.dec_buf1 += self.add_transition('mpack_expect_cstr(&reader, strbuf, sizeof(strbuf));\n', [len(key)])
                 self.add_value(data[key])
             self.enc_buf += 'mpack_finish_map(&writer);\n'
             self.dec_buf += 'mpack_done_map(&reader);\n'
             self.dec_buf1 += 'mpack_done_map(&reader);\n'
         if type(data) == list:
-            self.enc_buf += 'mpack_start_array(&writer, {:d});\n'.format(len(data))
+            self.enc_buf += self.add_transition('mpack_start_array(&writer, {:d});\n'.format(len(data)), [len(data)])
             self.dec_buf += 'mpack_expect_array_max(&reader, {:d});\n'.format(len(data))
-            self.dec_buf1 += 'mpack_expect_array_max(&reader, {:d});\n'.format(len(data))
+            self.dec_buf1 += self.add_transition('mpack_expect_array_max(&reader, {:d});\n'.format(len(data)), [len(data)])
             for elem in data:
                 self.add_value(elem);
             self.enc_buf += 'mpack_finish_array(&writer);\n'
@@ -1010,7 +1018,7 @@ class UBJ(DummyProtocol):
                 self.dec_buf += 'kout << {}_values[{:d}].integer;\n'.format(root, index)
                 self.assign_and_kout(self.int_type, '{}_values[{:d}].integer'.format(root, index))
             else:
-                self.enc_buf += 'ubjw_write_string(ctx, "{}");\n'.format(value)
+                self.enc_buf += self.add_transition('ubjw_write_string(ctx, "{}");\n'.format(value), [len(value)])
                 self.dec_buf += 'kout << {}_values[{:d}].string;\n'.format(root, index)
                 self.assign_and_kout('char *', '{}_values[{:d}].string'.format(root, index))
 
@@ -1044,16 +1052,16 @@ class UBJ(DummyProtocol):
     def add_to_dict(self, root, index, key, value):
         if type(value) == str:
             if len(value) and value[0] == '$':
-                self.enc_buf += 'ubjw_write_key(ctx, "{}"); ubjw_write_integer(ctx, {});\n'.format(key, value[1:])
+                self.enc_buf += self.add_transition('ubjw_write_key(ctx, "{}"); ubjw_write_integer(ctx, {});\n'.format(key, value[1:]), [len(key)])
                 self.dec_buf += 'kout << {}_values[{:d}].integer;\n'.format(root, index)
                 self.assign_and_kout(self.int_type, '{}_values[{:d}].integer'.format(root, index))
             else:
-                self.enc_buf += 'ubjw_write_key(ctx, "{}"); ubjw_write_string(ctx, "{}");\n'.format(key, value)
+                self.enc_buf += self.add_transition('ubjw_write_key(ctx, "{}"); ubjw_write_string(ctx, "{}");\n'.format(key, value), [len(key), len(value)])
                 self.dec_buf += 'kout << {}_values[{:d}].string;\n'.format(root, index)
                 self.assign_and_kout('char *', '{}_values[{:d}].string'.format(root, index))
 
         elif type(value) == list:
-            self.enc_buf += 'ubjw_write_key(ctx, "{}"); ubjw_begin_array(ctx, UBJ_MIXED, 0);\n'.format(key)
+            self.enc_buf += self.add_transition('ubjw_write_key(ctx, "{}"); ubjw_begin_array(ctx, UBJ_MIXED, 0);\n'.format(key), [len(key)])
             self.dec_buf += 'ubjr_dynamic_t *{}_values = (ubjr_dynamic_t*){}_values[{:d}].container_array.values;\n'.format(
                 key, root, index)
             self.dec_buf1 += 'ubjr_dynamic_t *{}_values = (ubjr_dynamic_t*){}_values[{:d}].container_array.values;\n'.format(
@@ -1062,7 +1070,7 @@ class UBJ(DummyProtocol):
             self.enc_buf += 'ubjw_end(ctx);\n'
 
         elif type(value) == dict:
-            self.enc_buf += 'ubjw_write_key(ctx, "{}"); ubjw_begin_object(ctx, UBJ_MIXED, 0);\n'.format(key)
+            self.enc_buf += self.add_transition('ubjw_write_key(ctx, "{}"); ubjw_begin_object(ctx, UBJ_MIXED, 0);\n'.format(key), [len(key)])
             self.dec_buf += 'ubjr_dynamic_t *{}_values = (ubjr_dynamic_t*){}_values[{:d}].container_object.values;\n'.format(
                 key, root, index)
             self.dec_buf1 += 'ubjr_dynamic_t *{}_values = (ubjr_dynamic_t*){}_values[{:d}].container_object.values;\n'.format(
@@ -1071,12 +1079,12 @@ class UBJ(DummyProtocol):
             self.enc_buf += 'ubjw_end(ctx);\n'
 
         elif type(value) == float:
-            self.enc_buf += 'ubjw_write_key(ctx, "{}"); ubjw_write_float{:d}(ctx, {});\n'.format(key, self.float_bits, value)
+            self.enc_buf += self.add_transition('ubjw_write_key(ctx, "{}"); ubjw_write_float{:d}(ctx, {});\n'.format(key, self.float_bits, value), [len(key)])
             self.dec_buf += 'kout << {}_values[{:d}].real;\n'.format(root, index)
             self.assign_and_kout(self.float_type, '{}_values[{:d}].real'.format(root, index))
 
         elif type(value) == int:
-            self.enc_buf += 'ubjw_write_key(ctx, "{}"); ubjw_write_integer(ctx, {});\n'.format(key, value)
+            self.enc_buf += self.add_transition('ubjw_write_key(ctx, "{}"); ubjw_write_integer(ctx, {});\n'.format(key, value), [len(key)])
             self.dec_buf += 'kout << {}_values[{:d}].integer;\n'.format(root, index)
             self.assign_and_kout(self.int_type, '{}_values[{:d}].integer'.format(root, index))
 
@@ -1183,7 +1191,7 @@ class XDR(DummyProtocol):
             else:
                 # Kodierte Strings haben nicht immer ein Nullbyte am Ende
                 self.enc_buf += 'xdrstream.setNextArrayLen({});\n'.format(len(data))
-                self.enc_buf += 'xdrstream << variable << "{}";\n'.format(data)
+                self.enc_buf += self.add_transition('xdrstream << variable << "{}";\n'.format(data), [len(data)])
                 self.dec_buf += 'xdrinput.get_string(strbuf);\n'
                 self.dec_buf += 'kout << strbuf;\n'
                 self.dec_buf1 += 'xdrinput.get_string(strbuf);\n'.format(self.dec_index)
