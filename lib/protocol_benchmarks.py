@@ -81,7 +81,7 @@ class DummyProtocol:
         return False
 
     def add_transition(self, code_snippet: str, args: list):
-        self.transition_map[code_snippet] = args
+        self.transition_map[code_snippet.rstrip()] = args
         return code_snippet
 
 class ArduinoJSON(DummyProtocol):
@@ -501,7 +501,7 @@ class ManualJSON(DummyProtocol):
     def add_to_dict(self, key, value, is_last):
         if type(value) == str:
             if len(value) and value[0] == '$':
-                self.buf += 'bout << "\\"{}\\":" << dec << {}'.format(key, value[1:])
+                self.buf += self.add_transition('bout << "\\"{}\\":" << dec << {}'.format(key, value[1:]), [len(key)])
             else:
                 self.buf += self.add_transition('bout << "\\"{}\\":\\"{}\\""'.format(key, value), [len(key), len(value)])
 
@@ -1355,13 +1355,19 @@ def shorten_call(snippet, lib = ''):
     elif 'mpack_start_' in snippet:
         snippet = snippet.split(',')[0]
     elif 'bout <<' in snippet:
-        snippet = 'bout'
+        if '\\":\\"' in snippet:
+            snippet = 'bout << key:str'
+        elif 'bout << "\\"' in snippet:
+            snippet = 'bout << key'
+        else:
+            snippet = 'bout << other'
     elif 'msg.' in snippet:
         snippet = re.sub('msg.(?:[^[]+)(?:\[.*?\])? = .*', 'msg.? = ?', snippet)
     elif lib == 'arduinojson:':
         snippet = re.sub('ArduinoJson::JsonObject& [^ ]+ = [^.]+.createNestedObject\([^)]*\);', 'ArduinoJson::JsonObject& ? = ?.createNestedObject(?);', snippet)
         snippet = re.sub('ArduinoJson::JsonArray& [^ ]+ = [^.]+.createNestedArray\([^)]*\);', 'ArduinoJson::JsonArray& ? = ?.createNestedArray(?);', snippet)
-        snippet = re.sub('root[^[]*\["[^"]*"\] = [^;]+', 'root?["?"] = ?', snippet)
+        snippet = re.sub('root[^[]*\["[^"]*"\] = [^";]+', 'root?["?"] = ?', snippet)
+        snippet = re.sub('root[^[]*\["[^"]*"\] = "[^"]+"', 'root?["?"] = "?"', snippet)
         snippet = re.sub('rootl.add\([^)]*\)', 'rootl.add(?)', snippet)
 
     snippet = re.sub('^dec_[^ ]*', 'dec_?', snippet)
