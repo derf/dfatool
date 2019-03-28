@@ -5,6 +5,7 @@ import msgpack
 import ubjson
 
 import os
+import re
 import time
 from filelock import FileLock
 
@@ -1314,3 +1315,55 @@ def codegen_for_lib(library, library_options, data):
         return XDR(data)
 
     raise ValueError('Unsupported library: {}'.format(library))
+
+def shorten_call(snippet, lib = ''):
+    """
+    Remove literal arguments and variable names from ProtoBench function calls.
+
+    This provides some generalization when modeling individual function
+    calls, thus avoiding overfitting in AnalyticModel and the likes.
+    """
+    # The following adjustments are protobench-specific
+    # "xdrstream << (uint16_t)123" -> "xdrstream << (uint16_t"
+    if 'xdrstream << (' in snippet:
+        snippet = snippet.split(')')[0]
+    # "xdrstream << variable << ..." -> "xdrstream << variable"
+    elif 'xdrstream << variable' in snippet:
+        snippet = '<<'.join(snippet.split('<<')[0:2])
+    elif 'xdrstream.setNextArrayLen(' in snippet:
+        snippet = 'xdrstream.setNextArrayLen'
+    elif 'ubjw' in snippet:
+        snippet = re.sub('ubjw_write_key\(ctx, [^)]+\)', 'ubjw_write_key(ctx, ?)', snippet)
+        snippet = re.sub('ubjw_write_([^(]+)\(ctx, [^)]+\)', 'ubjw_write_\\1(ctx, ?)', snippet)
+    # mpack_write(&writer, (type)value) -> mpack_write(&writer, (type
+    elif 'mpack_write(' in snippet:
+        snippet = snippet.split(')')[0]
+    # mpack_write_cstr(&writer, "foo") -> mpack_write_cstr(&writer,
+    # same for mpack_write_cstr_or_nil
+    elif 'mpack_write_cstr' in snippet:
+        snippet = snippet.split('"')[0]
+    # mpack_start_map(&writer, x) -> mpack_start_map(&writer
+    # mpack_start_array(&writer, x) -> mpack_start_array(&writer
+    elif 'mpack_start_' in snippet:
+        snippet = snippet.split(',')[0]
+    elif 'bout <<' in snippet:
+        snippet = 'bout'
+    elif 'msg.' in snippet:
+        snippet = re.sub('msg.(?:[^[]+)(?:\[.*?\])? = .*', 'msg.? = ?', snippet)
+    elif lib == 'arduinojson:':
+        snippet = re.sub('ArduinoJson::JsonObject& [^ ]+ = [^.]+.createNestedObject\([^)]*\);', 'ArduinoJson::JsonObject& ? = ?.createNestedObject(?);', snippet)
+        snippet = re.sub('ArduinoJson::JsonArray& [^ ]+ = [^.]+.createNestedArray\([^)]*\);', 'ArduinoJson::JsonArray& ? = ?.createNestedArray(?);', snippet)
+        snippet = re.sub('root[^[]*\["[^"]*"\] = [^;]+', 'root?["?"] = ?', snippet)
+        snippet = re.sub('rootl.add\([^)]*\)', 'rootl.add(?)', snippet)
+
+    snippet = re.sub('^dec_[^ ]*', 'dec_?', snippet)
+    if lib == 'arduinojson:':
+        snippet = re.sub('root[^. ]+\.as', 'root[?].as', snippet)
+    elif 'nanopb:' in lib:
+        snippet = re.sub('= msg\.[^;]+;', '= msg.?;', snippet)
+    elif lib == 'mpack:':
+        snippet = re.sub('mpack_expect_([^_]+)_max\(&reader, [^)]+\)', 'mpack_expect_\\1_max(&reader, ?)', snippet)
+    elif lib == 'ubjson:':
+        snippet = re.sub('[^_ ]+_values[^.]+\.', '?_values[?].', snippet)
+
+    return snippet
