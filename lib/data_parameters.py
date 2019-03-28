@@ -117,7 +117,7 @@ class Protolog:
     text_{nop,ser,serdes} : whole-program Text Segment (code/Flash) size
     """
 
-    def _mean_cycles(data, key):
+    def _median_cycles(data, key):
         # There should always be more than just one measurement -- otherwise
         # something went wrong
         if len(data[key]) <= 1:
@@ -130,7 +130,9 @@ class Protolog:
             # bogus data
             if val > 10_000_000:
                 return np.nan
-        return max(0, int(np.mean(data[key][1:]) - np.mean(data['nop'][1:])))
+        # All measurements in data[key] cover the same instructions, so they
+        # should be identical.
+        return max(0, int(np.median(data[key][1:]) - np.median(data['nop'][1:])))
 
     idem = lambda x: x
     datamap = [
@@ -138,10 +140,10 @@ class Protolog:
         ['bss_ser', 'bss_size_ser', idem],
         ['bss_serdes', 'bss_size_serdes', idem],
         ['callcycles_raw', 'callcycles', idem],
-        ['cycles_ser', 'cycles', lambda x: Protolog._mean_cycles(x, 'ser')],
-        ['cycles_des', 'cycles', lambda x: Protolog._mean_cycles(x, 'des')],
-        ['cycles_enc', 'cycles', lambda x: Protolog._mean_cycles(x, 'enc')],
-        ['cycles_dec', 'cycles', lambda x: Protolog._mean_cycles(x, 'dec')],
+        ['cycles_ser', 'cycles', lambda x: Protolog._median_cycles(x, 'ser')],
+        ['cycles_des', 'cycles', lambda x: Protolog._median_cycles(x, 'des')],
+        ['cycles_enc', 'cycles', lambda x: Protolog._median_cycles(x, 'enc')],
+        ['cycles_dec', 'cycles', lambda x: Protolog._median_cycles(x, 'dec')],
         #['cycles_ser_arr', 'cycles', lambda x: np.array(x['ser'][1:]) - np.mean(x['nop'][1:])],
         #['cycles_des_arr', 'cycles', lambda x: np.array(x['des'][1:]) - np.mean(x['nop'][1:])],
         #['cycles_enc_arr', 'cycles', lambda x: np.array(x['enc'][1:]) - np.mean(x['nop'][1:])],
