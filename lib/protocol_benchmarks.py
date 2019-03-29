@@ -1354,25 +1354,28 @@ def shorten_call(snippet, lib = ''):
     # mpack_start_array(&writer, x) -> mpack_start_array(&writer
     elif 'mpack_start_' in snippet:
         snippet = snippet.split(',')[0]
-    elif 'bout <<' in snippet:
-        if '\\":\\"' in snippet:
-            snippet = 'bout << key:str'
-        elif 'bout << "\\"' in snippet:
-            snippet = 'bout << key'
-        else:
-            snippet = 'bout << other'
+    #elif 'bout <<' in snippet:
+    #    if '\\":\\"' in snippet:
+    #        snippet = 'bout << key:str'
+    #    elif 'bout << "\\"' in snippet:
+    #        snippet = 'bout << key'
+    #    else:
+    #        snippet = 'bout << other'
     elif 'msg.' in snippet:
         snippet = re.sub('msg.(?:[^[]+)(?:\[.*?\])? = .*', 'msg.? = ?', snippet)
     elif lib == 'arduinojson:':
-        snippet = re.sub('ArduinoJson::JsonObject& [^ ]+ = [^.]+.createNestedObject\([^)]*\);', 'ArduinoJson::JsonObject& ? = ?.createNestedObject(?);', snippet)
-        snippet = re.sub('ArduinoJson::JsonArray& [^ ]+ = [^.]+.createNestedArray\([^)]*\);', 'ArduinoJson::JsonArray& ? = ?.createNestedArray(?);', snippet)
+        snippet = re.sub('ArduinoJson::JsonObject& [^ ]+ = [^.]+.createNestedObject\([^")]*\);', 'ArduinoJson::JsonObject& ? = ?.createNestedObject();', snippet)
+        snippet = re.sub('ArduinoJson::JsonObject& [^ ]+ = [^.]+.createNestedObject\("[^")]*"\);', 'ArduinoJson::JsonObject& ? = ?.createNestedObject(?);', snippet)
+        snippet = re.sub('ArduinoJson::JsonArray& [^ ]+ = [^.]+.createNestedArray\([^")]*\);', 'ArduinoJson::JsonArray& ? = ?.createNestedArray();', snippet)
+        snippet = re.sub('ArduinoJson::JsonArray& [^ ]+ = [^.]+.createNestedArray\("[^")]*"\);', 'ArduinoJson::JsonArray& ? = ?.createNestedArray(?);', snippet)
         snippet = re.sub('root[^[]*\["[^"]*"\] = [^";]+', 'root?["?"] = ?', snippet)
         snippet = re.sub('root[^[]*\["[^"]*"\] = "[^"]+"', 'root?["?"] = "?"', snippet)
         snippet = re.sub('rootl.add\([^)]*\)', 'rootl.add(?)', snippet)
 
     snippet = re.sub('^dec_[^ ]*', 'dec_?', snippet)
     if lib == 'arduinojson:':
-        snippet = re.sub('root[^. ]+\.as', 'root[?].as', snippet)
+        snippet = re.sub('root[^[]*\[[^]"]+\]\.as', 'root[?].as', snippet)
+        snippet = re.sub('root[^[]*\["[^]]+"\]\.as', 'root["?"].as', snippet)
     elif 'nanopb:' in lib:
         snippet = re.sub('= msg\.[^;]+;', '= msg.?;', snippet)
     elif lib == 'mpack:':

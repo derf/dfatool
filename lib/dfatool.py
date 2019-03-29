@@ -888,6 +888,13 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
         'results' : results
     }
 
+def _num_args_from_by_name(by_name):
+    num_args = dict()
+    for key, value in by_name.items():
+        if 'args' in value:
+            num_args[key] = len(value['args'][0])
+    return num_args
+
 class AnalyticModel:
     u"""
     Parameter-aware analytic energy/data size/... model.
@@ -941,8 +948,9 @@ class AnalyticModel:
         self.names = sorted(by_name.keys())
         self.parameters = sorted(parameters)
         self.verbose = verbose
+        self._num_args = _num_args_from_by_name(by_name)
 
-        self.stats = ParamStats(self.by_name, self.by_param, self.parameters, {}, verbose = verbose)
+        self.stats = ParamStats(self.by_name, self.by_param, self.parameters, self._num_args, verbose = verbose)
 
     def _fit(self):
         paramfit = ParallelParamFit(self.by_param)
@@ -1124,6 +1132,10 @@ class AnalyticModel:
             'by_name' : detailed_results,
         }
 
+    def to_json(self):
+        # TODO
+        pass
+
 
 def _add_trace_data_to_aggregate(aggregate, key, element):
     # Only cares about element['isa'], element['offline_aggregates'], and
@@ -1157,6 +1169,7 @@ def pta_trace_to_aggregate(traces, ignore_trace_indexes = []):
             - name: str Name
             - isa: str state // transition
             - parameter: { ... globaler Parameter: aktueller wert. null falls noch nicht eingestellt }
+            - args: [ Funktionsargumente, falls isa == 'transition' ]
             - offline_aggregates:
                 - power: [float(uW)] Mittlere Leistung während Zustand/Transitions
                 - power_std: [float(uW^2)] Standardabweichung der Leistung
