@@ -109,14 +109,6 @@ def gplearn_to_function(function_str: str):
     print(eval_str)
     return eval(eval_str, eval_globals)
 
-def _elem_param_and_arg_list(elem: dict):
-    param_dict = elem['parameter']
-    paramkeys = sorted(param_dict.keys())
-    paramvalue = [soft_cast_int(param_dict[x]) for x in paramkeys]
-    if arg_support_enabled and 'args' in elem:
-        paramvalue.extend(map(soft_cast_int, elem['args']))
-    return paramvalue
-
 def _arg_name(arg_index: int) -> str:
     return '~arg{:02}'.format(arg_index)
 
