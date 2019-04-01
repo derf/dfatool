@@ -1036,10 +1036,17 @@ class AnalyticModel:
                     ratio = self.stats.param_dependence_ratio(name, attribute, param)
                     if self.stats.depends_on_param(name, attribute, param):
                         paramfit.enqueue(name, attribute, param_index, param, False)
+                if arg_support_enabled and name in self._num_args:
+                    for arg_index in range(self._num_args[name]):
+                        if self.stats.depends_on_arg(name, attribute, arg_index):
+                            paramfit.enqueue(name, attribute, len(self.parameters) + arg_index, arg_index, False)
 
         paramfit.fit()
 
         for name in self.by_name.keys():
+            num_args = 0
+            if name in self._num_args:
+                num_args = self._num_args[name]
             for attribute in self.by_name[name]['attributes']:
                 fit_result = {}
                 for result in paramfit.results:
@@ -1058,7 +1065,7 @@ class AnalyticModel:
                             fit_result[result['key'][2]] = this_result
 
                 if len(fit_result.keys()):
-                    x = analytic.function_powerset(fit_result, self.parameters)
+                    x = analytic.function_powerset(fit_result, self.parameters, num_args)
                     x.fit(self.by_param, name, attribute)
 
                     if x.fit_success:
