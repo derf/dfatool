@@ -492,9 +492,9 @@ class ParamStats:
         if self.use_corrcoef:
             return 1 - np.abs(statistics['corr_by_arg'][arg_index])
         if statistics['std_by_arg'][arg_index] == 0:
-            if statistics['std_arg_lut'] != 0:
+            if statistics['std_param_lut'] != 0:
                 raise RuntimeError("wat")
-            # In general, std_arg_lut < std_by_arg. So, if std_by_arg == 0, std_arg_lut == 0 follows.
+            # In general, std_param_lut < std_by_arg. So, if std_by_arg == 0, std_param_lut == 0 follows.
             # This means that the variation of arg does not affect the model quality -> no influence, return 1
             return 1
         return statistics['std_param_lut'] / statistics['std_by_arg'][arg_index]
