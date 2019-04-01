@@ -952,28 +952,6 @@ class AnalyticModel:
 
         self.stats = ParamStats(self.by_name, self.by_param, self.parameters, self._num_args, verbose = verbose)
 
-    def _fit(self):
-        paramfit = ParallelParamFit(self.by_param)
-
-        for name in self.by_name.keys():
-            for attribute in self.by_name[fname]['attributes']:
-                for param_index, param in enumerate(self.parameters):
-                    ratio = self.stats.param_dependence_ratio(fname, attribute, param)
-                    if self.stats.depends_on_param(fname, attribute, param):
-                        paramfit.enqueue(fname, attribute, param_index, param, False)
-
-        paramfit.fit()
-
-        for name in self.by_name.keys():
-            for attribute in self.by_name[fname]['attributes']:
-                fit_result = {}
-                for result in paramfit.results:
-                    if result['key'][0] == name and result['key'][1] == attribute and result['result']['best'] != None:
-                        fit_result[result['key'][2]] = result['result']
-                if len(fit_result.keys()):
-                    x = analytic.function_powerset(fit_result, parameters)
-                    x.fit(by_param, fname, attribute)
-
     def _get_model_from_dict(self, model_dict, model_function):
         model = {}
         for name, elem in model_dict.items():
