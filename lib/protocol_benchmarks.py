@@ -84,6 +84,11 @@ class DummyProtocol:
         self.transition_map[code_snippet.rstrip()] = args
         return code_snippet
 
+    def get_transition_args(self, code_snippet: str) -> list:
+        if code_snippet in self.transition_map:
+            return self.transition_map[code_snippet]
+        return list()
+
 class ArduinoJSON(DummyProtocol):
 
     def __init__(self, data, bufsize = 255, int_type = 'uint16_t', float_type = 'float'):
@@ -1328,7 +1333,7 @@ def codegen_for_lib(library, library_options, data):
 
     raise ValueError('Unsupported library: {}'.format(library))
 
-def shorten_call(snippet, lib = ''):
+def shorten_call(snippet, lib):
     """
     Remove literal arguments and variable names from ProtoBench function calls.
 
