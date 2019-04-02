@@ -657,9 +657,11 @@ class MPack(DummyProtocol):
 
     def get_serialize(self):
         ret = 'serialized_size = mpack_writer_buffer_used(&writer);\n'
-        ret += 'if (mpack_writer_destroy(&writer) != mpack_ok) {\n'
+        # OptionalTimingAnalysis and other wrappers only wrap lines ending with a ;
+        # We therefore deliberately do not use proper if { ... } syntax here
+        # to make sure that these two statements are timed as well.
+        ret += 'if (mpack_writer_destroy(&writer) != mpack_ok) '
         ret += 'kout << "Encoding failed" << endl;\n'
-        ret += '}\n'
         return ret
 
     def get_deserialize(self):
@@ -797,9 +799,11 @@ class NanoPB(DummyProtocol):
     def get_deserialize(self):
         ret = 'Benchmark msg = Benchmark_init_zero;\n'
         ret += 'pb_istream_t stream = pb_istream_from_buffer(buf, serialized_size);\n'
-        ret += 'if (pb_decode(&stream, Benchmark_fields, &msg) == false) {\n'
+        # OptionalTimingAnalysis and other wrappers only wrap lines ending with a ;
+        # We therefore deliberately do not use proper if { ... } syntax here
+        # to make sure that these two statements are timed as well.
+        ret += 'if (pb_decode(&stream, Benchmark_fields, &msg) == false) '
         ret += 'kout << "deserialized failed" << endl;\n'
-        ret += '}\n'
         return ret
 
     def get_decode_and_output(self):
