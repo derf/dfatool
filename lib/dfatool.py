@@ -1075,6 +1075,8 @@ class AnalyticModel:
                         }
 
         def model_getter(name, key, **kwargs):
+            if 'arg' in kwargs and 'param' in kwargs:
+                kwargs['param'].extend(map(soft_cast_int, kwargs['arg']))
             if key in param_model[name]:
                 param_list = kwargs['param']
                 param_function = param_model[name][key]['function']
@@ -1450,6 +1452,8 @@ class PTAModel:
                         }
 
         def model_getter(name, key, **kwargs):
+            if 'arg' in kwargs and 'param' in kwargs:
+                kwargs['param'].extend(map(soft_cast_int, kwargs['arg']))
             if key in param_model[name]:
                 param_list = kwargs['param']
                 param_function = param_model[name][key]['function']
