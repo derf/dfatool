@@ -881,6 +881,12 @@ class NanoPB(DummyProtocol):
             self.enc_buf += 'msg.{}{} = {};\n'.format(self.cc_prefix, key, value)
             self.dec_buf += 'kout << msg.{}{};\n'.format(self.cc_prefix, key)
             self.assign_and_kout(self.int_type, 'msg.{}{}'.format(self.cc_prefix, key))
+        elif fieldtype == float:
+            if cardinality == 'optional':
+                self.enc_buf += 'msg.{}has_{} = true;\n'.format(self.cc_prefix, key)
+            self.enc_buf += 'msg.{}{} = {};\n'.format(self.cc_prefix, key, value)
+            self.dec_buf += 'kout << msg.{}{};\n'.format(self.cc_prefix, key)
+            self.assign_and_kout(self.float_type, 'msg.{}{}'.format(self.cc_prefix, key))
         elif fieldtype == dict:
             if cardinality == 'optional':
                 self.enc_buf += 'msg.{}has_{} = true;\n'.format(self.cc_prefix, key)
