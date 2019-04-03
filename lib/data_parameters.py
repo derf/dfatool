@@ -134,12 +134,19 @@ class Protolog:
         # should be identical.
         return max(0, int(np.median(data[key][1:]) - np.median(data['nop'][1:])))
 
+    def _median_callcycles(data):
+        ret = dict()
+        for line in data.keys():
+            ret[line] = np.median(data[line])
+        return ret
+
     idem = lambda x: x
     datamap = [
         ['bss_nop', 'bss_size_nop', idem],
         ['bss_ser', 'bss_size_ser', idem],
         ['bss_serdes', 'bss_size_serdes', idem],
         ['callcycles_raw', 'callcycles', idem],
+        ['callcycles_median', 'callcycles', _median_callcycles],
         ['cycles_ser', 'cycles', lambda x: Protolog._median_cycles(x, 'ser')],
         ['cycles_des', 'cycles', lambda x: Protolog._median_cycles(x, 'des')],
         ['cycles_enc', 'cycles', lambda x: Protolog._median_cycles(x, 'enc')],
