@@ -39,12 +39,7 @@ class SerialReader(serial.threaded.Protocol):
             str_data = data.decode('UTF-8')
             self.recv_buf += str_data
 
-            if '\n\r' in self.recv_buf:
-                lines = self.recv_buf.split('\n\r')
-            elif '\r\n' in self.recv_buf:
-                lines = self.recv_buf.split('\r\n')
-            else:
-                lines = []
+            lines = list(map(str.strip, self.recv_buf.split('\n')))
             if len(lines) > 1:
                 self.lines.extend(lines[:-1])
                 self.recv_buf = lines[-1]
