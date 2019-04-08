@@ -131,7 +131,10 @@ class Protolog:
             if val > 10_000_000:
                 return np.nan
         # All measurements in data[key] cover the same instructions, so they
-        # should be identical.
+        # should be identical -> it's safe to take the median.
+        # However, we leave out the first measurement as it is often bogus.
+        if key == 'nop':
+            return np.median(data['nop'][1:])
         return max(0, int(np.median(data[key][1:]) - np.median(data['nop'][1:])))
 
     def _median_callcycles(data):
@@ -147,6 +150,8 @@ class Protolog:
         ['bss_serdes', 'bss_size_serdes', idem],
         ['callcycles_raw', 'callcycles', idem],
         ['callcycles_median', 'callcycles', _median_callcycles],
+        # Used to remove nop cycles from callcycles_median
+        ['cycles_nop', 'cycles', lambda x: Protolog._median_cycles(x, 'nop')],
         ['cycles_ser', 'cycles', lambda x: Protolog._median_cycles(x, 'ser')],
         ['cycles_des', 'cycles', lambda x: Protolog._median_cycles(x, 'des')],
         ['cycles_enc', 'cycles', lambda x: Protolog._median_cycles(x, 'enc')],
@@ -216,6 +221,11 @@ class Protolog:
                         pass
                     try:
                         val['cycles_desdec'] = val['cycles_des'] + val['cycles_dec']
+                    except KeyError:
+                        pass
+                    try:
+                        for line in val['callcycles_median'].keys():
+                            val['callcycles_median'][line] -= val['cycles_nop']
                     except KeyError:
                         pass
                     try:
