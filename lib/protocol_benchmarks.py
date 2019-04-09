@@ -1,9 +1,14 @@
+import avro.schema
+from avro.datafile import DataFileWriter
+from avro.io import DatumWriter
+
 import bson
 import cbor
 import json
 import msgpack
 import ubjson
 
+import io
 import os
 import re
 import time
@@ -56,6 +61,9 @@ class DummyProtocol:
     def get_buffer_declaration(self):
         return ''
 
+    def get_buffer_name(self):
+        return '"none"'
+
     def get_serialize(self):
         return ''
 
@@ -88,6 +96,60 @@ class DummyProtocol:
         if code_snippet in self.transition_map:
             return self.transition_map[code_snippet]
         return list()
+
+class Avro(DummyProtocol):
+
+    def __init__(self, data):
+        super().__init__()
+        self.data = data
+        self.schema = {
+            'namespace' : 'benchmark.avro',
+            'type' : 'record',
+            'name' : 'Benchmark',
+            'fields' : []
+        }
+        for key, value in data.items():
+            self.add_to_dict(self.schema['fields'], key, value)
+        buf = io.BytesIO()
+        try:
+            writer = avro.datafile.DataFileWriter(buf, avro.io.DatumWriter(), avro.schema.Parse(json.dumps(self.schema)))
+            writer.append(data)
+            writer.flush()
+        except avro.schema.SchemaParseException:
+            raise RuntimeError('Unsupported schema') from None
+        buf.seek(0)
+        self.serialized_data = buf.read()
+
+    def can_get_serialized_length(self):
+        return True
+
+    def get_serialized_length(self):
+        return len(self.serialized_data)
+
+    def type_to_type_name(self, type_type):
+        if type_type == int:
+            return 'int'
+        if type_type == float:
+            return 'float'
+        if type_type == str:
+            return 'string'
+        if type_type == list:
+            return 'array'
+        if type_type == dict:
+            return 'record'
+
+    def add_to_dict(self, fields, key, value):
+        new_field = {
+            'name' : key,
+            'type' : self.type_to_type_name(type(value))
+        }
+        if new_field['type'] == 'array':
+            new_field['type'] = {'type' : 'array', 'items' : self.type_to_type_name(type(value[0]))}
+        if new_field['type'] == 'record':
+            new_field['type'] = {'type' : 'record', 'name': key, 'fields' : []}
+            for key, value in value.items():
+                self.add_to_dict(new_field['type']['fields'], key, value)
+        fields.append(new_field)
 
 class ArduinoJSON(DummyProtocol):
 
@@ -1308,6 +1370,9 @@ class Benchmark:
 def codegen_for_lib(library, library_options, data):
     if library == 'arduinojson':
         return ArduinoJSON(data, bufsize = 512)
+
+    if library == 'avro':
+        return Avro(data)
 
     if library == 'capnproto_c':
         packed = bool(int(library_options[0]))
