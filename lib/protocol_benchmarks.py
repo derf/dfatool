@@ -2,6 +2,10 @@ import avro.schema
 from avro.datafile import DataFileWriter
 from avro.io import DatumWriter
 
+import thriftpy
+from thriftpy.protocol import TCyBinaryProtocolFactory
+from thriftpy.transport import TCyMemoryBuffer
+
 import bson
 import cbor
 import json
@@ -156,6 +160,70 @@ class Avro(DummyProtocol):
             for key, value in value.items():
                 self.add_to_dict(new_field['type']['fields'], key, value)
         fields.append(new_field)
+
+class Thrift(DummyProtocol):
+
+    class_index = 1
+
+    def __init__(self, data):
+        super().__init__()
+        self.data = data
+        self._field_id = 1
+        self.proto_buf = ''
+        self.proto_from_json(data)
+
+        with open('/tmp/test.thrift', 'w') as f:
+            f.write(self.proto_buf)
+
+        membuf = TCyMemoryBuffer()
+        proto = TCyBinaryProtocolFactory().get_protocol(membuf)
+        # TODO irgendwo bleibt state übrig -> nur das bei allerersten
+        # Aufruf geladene Protokoll wird berücksichtigt, dazu nicht passende
+        # Daten werden nicht serialisiert
+        test_thrift = thriftpy.load('/tmp/test.thrift', module_name='test{:d}_thrift'.format(Thrift.class_index))
+        Thrift.class_index += 1
+        benchmark = test_thrift.Benchmark()
+
+        for key, value in data.items():
+            benchmark.__dict__[key] = value
+
+        try:
+            proto.write_struct(benchmark)
+        except thriftpy.thrift.TDecodeException:
+            raise RuntimeError('Unsupported data layout') from None
+        membuf.flush()
+        self.serialized_data = membuf.getvalue()
+
+    def can_get_serialized_length(self):
+        return True
+
+    def get_serialized_length(self):
+        return len(self.serialized_data)
+
+    def type_to_type_name(self, value):
+        type_type = type(value)
+        if type_type == int:
+            return 'i32'
+        if type_type == float:
+            return 'double'
+        if type_type == str:
+            return 'string'
+        if type_type == list:
+            return 'list<{}>'.format(self.type_to_type_name(value[0]))
+        if type_type == dict:
+            sub_value = list(value.values())[0]
+            return 'map<{},{}>'.format('string', self.type_to_type_name(sub_value))
+
+    def add_to_dict(self, key, value):
+        key_type = self.type_to_type_name(value)
+        self.proto_buf += '{:d}: {} {};\n'.format(self._field_id, key_type, key)
+        self._field_id += 1
+
+    def proto_from_json(self, data):
+        self.proto_buf += 'struct Benchmark {\n'
+        for key, value in data.items():
+            self.add_to_dict(key, value)
+        self.proto_buf += '}\n'
 
 class ArduinoJSON(DummyProtocol):
 
@@ -1402,6 +1470,9 @@ def codegen_for_lib(library, library_options, data):
         else:
             strbuf = int(strbuf)
         return NanoPB(data, cardinality = cardinality, max_string_length = strbuf)
+
+    if library == 'thrift':
+        return Thrift(data)
 
     if library == 'ubjson':
         return UBJ(data)
