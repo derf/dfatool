@@ -204,10 +204,14 @@ class Protolog:
                                 arch_lib, benchmark, benchmark_item, aggregate_label,
                                 subv[data_label]['v'], str(e)))
                             pass
-                    codegen = codegen_for_lib(lib, libopts.split(','), subv['data'])
-                    if codegen.max_serialized_bytes != None:
-                        self.add_datapoint(arch, library, (benchmark, benchmark_item), subv, 'buffer_size', data_label, lambda x: codegen.max_serialized_bytes)
-                    else:
+                    try:
+                        codegen = codegen_for_lib(lib, libopts.split(','), subv['data'])
+                        if codegen.max_serialized_bytes != None:
+                            self.add_datapoint(arch, library, (benchmark, benchmark_item), subv, 'buffer_size', data_label, lambda x: codegen.max_serialized_bytes)
+                        else:
+                            self.add_datapoint(arch, library, (benchmark, benchmark_item), subv, 'buffer_size', data_label, lambda x: 0)
+                    except:
+                        # avro's codegen will raise RuntimeError("Unsupported Schema") on unsupported data. Other libraries may just silently ignore it.
                         self.add_datapoint(arch, library, (benchmark, benchmark_item), subv, 'buffer_size', data_label, lambda x: 0)
                     #self.aggregate[(benchmark, benchmark_item)][arch][lib][aggregate_label] = getter(value[data_label]['v'])
 
