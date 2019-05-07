@@ -99,9 +99,10 @@ class DummyProtocol:
 
 class Avro(DummyProtocol):
 
-    def __init__(self, data):
+    def __init__(self, data, strip_schema = False):
         super().__init__()
         self.data = data
+        self.strip_schema = strip_schema
         self.schema = {
             'namespace' : 'benchmark.avro',
             'type' : 'record',
@@ -117,8 +118,13 @@ class Avro(DummyProtocol):
             writer.flush()
         except avro.schema.SchemaParseException:
             raise RuntimeError('Unsupported schema') from None
-        buf.seek(0)
-        self.serialized_data = buf.read()
+        self.serialized_data = buf.getvalue()
+        if strip_schema:
+            self.serialized_data = self.serialized_data[self.serialized_data.find(b'}\x00')+2 : ]
+            # strip leading 16-byte sync marker
+            self.serialized_data = self.serialized_data[16:]
+            # strip trailing 16-byte sync marker
+            self.serialized_data = self.serialized_data[:-16]
 
     def can_get_serialized_length(self):
         return True
@@ -1372,7 +1378,8 @@ def codegen_for_lib(library, library_options, data):
         return ArduinoJSON(data, bufsize = 512)
 
     if library == 'avro':
-        return Avro(data)
+        strip_schema = bool(int(library_options[0]))
+        return Avro(data, strip_schema = strip_schema)
 
     if library == 'capnproto_c':
         packed = bool(int(library_options[0]))
