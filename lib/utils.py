@@ -31,6 +31,21 @@ def float_or_nan(n):
     except ValueError:
         return np.nan
 
+def soft_cast_int(n):
+    """
+    Convert to int, if possible.
+
+    If it is empty, returns None.
+    If it is not numeric, it is left unchanged.
+    """
+    if n == None or n == '':
+        return None
+    try:
+        return int(n)
+    except ValueError:
+        return n
+
+
 def flatten(somelist):
     """
     Flatten a list.
@@ -38,6 +53,13 @@ def flatten(somelist):
     Example: flatten([[1, 2], [3], [4, 5]]) -> [1, 2, 3, 4, 5]
     """
     return [item for sublist in somelist for item in sublist]
+
+def parse_conf_str(conf_str):
+    conf_dict = dict()
+    for option in conf_str.split(','):
+        key, value = option.split(':')
+        conf_dict[key] = soft_cast_int(value)
+    return conf_dict
 
 def param_slice_eq(a, b, index):
     """

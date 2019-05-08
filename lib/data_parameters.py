@@ -6,6 +6,7 @@ length of lists, ane more.
 """
 
 from protocol_benchmarks import codegen_for_lib
+import cycles_to_energy, size_to_radio_energy, utils
 import numpy as np
 import ubjson
 
@@ -175,7 +176,7 @@ class Protolog:
         ['text_serdes', 'text_size_serdes', idem],
     ]
 
-    def __init__(self, logfile):
+    def __init__(self, logfile, cpu_conf = None, cpu_conf_str = None, radio_conf = None, radio_conf_str = None):
         """
         Load and enrich raw protobench log data.
 
@@ -266,6 +267,64 @@ class Protolog:
                         val['allmem_serdes'] = val['text_serdes'] + val['data_serdes'] + val['bss_serdes'] + val['total_dmem_serdes'] - val['buffer_size']
                     except KeyError:
                         pass
+
+        if cpu_conf_str:
+            cpu_conf = utils.parse_conf_str(cpu_conf_str)
+
+        if cpu_conf:
+            cpu = cycles_to_energy.get_class(cpu_conf['model'])
+            for key, value in cpu.default_params.items():
+                if not key in cpu_conf:
+                    cpu_conf[key] = value
+            for key in self.aggregate.keys():
+                for arch in self.aggregate[key].keys():
+                    for lib, val in self.aggregate[key][arch].items():
+                        try:
+                            val['energy_enc'] = int(val['cycles_enc'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                        except KeyError:
+                            pass
+                        try:
+                            val['energy_ser'] = int(val['cycles_ser'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                        except KeyError:
+                            pass
+                        try:
+                            val['energy_encser'] = int(val['cycles_encser'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                        except KeyError:
+                            pass
+                        try:
+                            val['energy_des'] = int(val['cycles_des'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                        except KeyError:
+                            pass
+                        try:
+                            val['energy_dec'] = int(val['cycles_dec'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                        except KeyError:
+                            pass
+                        try:
+                            val['energy_desdec'] = int(val['cycles_desdec'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                        except KeyError:
+                            pass
+
+        if radio_conf_str:
+            radio_conf = utils.parse_conf_str(radio_conf_str)
+
+        if radio_conf:
+            radio = size_to_radio_energy.get_class(radio_conf['model'])
+            for key, value in radio.default_params.items():
+                if not key in radio_conf:
+                    radio_conf[key] = value
+            for key in self.aggregate.keys():
+                for arch in self.aggregate[key].keys():
+                    for lib, val in self.aggregate[key][arch].items():
+                        try:
+                            radio_conf['txbytes'] = val['serialized_size']
+                            if radio_conf['txbytes'] > 0:
+                                val['energy_tx'] = int(radio.get_energy(radio_conf) * 1e9)
+                            else:
+                                val['energy_tx'] = 0
+                            val['energy_encsertx'] = val['energy_encser'] + val['energy_tx']
+                        except KeyError:
+                            pass
+
 
     def add_datapoint(self, arch, lib, key, value, aggregate_label, data_label, getter):
         """
