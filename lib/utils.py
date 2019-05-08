@@ -57,7 +57,7 @@ def flatten(somelist):
 def parse_conf_str(conf_str):
     conf_dict = dict()
     for option in conf_str.split(','):
-        key, value = option.split(':')
+        key, value = option.split('=')
         conf_dict[key] = soft_cast_int(value)
     return conf_dict
 
