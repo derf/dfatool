@@ -50,6 +50,12 @@ class MSP430:
 
         return MSP430.current_by_mem[params['memory']][cpu_freq_index] * 1e-6
 
+    def get_power(params):
+        if type(params) != dict:
+            return MSP430.get_energy(_param_list_to_dict(MSP430, params))
+
+        return MSP430.get_current(params) * params['voltage']
+
 class ATMega168:
     name = 'ATMega168'
     parameters = {

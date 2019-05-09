@@ -280,27 +280,27 @@ class Protolog:
                 for arch in self.aggregate[key].keys():
                     for lib, val in self.aggregate[key][arch].items():
                         try:
-                            val['energy_enc'] = int(val['cycles_enc'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                            val['energy_enc'] = int(val['cycles_enc'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
                         try:
-                            val['energy_ser'] = int(val['cycles_ser'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                            val['energy_ser'] = int(val['cycles_ser'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
                         try:
-                            val['energy_encser'] = int(val['cycles_encser'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                            val['energy_encser'] = int(val['cycles_encser'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
                         try:
-                            val['energy_des'] = int(val['cycles_des'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                            val['energy_des'] = int(val['cycles_des'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
                         try:
-                            val['energy_dec'] = int(val['cycles_dec'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                            val['energy_dec'] = int(val['cycles_dec'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
                         try:
-                            val['energy_desdec'] = int(val['cycles_desdec'] * cpu.get_current(cpu_conf) * cpu_conf['voltage'] / cpu_conf['cpu_freq'] * 1e9)
+                            val['energy_desdec'] = int(val['cycles_desdec'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
 
