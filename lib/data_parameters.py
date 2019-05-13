@@ -183,6 +183,8 @@ class Protolog:
         The enriched data can be accessed via the .aggregate class member,
         see the class documentation for details.
         """
+        self.cpu = None
+        self.radio = None
         with open(logfile, 'rb') as f:
             self.data = ubjson.load(f)
         self.libraries = set()
@@ -272,13 +274,15 @@ class Protolog:
             cpu_conf = utils.parse_conf_str(cpu_conf_str)
 
         if cpu_conf:
-            cpu = cycles_to_energy.get_class(cpu_conf['model'])
+            self.cpu_conf = cpu_conf
+            cpu = self.cpu = cycles_to_energy.get_class(cpu_conf['model'])
             for key, value in cpu.default_params.items():
                 if not key in cpu_conf:
                     cpu_conf[key] = value
             for key in self.aggregate.keys():
                 for arch in self.aggregate[key].keys():
                     for lib, val in self.aggregate[key][arch].items():
+                        # All energy data is stored in nanojoules (nJ)
                         try:
                             val['energy_enc'] = int(val['cycles_enc'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
@@ -308,7 +312,8 @@ class Protolog:
             radio_conf = utils.parse_conf_str(radio_conf_str)
 
         if radio_conf:
-            radio = size_to_radio_energy.get_class(radio_conf['model'])
+            self.radio_conf = radio_conf
+            radio = self.radio = size_to_radio_energy.get_class(radio_conf['model'])
             for key, value in radio.default_params.items():
                 if not key in radio_conf:
                     radio_conf[key] = value
