@@ -11,6 +11,8 @@ def get_class(cpu_name):
         return MSP430
     if cpu_name == 'ATMega168':
         return ATMega168
+    if cpu_name == 'ATMega328':
+        return ATMega328
     if cpu_name == 'ATTiny88':
         return ATTiny88
 
@@ -56,6 +58,12 @@ class MSP430:
 
         return MSP430.get_current(params) * params['voltage']
 
+    def get_energy_per_cycle(params):
+        if type(params) != dict:
+            return MSP430.get_energy(_param_list_to_dict(MSP430, params))
+
+        return MSP430.get_power(params) / params['cpu_freq']
+
 class ATMega168:
     name = 'ATMega168'
     parameters = {
@@ -77,6 +85,52 @@ class ATMega168:
         if params['cpu_freq'] == 8e6 and params['voltage'] <= 5:
             return 12e-3
         return None
+
+    def get_power(params):
+        if type(params) != dict:
+            return ATMega168.get_energy(_param_list_to_dict(ATMega168, params))
+
+        return ATMega168.get_current(params) * params['voltage']
+
+    def get_energy_per_cycle(params):
+        if type(params) != dict:
+            return ATMega168.get_energy(_param_list_to_dict(ATMega168, params))
+
+        return ATMega168.get_power(params) / params['cpu_freq']
+
+class ATMega328:
+    name = 'ATMega328'
+    parameters = {
+        'cpu_freq': [1e6, 4e6, 8e6],
+        'voltage': [2, 3, 5]
+    }
+    default_params = {
+        'cpu_freq': 4e6,
+        'voltage': 3
+    }
+
+    def get_current(params):
+        if type(params) != dict:
+            return ATMega328.get_current(_param_list_to_dict(ATMega328, params))
+        if params['cpu_freq'] == 1e6 and params['voltage'] <= 2:
+            return 0.5e-3
+        if params['cpu_freq'] == 4e6 and params['voltage'] <= 3:
+            return 3.5e-3
+        if params['cpu_freq'] == 8e6 and params['voltage'] <= 5:
+            return 12e-3
+        return None
+
+    def get_power(params):
+        if type(params) != dict:
+            return ATMega328.get_energy(_param_list_to_dict(ATMega328, params))
+
+        return ATMega328.get_current(params) * params['voltage']
+
+    def get_energy_per_cycle(params):
+        if type(params) != dict:
+            return ATMega328.get_energy(_param_list_to_dict(ATMega328, params))
+
+        return ATMega328.get_power(params) / params['cpu_freq']
 
 class ATTiny88:
     name = 'ATTiny88'
