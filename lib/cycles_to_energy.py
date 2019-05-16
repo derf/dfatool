@@ -109,15 +109,19 @@ class ATMega328:
         'voltage': 3
     }
 
+    # Source: ATMega328P Datasheet p.316 / table 28.2.4
     def get_current(params):
         if type(params) != dict:
             return ATMega328.get_current(_param_list_to_dict(ATMega328, params))
-        if params['cpu_freq'] == 1e6 and params['voltage'] <= 2:
-            return 0.5e-3
-        if params['cpu_freq'] == 4e6 and params['voltage'] <= 3:
-            return 3.5e-3
-        if params['cpu_freq'] == 8e6 and params['voltage'] <= 5:
-            return 12e-3
+        # specified for 2V
+        if params['cpu_freq'] == 1e6 and params['voltage'] >= 1.8:
+            return 0.3e-3
+        # specified for 3V
+        if params['cpu_freq'] == 4e6 and params['voltage'] >= 1.8:
+            return 1.7e-3
+        # specified for 5V
+        if params['cpu_freq'] == 8e6 and params['voltage'] >= 2.5:
+            return 5.2e-3
         return None
 
     def get_power(params):
