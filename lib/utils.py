@@ -45,6 +45,20 @@ def soft_cast_int(n):
     except ValueError:
         return n
 
+def soft_cast_float(n):
+    """
+    Convert to float, if possible.
+
+    If it is empty, returns None.
+    If it is not numeric, it is left unchanged.
+    """
+    if n == None or n == '':
+        return None
+    try:
+        return float(n)
+    except ValueError:
+        return n
+
 
 def flatten(somelist):
     """
@@ -58,7 +72,7 @@ def parse_conf_str(conf_str):
     conf_dict = dict()
     for option in conf_str.split(','):
         key, value = option.split('=')
-        conf_dict[key] = soft_cast_int(value)
+        conf_dict[key] = soft_cast_float(value)
     return conf_dict
 
 def param_slice_eq(a, b, index):
