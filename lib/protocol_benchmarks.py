@@ -1410,7 +1410,7 @@ class Benchmark:
                 'ts' : int(time.time())
             }
             print('{} {} {} ({}) :: {} -> [E] {}'.format(
-                libkey, bench_name, bench_index, data, key, error))
+                libkey, bench_name, bench_index, data, key, error[:500]))
 
     def log(self, arch, library, library_options, bench_name, bench_index, data, key, value = None, error = None):
         if not library_options:
