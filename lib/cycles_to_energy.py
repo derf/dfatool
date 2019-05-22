@@ -15,6 +15,8 @@ def get_class(cpu_name):
         return ATMega328
     if cpu_name == 'ATTiny88':
         return ATTiny88
+    if cpu_name == 'esp8266':
+        return ESP8266
 
 def _param_list_to_dict(device, param_list):
     param_dict = dict()
@@ -60,7 +62,7 @@ class MSP430:
 
     def get_energy_per_cycle(params):
         if type(params) != dict:
-            return MSP430.get_energy(_param_list_to_dict(MSP430, params))
+            return MSP430.get_energy_per_cycle(_param_list_to_dict(MSP430, params))
 
         return MSP430.get_power(params) / params['cpu_freq']
 
@@ -94,7 +96,7 @@ class ATMega168:
 
     def get_energy_per_cycle(params):
         if type(params) != dict:
-            return ATMega168.get_energy(_param_list_to_dict(ATMega168, params))
+            return ATMega168.get_energy_per_cycle(_param_list_to_dict(ATMega168, params))
 
         return ATMega168.get_power(params) / params['cpu_freq']
 
@@ -132,9 +134,40 @@ class ATMega328:
 
     def get_energy_per_cycle(params):
         if type(params) != dict:
-            return ATMega328.get_energy(_param_list_to_dict(ATMega328, params))
+            return ATMega328.get_energy_per_cycle(_param_list_to_dict(ATMega328, params))
 
         return ATMega328.get_power(params) / params['cpu_freq']
+
+class ESP8266:
+    # Source: ESP8266EX Datasheet, table 5-2 (v2017.11) / table 3-4 (v2018.11)
+    # Taken at 3.0V
+    name = 'ESP8266'
+    parameters = {
+        'cpu_freq': [80e6],
+        'voltage': [2.5, 3.0, 3.3, 3.6] # min / ... / typ / max
+    }
+    default_params = {
+        'cpu_freq': 80e6,
+        'voltage': 3.0
+    }
+
+    def get_current(params):
+        if type(params) != dict:
+            return ESP8266.get_current(_param_list_to_dict(ESP8266, params))
+
+        return 15e-3
+
+    def get_power(params):
+        if type(params) != dict:
+            return ESP8266.get_power(_param_list_to_dict(ESP8266, params))
+
+        return ESP8266.get_current(params) * params['voltage']
+
+    def get_energy_per_cycle(params):
+        if type(params) != dict:
+            return ESP8266.get_energy_per_cycle(_param_list_to_dict(ESP8266, params))
+
+        return ESP8266.get_power(params) / params['cpu_freq']
 
 class ATTiny88:
     name = 'ATTiny88'
