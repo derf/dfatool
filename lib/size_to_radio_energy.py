@@ -11,12 +11,16 @@ def get_class(radio_name: str):
     """Return model class for radio_name."""
     if radio_name == 'CC1200tx':
         return CC1200tx
+    if radio_name == 'CC1200rx':
+        return CC1200rx
     if radio_name == 'NRF24L01tx':
         return NRF24L01tx
     if radio_name == 'NRF24L01dtx':
         return NRF24L01dtx
     if radio_name == 'esp8266dtx':
         return ESP8266dtx
+    if radio_name == 'esp8266drx':
+        return ESP8266drx
 
 def _param_list_to_dict(device, param_list):
     param_dict = dict()
@@ -37,7 +41,7 @@ class CC1200tx:
         'txpower' : 47,
     }
 
-    def get_energy(params):
+    def get_energy(params: dict):
         if type(params) != dict:
             return CC1200tx.get_energy(_param_list_to_dict(CC1200tx, params))
 
@@ -102,6 +106,56 @@ class CC1200tx:
 
         return de_dx * 1e-6
 
+class CC1200rx:
+    """CC1200 RX energy based on aemr measurements."""
+    name = 'CC1200rx'
+    parameters = {
+        'symbolrate' : [6, 12, 25, 50, 100, 200, 250], # ksps
+        'txbytes' : [],
+        'txpower' : [10, 20, 30, 40, 47], # dBm = f(txpower)
+    }
+    default_params = {
+        'symbolrate' : 100,
+        'txpower' : 47,
+    }
+
+    @staticmethod
+    def get_energy(params):
+        return 0 # TODO
+
+    @staticmethod
+    def get_energy_per_byte(params):
+        #RX        : 0 + regression_arg(0) + regression_arg(1) * np.log(parameter(symbolrate) + 1)
+        # [84414.91636169   205.63323036]
+
+        de_dx = (84414.91636169 + 205.63323036 * np.log(params['symbolrate'] + 1)) * 8000 / params['symbolrate']
+
+        return de_dx * 1e-12
+
+class NRF24L01rx:
+    """NRF24L01+ RX energy based on aemr measurements (using variable packet size)"""
+    name = 'NRF24L01'
+    parameters = {
+        'datarate' : [250, 1000, 2000], # kbps
+        'txbytes' : [],
+        'txpower' : [-18, -12, -6, 0], # dBm
+        'voltage' : [1.9, 3.6],
+    }
+    default_params = {
+        'datarate' : 1000,
+        'txpower' : -6,
+        'voltage' : 3,
+    }
+
+    @staticmethod
+    def get_energy_per_byte(params):
+        # RX        : 0 + regression_arg(0) + regression_arg(1) * np.sqrt(parameter(datarate))
+        #     [48530.73235537   117.25274402]
+
+        de_dx = (48530.73235537 + 117.25274402 * np.sqrt(params['datarate'])) * 8000 / params['datarate']
+
+        return de_dx * 1e-12
+
 # PYTHONPATH=lib bin/analyze-archive.py --show-model=all --show-quality=table ../data/*_RF24_no_retries.tar
 class NRF24L01tx:
     """NRF24L01+ TX(*) energy based on aemr measurements (32B fixed packet size, (*)ack-await, no retries)."""
@@ -128,7 +182,7 @@ class NRF24L01tx:
 #            [  1624.06589147 332251.93798766]
 
 
-
+    @staticmethod
     def get_energy(params):
         if type(params) != dict:
             return NRF24L01tx.get_energy(_param_list_to_dict(NRF24L01tx, params))
@@ -156,6 +210,7 @@ class NRF24L01tx:
 
         return energy
 
+    @staticmethod
     def get_energy_per_byte(params):
         if type(params) != dict:
             return NRF24L01tx.get_energy_per_byte(_param_list_to_dict(NRF24L01tx, params))
@@ -182,6 +237,7 @@ class NRF24L01dtx:
     # 130 us RX settling: 8.9 mE
     # 130 us TX settling: 8 mA
 
+    @staticmethod
     def get_energy(params):
         if type(params) != dict:
             return NRF24L01dtx.get_energy(_param_list_to_dict(NRF24L01dtx, params))
@@ -205,7 +261,7 @@ class NRF24L01dtx:
         return energy
 
 class ESP8266dtx:
-    """esp8266 TX energy based on (hardly documented) datasheet values)"""
+    """esp8266 TX energy based on (hardly documented) datasheet values"""
     name = 'esp8266'
     parameters = {
         'voltage' : [2.5, 3.0, 3.3, 3.6],
@@ -230,3 +286,32 @@ class ESP8266dtx:
         # TX in 802.11n MCS7 -> 64QAM, 65/72.2 Mbit/s @ 20MHz channel, 135/150 Mbit/s @ 40MHz
         # -> Value for 65 Mbit/s @ 20MHz channel
         return params['tx_current'] * params['voltage'] / params['bitrate']
+
+class ESP8266drx:
+    """esp8266 RX energy based on (hardly documented) datasheet values"""
+    name = 'esp8266'
+    parameters = {
+        'voltage' : [2.5, 3.0, 3.3, 3.6],
+        'txbytes' : [],
+        'bitrate' : [65e6],
+        'rx_current' : [56e-3],
+    }
+    default_params = {
+        'voltage' : 3,
+        'bitrate' : 65e6,
+        'rx_current' : 56e-3
+    }
+
+    @staticmethod
+    def get_energy(params):
+        # TODO
+        return 0
+
+    @staticmethod
+    def get_energy_per_byte(params):
+        if type(params) != dict:
+            return ESP8266drx.get_energy_per_byte(_param_list_to_dict(ESP8266drx, params))
+
+        # TX in 802.11n MCS7 -> 64QAM, 65/72.2 Mbit/s @ 20MHz channel, 135/150 Mbit/s @ 40MHz
+        # -> Value for 65 Mbit/s @ 20MHz channel
+        return params['rx_current'] * params['voltage'] / params['bitrate']
