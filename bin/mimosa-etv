@@ -17,7 +17,7 @@ def show_help():
 
 USAGE
 
-mimosa-etv [--skip <count>] [--threshold <power>] [--plot] [--stat] <file>
+mimosa-etv [--skip <count>] [--threshold <power>] [--plot] [--stat] <voltage> <shunt> <file>
 
 DESCRIPTION
 
