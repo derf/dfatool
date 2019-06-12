@@ -237,12 +237,16 @@ class Protolog:
                         pass
                     try:
                         val['total_dmem_ser'] = val['stack_alloc_ser']
+                        val['written_dmem_ser'] = val['stack_set_ser']
                         val['total_dmem_ser'] += val['heap_ser']
+                        val['written_dmem_ser'] += val['heap_ser']
                     except KeyError:
                         pass
                     try:
                         val['total_dmem_des'] = val['stack_alloc_des']
+                        val['written_dmem_des'] = val['stack_set_des']
                         val['total_dmem_des'] += val['heap_des']
+                        val['written_dmem_des'] += val['heap_des']
                     except KeyError:
                         pass
                     try:
@@ -327,6 +331,7 @@ class Protolog:
                             else:
                                 val['energy_tx'] = 0
                             val['energy_encsertx'] = val['energy_encser'] + val['energy_tx']
+                            val['energy_desdecrx'] = val['energy_desdec'] + val['energy_tx']
                         except KeyError:
                             pass
 
