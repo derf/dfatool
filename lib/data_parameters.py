@@ -236,6 +236,18 @@ class Protolog:
                     except KeyError:
                         pass
                     try:
+                        val['data_serdes_delta'] = val['data_serdes'] - val['data_nop'] - val['buffer_size']
+                    except KeyError:
+                        pass
+                    try:
+                        val['bss_serdes_delta'] = val['bss_serdes'] - val['bss_nop']
+                    except KeyError:
+                        pass
+                    try:
+                        val['text_serdes_delta'] = val['text_serdes'] - val['text_nop']
+                    except KeyError:
+                        pass
+                    try:
                         val['total_dmem_ser'] = val['stack_alloc_ser']
                         val['written_dmem_ser'] = val['stack_set_ser']
                         val['total_dmem_ser'] += val['heap_ser']
@@ -271,6 +283,10 @@ class Protolog:
                     try:
                         val['allmem_ser'] = val['text_ser'] + val['data_ser'] + val['bss_ser'] + val['total_dmem_ser'] - val['buffer_size']
                         val['allmem_serdes'] = val['text_serdes'] + val['data_serdes'] + val['bss_serdes'] + val['total_dmem_serdes'] - val['buffer_size']
+                    except KeyError:
+                        pass
+                    try:
+                        val['smem_serdes'] = val['text_serdes'] + val['data_serdes'] + val['bss_serdes'] - val['buffer_size']
                     except KeyError:
                         pass
 
