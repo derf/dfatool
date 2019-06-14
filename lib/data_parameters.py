@@ -236,11 +236,19 @@ class Protolog:
                     except KeyError:
                         pass
                     try:
-                        val['data_serdes_delta'] = val['data_serdes'] - val['data_nop'] - val['buffer_size']
+                        val['data_serdes_delta'] = val['data_serdes'] - val['data_nop']
+                    except KeyError:
+                        pass
+                    try:
+                        val['data_serdes_delta_nobuf'] = val['data_serdes'] - val['data_nop'] - val['buffer_size']
                     except KeyError:
                         pass
                     try:
                         val['bss_serdes_delta'] = val['bss_serdes'] - val['bss_nop']
+                    except KeyError:
+                        pass
+                    try:
+                        val['bss_serdes_delta_nobuf'] = val['bss_serdes'] - val['bss_nop'] - val['buffer_size']
                     except KeyError:
                         pass
                     try:
