@@ -41,6 +41,7 @@ class CC1200tx:
         'txpower' : 47,
     }
 
+    @staticmethod
     def get_energy(params: dict):
         if type(params) != dict:
             return CC1200tx.get_energy(_param_list_to_dict(CC1200tx, params))
@@ -77,6 +78,7 @@ class CC1200tx:
 
         return energy * 1e-6
 
+    @staticmethod
     def get_energy_per_byte(params):
         A  = 8.18053941e+04
         A -= 1.24208376e+03 * np.sqrt(params['symbolrate'])
@@ -121,7 +123,8 @@ class CC1200rx:
 
     @staticmethod
     def get_energy(params):
-        return 0 # TODO
+        # TODO
+        return params['txbytes'] * CC1200rx.get_energy_per_byte(params)
 
     @staticmethod
     def get_energy_per_byte(params):
@@ -275,10 +278,12 @@ class ESP8266dtx:
         'tx_current' : 120e-3
     }
 
+    @staticmethod
     def get_energy(params):
         # TODO
         return 0
 
+    @staticmethod
     def get_energy_per_byte(params):
         if type(params) != dict:
             return ESP8266dtx.get_energy_per_byte(_param_list_to_dict(ESP8266dtx, params))
