@@ -1266,11 +1266,11 @@ class XDR(DummyProtocol):
         self.dec_buf0 += 'XDRInput xdrinput(buf);\n'
         # By default, XDR does not even include a version / protocol specifier.
         # This seems rather impractical -> emulate that here.
-        self.enc_buf += 'xdrstream << (uint32_t)22075;\n'
+        #self.enc_buf += 'xdrstream << (uint32_t)22075;\n'
         self.dec_buf += 'char strbuf[16];\n'
-        self.dec_buf += 'xdrinput.get_uint32();\n'
+        #self.dec_buf += 'xdrinput.get_uint32();\n'
         self.dec_buf0 += 'char strbuf[16];\n'
-        self.dec_buf0 += 'xdrinput.get_uint32();\n'
+        #self.dec_buf0 += 'xdrinput.get_uint32();\n'
         self.from_json(data)
 
     def is_ascii(self):
@@ -1286,6 +1286,122 @@ class XDR(DummyProtocol):
         else:
             self.int_bits = 32
             return sign + 'int32'
+
+    def parse_float_type(self, float_type):
+        if float_type == 'float':
+            self.float_bits = 32
+        else:
+            self.float_bits = 64
+        return float_type
+
+    def get_buffer_declaration(self):
+        ret = 'uint16_t serialized_size;\n'
+        ret += 'char buf[{:d}];\n'.format(self.max_serialized_bytes)
+        return ret
+
+    def get_buffer_name(self):
+        return 'buf'
+
+    def get_length_var(self):
+        return 'xdrstream.size()'
+
+    def get_encode(self):
+        return self.enc_buf
+
+    def get_decode_and_output(self):
+        return 'kout << dec << "dec:";\n' + self.dec_buf + 'kout << endl;\n'
+
+    def get_decode_vars(self):
+        return self.dec_buf0
+
+    def get_decode(self):
+        return self.dec_buf1
+
+    def get_decode_output(self):
+        return 'kout << dec << "dec:";\n' + self.dec_buf2 + 'kout << endl;\n';
+
+    def from_json(self, data):
+        if type(data) == dict:
+            for key in sorted(data.keys()):
+                self.from_json(data[key])
+        elif type(data) == list:
+            #self.enc_buf += 'xdrstream.setNextArrayLen({});\n'.format(len(data))
+            #self.enc_buf += 'xdrstream << variable;\n'
+            self.enc_buf += 'xdrstream << (uint32_t){:d};\n'.format(len(data))
+            self.dec_buf += 'xdrinput.get_uint32();\n'
+            self.dec_buf1 += 'xdrinput.get_uint32();\n'
+            for elem in data:
+                self.from_json(elem)
+        elif type(data) == str:
+            if len(data) and data[0] == '$':
+                self.enc_buf += 'xdrstream << ({}){};\n'.format(self.enc_int_type, data[1:])
+                self.dec_buf += 'kout << xdrinput.get_{}();\n'.format(self.dec_int_type)
+                self.dec_buf0 += '{} dec_{};\n'.format(self.enc_int_type, self.dec_index)
+                self.dec_buf1 += 'dec_{} = xdrinput.get_{}();;\n'.format(self.dec_index, self.dec_int_type)
+                self.dec_buf2 += 'kout << dec_{};\n'.format(self.dec_index)
+            else:
+                # Kodierte Strings haben nicht immer ein Nullbyte am Ende
+                self.enc_buf += 'xdrstream.setNextArrayLen({});\n'.format(len(data))
+                self.enc_buf += self.add_transition('xdrstream << variable << "{}";\n'.format(data), [len(data)])
+                self.dec_buf += 'xdrinput.get_string(strbuf);\n'
+                self.dec_buf += 'kout << strbuf;\n'
+                self.dec_buf1 += 'xdrinput.get_string(strbuf);\n'.format(self.dec_index)
+                self.dec_buf2 += 'kout << strbuf;\n'.format(self.dec_index)
+        elif type(data) == float:
+            self.enc_buf += 'xdrstream << ({}){};\n'.format(self.float_type, data)
+            self.dec_buf += 'kout << xdrinput.get_{}();\n'.format(self.float_type)
+            self.dec_buf0 += '{} dec_{};\n'.format(self.float_type, self.dec_index)
+            self.dec_buf1 += 'dec_{} = xdrinput.get_{}();\n'.format(self.dec_index, self.float_type)
+            self.dec_buf2 += 'kout << dec_{};\n'.format(self.dec_index)
+        elif type(data) == int:
+            self.enc_buf += 'xdrstream << ({}){};\n'.format(self.enc_int_type, data)
+            self.dec_buf += 'kout << xdrinput.get_{}();\n'.format(self.dec_int_type)
+            self.dec_buf0 += '{} dec_{};\n'.format(self.enc_int_type, self.dec_index)
+            self.dec_buf1 += 'dec_{} = xdrinput.get_{}();\n'.format(self.dec_index, self.dec_int_type)
+            self.dec_buf2 += 'kout << dec_{};\n'.format(self.dec_index)
+        else:
+            self.enc_buf += 'xdrstream << {};\n'.format(data)
+            self.dec_buf += '// unsupported type {} of {}\n'.format(type(data), data)
+            self.dec_buf1 += '// unsupported type {} of {}\n'.format(type(data), data)
+        self.dec_index += 1;
+
+class XDR16(DummyProtocol):
+
+    def __init__(self, data, max_serialized_bytes = 256, int_type = 'uint16_t', float_type = 'float'):
+        super().__init__()
+        self.data = data
+        self.max_serialized_bytes = 256
+        self.enc_int_type = int_type
+        self.dec_int_type = self.parse_int_type(int_type)
+        self.float_type = self.parse_float_type(float_type)
+        self.enc_buf += 'BufferOutput<XDRStream> xdrstream(buf);\n'
+        self.dec_buf += 'XDRInput xdrinput(buf);\n'
+        self.dec_buf0 += 'XDRInput xdrinput(buf);\n'
+        # By default, XDR does not even include a version / protocol specifier.
+        # This seems rather impractical -> emulate that here.
+        #self.enc_buf += 'xdrstream << (uint32_t)22075;\n'
+        self.dec_buf += 'char strbuf[16];\n'
+        #self.dec_buf += 'xdrinput.get_uint32();\n'
+        self.dec_buf0 += 'char strbuf[16];\n'
+        #self.dec_buf0 += 'xdrinput.get_uint32();\n'
+        self.from_json(data)
+
+    def is_ascii(self):
+        return False
+
+    def parse_int_type(self, int_type):
+        sign = ''
+        if int_type[0] == 'u':
+            sign = 'u'
+        if '64' in int_type:
+            self.int_bits = 64
+            return sign + 'int64'
+        if '32' in int_type:
+            self.int_bits = 32
+            return sign + 'int32'
+        else:
+            self.int_bits = 16
+            return sign + 'int16'
 
     def parse_float_type(self, float_type):
         if float_type == 'float':
@@ -1479,6 +1595,9 @@ def codegen_for_lib(library, library_options, data):
 
     if library == 'xdr':
         return XDR(data)
+
+    if library == 'xdr16':
+        return XDR16(data)
 
     raise ValueError('Unsupported library: {}'.format(library))
 
