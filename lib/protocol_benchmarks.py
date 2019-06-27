@@ -1443,9 +1443,9 @@ class XDR16(DummyProtocol):
         elif type(data) == list:
             #self.enc_buf += 'xdrstream.setNextArrayLen({});\n'.format(len(data))
             #self.enc_buf += 'xdrstream << variable;\n'
-            self.enc_buf += 'xdrstream << (uint32_t){:d};\n'.format(len(data))
-            self.dec_buf += 'xdrinput.get_uint32();\n'
-            self.dec_buf1 += 'xdrinput.get_uint32();\n'
+            self.enc_buf += 'xdrstream << (uint16_t){:d};\n'.format(len(data))
+            self.dec_buf += 'xdrinput.get_uint16();\n'
+            self.dec_buf1 += 'xdrinput.get_uint16();\n'
             for elem in data:
                 self.from_json(elem)
         elif type(data) == str:
