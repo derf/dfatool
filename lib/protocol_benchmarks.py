@@ -359,7 +359,7 @@ class ArduinoJSON(DummyProtocol):
             self.assign_and_kout(self.int_type, '{}["{}"].as<{}>()'.format(dec_node, key, self.int_type), transition_args = [len(key)])
 
         else:
-            self.note_unsupported(tvalue)
+            self.note_unsupported(value)
 
     def from_json(self, data, enc_node = 'root', dec_node = 'root'):
         if type(data) == dict:
@@ -1174,14 +1174,14 @@ class UBJ(DummyProtocol):
                 self.assign_and_kout('char *', '{}_values[{:d}].string'.format(root, index))
 
         elif type(value) == list:
-            self.enc_buf += 'ubjw_begin_array(ctx, UBJ_MIXED, 0);\n'.format(value)
+            self.enc_buf += 'ubjw_begin_array(ctx, UBJ_MIXED, 0);\n'
             self.dec_buf += '// decoding nested lists is not supported\n'
             self.dec_buf1 += '// decoding nested lists is not supported\n'
             self.from_json(root, value)
             self.enc_buf += 'ubjw_end(ctx);\n'
 
         elif type(value) == dict:
-            self.enc_buf += 'ubjw_begin_object(ctx, UBJ_MIXED, 0);\n'.format(value)
+            self.enc_buf += 'ubjw_begin_object(ctx, UBJ_MIXED, 0);\n'
             self.dec_buf += '// decoding objects in lists is not supported\n'
             self.dec_buf1 += '// decoding objects in lists is not supported\n'
             self.from_json(root, value)
@@ -1261,9 +1261,9 @@ class XDR(DummyProtocol):
         self.enc_int_type = int_type
         self.dec_int_type = self.parse_int_type(int_type)
         self.float_type = self.parse_float_type(float_type)
-        self.enc_buf += 'BufferOutput<XDRStream> xdrstream(buf);\n'
-        self.dec_buf += 'XDRInput xdrinput(buf);\n'
-        self.dec_buf0 += 'XDRInput xdrinput(buf);\n'
+        self.enc_buf += 'XDRWriter xdrstream(buf);\n'
+        self.dec_buf += 'XDRReader xdrinput(buf);\n'
+        self.dec_buf0 += 'XDRReader xdrinput(buf);\n'
         # By default, XDR does not even include a version / protocol specifier.
         # This seems rather impractical -> emulate that here.
         #self.enc_buf += 'xdrstream << (uint32_t)22075;\n'
@@ -1325,16 +1325,16 @@ class XDR(DummyProtocol):
             for key in sorted(data.keys()):
                 self.from_json(data[key])
         elif type(data) == list:
-            #self.enc_buf += 'xdrstream.setNextArrayLen({});\n'.format(len(data))
-            #self.enc_buf += 'xdrstream << variable;\n'
-            self.enc_buf += 'xdrstream << (uint32_t){:d};\n'.format(len(data))
+            self.enc_buf += 'xdrstream.setNextArrayLen({});\n'.format(len(data))
+            self.enc_buf += 'xdrstream.setVariableLength();\n'
+            self.enc_buf += 'xdrstream.startList();\n'
             self.dec_buf += 'xdrinput.get_uint32();\n'
             self.dec_buf1 += 'xdrinput.get_uint32();\n'
             for elem in data:
                 self.from_json(elem)
         elif type(data) == str:
             if len(data) and data[0] == '$':
-                self.enc_buf += 'xdrstream << ({}){};\n'.format(self.enc_int_type, data[1:])
+                self.enc_buf += 'xdrstream.put(({}){});\n'.format(self.enc_int_type, data[1:])
                 self.dec_buf += 'kout << xdrinput.get_{}();\n'.format(self.dec_int_type)
                 self.dec_buf0 += '{} dec_{};\n'.format(self.enc_int_type, self.dec_index)
                 self.dec_buf1 += 'dec_{} = xdrinput.get_{}();;\n'.format(self.dec_index, self.dec_int_type)
@@ -1342,28 +1342,29 @@ class XDR(DummyProtocol):
             else:
                 # Kodierte Strings haben nicht immer ein Nullbyte am Ende
                 self.enc_buf += 'xdrstream.setNextArrayLen({});\n'.format(len(data))
-                self.enc_buf += self.add_transition('xdrstream << variable << "{}";\n'.format(data), [len(data)])
+                self.enc_buf += 'xdrstream.setVariableLength();\n'
+                self.enc_buf += self.add_transition('xdrstream.put("{}");\n'.format(data), [len(data)])
                 self.dec_buf += 'xdrinput.get_string(strbuf);\n'
                 self.dec_buf += 'kout << strbuf;\n'
-                self.dec_buf1 += 'xdrinput.get_string(strbuf);\n'.format(self.dec_index)
-                self.dec_buf2 += 'kout << strbuf;\n'.format(self.dec_index)
+                self.dec_buf1 += 'xdrinput.get_string(strbuf);\n'
+                self.dec_buf2 += 'kout << strbuf;\n'
         elif type(data) == float:
-            self.enc_buf += 'xdrstream << ({}){};\n'.format(self.float_type, data)
+            self.enc_buf += 'xdrstream.put(({}){});\n'.format(self.float_type, data)
             self.dec_buf += 'kout << xdrinput.get_{}();\n'.format(self.float_type)
             self.dec_buf0 += '{} dec_{};\n'.format(self.float_type, self.dec_index)
             self.dec_buf1 += 'dec_{} = xdrinput.get_{}();\n'.format(self.dec_index, self.float_type)
             self.dec_buf2 += 'kout << dec_{};\n'.format(self.dec_index)
         elif type(data) == int:
-            self.enc_buf += 'xdrstream << ({}){};\n'.format(self.enc_int_type, data)
+            self.enc_buf += 'xdrstream.put(({}){});\n'.format(self.enc_int_type, data)
             self.dec_buf += 'kout << xdrinput.get_{}();\n'.format(self.dec_int_type)
             self.dec_buf0 += '{} dec_{};\n'.format(self.enc_int_type, self.dec_index)
             self.dec_buf1 += 'dec_{} = xdrinput.get_{}();\n'.format(self.dec_index, self.dec_int_type)
             self.dec_buf2 += 'kout << dec_{};\n'.format(self.dec_index)
         else:
-            self.enc_buf += 'xdrstream << {};\n'.format(data)
+            self.enc_buf += 'xdrstream.put({});\n'.format(data)
             self.dec_buf += '// unsupported type {} of {}\n'.format(type(data), data)
             self.dec_buf1 += '// unsupported type {} of {}\n'.format(type(data), data)
-        self.dec_index += 1;
+        self.dec_index += 1
 
 class XDR16(DummyProtocol):
 
@@ -1374,9 +1375,9 @@ class XDR16(DummyProtocol):
         self.enc_int_type = int_type
         self.dec_int_type = self.parse_int_type(int_type)
         self.float_type = self.parse_float_type(float_type)
-        self.enc_buf += 'BufferOutput<XDRStream> xdrstream(buf);\n'
-        self.dec_buf += 'XDRInput xdrinput(buf);\n'
-        self.dec_buf0 += 'XDRInput xdrinput(buf);\n'
+        self.enc_buf += 'XDRWriter xdrstream(buf);\n'
+        self.dec_buf += 'XDRReader xdrinput(buf);\n'
+        self.dec_buf0 += 'XDRReader xdrinput(buf);\n'
         # By default, XDR does not even include a version / protocol specifier.
         # This seems rather impractical -> emulate that here.
         #self.enc_buf += 'xdrstream << (uint32_t)22075;\n'
@@ -1441,16 +1442,16 @@ class XDR16(DummyProtocol):
             for key in sorted(data.keys()):
                 self.from_json(data[key])
         elif type(data) == list:
-            #self.enc_buf += 'xdrstream.setNextArrayLen({});\n'.format(len(data))
-            #self.enc_buf += 'xdrstream << variable;\n'
-            self.enc_buf += 'xdrstream << (uint16_t){:d};\n'.format(len(data))
+            self.enc_buf += 'xdrstream.setNextArrayLen({});\n'.format(len(data))
+            self.enc_buf += 'xdrstream.setVariableLength();\n'
+            self.enc_buf += 'xdrstream.startList();\n'
             self.dec_buf += 'xdrinput.get_uint16();\n'
             self.dec_buf1 += 'xdrinput.get_uint16();\n'
             for elem in data:
                 self.from_json(elem)
         elif type(data) == str:
             if len(data) and data[0] == '$':
-                self.enc_buf += 'xdrstream << ({}){};\n'.format(self.enc_int_type, data[1:])
+                self.enc_buf += 'xdrstream.put(({}){});\n'.format(self.enc_int_type, data[1:])
                 self.dec_buf += 'kout << xdrinput.get_{}();\n'.format(self.dec_int_type)
                 self.dec_buf0 += '{} dec_{};\n'.format(self.enc_int_type, self.dec_index)
                 self.dec_buf1 += 'dec_{} = xdrinput.get_{}();;\n'.format(self.dec_index, self.dec_int_type)
@@ -1458,25 +1459,26 @@ class XDR16(DummyProtocol):
             else:
                 # Kodierte Strings haben nicht immer ein Nullbyte am Ende
                 self.enc_buf += 'xdrstream.setNextArrayLen({});\n'.format(len(data))
-                self.enc_buf += self.add_transition('xdrstream << variable << "{}";\n'.format(data), [len(data)])
+                self.enc_buf += 'xdrstream.setVariableLength();\n'
+                self.enc_buf += self.add_transition('xdrstream.put("{}");\n'.format(data), [len(data)])
                 self.dec_buf += 'xdrinput.get_string(strbuf);\n'
                 self.dec_buf += 'kout << strbuf;\n'
-                self.dec_buf1 += 'xdrinput.get_string(strbuf);\n'.format(self.dec_index)
-                self.dec_buf2 += 'kout << strbuf;\n'.format(self.dec_index)
+                self.dec_buf1 += 'xdrinput.get_string(strbuf);\n'
+                self.dec_buf2 += 'kout << strbuf;\n'
         elif type(data) == float:
-            self.enc_buf += 'xdrstream << ({}){};\n'.format(self.float_type, data)
+            self.enc_buf += 'xdrstream.put(({}){});\n'.format(self.float_type, data)
             self.dec_buf += 'kout << xdrinput.get_{}();\n'.format(self.float_type)
             self.dec_buf0 += '{} dec_{};\n'.format(self.float_type, self.dec_index)
             self.dec_buf1 += 'dec_{} = xdrinput.get_{}();\n'.format(self.dec_index, self.float_type)
             self.dec_buf2 += 'kout << dec_{};\n'.format(self.dec_index)
         elif type(data) == int:
-            self.enc_buf += 'xdrstream << ({}){};\n'.format(self.enc_int_type, data)
+            self.enc_buf += 'xdrstream.put(({}){});\n'.format(self.enc_int_type, data)
             self.dec_buf += 'kout << xdrinput.get_{}();\n'.format(self.dec_int_type)
             self.dec_buf0 += '{} dec_{};\n'.format(self.enc_int_type, self.dec_index)
             self.dec_buf1 += 'dec_{} = xdrinput.get_{}();\n'.format(self.dec_index, self.dec_int_type)
             self.dec_buf2 += 'kout << dec_{};\n'.format(self.dec_index)
         else:
-            self.enc_buf += 'xdrstream << {};\n'.format(data)
+            self.enc_buf += 'xdrstream.put({});\n'.format(data)
             self.dec_buf += '// unsupported type {} of {}\n'.format(type(data), data)
             self.dec_buf1 += '// unsupported type {} of {}\n'.format(type(data), data)
         self.dec_index += 1;
