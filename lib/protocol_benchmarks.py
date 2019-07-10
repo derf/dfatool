@@ -861,8 +861,8 @@ class MPack(DummyProtocol):
             self.dec_buf1 += self.add_transition('mpack_expect_map_max(&reader, {:d});\n'.format(len(data)), [len(data)])
             for key in sorted(data.keys()):
                 self.enc_buf += self.add_transition('mpack_write_cstr(&writer, "{}");\n'.format(key), [len(key)])
-                self.dec_buf += 'mpack_expect_cstr(&reader, strbuf, sizeof(strbuf));\n'
-                self.dec_buf1 += self.add_transition('mpack_expect_cstr(&reader, strbuf, sizeof(strbuf));\n', [len(key)])
+                self.dec_buf += 'mpack_expect_cstr_match(&reader, "{}");\n'.format(key)
+                self.dec_buf1 += self.add_transition('mpack_expect_cstr_match(&reader, "{}");\n'.format(key), [len(key)])
                 self.add_value(data[key])
             self.enc_buf += 'mpack_finish_map(&writer);\n'
             self.dec_buf += 'mpack_done_map(&reader);\n'
@@ -1318,7 +1318,7 @@ class XDR(DummyProtocol):
         return self.dec_buf1
 
     def get_decode_output(self):
-        return 'kout << dec << "dec:";\n' + self.dec_buf2 + 'kout << endl;\n';
+        return 'kout << dec << "dec:";\n' + self.dec_buf2 + 'kout << endl;\n'
 
     def from_json(self, data):
         if type(data) == dict:
