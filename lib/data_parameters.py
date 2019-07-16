@@ -315,26 +315,38 @@ class Protolog:
                             val['energy_enc'] = int(val['cycles_enc'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
+                        except ValueError:
+                            print('cycles_enc is NaN for {} -> {} -> {}'.format(arch, lib, key))
                         try:
                             val['energy_ser'] = int(val['cycles_ser'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
+                        except ValueError:
+                            print('cycles_ser is NaN for {} -> {} -> {}'.format(arch, lib, key))
                         try:
                             val['energy_encser'] = int(val['cycles_encser'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
+                        except ValueError:
+                            print('cycles_encser is NaN for {} -> {} -> {}'.format(arch, lib, key))
                         try:
                             val['energy_des'] = int(val['cycles_des'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
+                        except ValueError:
+                            print('cycles_des is NaN for {} -> {} -> {}'.format(arch, lib, key))
                         try:
                             val['energy_dec'] = int(val['cycles_dec'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
+                        except ValueError:
+                            print('cycles_dec is NaN for {} -> {} -> {}'.format(arch, lib, key))
                         try:
                             val['energy_desdec'] = int(val['cycles_desdec'] * cpu.get_power(cpu_conf) / cpu_conf['cpu_freq'] * 1e9)
                         except KeyError:
                             pass
+                        except ValueError:
+                            print('cycles_desdec is NaN for {} -> {} -> {}'.format(arch, lib, key))
 
         if radio_conf_str:
             radio_conf = utils.parse_conf_str(radio_conf_str)
