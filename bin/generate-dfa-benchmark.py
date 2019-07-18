@@ -88,9 +88,15 @@ if __name__ == '__main__':
             outbuf.write('#include "{}"\n'.format(include))
     outbuf.write(harness.global_code())
 
-    outbuf.write('void loop(void)\n')
+    outbuf.write('int main(void)\n')
     outbuf.write('{\n')
+    for driver in ('arch', 'gpio', 'kout'):
+        outbuf.write('{}.setup();\n'.format(driver))
+    if 'setup' in pta.codegen:
+        for call in pta.codegen['setup']:
+            outbuf.write(call)
 
+    outbuf.write('while (1) {\n')
     outbuf.write(harness.start_benchmark())
 
     class_prefix = ''
@@ -127,14 +133,6 @@ if __name__ == '__main__':
     outbuf.write(harness.stop_benchmark())
     print(harness.traces)
     outbuf.write('}\n')
-    outbuf.write('int main(void)\n')
-    outbuf.write('{\n')
-    for driver in ('arch', 'gpio', 'kout'):
-        outbuf.write('{}.setup();\n'.format(driver))
-    if 'setup' in pta.codegen:
-        for call in pta.codegen['setup']:
-            outbuf.write(call)
-    outbuf.write('arch.idle_loop();\n')
     outbuf.write('return 0;\n')
     outbuf.write('}\n')
 
