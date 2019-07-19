@@ -35,6 +35,16 @@ from harness import OnboardTimerHarness
 
 opt = {}
 
+def trace_matches_filter(trace: list, trace_filter: list) -> bool:
+    for allowed_trace in trace_filter:
+        if len(trace) < len(allowed_trace):
+            continue
+        different_element_count = len(list(filter(None, map(lambda x,y: x[0].name != y, trace, allowed_trace))))
+        if different_element_count == 0:
+            return True
+    return False
+
+
 if __name__ == '__main__':
 
     try:
@@ -46,6 +56,7 @@ if __name__ == '__main__':
             'run= '
             'sleep= '
             'timer-pin= '
+            'trace-filter= '
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
 
@@ -60,6 +71,12 @@ if __name__ == '__main__':
 
         if 'sleep' in opt:
             opt['sleep'] = int(opt['sleep'])
+
+        if 'trace-filter' in opt:
+            trace_filter = []
+            for trace in opt['trace-filter'].split():
+                trace_filter.append(trace.split(','))
+            opt['trace-filter'] = trace_filter
 
     except getopt.GetoptError as err:
         print(err)
@@ -106,14 +123,18 @@ if __name__ == '__main__':
         class_prefix = '{}.'.format(pta.codegen['instance'])
 
     num_transitions = 0
+    num_traces = 0
     for run in pta.dfs(opt['depth'], with_arguments = True, with_parameters = True):
+        if 'trace-filter' in opt and not trace_matches_filter(run, opt['trace-filter']):
+            continue
         outbuf.write(harness.start_run())
         harness.start_trace()
         param = pta.get_initial_param_dict()
         for transition, arguments, parameter in run:
             num_transitions += 1
             harness.append_state(transition.origin.name, param)
-            harness.append_transition(transition.name, param)
+            harness.append_transition(transition.name, param, arguments)
+            param = transition.get_params_after_transition(param, arguments)
             outbuf.write('// {} -> {}\n'.format(transition.origin.name, transition.destination.name))
             if transition.is_interrupt:
                 outbuf.write('// wait for {} interrupt\n'.format(transition.name))
@@ -127,11 +148,15 @@ if __name__ == '__main__':
             if 'sleep' in opt:
                 outbuf.write('arch.delay_ms({:d});\n'.format(opt['sleep']))
 
-        outbuf.write(harness.stop_run())
+        outbuf.write(harness.stop_run(num_traces))
         outbuf.write('\n')
+        num_traces += 1
+
+    if num_transitions == 0:
+        print('DFS returned no traces -- perhaps your trace-filter is too restrictive?', file=sys.stderr)
+        sys.exit(1)
 
     outbuf.write(harness.stop_benchmark())
-    print(harness.traces)
     outbuf.write('}\n')
     outbuf.write('return 0;\n')
     outbuf.write('}\n')
@@ -156,8 +181,7 @@ if __name__ == '__main__':
                 while True:
                     time.sleep(5)
                     slept += 5
-                    if slept < run_timeout:
-                        print('[MON] approx. {:.0f}% done'.format(slept * 100 / run_timeout))
+                    print('[MON] approx. {:.0f}% done'.format(slept * 100 / run_timeout))
             except KeyboardInterrupt:
                 pass
             lines = monitor.get_lines()

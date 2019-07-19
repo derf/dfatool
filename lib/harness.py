@@ -3,6 +3,7 @@ Harnesses for various types of benchmark logs.
 
 tbd
 """
+import subprocess
 import re
 
 # TODO prepare benchmark log JSON with parameters etc.
@@ -14,6 +15,12 @@ class TransitionHarness:
         self.gpio_pin = gpio_pin
         self.traces = []
         self.trace_id = 1
+        pass
+
+    def start_benchmark(self):
+        pass
+
+    def stop_benchmark(self):
         pass
 
     def global_code(self):
@@ -44,11 +51,12 @@ class TransitionHarness:
             'parameter': param,
         })
 
-    def append_transition(self, transition_name, param):
+    def append_transition(self, transition_name, param, args = []):
         self.traces[-1]['trace'].append({
             'name': transition_name,
             'isa': 'transition',
             'parameter': param,
+            'args' : args,
         })
 
     def start_run(self):
@@ -61,23 +69,26 @@ class TransitionHarness:
         ret += 'ptalog.stopTransition();\n'
         return ret
 
-    def stop_run(self):
-        return 'ptalog.dump();\n'
+    def stop_run(self, trace_id = 0):
+        return 'ptalog.dump({:d});\n'.format(trace_id)
 
     def stop_benchmark(self):
         return ''
+
+    def parser_cb(self, line):
+        pass
 
     def parse_log(self, lines):
         sync = False
         for line in lines:
             print(line)
-            res = re.fullmatch('\[PTA\] (.*=.*)', line)
-            if re.fullmatch('\[PTA\] benchmark start, id=(.*)', line):
+            res = re.fullmatch(r'\[PTA\] (.*=.*)', line)
+            if re.fullmatch(r'\[PTA\] benchmark start, id=(.*)', line):
                 print('> got sync')
                 sync = True
             elif not sync:
                 continue
-            elif re.fullmatch('\[PTA\] trace, count=(.*)', line):
+            elif re.fullmatch(r'\[PTA\] trace, count=(.*)', line):
                 print('> got transition')
                 pass
             elif res:
