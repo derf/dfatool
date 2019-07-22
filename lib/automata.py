@@ -490,8 +490,22 @@ class PTA:
         Return a generator object for depth-first search starting at orig_state.
 
         arguments:
-        depth -- search depth
-        orig_state -- initial state for depth-first search
+        depth: search depth
+        orig_state: initial state for depth-first search
+        param_dict: initial parameter values
+        with_arguments: perform dfs with argument values
+        with_parameters: include parameters in trace?
+
+        The returned generator emits traces. Each trace consts of a list of
+        tuples describing the corresponding transition and (if enabled)
+        arguments and parameters. When both with_arguments and with_parameters
+        are True, each transition is a (Transition object, argument list, parameter dict) tuple.
+
+        Note that the parameter dict refers to parameter values _after_
+        passing the corresponding transition. Although this may seem odd at
+        first, it is useful when analyzing measurements: Properties of
+        the state following this transition may be affected by the parameters
+        set by the transition, so it is useful to have those readily available.
         """
         if with_parameters and not param_dict:
             param_dict = self.get_initial_param_dict()
