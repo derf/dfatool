@@ -405,6 +405,8 @@ class PTA:
                         arg_to_param_map[argument['parameter']] = i
             if 'argument_combination' in transition:
                 kwargs['argument_combination'] = transition['argument_combination']
+            if 'set_param' in transition:
+                kwargs['set_param'] = transition['set_param']
             if 'is_interrupt' in transition:
                 kwargs['is_interrupt'] = transition['is_interrupt']
             if not 'src' in transition:
