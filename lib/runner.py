@@ -10,6 +10,7 @@ Functions:
     get_counter_limits -- return arch-specific multipass counter limits (max value, max overflow)
 """
 
+import os
 import re
 import serial
 import serial.threaded
@@ -39,12 +40,16 @@ class SerialReader(serial.threaded.Protocol):
             str_data = data.decode('UTF-8')
             self.recv_buf += str_data
 
-            lines = list(map(str.strip, self.recv_buf.split('\n')))
+            # We may get anything between \r\n, \n\r and simple \n newlines.
+            # We assume that \n is always present and use str.strip to remove leading/trailing \r symbols
+            # Note: Do not call str.strip on lines[-1]! Otherwise, lines may be mangled
+            lines = self.recv_buf.split('\n')
             if len(lines) > 1:
-                self.lines.extend(lines[:-1])
+                self.lines.extend(map(str.strip, lines[:-1]))
                 self.recv_buf = lines[-1]
                 if self.callback:
-                    self.callback(lines[:-1])
+                    for line in lines[:-1]:
+                        self.callback(str.strip(line))
 
         except UnicodeDecodeError:
             pass
@@ -117,6 +122,51 @@ class SerialMonitor:
         self.worker.stop()
         self.ser.close()
 
+
+class MIMOSAMonitor(SerialMonitor):
+    def __init__(self, port: str, baud: int, callback = None, offset = 130, shunt = 330, voltage = 3.3):
+        super().__init__(port = port, baud = baud, callback = callback)
+        self._offset = offset
+        self._shunt = shunt
+        self._voltage = voltage
+        self._start_mimosa()
+
+    def _mimosacmd(self, opts):
+        cmd = ['MimosaCMD']
+        cmd.extend(opts)
+        res = subprocess.run(cmd)
+        if res.returncode != 0:
+            raise RuntimeError('MimosaCMD returned ' + res.returncode)
+
+    def _start_mimosa(self):
+        self._mimosacmd(['--start'])
+        self._mimosacmd(['--parameter', 'offset', str(self._offset)])
+        self._mimosacmd(['--parameter', 'shunt', str(self._shunt)])
+        self._mimosacmd(['--parameter', 'voltage', str(self._voltage)])
+        self._mimosacmd(['--mimosa-start'])
+
+    def _stop_mimosa(self):
+        self._mimosacmd(['--mimosa-stop'])
+        mtime_changed = True
+        mim_file = None
+        time.sleep(1)
+        for filename in os.listdir():
+            if re.search(r'[.]mim$', filename):
+                mim_file = filename
+                break
+        while mtime_changed:
+            mtime_changed = False
+            if time.time() - os.stat(mim_file).st_mtime < 3:
+                mtime_changed = True
+            time.sleep(1)
+        self._mimosacmd(['--stop'])
+        return mim_file
+
+    def close(self):
+        super().close()
+        mim_file = self._stop_mimosa()
+        os.remove(mim_file)
+
 class ShellMonitor:
     """SerialMonitor runs a program and captures its output for a specific amount of time."""
     def __init__(self, script: str, callback = None):
@@ -140,7 +190,8 @@ class ShellMonitor:
             stdout = subprocess.PIPE, stderr = subprocess.PIPE,
             universal_newlines = True)
         if self.callback:
-            self.callback(res.stdout.split('\n'))
+            for line in res.stdout.split('\n'):
+                self.callback(line)
         return res.stdout.split('\n')
 
     def monitor(self):
@@ -193,12 +244,15 @@ def get_info(arch, opts: list = []) -> list:
     return res.stdout.split('\n')
 
 def get_monitor(arch: str, **kwargs) -> object:
-    """Return a SerialMonitor or ShellMonitor."""
+    """Return a SerialMonitor or ShellMonitor, depending on "make info" output of arch."""
     for line in get_info(arch):
         if 'Monitor:' in line:
             _, port, arg = line.split(' ')
             if port == 'run':
                 return ShellMonitor(arg, **kwargs)
+            elif 'mimosa' in kwargs:
+                mimosa_kwargs = kwargs.pop('mimosa')
+                return MIMOSAMonitor(port, arg, **mimosa_kwargs, **kwargs)
             else:
                 return SerialMonitor(port, arg, **kwargs)
     raise RuntimeError('Monitor failure')
@@ -211,4 +265,21 @@ def get_counter_limits(arch: str) -> tuple:
             overflow_value = int(match.group(1))
             max_overflow = int(match.group(2))
             return overflow_value, max_overflow
+    raise RuntimeError('Did not find Counter Overflow limits')
+
+def get_counter_limits_us(arch: str) -> tuple:
+    """Return duration of one counter step and one counter overflow in us."""
+    cpu_freq = 0
+    overflow_value = 0
+    max_overflow = 0
+    for line in get_info(arch):
+        match = re.match(r'CPU\s+Freq:\s+(.*)\s+Hz', line)
+        if match:
+            cpu_freq = int(match.group(1))
+        match = re.match(r'Counter Overflow:\s+([^/]*)/(.*)', line)
+        if match:
+            overflow_value = int(match.group(1))
+            max_overflow = int(match.group(2))
+    if cpu_freq and overflow_value:
+        return 1000000 / cpu_freq, overflow_value * 1000000 / cpu_freq, max_overflow
     raise RuntimeError('Did not find Counter Overflow limits')

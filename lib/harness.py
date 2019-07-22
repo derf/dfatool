@@ -11,16 +11,17 @@ import re
 # generated otherwise and it should also work with AnalyticModel (which does
 # not have states)
 class TransitionHarness:
-    def __init__(self, gpio_pin = None):
+    def __init__(self, gpio_pin = None, pta = None):
         self.gpio_pin = gpio_pin
+        self.pta = pta
+        self.reset()
+
+    def reset(self):
         self.traces = []
         self.trace_id = 1
-        pass
+        self.synced = False
 
     def start_benchmark(self):
-        pass
-
-    def stop_benchmark(self):
         pass
 
     def global_code(self):
@@ -34,8 +35,8 @@ class TransitionHarness:
             ret += 'PTALog ptalog;\n'
         return ret
 
-    def start_benchmark(self):
-        return 'ptalog.startBenchmark(0);\n'
+    def start_benchmark(self, benchmark_id = 0):
+        return 'ptalog.startBenchmark({:d});\n'.format(benchmark_id)
 
     def start_trace(self):
         self.traces.append({
@@ -62,15 +63,15 @@ class TransitionHarness:
     def start_run(self):
         return 'ptalog.reset();\n'
 
-    def pass_transition(self, transition_id, transition_code, transition: object = None, parameter: dict = dict()):
+    def pass_transition(self, transition_id, transition_code, transition: object = None):
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
         ret += 'ptalog.startTransition();\n'
         ret += '{}\n'.format(transition_code)
         ret += 'ptalog.stopTransition();\n'
         return ret
 
-    def stop_run(self, trace_id = 0):
-        return 'ptalog.dump({:d});\n'.format(trace_id)
+    def stop_run(self, num_traces = 0):
+        return 'ptalog.dump({:d});\n'.format(num_traces)
 
     def stop_benchmark(self):
         return ''
@@ -96,8 +97,11 @@ class TransitionHarness:
                 pass
 
 class OnboardTimerHarness(TransitionHarness):
-    def __init__(self, gpio_pin = None):
-        super().__init__(gpio_pin = gpio_pin)
+    def __init__(self, counter_limits, **kwargs):
+        super().__init__(**kwargs)
+        self.trace_id = 0
+        self.trace_length = 0
+        self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow = counter_limits
 
     def global_code(self):
         ret = '#include "driver/counter.h"\n'
@@ -105,14 +109,14 @@ class OnboardTimerHarness(TransitionHarness):
         ret += super().global_code()
         return ret
 
-    def start_benchmark(self):
+    def start_benchmark(self, benchmark_id = 0):
         ret = 'counter.start();\n'
         ret += 'counter.stop();\n'
         ret += 'ptalog.passNop(counter);\n'
-        ret += super().start_benchmark()
+        ret += super().start_benchmark(benchmark_id)
         return ret
 
-    def pass_transition(self, transition_id, transition_code, transition: object = None, parameter: dict = dict()):
+    def pass_transition(self, transition_id, transition_code, transition: object = None):
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
         ret += 'ptalog.startTransition();\n'
         ret += 'counter.start();\n'
@@ -120,3 +124,48 @@ class OnboardTimerHarness(TransitionHarness):
         ret += 'counter.stop();\n'
         ret += 'ptalog.stopTransition(counter);\n'
         return ret
+
+    def parser_cb(self, line):
+        #print('[HARNESS] got line {}'.format(line))
+        if re.match(r'\[PTA\] benchmark start, id=(.*)', line):
+            self.synced = True
+            print('[HARNESS] synced')
+        if self.synced:
+            res = re.match(r'\[PTA\] trace=(.*) count=(.*)', line)
+            if res:
+                self.trace_id = int(res.group(1))
+                self.trace_length = int(res.group(2))
+                self.current_transition_in_trace = 0
+                #print('[HARNESS] trace {:d} contains {:d} transitions. Expecting {:d} transitions.'.format(self.trace_id, self.trace_length, len(self.traces[self.trace_id]['trace']) // 2))
+            res = re.match(r'\[PTA\] transition=(.*) cycles=(.*)/(.*)', line)
+            if res:
+                transition_id = int(res.group(1))
+                # TODO Handle Overflows (requires knowledge of arch-specific max cycle value)
+                cycles = int(res.group(2))
+                overflow = int(res.group(3))
+                if overflow >= self.counter_max_overflow:
+                    raise RuntimeError('Counter overflow ({:d}/{:d}) in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d})'.format(cycles, overflow, 0, self.trace_id, self.current_transition_in_trace, transition_id))
+                duration_us = cycles * self.one_cycle_in_us + overflow * self.one_overflow_in_us
+                # self.traces contains transitions and states, UART output only contains trnasitions -> use index * 2
+                try:
+                    log_data_target = self.traces[self.trace_id]['trace'][self.current_transition_in_trace * 2]
+                except IndexError:
+                    transition_name = None
+                    if self.pta:
+                        transition_name = self.pta.transitions[transition_id].name
+                    print('[HARNESS] benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}, name {}) is out of bounds'.format(0, self.trace_id, self.current_transition_in_trace, transition_id, transition_name))
+                    print('          Offending line: {}'.format(line))
+                    return
+                if log_data_target['isa'] != 'transition':
+                    raise RuntimeError('Log mismatch: Expected transition, got {:s}'.format(log_data_target['isa']))
+                if self.pta:
+                    transition = self.pta.transitions[transition_id]
+                    if transition.name != log_data_target['name']:
+                        raise RuntimeError('Log mismatch: Expected transition {:s}, got transition {:s}'.format(log_data_target['name'], transition.name))
+                #print('[HARNESS] Logging data for transition {}'.format(log_data_target['name']))
+                if 'offline_aggregates' not in log_data_target:
+                    log_data_target['offline_aggregates'] = {
+                        'duration' : list()
+                    }
+                log_data_target['offline_aggregates']['duration'].append(duration_us)
+                self.current_transition_in_trace += 1
