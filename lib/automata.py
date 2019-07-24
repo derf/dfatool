@@ -396,7 +396,6 @@ class PTA:
             arguments = list()
             argument_values = list()
             arg_to_param_map = dict()
-            is_interrupt = False
             if 'arguments' in transition:
                 for i, argument in enumerate(transition['arguments']):
                     arguments.append(argument['name'])

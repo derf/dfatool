@@ -21,9 +21,6 @@ class TransitionHarness:
         self.trace_id = 1
         self.synced = False
 
-    def start_benchmark(self):
-        pass
-
     def global_code(self):
         ret = ''
         if self.gpio_pin != None:

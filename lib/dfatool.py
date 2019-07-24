@@ -15,7 +15,7 @@ from multiprocessing import Pool
 from automata import PTA
 from functions import analytic
 from functions import AnalyticFunction
-from utils import *
+from utils import vprint, is_numeric, soft_cast_int, param_slice_eq, compute_param_statistics
 
 arg_support_enabled = True
 
@@ -30,44 +30,6 @@ def running_mean(x: np.ndarray, N: int) -> np.ndarray:
     cumsum = np.cumsum(np.insert(x, 0, 0))
     return (cumsum[N:] - cumsum[:-N]) / N
 
-def soft_cast_int(n):
-    """
-    Convert to int, if possible.
-
-    If it is empty, returns None.
-    If it is not numeric, it is left unchanged.
-    """
-    if n == None or n == '':
-        return None
-    try:
-        return int(n)
-    except ValueError:
-        return n
-
-def vprint(verbose: bool, string: str):
-    """
-    Print string if verbose.
-
-    Prints string if verbose is a True value
-    """
-    if verbose:
-        print(string)
-
-    # I don't recall what these are for.
-    # --df, 2019-01-29
-    def _gplearn_add_(x, y):
-        return x + y
-
-    def _gplearn_sub_(x, y):
-        return x - y
-
-    def _gplearn_mul_(x, y):
-        return x * y
-
-    def _gplearn_div_(x, y):
-        if np.abs(y) > 0.001:
-            return x / y
-        return 1.
 
 def gplearn_to_function(function_str: str):
     """
@@ -162,7 +124,7 @@ def regression_measures(predicted: np.ndarray, actual: np.ndarray):
     if type(actual) != np.ndarray:
         raise ValueError('second arg must be ndarray, is {}'.format(type(actual)))
     deviations = predicted - actual
-    mean = np.mean(actual)
+    #mean = np.mean(actual)
     if len(deviations) == 0:
         return {}
     measures = {
@@ -203,7 +165,7 @@ class KeysightCSV:
         Returns two one-dimensional NumPy arrays: timestamps and corresponding currents.
         """
         with open(filename) as f:
-            for i, l in enumerate(f):
+            for i, _ in enumerate(f):
                 pass
             timestamps = np.ndarray((i-3), dtype=float)
             currents = np.ndarray((i-3), dtype=float)
@@ -330,7 +292,7 @@ class CrossValidator:
                     'smape_list': list()
                 }
 
-        for i in range(count):
+        for _ in range(count):
             res = self._single_montecarlo(model_getter)
             for name in self.names:
                 for attribute in self.by_name[name]['attributes']:
@@ -1113,7 +1075,6 @@ class AnalyticModel:
         for name in self.by_name.keys():
             for attribute in self.by_name[name]['attributes']:
                 for param_index, param in enumerate(self.parameters):
-                    ratio = self.stats.param_dependence_ratio(name, attribute, param)
                     if self.stats.depends_on_param(name, attribute, param):
                         paramfit.enqueue(name, attribute, param_index, param, False)
                 if arg_support_enabled and name in self._num_args:
@@ -1455,9 +1416,6 @@ class PTAModel:
 
         return lut_median_getter
 
-    def get_param_analytic(self):
-        static_model = self._get_model_from_dict(self.by_name, np.median)
-
     def param_index(self, param_name):
         if param_name in self._parameter_names:
             return self._parameter_names.index(param_name)
@@ -1483,8 +1441,6 @@ class PTAModel:
         param_model = dict([[state_or_tran, {}] for state_or_tran in self.by_name.keys()])
         paramfit = ParallelParamFit(self.by_param)
         for state_or_tran in self.by_name.keys():
-            param_keys = filter(lambda k: k[0] == state_or_tran, self.by_param.keys())
-            param_subdict = dict(map(lambda k: [k, self.by_param[k]], param_keys))
             for model_attribute in self.by_name[state_or_tran]['attributes']:
                 fit_results = {}
                 for parameter_index, parameter_name in enumerate(self._parameter_names):
@@ -1823,11 +1779,8 @@ class MIMOSA:
         chg_r1 = charges[r1_start:r1_end]
         chg_r2 = charges[r2_start:r2_end]
         cal_0_mean = np.mean(chg_r0)
-        cal_0_std = np.std(chg_r0)
         cal_r1_mean = np.mean(chg_r1)
-        cal_r1_std = np.std(chg_r1)
         cal_r2_mean = np.mean(chg_r2)
-        cal_r2_std = np.std(chg_r2)
 
         ua_r1 = self.voltage / self.r1 * 1000000
         ua_r2 = self.voltage / self.r2 * 1000000
@@ -1839,11 +1792,9 @@ class MIMOSA:
             b_lower = 0
 
         b_upper = (ua_r1 - ua_r2) / (cal_r1_mean - cal_r2_mean)
-        b_total = (ua_r1 - 0) / (cal_r1_mean - cal_0_mean)
 
         a_lower = -b_lower * cal_0_mean
         a_upper = -b_upper * cal_r2_mean
-        a_total = -b_total * cal_0_mean
 
         if self.shunt == 680:
             # R1 current is higher than shunt range -> only use R2 for calibration

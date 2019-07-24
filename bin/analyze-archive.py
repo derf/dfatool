@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-analyze-archive -- generate PTA energy model from annotated traces.
+analyze-archive -- generate PTA energy model from annotated legacy MIMOSA traces.
 
 Usage:
 PYTHONPATH=lib bin/analyze-archive.py [options] <tracefiles ...>
