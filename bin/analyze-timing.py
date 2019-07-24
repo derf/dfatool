@@ -106,38 +106,6 @@ def model_quality_table(result_lists, info_list):
                     buf += '{:6}----{:9}'.format('', '')
             print(buf)
 
-def model_summary_table(result_list):
-    buf = 'transition duration'
-    for results in result_list:
-        if len(buf):
-            buf += '  |||  '
-        buf += format_quality_measures(results['duration_by_trace'])
-    print(buf)
-    buf = 'total energy       '
-    for results in result_list:
-        if len(buf):
-            buf += '  |||  '
-        buf += format_quality_measures(results['energy_by_trace'])
-    print(buf)
-    buf = 'rel total energy   '
-    for results in result_list:
-        if len(buf):
-            buf += '  |||  '
-        buf += format_quality_measures(results['rel_energy_by_trace'])
-    print(buf)
-    buf = 'state-only energy  '
-    for results in result_list:
-        if len(buf):
-            buf += '  |||  '
-        buf += format_quality_measures(results['state_energy_by_trace'])
-    print(buf)
-    buf = 'transition timeout '
-    for results in result_list:
-        if len(buf):
-            buf += '  |||  '
-        buf += format_quality_measures(results['timeout_by_trace'])
-    print(buf)
-
 
 def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
     print('')
@@ -297,8 +265,6 @@ if __name__ == '__main__':
 
     if 'table' in show_quality or 'all' in show_quality:
         model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
-    if 'summary' in show_quality or 'all' in show_quality:
-        model_summary_table([static_quality, analytic_quality, lut_quality])
 
     if 'plot-param' in opts:
         for kv in opts['plot-param'].split(';'):
@@ -309,13 +275,6 @@ if __name__ == '__main__':
                 function = None
             plotter.plot_param(model, state_or_trans, attribute, model.param_index(param_name), extra_function=function)
 
-    if 'export-energymodel' in opts:
-        if not hwmodel:
-            print('[E] --export-energymodel requires --hwmodel to be set')
-            sys.exit(1)
-        json_model = model.to_json()
-        with open(opts['export-energymodel'], 'w') as f:
-            json.dump(json_model, f, indent = 2, sort_keys = True)
 
 
     sys.exit(0)
