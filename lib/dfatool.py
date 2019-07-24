@@ -523,7 +523,7 @@ class ParamStats:
 
 class TimingData:
     """
-    Loader for timing model traces measured with on-board timers.
+    Loader for timing model traces measured with on-board timers using ``harness.OnboardTimerHarness``.
 
     Excpets a specific trace format and UART log output (as produced by
     generate-dfa-benchmark.py). Prunes states from output. (TODO)

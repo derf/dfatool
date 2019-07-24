@@ -195,11 +195,15 @@ def _corr_by_param(by_name, state_or_trans, attribute, param_index):
         param_values = np.array(list((map(lambda x: x[param_index], by_name[state_or_trans]['param']))))
         try:
             return np.corrcoef(by_name[state_or_trans][attribute], param_values)[0, 1]
-        except FloatingPointError as fpe:
+        except FloatingPointError:
             # Typically happens when all parameter values are identical.
             # Building a correlation coefficient is pointless in this case
             # -> assume no correlation
             return 0.
+        except ValueError:
+            print('[!] Exception in _corr_by_param(by_name, state_or_trans={}, attribute={}, param_index={})'.format(state_or_trans, attribute, param_index))
+            print('[!] while executing np.corrcoef(by_name[{}][{}]={}, {}))'.format(state_or_trans, attribute, by_name[state_or_trans][attribute], param_values))
+            raise
     else:
         return 0.
 
