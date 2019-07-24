@@ -521,6 +521,86 @@ class ParamStats:
         else:
             return self.arg_dependence_ratio(state_or_trans, attribute, arg_index) > 0.5
 
+class TimingData:
+    """
+    Loader for timing model traces measured with on-board timers.
+
+    Excpets a specific trace format and UART log output (as produced by
+    generate-dfa-benchmark.py). Prunes states from output. (TODO)
+    """
+
+    def __init__(self, filenames):
+        """
+        Create a new TimingData object.
+
+        Each filenames element corresponds to a measurement run.
+        """
+        self.filenames = filenames.copy()
+        self.traces_by_fileno = []
+        self.setup_by_fileno = []
+        self.preprocessed = False
+        self._parameter_names = None
+        self.version = 0
+
+    def _concatenate_analyzed_traces(self):
+        self.traces = []
+        for trace_group in self.traces_by_fileno:
+            for trace in trace_group:
+                # TimingHarness logs states, but does not aggregate any data for them at the moment -> throw all states away
+                transitions = list(filter(lambda x: x['isa'] == 'transition', trace['trace']))
+                self.traces.append({
+                    'id' : trace['id'],
+                    'trace': transitions,
+                })
+        for i, trace in enumerate(self.traces):
+            trace['orig_id'] = trace['id']
+            trace['id'] = i
+            for log_entry in trace['trace']:
+                paramkeys = sorted(log_entry['parameter'].keys())
+                paramvalues = [soft_cast_int(log_entry['parameter'][x]) for x in paramkeys]
+                if not 'param' in log_entry['offline_aggregates']:
+                    log_entry['offline_aggregates']['param'] = list()
+                if 'duration' in log_entry['offline_aggregates']:
+                    for i in range(len(log_entry['offline_aggregates']['duration'])):
+                        log_entry['offline_aggregates']['param'].append(paramvalues)
+
+    def _preprocess_0(self):
+        for filename in self.filenames:
+            with open(filename, 'r') as f:
+                log_data = json.load(f)
+                self.traces_by_fileno.append(log_data['traces'])
+        self._concatenate_analyzed_traces()
+
+    def get_preprocessed_data(self, verbose = True):
+        """
+        Return a list of DFA traces annotated with timing, and parameter data.
+
+        Suitable for the PTAModel constructor.
+        See PTAModel(...) docstring for format details.
+        """
+        self.verbose = verbose
+        if self.preprocessed:
+            return self.traces
+        if self.version == 0:
+            self._preprocess_0()
+        self.preprocessed = True
+        return self.traces
+
+def sanity_check_aggregate(aggregate):
+    for key in aggregate:
+        if not 'param' in aggregate[key]:
+            raise RuntimeError('aggregate[{}][param] does not exist'.format(key))
+        if not 'attributes' in aggregate[key]:
+            raise RuntimeError('aggregate[{}][attributes] does not exist'.format(key))
+        for attribute in aggregate[key]['attributes']:
+            if not attribute in aggregate[key]:
+                raise RuntimeError('aggregate[{}][{}] does not exist, even though it is contained in aggregate[{}][attributes]'.format(key, attribute, key))
+            param_len = len(aggregate[key]['param'])
+            attr_len = len(aggregate[key][attribute])
+            if param_len != attr_len:
+                raise RuntimeError('parameter mismatch: len(aggregate[{}][param]) == {} != len(aggregate[{}][{}]) == {}'.format(key, param_len, key, attribute, attr_len))
+
+
 class RawData:
     """
     Loader for hardware model traces measured with MIMOSA.
@@ -1138,8 +1218,12 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
         else:
             # TODO do not hardcode values
             aggregate[key]['attributes'] = ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']
-            if element['plan']['level'] == 'epilogue':
+            if 'plan' in element and element['plan']['level'] == 'epilogue':
                 aggregate[key]['attributes'].insert(0, 'timeout')
+        attributes = aggregate[key]['attributes'].copy()
+        for attribute in attributes:
+            if attribute not in element['offline_aggregates']:
+                aggregate[key]['attributes'].remove(attribute)
     for datakey, dataval in element['offline_aggregates'].items():
         aggregate[key][datakey].extend(dataval)
 
@@ -1251,7 +1335,7 @@ class PTAModel:
         parameters -- list of parameter names, as returned by pta_trace_to_aggregate
         arg_count -- function arguments, as returned by pta_trace_to_aggregate
         traces -- list of preprocessed DFA traces, as returned by RawData.get_preprocessed_data()
-        ignore_trace_indexes -- list of trace indexes. The corresponding taces will be ignored.
+        ignore_trace_indexes -- list of trace indexes. The corresponding traces will be ignored.
         discard_outliers -- currently not supported: threshold for outlier detection and removel (float).
             Outlier detection is performed individually for each state/transition in each trace,
             so it only works if the benchmark ran several times.
