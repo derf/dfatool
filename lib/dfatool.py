@@ -692,11 +692,8 @@ class RawData:
                 offline_trace_part['us'] - 20)
             online_trace_part['offline_aggregates']['power_std'].append(
                 offline_trace_part['uW_std'])
-            # A state's energy may get quite larg -- in fact, so large that
-            # fitting doesn't work on pJ values. For now, we just convert -all-
-            # energies to µJ -- TODO only do this for states
             online_trace_part['offline_aggregates']['energy'].append(
-                offline_trace_part['uW_mean'] * (offline_trace_part['us'] - 20) * 1e-6)
+                offline_trace_part['uW_mean'] * (offline_trace_part['us'] - 20))
             online_trace_part['offline_aggregates']['paramkeys'].append(paramkeys)
             online_trace_part['offline_aggregates']['param'].append(paramvalue)
             if online_trace_part['isa'] == 'transition':
@@ -1137,7 +1134,7 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
         for datakey in element['offline_aggregates'].keys():
             aggregate[key][datakey] = []
         if element['isa'] == 'state':
-            aggregate[key]['attributes'] = ['power', 'energy']
+            aggregate[key]['attributes'] = ['power']
         else:
             # TODO do not hardcode values
             aggregate[key]['attributes'] = ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']
