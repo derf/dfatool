@@ -1250,6 +1250,9 @@ def pta_trace_to_aggregate(traces, ignore_trace_indexes = []):
                     arg_count[elem['name']] = len(elem['args'])
                 if elem['name'] != 'UNINITIALIZED':
                     _add_trace_data_to_aggregate(by_name, elem['name'], elem)
+    for elem in by_name.values():
+            for key in elem['attributes']:
+                elem[key] = np.array(elem[key])
     return by_name, parameter_names, arg_count
 
 
