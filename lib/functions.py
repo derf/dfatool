@@ -298,6 +298,7 @@ class analytic:
         'safe_sqrt': lambda x: np.sqrt(np.abs(x)),
     }
 
+    @staticmethod
     def functions(safe_functions_enabled = False):
         """
         Retrieve pre-defined set of regression function candidates.
@@ -387,6 +388,7 @@ class analytic:
 
         return functions
 
+    @staticmethod
     def _fmap(reference_type, reference_name, function_type):
         """Map arg/parameter name and best-fit function name to function text suitable for AnalyticFunction."""
         ref_str = '{}({})'.format(reference_type,reference_name)
@@ -408,6 +410,7 @@ class analytic:
             return 'np.sqrt({})'.format(ref_str)
         return 'analytic._{}({})'.format(function_type, ref_str)
 
+    @staticmethod
     def function_powerset(fit_results, parameter_names, num_args = 0):
         """
         Combine per-parameter regression results into a single multi-dimensional function.
