@@ -485,7 +485,7 @@ class ParamStats:
 
 class TimingData:
     """
-    Loader for timing model traces measured with on-board timers using ``harness.OnboardTimerHarness``.
+    Loader for timing model traces measured with on-board timers using `harness.OnboardTimerHarness`.
 
     Excpets a specific trace format and UART log output (as produced by
     generate-dfa-benchmark.py). Prunes states from output. (TODO)
@@ -578,7 +578,18 @@ class RawData:
         """
         Create a new RawData object.
 
-        Each filename element corresponds to a measurement run.
+        Each filename element corresponds to a measurement run. It must be a tar archive with the following contents:
+
+        * `setup.json`: measurement setup. Must contain the keys `state_duration` (how long each state is active, in ms),
+          `mimosa_voltage` (voltage applied to dut, in V), and `mimosa_shunt` (shunt value, in Ohm)
+        * `src/apps/DriverEval/DriverLog.json`: PTA traces and parameters for this benchmark.
+          Layout: List of traces, each trace has an 'id' (numeric, starting with 1) and 'trace' (list of states and transitions) element.
+          Each trace has an even number of elements, starting with the first state (usually `UNINITIALIZED`) and ending with a transition.
+          Each state/transition must have the members `.parameter` (parameter values, empty string or None if unknown), `.isa` ("state" or "transition") and `.name`.
+          Each transition must additionally contain `.plan.level` ("user" or "epilogue").
+          Example: `[ {"id": 1, "trace": [ {"parameter": {...}, "isa": "state", "name": "UNINITIALIZED"}, ...] }, ... ]
+        * At least one `*.mim` file. Each file corresponds to a single execution of the entire benchmark (i.e., all runs described in DriverLog.json) and starts with a MIMOSA Autocal calibration sequence.
+          MIMOSA files are parsed by the `MIMOSA` class.
         """
         self.filenames = filenames.copy()
         self.traces_by_fileno = []
@@ -760,8 +771,53 @@ class RawData:
         """
         Return a list of DFA traces annotated with energy, timing, and parameter data.
 
-        Suitable for the PTAModel constructor.
-        See PTAModel(...) docstring for format details.
+        Each DFA trace contains the following elements:
+         * `id`: Numeric ID, starting with 1
+         * `total_energy`: Total amount of energy (as measured by MIMOSA) in the entire trace
+         * `orig_id`: Original trace ID. May differ when concatenating multiple (different) benchmarks into one analysis, i.e., when calling RawData() with more than one file argument.
+         * `trace`: List of the individual states and transitions in this trace. Always contains an even number of elements, staring with the first state (typically "UNINITIALIZED") and ending with a transition.
+
+        Each trace element (that is, an entry of the `trace` list mentioned above) contains the following elements:
+         * `isa`: "state" or "transition"
+         * `name`: name
+         * `offline`: List of offline measumerents for this state/transition. Each entry contains a result for this state/transition during one benchmark execution.
+           Entry contents:
+            - `clip_rate`: rate of clipped energy measurements, 0 .. 1
+            - `raw_mean`: mean raw MIMOSA value
+            - `raw_std`: standard deviation of raw MIMOSA value
+            - `uW_mean`: mean power draw, uW
+            - `uw_std`: standard deviation of power draw, uW
+            - `us`: state/transition duration, us
+            - `uW_mean_delta_prev`: (only for transitions) difference between uW_mean of this transition and uW_mean of previous state
+            - `uW_mean_elta_next`: (only for transitions) difference between uW_mean of this transition and uW_mean of next state
+            - `timeout`: (only for transitions) duration of previous state, us
+         * `offline_aggregates`: Aggregate of `offline` entries. dict of lists, each list entry has the same length
+            - `duration`: state/transition durations ("us"), us
+            - `energy`: state/transition energy ("us * uW_mean"), us
+            - `power`: mean power draw ("uW_mean"), uW
+            - `power_std`: standard deviations of power draw ("uW_std"), uW^2
+            - `paramkeys`: List of lists, each sub-list contains the parameter names corresponding to the `param` entries
+            - `param`: List of lists, each sub-list contains the parameter values for this measurement. Typically, all sub-lists are the same.
+            - `rel_energy_prev`: (only for transitions) transition energy relative to previous state mean power, pJ
+            - `rel_energy_next`: (only for transitions) transition energy relative to next state mean power, pJ
+            - `timeout`: (only for transitions) duration of previous state, us
+         * `offline_attributes`: List containing the keys of `offline_aggregates` which are meant to be part of themodel.
+           This list ultimately decides which hardware/software attributes the model describes.
+           If isa == state, it contains power, duration, energy
+           If isa == transition, it contains power, duration, energy, rel_energy_prev, rel_energy_next, timeout
+         * `online`: List of online estimations for this state/transition. Each entry contains a result for this state/transition during one benchmark execution.
+          Entry contents for isa == state:
+            - `time`: state/transition 
+          Entry contents for isa == transition:
+            - `timeout`: Duration of previous state, measured using on-board timers
+         * `parameter`: dictionary describing parameter values for this state/transition. Parameter values refer to the begin of the state/transition and do not account for changes made by the transition.
+         * `plan`: Dictionary describing expected behaviour according to schedule / offline model.
+           Contents for isa == state: `energy`, `power`, `time`
+           Contents for isa == transition: `energy`, `timeout`, `level`.
+           If level is "user", the transition is part of the regular driver API. If level is "epilogue", it is an interrupt service routine and not called explicitly.
+        Each transition also contains:
+         * `args`: List of arguments the corresponding function call was called with. args entries are strings which are not necessarily numeric
+         * `code`: List of function name (first entry) and arguments (remaining entries) of the corresponding function call
         """
         self.verbose = verbose
         if self.preprocessed:
@@ -944,9 +1000,6 @@ class AnalyticModel:
     Parameter-aware analytic energy/data size/... model.
 
     Supports both static and parameter-based model attributes, and automatic detection of parameter-dependence.
-
-    The model heavily relies on two internal data structures:
-    PTAModel.by_name and PTAModel.by_param.
 
     These provide measurements aggregated by (function/state/...) name
     and (for by_param) parameter values. Layout:
