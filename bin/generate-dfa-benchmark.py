@@ -37,16 +37,7 @@ import yaml
 from automata import PTA
 from harness import OnboardTimerHarness
 
-opt = {}
-
-def trace_matches_filter(trace: list, trace_filter: list) -> bool:
-    for allowed_trace in trace_filter:
-        if len(trace) < len(allowed_trace):
-            continue
-        different_element_count = len(list(filter(None, map(lambda x,y: x[0].name != y, trace, allowed_trace))))
-        if different_element_count == 0:
-            return True
-    return False
+opt = dict()
 
 def benchmark_from_runs(pta: PTA, runs: list, harness: object, benchmark_id: int = 0) -> io.StringIO:
     outbuf = io.StringIO()
@@ -215,6 +206,8 @@ if __name__ == '__main__':
             for trace in opt['trace-filter'].split():
                 trace_filter.append(trace.split(','))
             opt['trace-filter'] = trace_filter
+        else:
+            opt['trace-filter'] = None
 
     except getopt.GetoptError as err:
         print(err)
@@ -233,12 +226,7 @@ if __name__ == '__main__':
     else:
         timer_pin = 'GPIO::p1_0'
 
-    runs = list()
-
-    for run in pta.dfs(opt['depth'], with_arguments = True, with_parameters = True):
-        if 'trace-filter' in opt and not trace_matches_filter(run, opt['trace-filter']):
-            continue
-        runs.append(run)
+    runs = list(pta.dfs(opt['depth'], with_arguments = True, with_parameters = True, trace_filter = opt['trace-filter']))
 
     num_transitions = len(runs)
 

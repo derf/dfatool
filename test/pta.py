@@ -155,6 +155,14 @@ class TestPTA(unittest.TestCase):
             ['init', 'set2', 'set1'],
             ['init', 'set2', 'set2']])
 
+    def test_dfs_trace_filter(self):
+        pta = PTA(['IDLE'])
+        pta.add_transition('UNINITIALIZED', 'IDLE', 'init')
+        pta.add_transition('IDLE', 'IDLE', 'set1')
+        pta.add_transition('IDLE', 'IDLE', 'set2')
+        self.assertEqual(sorted(dfs_tran_to_name(pta.dfs(2, trace_filter=[['init', 'set1', 'set2'], ['init', 'set2', 'set1']]), False)),
+            [['init', 'set1', 'set2'], ['init', 'set2', 'set1']])
+
     def test_dfs_accepting(self):
         pta = PTA(['IDLE', 'TX'], accepting_states = ['IDLE'])
         pta.add_transition('UNINITIALIZED', 'IDLE', 'init')

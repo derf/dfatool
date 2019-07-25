@@ -75,16 +75,20 @@ class State:
         interrupts = sorted(interrupts, key = lambda x: x.get_timeout(parameters))
         return interrupts[0]
 
-    def dfs(self, depth: int, with_arguments: bool = False):
+    def dfs(self, depth: int, with_arguments: bool = False, trace_filter = None):
         """
         Return a generator object for depth-first search over all outgoing transitions.
 
         arguments:
         depth -- search depth
         with_arguments -- perform dfs with function+argument transitions instead of just function transitions.
+        trace_filter -- list of lists. Each sub-list is a trace. Only traces matching one of the provided sub-lists are returned.
+          E.g. trace_filter = [['init', 'foo'], ['init', 'bar']] will only return traces with init as first and foo or bar as second element.
         """
         if depth == 0:
             for trans in self.outgoing_transitions.values():
+                if trace_filter is not None and len(list(filter(lambda x: x == trans.name, map(lambda x: x[0], trace_filter)))) == 0:
+                    continue
                 if with_arguments:
                     if trans.argument_combination == 'cartesian':
                         for args in itertools.product(*trans.argument_values):
@@ -96,7 +100,16 @@ class State:
                     yield [(trans,)]
         else:
             for trans in self.outgoing_transitions.values():
-                for suffix in trans.destination.dfs(depth - 1, with_arguments = with_arguments):
+                if trace_filter is not None and len(list(filter(lambda x: x == trans.name, map(lambda x: x[0], trace_filter)))) == 0:
+                    continue
+                if trace_filter is not None:
+                    new_trace_filter = map(lambda x: x[1:], filter(lambda x: x[0] == trans.name, trace_filter))
+                    new_trace_filter = list(filter(len, new_trace_filter))
+                    if len(new_trace_filter) == 0:
+                        new_trace_filter = None
+                else:
+                    new_trace_filter = None
+                for suffix in trans.destination.dfs(depth - 1, with_arguments = with_arguments, trace_filter = new_trace_filter):
                     if with_arguments:
                         if trans.argument_combination == 'cartesian':
                             for args in itertools.product(*trans.argument_values):
@@ -494,6 +507,7 @@ class PTA:
         param_dict: initial parameter values
         with_arguments: perform dfs with argument values
         with_parameters: include parameters in trace?
+        trace_filter: list of lists. Each sub-list is a trace. Only traces matching one of the provided sub-lists are returned.
 
         The returned generator emits traces. Each trace consts of a list of
         tuples describing the corresponding transition and (if enabled)
