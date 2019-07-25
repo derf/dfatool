@@ -1093,6 +1093,16 @@ class AnalyticModel:
                     vprint(self.verbose, '[W] Got no data for {} {}: {}'.format(name, key, fpe))
         return model
 
+    def param_index(self, param_name):
+        if param_name in self.parameters:
+            return self.parameters.index(param_name)
+        return len(self.parameters) + int(param_name)
+
+    def param_name(self, param_index):
+        if param_index < len(self.parameters):
+            return self.parameters[param_index]
+        return str(param_index)
+
     def get_static(self):
         """
         Get static model function: name, attribute -> model value.
