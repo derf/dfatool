@@ -520,6 +520,8 @@ class TimingData:
             for log_entry in trace['trace']:
                 paramkeys = sorted(log_entry['parameter'].keys())
                 paramvalues = [soft_cast_int(log_entry['parameter'][x]) for x in paramkeys]
+                if arg_support_enabled and 'args' in log_entry:
+                    paramvalues.extend(map(soft_cast_int, log_entry['args']))
                 if not 'param' in log_entry['offline_aggregates']:
                     log_entry['offline_aggregates']['param'] = list()
                 if 'duration' in log_entry['offline_aggregates']:
@@ -982,15 +984,46 @@ class AnalyticModel:
     assess -- calculate model quality
     """
 
-    def __init__(self, by_name, parameters, verbose = True):
-        """Create a new AnalyticModel and compute parameter statistics."""
+    def __init__(self, by_name, parameters, arg_count = None, verbose = True):
+        """
+        Create a new AnalyticModel and compute parameter statistics.
+        
+        parameters:
+        `by_name`: measurements aggregated by (function/state/...) name. Layout:
+            dictionary with one key per name ('send', 'TX', ...) or
+            one key per name and parameter combination
+            (('send', (1, 2)), ('send', (2, 3)), ('TX', (1, 2)), ('TX', (2, 3)), ...).
+
+            Parameter values must be ordered corresponding to the lexically sorted parameter names.
+
+            Each element is in turn a dict with the following elements:
+            - param: list of parameter values in each measurement (-> list of lists)
+            - attributes: list of keys that should be analyzed,
+                e.g. ['power', 'duration']
+            - for each attribute mentioned in 'attributes': A list with measurements.
+            All list except for 'attributes' must have the same length.
+
+            For example:
+            parameters = ['foo_count', 'irrelevant']
+            by_name = {
+                'foo' : [1, 1, 2],
+                'duration' : [5, 6, 7],
+                'attributes' : ['foo', 'duration'],
+                'param' : [[1, 0], [1, 0], [2, 0]]
+                # foo_count-^  ^-irrelevant
+            }
+        `parameters`: List of parameter names
+        `verbose`: Print debug/info output while generating the model?
+        """
         self.cache = dict()
         self.by_name = by_name
         self.by_param = by_name_to_by_param(by_name)
         self.names = sorted(by_name.keys())
         self.parameters = sorted(parameters)
         self.verbose = verbose
-        self._num_args = _num_args_from_by_name(by_name)
+        self._num_args = arg_count
+        if self._num_args is None:
+            self._num_args = _num_args_from_by_name(by_name)
 
         self.stats = ParamStats(self.by_name, self.by_param, self.parameters, self._num_args, verbose = verbose)
 

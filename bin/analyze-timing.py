@@ -188,7 +188,7 @@ if __name__ == '__main__':
 
     preprocessed_data = raw_data.get_preprocessed_data()
     by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data, ignored_trace_indexes)
-    model = AnalyticModel(by_name, parameters)
+    model = AnalyticModel(by_name, parameters, arg_count)
 
     if xv_method:
         xv = CrossValidator(AnalyticModel, by_name, parameters, arg_count)
@@ -238,6 +238,10 @@ if __name__ == '__main__':
                 for param in sorted(model.stats.stats[transition][attribute]['std_by_param'].keys()):
                     print('{:10s} {:10s} {:10s} stddev {:f}'.format(
                         transition, attribute, param, model.stats.stats[transition][attribute]['std_by_param'][param]
+                    ))
+                for i, arg_stddev in enumerate(model.stats.stats[transition][attribute]['std_by_arg']):
+                    print('{:10s} {:10s} arg{:d} stddev {:f}'.format(
+                        transition, attribute, i, arg_stddev
                     ))
                 if info != None:
                     for param_name in sorted(info['fit_result'].keys(), key=str):
