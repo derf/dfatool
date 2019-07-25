@@ -272,7 +272,7 @@ class PTA:
     def __init__(self, state_names: list = [],
             accepting_states: list = None,
             parameters: list = [], initial_param_values: list = None,
-            codegen: dict = {}):
+            codegen: dict = {}, parameter_normalization: dict = None):
         """
         Return a new PTA object.
 
@@ -284,10 +284,14 @@ class PTA:
         initial_param_values -- initial value for each parameter
         instance -- class used for generated C++ code
         header -- header include path for C++ class definition
+        parameter_normalization -- dict mapping driver API parameter values to hardware values, e.g. a bitrate register value to an actual bitrate in kbit/s.
+            Each parameter key has in turn a dict value. Supported entries:
+            `enum`: Mapping of enum descriptors (keys) to parameter values. Note that the mapping is not required to correspond to the driver API.
         """
         self.state = dict([[state_name, State(state_name)] for state_name in state_names])
         self.accepting_states = accepting_states.copy() if accepting_states else None
         self.parameters = parameters.copy()
+        self.parameter_normalization = parameter_normalization
         self.codegen = codegen
         if initial_param_values:
             self.initial_param_values = initial_param_values.copy()
@@ -297,6 +301,16 @@ class PTA:
 
         if not 'UNINITIALIZED' in state_names:
             self.state['UNINITIALIZED'] = State('UNINITIALIZED')
+
+    def normalize_parameters(self, param_dict):
+        if self.parameter_normalization is None:
+            return param_dict.copy()
+        normalized_param = param_dict.copy()
+        for parameter, value in param_dict.items():
+            if parameter in self.parameter_normalization:
+                if 'enum' in self.parameter_normalization[parameter] and value in self.parameter_normalization[parameter]['enum']:
+                    normalized_param[parameter] = self.parameter_normalization[parameter]['enum'][value]
+        return normalized_param
 
     @classmethod
     def from_json(cls, json_input: dict):
@@ -401,6 +415,9 @@ class PTA:
         if 'codegen' in yaml_input:
             kwargs['codegen'] = yaml_input['codegen']
 
+        if 'parameter_normalization' in yaml_input:
+            kwargs['parameter_normalization'] = yaml_input['parameter_normalization']
+
         pta = cls(**kwargs)
 
         for trans_name in sorted(yaml_input['transition'].keys()):
@@ -494,7 +511,7 @@ class PTA:
             for elem in trace:
                 transition, arguments = elem
                 param = transition.get_params_after_transition(param, arguments)
-                ret.append((transition, arguments, param.copy()))
+                ret.append((transition, arguments, self.normalize_parameters(param)))
             yield ret
 
     def dfs(self, depth: int = 10, orig_state: str = 'UNINITIALIZED', param_dict: dict = None, with_parameters: bool = False, **kwargs):
