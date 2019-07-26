@@ -197,7 +197,7 @@ if __name__ == '__main__':
         for kv in opts['plot-unparam'].split(';'):
             state_or_trans, attribute, ylabel = kv.split(':')
             fname = 'param_y_{}_{}.pdf'.format(state_or_trans,attribute)
-            plotter.plot_y(model.by_name[state_or_trans][attribute], xlabel = 'measurement #', ylabel = ylabel, output = fname)
+            plotter.plot_y(model.by_name[state_or_trans][attribute], xlabel = 'measurement #', ylabel = ylabel)
 
     if len(show_models):
         print('--- simple static model ---')
