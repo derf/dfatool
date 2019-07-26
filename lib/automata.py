@@ -1,6 +1,6 @@
 """Classes and helper functions for PTA and other automata."""
 
-from functions import AnalyticFunction
+from functions import AnalyticFunction, NormalizationFunction
 import itertools
 
 def _dict_to_list(input_dict: dict) -> list:
@@ -310,6 +310,9 @@ class PTA:
             if parameter in self.parameter_normalization:
                 if 'enum' in self.parameter_normalization[parameter] and value in self.parameter_normalization[parameter]['enum']:
                     normalized_param[parameter] = self.parameter_normalization[parameter]['enum'][value]
+                if 'formula' in self.parameter_normalization[parameter]:
+                    normalization_formula = NormalizationFunction(self.parameter_normalization[parameter]['formula'])
+                    normalized_param[parameter] = normalization_formula.eval(value)
         return normalized_param
 
     @classmethod

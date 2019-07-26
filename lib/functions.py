@@ -87,6 +87,18 @@ class ParamFunction:
         """
         return self._param_function(P, X) - y
 
+class NormalizationFunction:
+    """
+    Hi
+    """
+
+    def __init__(self, function_str):
+        self._function_str = function_str
+        self._function = eval('lambda param: ' + function_str)
+
+    def eval(self, param_value):
+        return self._function(param_value)
+
 class AnalyticFunction:
     """
     A multi-dimensional model function, generated from a string, which can be optimized using regression.
