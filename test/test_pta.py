@@ -162,6 +162,8 @@ class TestPTA(unittest.TestCase):
         pta.add_transition('IDLE', 'IDLE', 'set2')
         self.assertEqual(sorted(dfs_tran_to_name(pta.dfs(2, trace_filter=[['init', 'set1', 'set2'], ['init', 'set2', 'set1']]), False)),
             [['init', 'set1', 'set2'], ['init', 'set2', 'set1']])
+        self.assertEqual(sorted(dfs_tran_to_name(pta.dfs(2, trace_filter=[['init', 'set1', '$'], ['init', 'set2', '$']]), False)),
+            [['init', 'set1'], ['init', 'set2']])
 
     def test_dfs_accepting(self):
         pta = PTA(['IDLE', 'TX'], accepting_states = ['IDLE'])

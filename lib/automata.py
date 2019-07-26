@@ -85,6 +85,9 @@ class State:
         trace_filter -- list of lists. Each sub-list is a trace. Only traces matching one of the provided sub-lists are returned.
           E.g. trace_filter = [['init', 'foo'], ['init', 'bar']] will only return traces with init as first and foo or bar as second element.
         """
+
+        if trace_filter is not None and next(filter(lambda x: x == '$', map(lambda x: x[0], trace_filter)), None) is not None:
+            yield []
         if depth == 0:
             for trans in self.outgoing_transitions.values():
                 if trace_filter is not None and len(list(filter(lambda x: x == trans.name, map(lambda x: x[0], trace_filter)))) == 0:
@@ -100,7 +103,7 @@ class State:
                     yield [(trans,)]
         else:
             for trans in self.outgoing_transitions.values():
-                if trace_filter is not None and len(list(filter(lambda x: x == trans.name, map(lambda x: x[0], trace_filter)))) == 0:
+                if trace_filter is not None and next(filter(lambda x: x == trans.name, map(lambda x: x[0], trace_filter)), None) is None:
                     continue
                 if trace_filter is not None:
                     new_trace_filter = map(lambda x: x[1:], filter(lambda x: x[0] == trans.name, trace_filter))
