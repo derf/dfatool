@@ -11,9 +11,10 @@ import re
 # generated otherwise and it should also work with AnalyticModel (which does
 # not have states)
 class TransitionHarness:
-    def __init__(self, gpio_pin = None, pta = None):
+    def __init__(self, gpio_pin = None, pta = None, log_return_values = False):
         self.gpio_pin = gpio_pin
         self.pta = pta
+        self.log_return_values = log_return_values
         self.reset()
 
     def reset(self):
@@ -25,6 +26,9 @@ class TransitionHarness:
         ret = ''
         if self.gpio_pin != None:
             ret += '#define PTALOG_GPIO {}\n'.format(self.gpio_pin)
+        if self.log_return_values:
+            ret += '#define PTALOG_WITH_RETURNVALUES\n'
+            ret += 'uint16_t transition_return_value;\n'
         ret += '#include "object/ptalog.h"\n'
         if self.gpio_pin != None:
             ret += 'PTALog ptalog({});\n'.format(self.gpio_pin)
@@ -63,7 +67,11 @@ class TransitionHarness:
     def pass_transition(self, transition_id, transition_code, transition: object = None):
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
         ret += 'ptalog.startTransition();\n'
-        ret += '{}\n'.format(transition_code)
+        if self.log_return_values and transition and len(transition.return_value_handlers):
+            ret += 'transition_return_value = {}\n'.format(transition_code)
+            ret += 'ptalog.logReturn(transition_return_value);\n'
+        else:
+            ret += '{}\n'.format(transition_code)
         ret += 'ptalog.stopTransition();\n'
         return ret
 
@@ -117,24 +125,32 @@ class OnboardTimerHarness(TransitionHarness):
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
         ret += 'ptalog.startTransition();\n'
         ret += 'counter.start();\n'
-        ret += '{}\n'.format(transition_code)
+        if self.log_return_values and transition and len(transition.return_value_handlers):
+            ret += 'transition_return_value = {}\n'.format(transition_code)
+        else:
+            ret += '{}\n'.format(transition_code)
         ret += 'counter.stop();\n'
+        if self.log_return_values and transition and len(transition.return_value_handlers):
+            ret += 'ptalog.logReturn(transition_return_value);\n'
         ret += 'ptalog.stopTransition(counter);\n'
         return ret
 
     def parser_cb(self, line):
         #print('[HARNESS] got line {}'.format(line))
-        if re.match(r'\[PTA\] benchmark start, id=(.*)', line):
+        if re.match(r'\[PTA\] benchmark start, id=(\S+)', line):
             self.synced = True
             print('[HARNESS] synced')
         if self.synced:
-            res = re.match(r'\[PTA\] trace=(.*) count=(.*)', line)
+            res = re.match(r'\[PTA\] trace=(\S+) count=(\S+)', line)
             if res:
                 self.trace_id = int(res.group(1))
                 self.trace_length = int(res.group(2))
                 self.current_transition_in_trace = 0
                 #print('[HARNESS] trace {:d} contains {:d} transitions. Expecting {:d} transitions.'.format(self.trace_id, self.trace_length, len(self.traces[self.trace_id]['trace']) // 2))
-            res = re.match(r'\[PTA\] transition=(.*) cycles=(.*)/(.*)', line)
+            if self.log_return_values:
+                res = re.match(r'\[PTA\] transition=(\S+) cycles=(\S+)/(\S+) return=(\S+)', line)
+            else:
+                res = re.match(r'\[PTA\] transition=(\S+) cycles=(\S+)/(\S+)', line)
             if res:
                 transition_id = int(res.group(1))
                 # TODO Handle Overflows (requires knowledge of arch-specific max cycle value)
@@ -159,6 +175,11 @@ class OnboardTimerHarness(TransitionHarness):
                     transition = self.pta.transitions[transition_id]
                     if transition.name != log_data_target['name']:
                         raise RuntimeError('Log mismatch: Expected transition {:s}, got transition {:s}'.format(log_data_target['name'], transition.name))
+                    if self.log_return_values and len(transition.return_value_handlers):
+                        for handler in transition.return_value_handlers:
+                            if 'parameter' in handler:
+                                print('got return value {:x} for transition {}, which has a handler. whoop whoop.'.format(int(res.group(4)), transition.name))
+                                # TODO handle value.
                 #print('[HARNESS] Logging data for transition {}'.format(log_data_target['name']))
                 if 'offline_aggregates' not in log_data_target:
                     log_data_target['offline_aggregates'] = {

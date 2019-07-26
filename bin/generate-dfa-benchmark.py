@@ -39,7 +39,7 @@ from harness import OnboardTimerHarness
 
 opt = dict()
 
-def benchmark_from_runs(pta: PTA, runs: list, harness: object, benchmark_id: int = 0) -> io.StringIO:
+def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benchmark_id: int = 0) -> io.StringIO:
     outbuf = io.StringIO()
 
     outbuf.write('#include "arch.h"\n')
@@ -234,7 +234,11 @@ if __name__ == '__main__':
         print('DFS returned no traces -- perhaps your trace-filter is too restrictive?', file=sys.stderr)
         sys.exit(1)
 
-    harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']))
+    need_return_values = False
+    if next(filter(lambda x: len(x.return_value_handlers), pta.transitions), None):
+        need_return_values = True
+
+    harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values)
 
     if len(args) > 1:
         results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], opt['run'].split(), harness, opt['sleep'], opt['repeat'], runs_total = len(runs))
