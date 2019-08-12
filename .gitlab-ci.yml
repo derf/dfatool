@@ -9,18 +9,18 @@ test:
   - apt-get update -qy
   - apt-get install -y python3-dev python3-numpy python3-scipy python3-pytest python3-sklearn python3-yaml wget
   - mkdir test-data
-  - wget -O test-data/20161221_123347_mmparam.tar https://lib.finalrewind.org/energy-models/20161221_123347_mmparam.tar
-  - wget -O test-data/20170116_124500_LM75x.tar https://lib.finalrewind.org/energy-models/20170116_124500_LM75x.tar
-  - wget -O test-data/20170116_131306_LM75x.tar https://lib.finalrewind.org/energy-models/20170116_131306_LM75x.tar
-  - wget -O test-data/20170116_142654_mmstatic.tar https://lib.finalrewind.org/energy-models/20170116_142654_mmstatic.tar
-  - wget -O test-data/20170116_143516_mmstatic.tar https://lib.finalrewind.org/energy-models/20170116_143516_mmstatic.tar
-  - wget -O test-data/20170116_145420_sharpLS013B4DN.tar https://lib.finalrewind.org/energy-models/20170116_145420_sharpLS013B4DN.tar
-  - wget -O test-data/20170116_151348_sharpLS013B4DN.tar https://lib.finalrewind.org/energy-models/20170116_151348_sharpLS013B4DN.tar
-  - wget -O test-data/20170125_125433_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_125433_cc1200.tar
-  - wget -O test-data/20170125_142420_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_142420_cc1200.tar
-  - wget -O test-data/20170125_144957_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_144957_cc1200.tar
-  - wget -O test-data/20170125_151149_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_151149_cc1200.tar
-  - wget -O test-data/20170125_151824_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_151824_cc1200.tar
-  - wget -O test-data/20170125_154019_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_154019_cc1200.tar
-  - wget -O test-data/20190724_161440_nRF24_no-rx.json https://lib.finalrewind.org/energy-models/20190724_161440_nRF24_no-rx.json
+  - wget -qO test-data/20161221_123347_mmparam.tar https://lib.finalrewind.org/energy-models/20161221_123347_mmparam.tar
+  - wget -qO test-data/20170116_124500_LM75x.tar https://lib.finalrewind.org/energy-models/20170116_124500_LM75x.tar
+  - wget -qO test-data/20170116_131306_LM75x.tar https://lib.finalrewind.org/energy-models/20170116_131306_LM75x.tar
+  - wget -qO test-data/20170116_142654_mmstatic.tar https://lib.finalrewind.org/energy-models/20170116_142654_mmstatic.tar
+  - wget -qO test-data/20170116_143516_mmstatic.tar https://lib.finalrewind.org/energy-models/20170116_143516_mmstatic.tar
+  - wget -qO test-data/20170116_145420_sharpLS013B4DN.tar https://lib.finalrewind.org/energy-models/20170116_145420_sharpLS013B4DN.tar
+  - wget -qO test-data/20170116_151348_sharpLS013B4DN.tar https://lib.finalrewind.org/energy-models/20170116_151348_sharpLS013B4DN.tar
+  - wget -qO test-data/20170125_125433_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_125433_cc1200.tar
+  - wget -qO test-data/20170125_142420_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_142420_cc1200.tar
+  - wget -qO test-data/20170125_144957_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_144957_cc1200.tar
+  - wget -qO test-data/20170125_151149_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_151149_cc1200.tar
+  - wget -qO test-data/20170125_151824_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_151824_cc1200.tar
+  - wget -qO test-data/20170125_154019_cc1200.tar https://lib.finalrewind.org/energy-models/20170125_154019_cc1200.tar
+  - wget -qO test-data/20190724_161440_nRF24_no-rx.json https://lib.finalrewind.org/energy-models/20190724_161440_nRF24_no-rx.json
   - PYTHONPATH=lib pytest-3
