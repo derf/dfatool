@@ -5,7 +5,7 @@ import unittest
 
 class TestModels(unittest.TestCase):
     def test_model_singlefile_rf24(self):
-        raw_data = RawData(['../data/20170220_164723_RF24_int_A.tar'])
+        raw_data = RawData(['test-data/20170220_164723_RF24_int_A.tar'])
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count, verbose = False)
@@ -75,7 +75,7 @@ class TestModels(unittest.TestCase):
 
 
     def test_model_singlefile_mmparam(self):
-        raw_data = RawData(['../data/20161221_123347_mmparam.tar'])
+        raw_data = RawData(['test-data/20161221_123347_mmparam.tar'])
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count, verbose = False)
@@ -103,8 +103,8 @@ class TestModels(unittest.TestCase):
 
     def test_model_multifile_lm75x(self):
         testfiles = [
-            '../data/20170116_124500_LM75x.tar',
-            '../data/20170116_131306_LM75x.tar',
+            'test-data/20170116_124500_LM75x.tar',
+            'test-data/20170116_131306_LM75x.tar',
         ]
         raw_data = RawData(testfiles)
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
@@ -133,8 +133,8 @@ class TestModels(unittest.TestCase):
 
     def test_model_multifile_sharp(self):
         testfiles = [
-            '../data/20170116_145420_sharpLS013B4DN.tar',
-            '../data/20170116_151348_sharpLS013B4DN.tar',
+            'test-data/20170116_145420_sharpLS013B4DN.tar',
+            'test-data/20170116_151348_sharpLS013B4DN.tar',
         ]
         raw_data = RawData(testfiles)
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
@@ -166,8 +166,8 @@ class TestModels(unittest.TestCase):
 
     def test_model_multifile_mmstatic(self):
         testfiles = [
-            '../data/20170116_143516_mmstatic.tar',
-            '../data/20170116_142654_mmstatic.tar',
+            'test-data/20170116_143516_mmstatic.tar',
+            'test-data/20170116_142654_mmstatic.tar',
         ]
         raw_data = RawData(testfiles)
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
@@ -195,12 +195,12 @@ class TestModels(unittest.TestCase):
 
     def test_model_multifile_cc1200(self):
         testfiles = [
-            '../data/20170125_125433_cc1200.tar',
-            '../data/20170125_142420_cc1200.tar',
-            '../data/20170125_144957_cc1200.tar',
-            '../data/20170125_151149_cc1200.tar',
-            '../data/20170125_151824_cc1200.tar',
-            '../data/20170125_154019_cc1200.tar',
+            'test-data/20170125_125433_cc1200.tar',
+            'test-data/20170125_142420_cc1200.tar',
+            'test-data/20170125_144957_cc1200.tar',
+            'test-data/20170125_151149_cc1200.tar',
+            'test-data/20170125_151824_cc1200.tar',
+            'test-data/20170125_154019_cc1200.tar',
         ]
         raw_data = RawData(testfiles)
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
