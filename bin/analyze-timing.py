@@ -239,10 +239,14 @@ if __name__ == '__main__':
                     print('{:10s} {:10s} {:10s} stddev {:f}'.format(
                         transition, attribute, param, model.stats.stats[transition][attribute]['std_by_param'][param]
                     ))
+                    print('{:10s} {:10s} dependence on {:15s}: {:.2f}'.format(
+                        transition, attribute, param, model.stats.param_dependence_ratio(transition, attribute, param)))
                 for i, arg_stddev in enumerate(model.stats.stats[transition][attribute]['std_by_arg']):
                     print('{:10s} {:10s} arg{:d} stddev {:f}'.format(
                         transition, attribute, i, arg_stddev
                     ))
+                    print('{:10s} {:10s} dependence on arg{:d}: {:.2f}'.format(
+                        transition, attribute, i, model.stats.arg_dependence_ratio(transition, attribute, i)))
                 if info != None:
                     for param_name in sorted(info['fit_result'].keys(), key=str):
                         param_fit = info['fit_result'][param_name]['results']
