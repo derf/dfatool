@@ -989,14 +989,15 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
             raw_results_by_param[other_parameters] = dict()
             results_by_param[other_parameters] = dict()
             for function_name, param_function in functions.items():
-                raw_results[function_name] = {}
+                if not function_name in raw_results:
+                    raw_results[function_name] = dict()
                 error_function = param_function.error_function
                 res = optimize.least_squares(error_function, [0, 1], args=(X, Y), xtol=2e-15)
                 measures = regression_measures(param_function.eval(res.x, X), Y)
                 raw_results_by_param[other_parameters][function_name] = measures
                 for measure, error_rate in measures.items():
                     if not measure in raw_results[function_name]:
-                        raw_results[function_name][measure] = []
+                        raw_results[function_name][measure] = list()
                     raw_results[function_name][measure].append(error_rate)
                 #print(function_name, res, measures)
             mean_measures = aggregate_measures(np.mean(Y), Y)
