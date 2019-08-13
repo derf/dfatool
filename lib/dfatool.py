@@ -913,26 +913,29 @@ def _try_fits_parallel(arg):
     }
 
 
-def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functions_enabled = False, boolean_parameters = list()):
+def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functions_enabled = False):
     """
     Determine goodness-of-fit for prediction of `by_param[(state_or_tran, *)][model_attribute]` dependence on `param_index` using various functions.
 
     This is done by varying `param_index` while keeping all other parameters constant and doing one least squares optimization for each function and for each combination of the remaining parameters.
     The value of the parameter corresponding to `param_index` (e.g. txpower or packet length) is the sole input to the model function.
 
-    Returns a dictionary with the following elements:
-    best -- name of the best-fitting function (see `analytic.functions`)
-    best_rmsd -- mean Root Mean Square Deviation of best-fitting function over all combinations of the remaining parameters
-    mean_rmsd -- mean Root Mean Square Deviation of a reference model using the mean of its respective input data as model value
-    median_rmsd -- mean Root Mean Square Deviation of a reference model using the median of its respective input data as model value
-    results -- mean goodness-of-fit measures for the individual functions. See `analytic.functions` for keys and `aggregate_measures` for values
+    :return:  a dictionary with the following elements:
+        best -- name of the best-fitting function (see `analytic.functions`)
+        best_rmsd -- mean Root Mean Square Deviation of best-fitting function over all combinations of the remaining parameters
+        mean_rmsd -- mean Root Mean Square Deviation of a reference model using the mean of its respective input data as model value
+        median_rmsd -- mean Root Mean Square Deviation of a reference model using the median of its respective input data as model value
+        results -- mean goodness-of-fit measures for the individual functions. See `analytic.functions` for keys and `aggregate_measures` for values
 
     :param by_param: measurements partitioned by state/transition/... name and parameter values.
-        Example: `{('foo', (0, 2)): {'bar': [2]}, ('foo', (0, 4)): {'bar': [4]}, ('foo', (0, 6)): {'bar': [6]}}`
+    Example: `{('foo', (0, 2)): {'bar': [2]}, ('foo', (0, 4)): {'bar': [4]}, ('foo', (0, 6)): {'bar': [6]}}`
+
     :param state_or_tran: state/transition/... name for which goodness-of-fit will be calculated (first element of by_param key tuple).
-        Example: `'foo'`
+    Example: `'foo'`
+
     :param model_attribute: attribute for which goodness-of-fit will be calculated.
-        Example: `'bar'`
+    Example: `'bar'`
+    
     :param param_index: index of the parameter used as model input
     :param safe_functions_enabled: Include "safe" variants of functions with limited argument range.
     """
@@ -949,13 +952,14 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
             if is_numeric(param_key[1][param_index]) and not function_object.is_valid(param_key[1][param_index]):
                 functions.pop(function_name, None)
 
-    raw_results = {}
+    raw_results = dict()
+    raw_results_by_param = dict()
     ref_results = {
-        'mean' : [],
-        'median' : []
+        'mean' : list(),
+        'median' : list()
     }
-    results = {}
-    results_by_param = {}
+    results = dict()
+    results_by_param = dict()
 
     seen_parameter_combinations = set()
 
@@ -967,7 +971,7 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
         num_total = 0
 
         # Ensure that each parameter combination is only optimized once. Otherwise, with parameters (1, 2, 5), (1, 3, 5), (1, 4, 5) and param_index == 1,
-        # the parameter combination (1, *, 5) would be optimized three times
+        # the parameter combination (1, *, 5) would be optimized three times, both wasting time and biasing results towards more frequently occuring combinations of non-param_index parameters
         seen_parameter_combinations.add(remove_index_from_tuple(param_key[1], param_index))
 
         # for each value of the parameter denoted by param_index (all other parameters remain the same):
@@ -977,17 +981,19 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
                 num_valid += 1
                 X.extend([float(k[1][param_index])] * len(v[model_attribute]))
                 Y.extend(v[model_attribute])
-        
-        #print(param_key, X, Y)
 
         if num_valid > 2:
             X = np.array(X)
             Y = np.array(Y)
+            other_parameters = remove_index_from_tuple(k[1], param_index)
+            raw_results_by_param[other_parameters] = dict()
+            results_by_param[other_parameters] = dict()
             for function_name, param_function in functions.items():
                 raw_results[function_name] = {}
                 error_function = param_function.error_function
                 res = optimize.least_squares(error_function, [0, 1], args=(X, Y), xtol=2e-15)
                 measures = regression_measures(param_function.eval(res.x, X), Y)
+                raw_results_by_param[other_parameters][function_name] = measures
                 for measure, error_rate in measures.items():
                     if not measure in raw_results[function_name]:
                         raw_results[function_name][measure] = []
@@ -995,19 +1001,41 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
                 #print(function_name, res, measures)
             mean_measures = aggregate_measures(np.mean(Y), Y)
             ref_results['mean'].append(mean_measures['rmsd'])
+            raw_results_by_param[other_parameters]['mean'] = mean_measures
             median_measures = aggregate_measures(np.median(Y), Y)
             ref_results['median'].append(median_measures['rmsd'])
+            raw_results_by_param[other_parameters]['median'] = median_measures
 
     if not len(ref_results['mean']):
         # Insufficient data for fitting
         return {
             'best' : None,
             'best_rmsd' : np.inf,
-            'results' : results,
+            'results' : results
+        }
+    
+    for other_parameter_combination, other_parameter_results in raw_results_by_param.items():
+        best_fit_val = np.inf
+        best_fit_name = None
+        results = dict()
+        for function_name, result in other_parameter_results.items():
+            if len(result) > 0:
+                results[function_name] = result
+                rmsd = result['rmsd']
+                if rmsd < best_fit_val:
+                    best_fit_val = rmsd
+                    best_fit_name = function_name
+        results_by_param[other_parameter_combination] = {
+            'best': best_fit_name,
+            'best_rmsd': best_fit_val,
+            'mean_rmsd' : results['mean']['rmsd'],
+            'median_rmsd' : results['median']['rmsd'],
+            'results' : results
         }
 
     best_fit_val = np.inf
     best_fit_name = None
+    results = dict()
     for function_name, result in raw_results.items():
         if len(result) > 0:
             results[function_name] = {}
@@ -1023,7 +1051,8 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
         'best_rmsd' : best_fit_val,
         'mean_rmsd' : np.mean(ref_results['mean']),
         'median_rmsd' : np.mean(ref_results['median']),
-        'results' : results
+        'results' : results,
+        'results_by_other_param' : results_by_param
     }
 
 def _num_args_from_by_name(by_name):
