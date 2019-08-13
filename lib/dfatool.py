@@ -902,14 +902,50 @@ class ParallelParamFit:
             self.results = pool.map(_try_fits_parallel, self.fit_queue)
 
 def _try_fits_parallel(arg):
+    """
+    Call _try_fits(*arg['args']) and return arg['key'] and the _try_fits result.
+
+    Must be a global function as it is called from a multiprocessing Pool.
+    """
     return {
         'key' : arg['key'],
         'result' : _try_fits(*arg['args'])
     }
 
 
-def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functions_enabled = False):
+def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functions_enabled = False, boolean_parameters = list()):
+    """
+    Determine goodness-of-fit for prediction of `by_param[(state_or_tran, *)][model_attribute]` dependence on `param_index` using various functions.
+
+    This is done by varying `param_index` while keeping all other parameters constant and doing one least squares optimization for each function and for each combination of the remaining parameters.
+    The value of the parameter corresponding to `param_index` (e.g. txpower or packet length) is the sole input to the model function.
+
+    Returns a dictionary with the following elements:
+    best -- name of the best-fitting function (see `analytic.functions`)
+    best_rmsd -- mean Root Mean Square Deviation of best-fitting function over all combinations of the remaining parameters
+    mean_rmsd -- mean Root Mean Square Deviation of a reference model using the mean of its respective input data as model value
+    median_rmsd -- mean Root Mean Square Deviation of a reference model using the median of its respective input data as model value
+    results -- mean goodness-of-fit measures for the individual functions. See `analytic.functions` for keys and `aggregate_measures` for values
+
+    arguments
+    ---
+
+    by_param: measurements partitioned by state/transition/... name and parameter values.
+    Example: `{('foo', (0, 2)): {'bar': [2]}, ('foo', (0, 4)): {'bar': [4]}, ('foo', (0, 6)): {'bar': [6]}}`
+
+    state_or_tran: state/transition/... name for which goodness-of-fit will be calculated (first element of by_param key tuple).
+    Example: `'foo'`
+
+    model_attribute: attribute for which goodness-of-fit will be calculated.
+    Example: `'bar'`
+    
+    param_index -- index of the parameter used as model input
+    safe_functions_enabled -- Include "safe" variants of functions with limited argument range.
+    """
+
     functions = analytic.functions(safe_functions_enabled = safe_functions_enabled)
+
+    #print('_try_fits(..., {}, {}, {})'.format(state_or_tran, model_attribute, param_index))
 
 
     for param_key in filter(lambda x: x[0] == state_or_tran, by_param.keys()):
@@ -928,19 +964,29 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
         'median' : []
     }
     results = {}
+    results_by_param = {}
 
+    # TODO diese Funktion ist unfair, wenn ein Parameter in einer Variante deutlich mehr unterschiedliche Werte
+    # aufweist als bei der Kombination mit anderen Parametern. Gibt es z.B. die Parameterkombinationen
+    # (0,2), (0, 4), (0,6), (0,8), (0, 10), 0,12), (2, 2), (2, 4), (2, 6) und wird der Parameter mit Index 1 bestimmt,
+    # so haben die Messwerte für Parameter-Index 0 == 0 mehr Gewicht als die für Parameter-Index 0 == 2.
+    # Bei klassischen AEMR-generierten Benchmarks macht das nichts, weil für alle Kombinationen die gleichen Parameterwerte
+    # genutzt werden, das kann sich aber noch ändern...
+    # for each parameter combination:
     for param_key in filter(lambda x: x[0] == state_or_tran, by_param.keys()):
         X = []
         Y = []
         num_valid = 0
         num_total = 0
-        for k, v in by_param.items():
-            if param_slice_eq(k, param_key, param_index):
-                num_total += 1
-                if is_numeric(k[1][param_index]):
-                    num_valid += 1
-                    X.extend([float(k[1][param_index])] * len(v[model_attribute]))
-                    Y.extend(v[model_attribute])
+        # for each value of the parameter denoted by param_index (all other parameters remain the same):
+        for k, v in filter(lambda kv: param_slice_eq(kv[0], param_key, param_index), by_param.items()):
+            num_total += 1
+            if is_numeric(k[1][param_index]):
+                num_valid += 1
+                X.extend([float(k[1][param_index])] * len(v[model_attribute]))
+                Y.extend(v[model_attribute])
+        
+        #print(param_key, X, Y)
 
         if num_valid > 2:
             X = np.array(X)
@@ -1037,7 +1083,7 @@ class AnalyticModel:
     assess -- calculate model quality
     """
 
-    def __init__(self, by_name, parameters, arg_count = None, verbose = True):
+    def __init__(self, by_name, parameters, arg_count = None, verbose = True, use_corrcoef = False):
         """
         Create a new AnalyticModel and compute parameter statistics.
         
@@ -1067,6 +1113,8 @@ class AnalyticModel:
             }
         `parameters`: List of parameter names
         `verbose`: Print debug/info output while generating the model?
+        use_corrcoef -- use correlation coefficient instead of stddev comparison
+            to detect whether a model attribute depends on a parameter
         """
         self.cache = dict()
         self.by_name = by_name
@@ -1074,11 +1122,12 @@ class AnalyticModel:
         self.names = sorted(by_name.keys())
         self.parameters = sorted(parameters)
         self.verbose = verbose
+        self._use_corrcoef = use_corrcoef
         self._num_args = arg_count
         if self._num_args is None:
             self._num_args = _num_args_from_by_name(by_name)
 
-        self.stats = ParamStats(self.by_name, self.by_param, self.parameters, self._num_args, verbose = verbose)
+        self.stats = ParamStats(self.by_name, self.by_param, self.parameters, self._num_args, verbose = verbose, use_corrcoef = use_corrcoef)
 
     def _get_model_from_dict(self, model_dict, model_function):
         model = {}
