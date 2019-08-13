@@ -39,18 +39,17 @@ class ParamFunction:
         (-> single float as model input) are used. However, n-dimensional
         functions (-> list of float as model input) are also supported.
 
-        arguments:
-        param_function -- regression function. Must have the signature
-                          (reg_param, model_param) -> float.
-                          reg_param is a list of regression variable values,
-                          model_param is the model input value (float).
-                          Example: lambda rp, mp: rp[0] + rp[1] * mp
-        validation_function -- function used to check whether param_function
-                               is defined for a given model_param. Signature:
-                               model_param -> bool
-                               Example: lambda mp: mp > 0
-        num_vars -- How many regression variables are used by this function,
-                    i.e., the length of param_function's reg_param argument.
+        :param param_function: regression function. Must have the signature
+            (reg_param, model_param) -> float.
+            reg_param is a list of regression variable values,
+            model_param is the model input value (float).
+            Example: lambda rp, mp: rp[0] + rp[1] * mp
+        :param validation_function: function used to check whether param_function
+            is defined for a given model_param. Signature:
+            model_param -> bool
+            Example: lambda mp: mp > 0
+        :param num_vars: How many regression variables are used by this function,
+            i.e., the length of param_function's reg_param argument.
         """
         self._param_function = param_function
         self._validation_function = validation_function
@@ -270,9 +269,9 @@ class AnalyticFunction:
         Evaluate model function with specified param/arg values.
 
         arguments:
-        param_list -- parameter values (list of float). First item
+        :param param_list: parameter values (list of float). First item
             corresponds to lexically first parameter, etc.
-        arg_list -- argument values (list of float), if arguments are used.
+        :param arg_list: argument values (list of float), if arguments are used.
         """
         if len(self._regression_args) == 0:
             return self._function(param_list, arg_list)
@@ -315,14 +314,13 @@ class analytic:
         """
         Retrieve pre-defined set of regression function candidates.
 
+        :param safe_functions_enabled: Include "safe" variants of functions with
+            limited argument range, e.g. a safe
+            inverse which returns 1 when dividing by 0.
+        
         Returns a dict of functions which are typical for energy/timing
         behaviour of embedded hardware, e.g. linear, exponential or inverse
         dependency on a configuration setting/runtime variable.
-
-        arguments:
-        safe_functions_enabled -- Include "safe" variants of functions with
-                                  limited argument range, e.g. a safe
-                                  inverse which returns 1 when dividing by 0.
 
         Each function is a ParamFunction object. In most cases, two regression
         variables are expected.
