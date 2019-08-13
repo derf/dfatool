@@ -5,7 +5,7 @@ import unittest
 
 class TestModels(unittest.TestCase):
     def test_model_singlefile_rf24(self):
-        raw_data = TimingData(['../data/20190724_161440_nRF24_no-rx.json'])
+        raw_data = TimingData(['test-data/20190724_161440_nRF24_no-rx.json'])
         preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = AnalyticModel(by_name, parameters, verbose = False)
