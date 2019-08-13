@@ -2,12 +2,13 @@ image: debian:buster
 
 stages:
   - test
+  - coverage
 
 test:
   stage: test
   script:
   - apt-get update -qy
-  - apt-get install -y python3-dev python3-numpy python3-scipy python3-pytest python3-sklearn python3-yaml wget
+  - apt-get install -y python3-dev python3-coverage python3-numpy python3-scipy python3-pytest python3-sklearn python3-yaml wget
   - mkdir test-data
   - wget -qO test-data/20161221_123347_mmparam.tar https://lib.finalrewind.org/energy-models/20161221_123347_mmparam.tar
   - wget -qO test-data/20170116_124500_LM75x.tar https://lib.finalrewind.org/energy-models/20170116_124500_LM75x.tar
@@ -18,4 +19,12 @@ test:
   - wget -qO test-data/20170116_151348_sharpLS013B4DN.tar https://lib.finalrewind.org/energy-models/20170116_151348_sharpLS013B4DN.tar
   - wget -qO test-data/20170220_164723_RF24_int_A.tar https://lib.finalrewind.org/energy-models/20170220_164723_RF24_int_A.tar
   - wget -qO test-data/20190726_150423_nRF24_no-rx.json https://lib.finalrewind.org/energy-models/20190726_150423_nRF24_no-rx.json
-  - PYTHONPATH=lib pytest-3
+  - PYTHONPATH=lib pytest-3 --cov=lib
+
+coverage:
+  stage: coverage
+  script: python3-coverage html
+  artifacts:
+    paths:
+    - htmlcov/
+    expire_in: 1 week
