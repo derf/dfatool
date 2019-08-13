@@ -1062,6 +1062,33 @@ def _num_args_from_by_name(by_name):
             num_args[key] = len(value['args'][0])
     return num_args
 
+def get_fit_result(results, name, attribute):
+    """
+    Parse and sanitize fit results for state/transition/... 'name' and model attribute 'attribute'.
+
+    Filters out results where the best function is worse (or not much better than) static mean/median estimates.
+
+    :param results: fit results as returned by `paramfit.results`
+    :param name: state/transition/... name, e.g. 'TX'
+    :param attribute: model attribute, e.g. 'duration'
+    """
+    fit_result = dict()
+    for result in results:
+        if result['key'][0] == name and result['key'][1] == attribute and result['result']['best'] != None:
+            this_result = result['result']
+            if this_result['best_rmsd'] >= min(this_result['mean_rmsd'], this_result['median_rmsd']):
+                vprint(self.verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is worse than ref ({:.0f}, {:.0f})'.format(
+                    name, attribute, result['key'][2], this_result['best_rmsd'],
+                    this_result['mean_rmsd'], this_result['median_rmsd']))
+            # See notes on depends_on_param
+            elif this_result['best_rmsd'] >= 0.8 * min(this_result['mean_rmsd'], this_result['median_rmsd']):
+                vprint(self.verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is not much better than ({:.0f}, {:.0f})'.format(
+                    name, attribute, result['key'][2], this_result['best_rmsd'],
+                    this_result['mean_rmsd'], this_result['median_rmsd']))
+            else:
+                fit_result[result['key'][2]] = this_result
+    return fit_result
+
 class AnalyticModel:
     u"""
     Parameter-aware analytic energy/data size/... model.
@@ -1255,21 +1282,7 @@ class AnalyticModel:
             if name in self._num_args:
                 num_args = self._num_args[name]
             for attribute in self.by_name[name]['attributes']:
-                fit_result = {}
-                for result in paramfit.results:
-                    if result['key'][0] == name and result['key'][1] == attribute and result['result']['best'] != None:
-                        this_result = result['result']
-                        if this_result['best_rmsd'] >= min(this_result['mean_rmsd'], this_result['median_rmsd']):
-                            vprint(self.verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is worse than ref ({:.0f}, {:.0f})'.format(
-                                name, attribute, result['key'][2], this_result['best_rmsd'],
-                                this_result['mean_rmsd'], this_result['median_rmsd']))
-                        # See notes on depends_on_param
-                        elif this_result['best_rmsd'] >= 0.8 * min(this_result['mean_rmsd'], this_result['median_rmsd']):
-                            vprint(self.verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is not much better than ({:.0f}, {:.0f})'.format(
-                                name, attribute, result['key'][2], this_result['best_rmsd'],
-                                this_result['mean_rmsd'], this_result['median_rmsd']))
-                        else:
-                            fit_result[result['key'][2]] = this_result
+                fit_result = get_fit_result(paramfit.results, name, attribute)
 
                 if len(fit_result.keys()):
                     x = analytic.function_powerset(fit_result, self.parameters, num_args)
@@ -1626,21 +1639,7 @@ class PTAModel:
             if arg_support_enabled and self.by_name[state_or_tran]['isa'] == 'transition':
                 num_args = self._num_args[state_or_tran]
             for model_attribute in self.by_name[state_or_tran]['attributes']:
-                fit_results = {}
-                for result in paramfit.results:
-                    if result['key'][0] == state_or_tran and result['key'][1] == model_attribute:
-                        fit_result = result['result']
-                        if fit_result['best_rmsd'] >= min(fit_result['mean_rmsd'], fit_result['median_rmsd']):
-                            vprint(self.verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is worse than ref ({:.0f}, {:.0f})'.format(
-                                state_or_tran, model_attribute, result['key'][2], fit_result['best_rmsd'],
-                                fit_result['mean_rmsd'], fit_result['median_rmsd']))
-                        # See notes on depends_on_param
-                        elif fit_result['best_rmsd'] >= 0.8 * min(fit_result['mean_rmsd'], fit_result['median_rmsd']):
-                            vprint(self.verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is not much better than ({:.0f}, {:.0f})'.format(
-                                state_or_tran, model_attribute, result['key'][2], fit_result['best_rmsd'],
-                                fit_result['mean_rmsd'], fit_result['median_rmsd']))
-                        else:
-                            fit_results[result['key'][2]] = fit_result
+                fit_results = get_fit_result(paramfit.results, state_or_tran, model_attribute)
 
                 if (state_or_tran, model_attribute) in self.function_override:
                     function_str = self.function_override[(state_or_tran, model_attribute)]
