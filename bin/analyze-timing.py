@@ -142,6 +142,7 @@ if __name__ == '__main__':
             'plot-unparam= plot-param= show-models= show-quality= '
             'ignored-trace-indexes= discard-outliers= function-override= '
             'cross-validate= '
+            'corrcoef '
             'with-safe-functions hwmodel= export-energymodel='
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
@@ -180,6 +181,9 @@ if __name__ == '__main__':
             with open(opts['hwmodel'], 'r') as f:
                 hwmodel = json.load(f)
 
+        if 'corrcoef' not in opts:
+            opts['corrcoef'] = False
+
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)
@@ -188,7 +192,7 @@ if __name__ == '__main__':
 
     preprocessed_data = raw_data.get_preprocessed_data()
     by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data, ignored_trace_indexes)
-    model = AnalyticModel(by_name, parameters, arg_count)
+    model = AnalyticModel(by_name, parameters, arg_count, use_corrcoef = opts['corrcoef'])
 
     if xv_method:
         xv = CrossValidator(AnalyticModel, by_name, parameters, arg_count)
