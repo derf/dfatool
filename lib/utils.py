@@ -75,6 +75,9 @@ def parse_conf_str(conf_str):
         conf_dict[key] = soft_cast_float(value)
     return conf_dict
 
+def remove_index_from_tuple(parameters, index):
+    return (*parameters[:index], *parameters[index+1:])
+
 def param_slice_eq(a, b, index):
     """
     Check if by_param keys a and b are identical, ignoring the parameter at index.
