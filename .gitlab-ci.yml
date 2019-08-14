@@ -2,9 +2,8 @@ image: debian:buster
 
 stages:
   - test
-  - coverage
 
-test:
+run_tests:
   stage: test
   script:
   - apt-get update -qy
@@ -20,10 +19,7 @@ test:
   - wget -qO test-data/20170220_164723_RF24_int_A.tar https://lib.finalrewind.org/energy-models/20170220_164723_RF24_int_A.tar
   - wget -qO test-data/20190726_150423_nRF24_no-rx.json https://lib.finalrewind.org/energy-models/20190726_150423_nRF24_no-rx.json
   - PYTHONPATH=lib pytest-3 --cov=lib
-
-coverage:
-  stage: coverage
-  script: python3-coverage html
+  - python3-coverage html
   artifacts:
     paths:
     - htmlcov/
