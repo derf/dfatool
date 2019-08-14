@@ -81,7 +81,7 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
         for transition, arguments, parameter in run:
             num_transitions += 1
             harness.append_transition(transition.name, param, arguments)
-            harness.append_state(transition.destination.name, parameter)
+            harness.append_state(transition.destination.name, parameter.copy())
             outbuf.write('// {} -> {}\n'.format(transition.origin.name, transition.destination.name))
             if transition.is_interrupt:
                 outbuf.write('// wait for {} interrupt\n'.format(transition.name))
