@@ -62,6 +62,12 @@ Options:
 
 --export-energymodel=<model.json>
     Export energy model. Requires --hwmodel.
+
+--filter-param=<parameter name>=<parameter value>
+    Only consider measurements where <parameter name> is <parameter value>
+    All other measurements (including those where it is None, that is, has
+    not been set yet) are discarded. Note that this may remove entire
+    function calls from the model.
 """
 
 import getopt
@@ -141,6 +147,7 @@ if __name__ == '__main__':
         optspec = (
             'plot-unparam= plot-param= show-models= show-quality= '
             'ignored-trace-indexes= discard-outliers= function-override= '
+            'filter-param= '
             'cross-validate= '
             'corrcoef '
             'with-safe-functions hwmodel= export-energymodel='
@@ -184,6 +191,9 @@ if __name__ == '__main__':
         if 'corrcoef' not in opts:
             opts['corrcoef'] = False
 
+        if 'filter-param' in opts:
+            opts['filter-param'] = opts['filter-param'].split('=')
+
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)
@@ -192,6 +202,21 @@ if __name__ == '__main__':
 
     preprocessed_data = raw_data.get_preprocessed_data()
     by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data, ignored_trace_indexes)
+
+    if 'filter-param' in opts:
+        param_index = parameters.index(opts['filter-param'][0])
+        param_value = soft_cast_int(opts['filter-param'][1])
+        names_to_remove = set()
+        for name in by_name.keys():
+            indices_to_keep = list(map(lambda x: x[param_index] == param_value, by_name[name]['param']))
+            by_name[name]['param'] = list(map(lambda iv: iv[1], filter(lambda iv: indices_to_keep[iv[0]], enumerate(by_name[name]['param']))))
+            for attribute in by_name[name]['attributes']:
+                by_name[name][attribute] = by_name[name][attribute][indices_to_keep]
+                if len(by_name[name][attribute]) == 0:
+                    names_to_remove.add(name)
+        for name in names_to_remove:
+            by_name.pop(name)
+
     model = AnalyticModel(by_name, parameters, arg_count, use_corrcoef = opts['corrcoef'])
 
     if xv_method:
