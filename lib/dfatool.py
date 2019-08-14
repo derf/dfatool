@@ -519,13 +519,18 @@ class TimingData:
             trace['id'] = i
             for log_entry in trace['trace']:
                 paramkeys = sorted(log_entry['parameter'].keys())
-                paramvalues = [soft_cast_int(log_entry['parameter'][x]) for x in paramkeys]
-                if arg_support_enabled and 'args' in log_entry:
-                    paramvalues.extend(map(soft_cast_int, log_entry['args']))
                 if not 'param' in log_entry['offline_aggregates']:
                     log_entry['offline_aggregates']['param'] = list()
                 if 'duration' in log_entry['offline_aggregates']:
                     for i in range(len(log_entry['offline_aggregates']['duration'])):
+                        paramvalues = list()
+                        for paramkey in paramkeys:
+                            if type(log_entry['parameter'][paramkey]) is list:
+                                paramvalues.append(soft_cast_int(log_entry['parameter'][paramkey][i]))
+                            else:
+                                paramvalues.append(soft_cast_int(log_entry['parameter'][paramkey]))
+                        if arg_support_enabled and 'args' in log_entry:
+                            paramvalues.extend(map(soft_cast_int, log_entry['args']))
                         log_entry['offline_aggregates']['param'].append(paramvalues)
 
     def _preprocess_0(self):
@@ -537,7 +542,7 @@ class TimingData:
 
     def get_preprocessed_data(self, verbose = True):
         """
-        Return a list of DFA traces annotated with timing, and parameter data.
+        Return a list of DFA traces annotated with timing and parameter data.
 
         Suitable for the PTAModel constructor.
         See PTAModel(...) docstring for format details.

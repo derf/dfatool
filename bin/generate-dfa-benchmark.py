@@ -149,9 +149,6 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         lines = monitor.run(int(run_timeout))
         return [(runs, harness, lines)]
 
-    # TODO Benchmark bei zu vielen Transitionen in mehrere Programme
-    # aufteilen und diese nacheinander bis zu X % completion (220%)
-    # laufen lassen, zwischendurch jeweils automatisch neu bauen etc.
     try:
         slept = 0
         while repeat == 0 or slept / run_timeout < 1:

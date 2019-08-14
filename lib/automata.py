@@ -185,6 +185,10 @@ class Transition:
         self.set_param = set_param
         self.return_value_handlers = return_value_handlers
 
+        for handler in self.return_value_handlers:
+            if 'formula' in handler:
+                handler['formula'] = NormalizationFunction(handler['formula'])
+
     def get_duration(self, param_dict: dict = {}, args: list = []) -> float:
         u"""
         Return transition duration in µs.
@@ -310,6 +314,11 @@ class PTA:
         if not 'UNINITIALIZED' in state_names:
             self.state['UNINITIALIZED'] = State('UNINITIALIZED')
 
+        if self.parameter_normalization:
+            for normalization_spec in self.parameter_normalization.values():
+                if 'formula' in normalization_spec:
+                    normalization_spec['formula'] = NormalizationFunction(normalization_spec['formula'])
+
     def normalize_parameters(self, param_dict):
         if self.parameter_normalization is None:
             return param_dict.copy()
@@ -319,7 +328,7 @@ class PTA:
                 if 'enum' in self.parameter_normalization[parameter] and value in self.parameter_normalization[parameter]['enum']:
                     normalized_param[parameter] = self.parameter_normalization[parameter]['enum'][value]
                 if 'formula' in self.parameter_normalization[parameter]:
-                    normalization_formula = NormalizationFunction(self.parameter_normalization[parameter]['formula'])
+                    normalization_formula = self.parameter_normalization[parameter]['formula']
                     normalized_param[parameter] = normalization_formula.eval(value)
         return normalized_param
 

@@ -135,6 +135,11 @@ class OnboardTimerHarness(TransitionHarness):
         ret += 'ptalog.stopTransition(counter);\n'
         return ret
 
+    def _append_nondeterministic_parameter_value(self, log_data_target, parameter_name, parameter_value):
+        if log_data_target['parameter'][parameter_name] is None:
+            log_data_target['parameter'][parameter_name] = list()
+        log_data_target['parameter'][parameter_name].append(parameter_value)
+
     def parser_cb(self, line):
         #print('[HARNESS] got line {}'.format(line))
         if re.match(r'\[PTA\] benchmark start, id=(\S+)', line):
@@ -178,9 +183,26 @@ class OnboardTimerHarness(TransitionHarness):
                     if self.log_return_values and len(transition.return_value_handlers):
                         for handler in transition.return_value_handlers:
                             if 'parameter' in handler:
-                                print('got return value {:x} for transition {}, which has a handler. whoop whoop.'.format(int(res.group(4)), transition.name))
-                                # TODO handle value.
-                #print('[HARNESS] Logging data for transition {}'.format(log_data_target['name']))
+                                parameter_value = return_value = int(res.group(4))
+
+                                if 'return_values' not in log_data_target:
+                                    log_data_target['return_values'] = list()
+                                log_data_target['return_values'].append(return_value)
+
+                                if 'formula' in handler:
+                                    parameter_value = handler['formula'].eval(return_value)
+
+                                print('append current')
+                                self._append_nondeterministic_parameter_value(log_data_target, handler['parameter'], parameter_value)
+                                print('append following')
+                                for following_log_data_target in self.traces[self.trace_id]['trace'][(self.current_transition_in_trace * 2 + 1) :]:
+                                    self._append_nondeterministic_parameter_value(following_log_data_target, handler['parameter'], parameter_value)
+                                print('append preceding')
+                                if 'apply_from' in handler and any(map(lambda x: x['name'] == handler['apply_from'], self.traces[self.trace_id]['trace'][: (self.current_transition_in_trace * 2 + 1)])):
+                                    for preceding_log_data_target in reversed(self.traces[self.trace_id]['trace'][: (self.current_transition_in_trace * 2)]):
+                                        self._append_nondeterministic_parameter_value(preceding_log_data_target, handler['parameter'], parameter_value)
+                                        if preceding_log_data_target['name'] == handler['apply_from']:
+                                            break
                 if 'offline_aggregates' not in log_data_target:
                     log_data_target['offline_aggregates'] = {
                         'duration' : list()
