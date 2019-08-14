@@ -67,9 +67,9 @@ class ParamFunction:
         """
         Evaluate regression function.
 
-        arguments:
-        param -- regression variable values (list of float)
-        arg -- model input (float)
+        :param param: regression variable values (list of float)
+        :param arg: model input (float)
+        :return: regression function output (float)
         """
         return self._param_function(param, args)
 
@@ -77,12 +77,10 @@ class ParamFunction:
         """
         Calculate model error.
 
-        arguments:
-        P -- optimized regression variables (list of float)
-        X -- model input (float)
-        y -- expected output from ground truth (float)
-
-        Returns deviation between model and ground truth (float).
+        :param P: regression variables as returned by optimization (list of float)
+        :param X: model input (float)
+        :param y: expected model output / ground truth for model input (float)
+        :return: Deviation between model output and ground truth (float)
         """
         return self._param_function(P, X) - y
 
@@ -111,20 +109,19 @@ class AnalyticFunction:
         """
         Create a new AnalyticFunction object from a function string.
 
-        arguments:
-        function_str -- the function.
+        :param function_str: the function.
             Refer to regression variables using regression_arg(123),
             to parameters using parameter(name),
             and to function arguments (if any) using function_arg(123).
             Example: "regression_arg(0) + regression_arg(1) * parameter(txbytes)"
-        parameters -- list containing the names of all model parameters,
+        :param parameters: list containing the names of all model parameters,
             including those not used in function_str, sorted lexically.
             Sorting is mandatory, as parameter indexes (and not names) are used internally.
-        num_args -- number of local function arguments, if any. Set to 0 if
+        :param num_args: number of local function arguments, if any. Set to 0 if
             the model attribute does not belong to a function or if function
             arguments are not included in the model.
-        verbose -- complain about odd events
-        regression_args -- Initial regression variable values,
+        :param verbose: complain about odd events
+        :param regression_args: Initial regression variable values,
             both for function usage and least squares optimization.
             If unset, defaults to [1, 1, 1, ...]
         """
@@ -167,8 +164,7 @@ class AnalyticFunction:
         """
         Return training data suitable for scipy.optimize.least_squares.
 
-        arguments:
-        by_param -- measurement data, partitioned by state/transition name and parameter/arg values.
+        :param by_param: measurement data, partitioned by state/transition name and parameter/arg values.
             This function only uses by_param[(state_or_tran, *)][model_attribute],
             which must be a list or 1-D NumPy array containing the ground truth.
             The parameter values in (state_or_tran, *) must be numeric for
@@ -177,17 +173,17 @@ class AnalyticFunction:
             ordered according to the order of parameter names used in
             the ParamFunction constructor. Argument values (if any) always come after
             parameters, in the order of their index in the function signature.
-        state_or_tran -- state or transition name, e.g. "TX" or "send"
-        model_attribute -- model attribute name, e.g. "power" or "duration"
+        :param state_or_tran: state or transition name, e.g. "TX" or "send"
+        :param model_attribute: model attribute name, e.g. "power" or "duration"
 
-        returns (X, Y, num_valid, num_total):
-        X -- 2-D NumPy array of parameter combinations (model input).
-             First dimension is the parameter/argument index, the second
-             dimension contains its values.
-             Example: X[0] contains the first parameter's values.
-        Y -- 1-D NumPy array of training data (desired model output).
-        num_valid -- amount of distinct parameter values suitable for optimization
-        num_total -- total amount of distinct parameter values
+        :return: (X, Y, num_valid, num_total):
+            X -- 2-D NumPy array of parameter combinations (model input).
+                First dimension is the parameter/argument index, the second
+                dimension contains its values.
+                Example: X[0] contains the first parameter's values.
+            Y -- 1-D NumPy array of training data (desired model output).
+            num_valid -- amount of distinct parameter values suitable for optimization
+            num_total -- total amount of distinct parameter values
         """
         dimension = len(self._parameter_names) + self._num_args
         X = [[] for i in range(dimension)]
@@ -222,10 +218,9 @@ class AnalyticFunction:
         """
         Fit the function on measurements via least squares regression.
 
-        arguments:
-        by_param -- measurement data, partitioned by state/transition name and parameter/arg values
-        state_or_tran -- state or transition name, e.g. "TX" or "send"
-        model_attribute -- model attribute name, e.g. "power" or "duration"
+        :param by_param: measurement data, partitioned by state/transition name and parameter/arg values
+        :param state_or_tran: state or transition name, e.g. "TX" or "send"
+        :param model_attribute: model attribute name, e.g. "power" or "duration"
 
         The ground truth is read from by_param[(state_or_tran, *)][model_attribute],
         which must be a list or 1-D NumPy array. Parameter values must be
@@ -268,7 +263,6 @@ class AnalyticFunction:
         """
         Evaluate model function with specified param/arg values.
 
-        arguments:
         :param param_list: parameter values (list of float). First item
             corresponds to lexically first parameter, etc.
         :param arg_list: argument values (list of float), if arguments are used.
@@ -425,16 +419,15 @@ class analytic:
         """
         Combine per-parameter regression results into a single multi-dimensional function.
 
-        arguments:
-        fit_results -- results dict. One element per parameter, each containing
+        :param fit_results: results dict. One element per parameter, each containing
             a dict of the form {'best' : name of function with best fit}.
             Must not include parameters which do not influence the model attribute.
             Example: {'txpower' : {'best': 'exponential'}}
-        parameter_names -- Parameter names, including those left
+        :param parameter_names: Parameter names, including those left
             out in fit_results because they do not influence the model attribute.
             Must be sorted lexically.
             Example: ['bitrate', 'txpower']
-        num_args -- number of local function arguments, if any. Set to 0 if
+        :param num_args: number of local function arguments, if any. Set to 0 if
             the model attribute does not belong to a function or if function
             arguments are not included in the model.
 

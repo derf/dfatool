@@ -107,23 +107,22 @@ def compute_param_statistics(by_name, by_param, parameter_names, arg_count, stat
     (1, 1), (5, 1), (7, 1,) (10, 1), (1, 2), (1, 6) will lead to bogus results.
     It is better to provide (1, 1), (5, 1), (1, 2), (5, 2), ... (i.e. a cross product of all individual parameter values)
 
-    arguments:
-    by_name -- ground truth partitioned by state/transition name.
+    :param by_name: ground truth partitioned by state/transition name.
         by_name[state_or_trans][attribute] must be a list or 1-D numpy array.
         by_name[state_or_trans]['param'] must be a list of parameter values
         corresponding to the ground truth, e.g. [[1, 2, 3], ...] if the
         first ground truth element has the (lexically) first parameter set to 1,
         the second to 2 and the third to 3.
-    by_param -- ground truth partitioned by state/transition name and parameters.
+    :param by_param: ground truth partitioned by state/transition name and parameters.
         by_name[(state_or_trans, *)][attribute] must be a list or 1-D numpy array.
-    parameter_names -- list of parameter names, must have the same order as the parameter
+    :param parameter_names: list of parameter names, must have the same order as the parameter
         values in by_param (lexical sorting is recommended).
-    arg_count -- dict providing the number of functions args ("local parameters") for each function.
-    state_or_trans -- state or transition name, e.g. 'send' or 'TX'
-    attribute -- model attribute, e.g. 'power' or 'duration'
-    verbose -- print warning if some parameter partitions are too small for fitting
+    :param arg_count: dict providing the number of functions args ("local parameters") for each function.
+    :param state_or_trans: state or transition name, e.g. 'send' or 'TX'
+    :param attribute: model attribute, e.g. 'power' or 'duration'
+    :param verbose: print warning if some parameter partitions are too small for fitting
 
-    returns a dict with the following content:
+    :return: a dict with the following content:
     std_static -- static parameter-unaware model error: stddev of by_name[state_or_trans][attribute]
     std_param_lut -- static parameter-aware model error: mean stddev of by_param[(state_or_trans, *)][attribute]
     std_by_param -- static parameter-aware model error ignoring a single parameter.
