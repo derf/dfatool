@@ -192,12 +192,9 @@ class OnboardTimerHarness(TransitionHarness):
                                 if 'formula' in handler:
                                     parameter_value = handler['formula'].eval(return_value)
 
-                                print('append current')
                                 self._append_nondeterministic_parameter_value(log_data_target, handler['parameter'], parameter_value)
-                                print('append following')
                                 for following_log_data_target in self.traces[self.trace_id]['trace'][(self.current_transition_in_trace * 2 + 1) :]:
                                     self._append_nondeterministic_parameter_value(following_log_data_target, handler['parameter'], parameter_value)
-                                print('append preceding')
                                 if 'apply_from' in handler and any(map(lambda x: x['name'] == handler['apply_from'], self.traces[self.trace_id]['trace'][: (self.current_transition_in_trace * 2 + 1)])):
                                     for preceding_log_data_target in reversed(self.traces[self.trace_id]['trace'][: (self.current_transition_in_trace * 2)]):
                                         self._append_nondeterministic_parameter_value(preceding_log_data_target, handler['parameter'], parameter_value)
