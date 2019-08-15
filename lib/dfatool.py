@@ -537,7 +537,7 @@ class TimingData:
         for filename in self.filenames:
             with open(filename, 'r') as f:
                 log_data = json.load(f)
-                self.traces_by_fileno.append(log_data['traces'])
+                self.traces_by_fileno.extend(log_data['traces'])
         self._concatenate_analyzed_traces()
 
     def get_preprocessed_data(self, verbose = True):

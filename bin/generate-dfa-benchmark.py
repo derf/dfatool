@@ -136,9 +136,10 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
     if needs_split:
         print('[MAKE] benchmark code is too large, splitting up')
         mid = len(runs) // 2
-        results = run_benchmark(application_file, pta, runs[:mid], arch, app, run_args, harness, sleep, repeat, run_offset = run_offset, runs_total = runs_total)
+        # Previously prepared trace data is useless
         harness.reset()
-        results.extend(run_benchmark(application_file, pta, runs[mid:], arch, app, run_args, harness, sleep, repeat, run_offset = run_offset + mid, runs_total = runs_total))
+        results = run_benchmark(application_file, pta, runs[:mid], arch, app, run_args, harness.copy(), sleep, repeat, run_offset = run_offset, runs_total = runs_total)
+        results.extend(run_benchmark(application_file, pta, runs[mid:], arch, app, run_args, harness.copy(), sleep, repeat, run_offset = run_offset + mid, runs_total = runs_total))
         return results
 
     runner.flash(arch, app, run_args)
@@ -242,7 +243,7 @@ if __name__ == '__main__':
         json_out = {
             'opt' : opt,
             'pta' : pta.to_json(),
-            'traces' : harness.traces,
+            'traces' : list(map(lambda x: x[1].traces, results)),
             'raw_output' : list(map(lambda x: x[2], results)),
         }
         with open(time.strftime('ptalog-%Y%m%d-%H%M%S.json'), 'w') as f:

@@ -63,7 +63,7 @@ Options:
 --export-energymodel=<model.json>
     Export energy model. Requires --hwmodel.
 
---filter-param=<parameter name>=<parameter value>
+--filter-param=<parameter name>=<parameter value>[,<parameter name>=<parameter value>...]
     Only consider measurements where <parameter name> is <parameter value>
     All other measurements (including those where it is None, that is, has
     not been set yet) are discarded. Note that this may remove entire
@@ -192,7 +192,9 @@ if __name__ == '__main__':
             opts['corrcoef'] = False
 
         if 'filter-param' in opts:
-            opts['filter-param'] = opts['filter-param'].split('=')
+            opts['filter-param'] = list(map(lambda x: x.split('='), opts['filter-param'].split(',')))
+        else:
+            opts['filter-param'] = list()
 
     except getopt.GetoptError as err:
         print(err)
@@ -203,9 +205,9 @@ if __name__ == '__main__':
     preprocessed_data = raw_data.get_preprocessed_data()
     by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data, ignored_trace_indexes)
 
-    if 'filter-param' in opts:
-        param_index = parameters.index(opts['filter-param'][0])
-        param_value = soft_cast_int(opts['filter-param'][1])
+    for param_name_and_value in opts['filter-param']:
+        param_index = parameters.index(param_name_and_value[0])
+        param_value = soft_cast_int(param_name_and_value[1])
         names_to_remove = set()
         for name in by_name.keys():
             indices_to_keep = list(map(lambda x: x[param_index] == param_value, by_name[name]['param']))

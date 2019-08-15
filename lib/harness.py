@@ -11,15 +11,30 @@ import re
 # generated otherwise and it should also work with AnalyticModel (which does
 # not have states)
 class TransitionHarness:
+    """Foo."""
     def __init__(self, gpio_pin = None, pta = None, log_return_values = False):
+        """
+        Create a new TransitionHarness
+
+        :param gpio_pin: multipass GPIO Pin used for transition synchronization, e.g. `GPIO::p1_0`. Optional.
+            The GPIO output is high iff a transition is executing
+        :param pta: PTA object
+        :param log_return_values: Log return values of transition function calls?
+        """
         self.gpio_pin = gpio_pin
         self.pta = pta
         self.log_return_values = log_return_values
         self.reset()
 
+    def copy(self):
+        new_object = __class__(gpio_pin = self.gpio_pin, pta = self.pta, log_return_values = self.log_return_values)
+        new_object.traces = self.traces.copy()
+        new_object.trace_id = self.trace_id
+        return new_object
+
     def reset(self):
         self.traces = []
-        self.trace_id = 1
+        self.trace_id = 0
         self.synced = False
 
     def global_code(self):
@@ -102,11 +117,17 @@ class TransitionHarness:
                 pass
 
 class OnboardTimerHarness(TransitionHarness):
+    """Bar."""
     def __init__(self, counter_limits, **kwargs):
         super().__init__(**kwargs)
-        self.trace_id = 0
         self.trace_length = 0
         self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow = counter_limits
+
+    def copy(self):
+        new_harness = __class__((self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow), gpio_pin = self.gpio_pin, pta = self.pta, log_return_values = self.log_return_values)
+        new_harness.traces = self.traces.copy()
+        new_harness.trace_id = self.trace_id
+        return new_harness
 
     def global_code(self):
         ret = '#include "driver/counter.h"\n'
