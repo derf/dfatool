@@ -1,3 +1,4 @@
+import itertools
 import numpy as np
 import re
 
@@ -97,6 +98,71 @@ def param_slice_eq(a, b, index):
     if (*a[1][:index], *a[1][index+1:]) == (*b[1][:index], *b[1][index+1:]) and a[0] == b[0]:
         return True
     return False
+
+def prune_dependent_parameters(by_name, parameter_names):
+    """
+    Remove dependent parameters from aggregate.
+
+    :param by_name: measurements partitioned by state/transition/... name and attribute, edited in-place.
+        by_name[name][attribute] must be a list or 1-D numpy array.
+        by_name[stanamete_or_trans]['param'] must be a list of parameter values.
+        Other dict members are left as-is
+    :param parameter_names: List of parameter names in the order they are used in by_name[name]['param'], edited in-place.
+
+    Model generation (and its components, such as relevant parameter detection and least squares optimization) only work if input variables (i.e., parameters)
+    are independent of each other. This function computes the correlation coefficient for each pair of parameters and removes those which depend on each other.
+    For each pair of dependent parameters, the lexically greater one is removed (e.g. "a" and "b" -> "b" is removed).
+    """
+
+    parameter_indices_to_remove = list()
+    for parameter_combination in itertools.product(range(len(parameter_names)), range(len(parameter_names))):
+        index_1, index_2 = parameter_combination
+        if index_1 >= index_2:
+            continue
+        parameter_values = [list(), list()] # both parameters have a value
+        parameter_values_1 = list() # parameter 1 has a value
+        parameter_values_2 = list() # parameter 2 has a value
+        for name in by_name:
+            for measurement in by_name[name]['param']:
+                value_1 = measurement[index_1]
+                value_2 = measurement[index_2]
+                if is_numeric(value_1):
+                    parameter_values_1.append(value_1)
+                if is_numeric(value_2):
+                    parameter_values_2.append(value_2)
+                if is_numeric(value_1) and is_numeric(value_2):
+                    parameter_values[0].append(value_1)
+                    parameter_values[1].append(value_2)
+        if len(parameter_values[0]):
+            correlation = np.corrcoef(parameter_values)[0][1]
+            if correlation != np.nan and np.abs(correlation) > 0.5:
+                print('[!] Parameters {} <-> {} are correlated with coefficcient {}'.format(parameter_names[index_1], parameter_names[index_2], correlation))
+                if len(parameter_values_1) < len(parameter_values_2):
+                    index_to_remove = index_1
+                else:
+                    index_to_remove = index_2
+                print('    Removing parameter {}'.format(parameter_names[index_to_remove]))
+                parameter_indices_to_remove.append(index_to_remove)
+    remove_parameters_by_indices(by_name, parameter_names, parameter_indices_to_remove)
+
+def remove_parameters_by_indices(by_name, parameter_names, parameter_indices_to_remove):
+    """
+    Remove parameters listed in `parameter_indices` from aggregate `by_name` and `parameter_names`.
+
+    :param by_name: measurements partitioned by state/transition/... name and attribute, edited in-place.
+        by_name[name][attribute] must be a list or 1-D numpy array.
+        by_name[stanamete_or_trans]['param'] must be a list of parameter values.
+        Other dict members are left as-is
+    :param parameter_names: List of parameter names in the order they are used in by_name[name]['param'], edited in-place.
+    :param parameter_indices_to_remove: List of parameter indices to be removed
+    """
+
+    # Start removal from the end of the list to avoid renumbering of list elemenets
+    for parameter_index in sorted(parameter_indices_to_remove, reverse = True):
+        for name in by_name:
+            for measurement in by_name[name]['param']:
+                measurement.pop(parameter_index)
+        parameter_names.pop(parameter_index)
 
 def compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_trans, attribute, verbose = False):
     """

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
+from utils import prune_dependent_parameters
 import unittest
 
 class TestModels(unittest.TestCase):
@@ -29,6 +30,35 @@ class TestModels(unittest.TestCase):
         self.assertAlmostEqual(param_info('write', 'duration')['function']._regression_args[1], 464, places=0)
         self.assertAlmostEqual(param_info('write', 'duration')['function']._regression_args[2], 1, places=0)
         self.assertAlmostEqual(param_info('write', 'duration')['function']._regression_args[3], 1, places=0)
+
+    def test_dependent_parameter_pruning(self):
+        raw_data = TimingData(['test-data/20190815_103347_nRF24_no-rx.json'])
+        preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
+        by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
+        prune_dependent_parameters(by_name, parameters)
+        model = AnalyticModel(by_name, parameters, arg_count, verbose = False)
+        self.assertEqual(model.names, 'getObserveTx setPALevel setRetries setup write'.split(' '))
+        static_model = model.get_static()
+        self.assertAlmostEqual(static_model('getObserveTx', 'duration'), 75, places=0)
+        self.assertAlmostEqual(static_model('setPALevel', 'duration'), 146, places=0)
+        self.assertAlmostEqual(static_model('setRetries', 'duration'), 73, places=0)
+        self.assertAlmostEqual(static_model('setup', 'duration'), 6533, places=0)
+        self.assertAlmostEqual(static_model('write', 'duration'), 12634, places=0)
+
+        for transition in 'getObserveTx setPALevel setRetries setup write'.split(' '):
+            self.assertAlmostEqual(model.stats.param_dependence_ratio(transition, 'duration', 'channel'), 0, places=2)
+
+        param_model, param_info = model.get_fitted()
+        self.assertEqual(param_info('setPALevel', 'duration'), None)
+        self.assertEqual(param_info('setRetries', 'duration'), None)
+        self.assertEqual(param_info('setup', 'duration'), None)
+        self.assertEqual(param_info('write', 'duration')['function']._model_str, '0 + regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * parameter(max_retry_count) * parameter(retry_delay)')
+
+        self.assertAlmostEqual(param_info('write', 'duration')['function']._regression_args[0], 1163, places=0)
+        self.assertAlmostEqual(param_info('write', 'duration')['function']._regression_args[1], 464, places=0)
+        self.assertAlmostEqual(param_info('write', 'duration')['function']._regression_args[2], 1, places=0)
+        self.assertAlmostEqual(param_info('write', 'duration')['function']._regression_args[3], 1, places=0)
+
 
 if __name__ == '__main__':
     unittest.main()

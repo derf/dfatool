@@ -1014,6 +1014,7 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
 
     if not len(ref_results['mean']):
         # Insufficient data for fitting
+        #print('[W] Insufficient data for fitting {}/{}/{}'.format(state_or_tran, model_attribute, param_index))
         return {
             'best' : None,
             'best_rmsd' : np.inf,
@@ -1089,7 +1090,7 @@ def get_fit_result(results, name, attribute, verbose = False):
                     this_result['mean_rmsd'], this_result['median_rmsd']))
             # See notes on depends_on_param
             elif this_result['best_rmsd'] >= 0.8 * min(this_result['mean_rmsd'], this_result['median_rmsd']):
-                vprint(verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is not much better than ({:.0f}, {:.0f})'.format(
+                vprint(verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is not much better than ref ({:.0f}, {:.0f})'.format(
                     name, attribute, result['key'][2], this_result['best_rmsd'],
                     this_result['mean_rmsd'], this_result['median_rmsd']))
             else:

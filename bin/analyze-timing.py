@@ -78,6 +78,7 @@ import sys
 from dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
 from dfatool import soft_cast_int, is_numeric, gplearn_to_function
 from dfatool import CrossValidator
+import utils
 
 opts = {}
 
@@ -204,6 +205,8 @@ if __name__ == '__main__':
 
     preprocessed_data = raw_data.get_preprocessed_data()
     by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data, ignored_trace_indexes)
+
+    utils.prune_dependent_parameters(by_name, parameters)
 
     for param_name_and_value in opts['filter-param']:
         param_index = parameters.index(param_name_and_value[0])
