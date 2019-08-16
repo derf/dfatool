@@ -14,11 +14,11 @@ arg_support_enabled = True
 
 def powerset(iterable):
     """
-    Calculate powerset of given items.
+    Calculate powerset of `iterable` elements.
 
     Returns an iterable containing one tuple for each powerset element.
 
-    Example: powerset([1, 2]) -> [(), (1), (2), (1, 2)]
+    Example: `powerset([1, 2])` -> `[(), (1), (2), (1, 2)]`
     """
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
@@ -86,14 +86,24 @@ class ParamFunction:
 
 class NormalizationFunction:
     """
-    Hi
+    Wrapper for parameter normalization functions used in YAML PTA/DFA models.
     """
 
     def __init__(self, function_str):
+        """
+        Create a new normalization function from `function_str`.
+
+        :param function_str: Function string. Signature: (param) -> float
+        """
         self._function_str = function_str
         self._function = eval('lambda param: ' + function_str)
 
     def eval(self, param_value):
+        """
+        Evaluate the normalization function and return its output.
+
+        :param param_value: Parameter value
+        """
         return self._function(param_value)
 
 class AnalyticFunction:

@@ -21,11 +21,10 @@ arg_support_enabled = True
 
 def running_mean(x: np.ndarray, N: int) -> np.ndarray:
     """
-    Compute running average.
+    Compute `N` elements wide running average over `x`.
 
-    arguments:
-    x -- NumPy array
-    N -- how many items to average
+    :param x: 1-Dimensional NumPy array
+    :param N: how many items to average
     """
     cumsum = np.cumsum(np.insert(x, 0, 0))
     return (cumsum[N:] - cumsum[:-N]) / N
@@ -71,16 +70,17 @@ def gplearn_to_function(function_str: str):
     print(eval_str)
     return eval(eval_str, eval_globals)
 
-def _arg_name(arg_index: int) -> str:
-    return '~arg{:02}'.format(arg_index)
-
 def append_if_set(aggregate: dict, data: dict, key: str):
     """Append data[key] to aggregate if key in data."""
     if key in data:
         aggregate.append(data[key])
 
 def mean_or_none(arr):
-    """Compute mean of NumPy array arr, return -1 if empty."""
+    """
+    Compute mean of NumPy array `arr`, return -1 if empty.
+
+    :param arr: 1-Dimensional NumPy array
+    """
     if len(arr):
         return np.mean(arr)
     return -1
