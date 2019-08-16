@@ -222,7 +222,7 @@ if __name__ == '__main__':
         for name in names_to_remove:
             by_name.pop(name)
 
-    model = AnalyticModel(by_name, parameters, arg_count, use_corrcoef = opts['corrcoef'])
+    model = AnalyticModel(by_name, parameters, arg_count, use_corrcoef = opts['corrcoef'], function_override = function_override)
 
     if xv_method:
         xv = CrossValidator(AnalyticModel, by_name, parameters, arg_count)

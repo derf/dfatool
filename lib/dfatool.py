@@ -1139,13 +1139,12 @@ class AnalyticModel:
     assess -- calculate model quality
     """
 
-    def __init__(self, by_name, parameters, arg_count = None, verbose = True, use_corrcoef = False):
+    def __init__(self, by_name, parameters, arg_count = None, function_override = dict(), verbose = True, use_corrcoef = False):
         """
         Create a new AnalyticModel and compute parameter statistics.
         
-        parameters:
-        `by_name`: measurements aggregated by (function/state/...) name. Layout:
-            dictionary with one key per name ('send', 'TX', ...) or
+        :param by_name: measurements aggregated by (function/state/...) name.
+            Layout: dictionary with one key per name ('send', 'TX', ...) or
             one key per name and parameter combination
             (('send', (1, 2)), ('send', (2, 3)), ('TX', (1, 2)), ('TX', (2, 3)), ...).
 
@@ -1167,16 +1166,23 @@ class AnalyticModel:
                 'param' : [[1, 0], [1, 0], [2, 0]]
                 # foo_count-^  ^-irrelevant
             }
-        `parameters`: List of parameter names
-        `verbose`: Print debug/info output while generating the model?
-        use_corrcoef -- use correlation coefficient instead of stddev comparison
-            to detect whether a model attribute depends on a parameter
+        :param parameters: List of parameter names
+        :param function_override: dict of overrides for automatic parameter function generation.
+            If (state or transition name, model attribute) is present in function_override,
+            the corresponding text string is the function used for analytic (parameter-aware/fitted)
+            modeling of this attribute. It is passed to AnalyticFunction, see
+            there for the required format. Note that this happens regardless of
+            parameter dependency detection: The provided analytic function will be assigned
+            even if it seems like the model attribute is static / parameter-independent.
+        :param verbose: Print debug/info output while generating the model?
+        :param use_corrcoef: use correlation coefficient instead of stddev comparison to detect whether a model attribute depends on a parameter
         """
         self.cache = dict()
         self.by_name = by_name
         self.by_param = by_name_to_by_param(by_name)
         self.names = sorted(by_name.keys())
         self.parameters = sorted(parameters)
+        self.function_override = function_override.copy()
         self.verbose = verbose
         self._use_corrcoef = use_corrcoef
         self._num_args = arg_count
@@ -1292,7 +1298,16 @@ class AnalyticModel:
             for attribute in self.by_name[name]['attributes']:
                 fit_result = get_fit_result(paramfit.results, name, attribute, self.verbose)
 
-                if len(fit_result.keys()):
+                if (name, attribute) in self.function_override:
+                    function_str = self.function_override[(name, attribute)]
+                    x = AnalyticFunction(function_str, self.parameters, num_args)
+                    x.fit(self.by_param, name, attribute)
+                    if x.fit_success:
+                        param_model[name][attribute] = {
+                            'fit_result': fit_result,
+                            'function' : x
+                        }
+                elif len(fit_result.keys()):
                     x = analytic.function_powerset(fit_result, self.parameters, num_args)
                     x.fit(self.by_param, name, attribute)
 
@@ -1516,7 +1531,7 @@ class PTAModel:
         self.cache = {}
         np.seterr('raise')
         self._outlier_threshold = discard_outliers
-        self.function_override = function_override
+        self.function_override = function_override.copy()
         self.verbose = verbose
         self.hwmodel = hwmodel
         self.ignore_trace_indexes = ignore_trace_indexes
