@@ -34,16 +34,20 @@ import sys
 import time
 import io
 import yaml
+from aspectc import Repo
 from automata import PTA
+from codegen import MultipassDriver
 from harness import OnboardTimerHarness
 
 opt = dict()
 
-def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benchmark_id: int = 0) -> io.StringIO:
+def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benchmark_id: int = 0, dummy = False) -> io.StringIO:
     outbuf = io.StringIO()
 
     outbuf.write('#include "arch.h"\n')
-    if 'includes' in pta.codegen:
+    if dummy:
+        outbuf.write('#include "driver/dummy.h"\n')
+    elif 'includes' in pta.codegen:
         for include in pta.codegen['includes']:
             outbuf.write('#include "{}"\n'.format(include))
     outbuf.write(harness.global_code())
@@ -108,8 +112,8 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
 
     return outbuf
 
-def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: str, run_args: list, harness: object, sleep: int = 0, repeat: int = 0, run_offset: int = 0, runs_total: int = 0):
-    outbuf = benchmark_from_runs(pta, runs, harness)
+def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: str, run_args: list, harness: object, sleep: int = 0, repeat: int = 0, run_offset: int = 0, runs_total: int = 0, dummy = False):
+    outbuf = benchmark_from_runs(pta, runs, harness, dummy = dummy)
     with open(application_file, 'w') as f:
         f.write(outbuf.getvalue())
         print('[MAKE] building benchmark with {:d} runs'.format(len(runs)))
@@ -138,8 +142,8 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         mid = len(runs) // 2
         # Previously prepared trace data is useless
         harness.reset()
-        results = run_benchmark(application_file, pta, runs[:mid], arch, app, run_args, harness.copy(), sleep, repeat, run_offset = run_offset, runs_total = runs_total)
-        results.extend(run_benchmark(application_file, pta, runs[mid:], arch, app, run_args, harness.copy(), sleep, repeat, run_offset = run_offset + mid, runs_total = runs_total))
+        results = run_benchmark(application_file, pta, runs[:mid], arch, app, run_args, harness.copy(), sleep, repeat, run_offset = run_offset, runs_total = runs_total, dummy = dummy)
+        results.extend(run_benchmark(application_file, pta, runs[mid:], arch, app, run_args, harness.copy(), sleep, repeat, run_offset = run_offset + mid, runs_total = runs_total, dummy = dummy))
         return results
 
     runner.flash(arch, app, run_args)
@@ -171,6 +175,7 @@ if __name__ == '__main__':
             'arch= '
             'app= '
             'depth= '
+            'dummy= '
             'instance= '
             'repeat= '
             'run= '
@@ -224,6 +229,23 @@ if __name__ == '__main__':
     else:
         timer_pin = 'GPIO::p1_0'
 
+    if 'dummy' in opt:
+
+        enum = dict()
+        if '.json' not in modelfile:
+            with open(modelfile, 'r') as f:
+                driver_definition = yaml.safe_load(f)
+            if 'dummygen' in driver_definition and 'enum' in driver_definition['dummygen']:
+                enum = driver_definition['dummygen']['enum']
+
+        repo = Repo('/home/derf/var/projects/multipass/build/repo.acp')
+
+        drv = MultipassDriver(opt['dummy'], pta, repo.class_by_name[opt['dummy']], enum=enum)
+        with open('/home/derf/var/projects/multipass/src/driver/dummy.cc', 'w') as f:
+            f.write(drv.impl)
+        with open('/home/derf/var/projects/multipass/include/driver/dummy.h', 'w') as f:
+            f.write(drv.header)
+
     runs = list(pta.dfs(opt['depth'], with_arguments = True, with_parameters = True, trace_filter = opt['trace-filter']))
 
     num_transitions = len(runs)
@@ -239,7 +261,7 @@ if __name__ == '__main__':
     harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values)
 
     if len(args) > 1:
-        results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], opt['run'].split(), harness, opt['sleep'], opt['repeat'], runs_total = len(runs))
+        results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], opt['run'].split(), harness, opt['sleep'], opt['repeat'], runs_total = len(runs), dummy = 'dummy' in opt)
         json_out = {
             'opt' : opt,
             'pta' : pta.to_json(),
