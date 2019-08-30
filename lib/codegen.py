@@ -52,11 +52,11 @@ class MultipassDriver:
             # XXX right now we only verify whether both functions have the
             # same number of arguments. This breaks in many overloading cases.
             function_info = self.class_info.function[transition.name]
-            function_arguments = list()
+            for function_candidate in self.class_info.functions:
+                if function_candidate.name == transition.name and len(function_candidate.argument_types) == len(transition.arguments):
+                    function_info = function_candidate
 
-            if len(transition.arguments) != len(function_info.argument_types):
-                # polymorphic function variant, TODO
-                pass
+            function_arguments = list()
 
             for i in range(len(transition.arguments)):
                 function_arguments.append('{} {}'.format(function_info.argument_types[i], transition.arguments[i]))
