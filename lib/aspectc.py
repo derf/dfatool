@@ -7,7 +7,7 @@ class AspectCClass:
     :attr name: class name (str)
     :attr class_id: internal AspectC++ class ID (str/int)
     :attr functions: functions implemented by this class (list of :class:`AspectCFunction`)
-    :attr function: dict mapping function name to :class:`AspectCFunction`
+    :attr function: dict mapping function name to :class:`AspectCFunction`. Only sensible for classes which do not overload functions.
     """
 
     def __init__(self, name, class_id, functions):
