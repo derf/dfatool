@@ -522,6 +522,14 @@ class PTA:
         """Return PTA-specific ID of transition."""
         return self.transitions.index(transition)
 
+    def get_state_names(self):
+        """Return lexically sorted list of PTA state names."""
+        return sorted(self.state.keys())
+
+    def get_state_id(self, state: State) -> int:
+        """Return PTA-specific ID of state."""
+        return self.get_state_names().index(state.name)
+
     def get_initial_param_dict(self):
         return dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
 
