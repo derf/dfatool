@@ -2,6 +2,7 @@
 
 from functions import AnalyticFunction, NormalizationFunction
 import itertools
+import numpy as np
 
 def _dict_to_list(input_dict: dict) -> list:
     return [input_dict[x] for x in sorted(input_dict.keys())]
@@ -50,6 +51,9 @@ class State:
         if self.power_function:
             return self.power_function.eval(_dict_to_list(param_dict)) * duration
         return self.power * duration
+
+    def set_random_energy_model(self, static_model = True):
+        self.power = np.random.sample() * 50000
 
     def get_transition(self, transition_name: str) -> object:
         """Return Transition object for outgoing transtion transition_name."""
@@ -212,6 +216,9 @@ class Transition:
         if self.energy_function:
             return self.energy_function.eval(_dict_to_list(param_dict), args)
         return self.energy
+
+    def set_random_energy_model(self, static_model = True):
+        self.energy = np.random.sample() * 50000
 
     def get_timeout(self, param_dict: dict = {}) -> float:
         u"""
@@ -533,6 +540,11 @@ class PTA:
     def get_initial_param_dict(self):
         return dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
 
+    def set_random_energy_model(self, static_model = True):
+        for state in self.state.values():
+            state.set_random_energy_model(static_model)
+        for transition in self.transitions:
+            transition.set_random_energy_model(static_model)
 
     def _dfs_with_param(self, generator, param_dict):
         for trace in generator:
