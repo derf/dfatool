@@ -36,7 +36,7 @@ import io
 import yaml
 from aspectc import Repo
 from automata import PTA
-from codegen import MultipassDriver, StaticStateOnlyAccounting
+from codegen import *
 from harness import OnboardTimerHarness
 
 opt = dict()
@@ -102,7 +102,8 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
                 outbuf.write('arch.delay_ms({:d}); // {}\n'.format(opt['sleep'], transition.destination.name))
 
         outbuf.write(harness.stop_run(num_traces))
-        outbuf.write('{}getEnergy();\n'.format(class_prefix))
+        if dummy:
+            outbuf.write('kout << "[Energy] " << {}getEnergy() << endl;\n'.format(class_prefix))
         outbuf.write('\n')
         num_traces += 1
 
@@ -240,6 +241,8 @@ if __name__ == '__main__':
                 enum = driver_definition['dummygen']['enum']
 
         repo = Repo('/home/derf/var/projects/multipass/build/repo.acp')
+
+        pta.set_random_energy_model()
 
         drv = MultipassDriver(opt['dummy'], pta, repo.class_by_name[opt['dummy']], enum=enum, accounting=StaticStateOnlyAccounting(opt['dummy'], pta))
         with open('/home/derf/var/projects/multipass/src/driver/dummy.cc', 'w') as f:

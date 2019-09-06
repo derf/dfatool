@@ -82,6 +82,39 @@ class AccountingMethod:
     def get_includes(self):
         return map(lambda x: '#include "{}"'.format(x), self.include_paths)
 
+class StaticStateOnlyAccountingImmediateCalculation(AccountingMethod):
+    def __init__(self, class_name: str, pta: PTA, ts_type = 'unsigned int', power_type = 'unsigned int', energy_type = 'unsigned long'):
+        super().__init__(class_name, pta)
+        self.ts_type = ts_type
+        self.include_paths.append('driver/uptime.h')
+        self.private_variables.append('unsigned char lastState;')
+        self.private_variables.append('{} lastStateChange;'.format(ts_type))
+        self.private_variables.append('{} totalEnergy;'.format(energy_type))
+        self.private_variables.append(array_template.format(
+            type = power_type,
+            name = 'state_power',
+            length = len(pta.state),
+            elements = ', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
+        ))
+
+        get_energy_function = """return totalEnergy;"""
+        self.public_functions.append(ClassFunction(class_name, energy_type, 'getEnergy', list(), get_energy_function))
+
+    def pre_transition_hook(self, transition):
+        return """
+        unsigned int now = uptime.get_us();
+        totalEnergy += (now - lastStateChange) * state_power[lastState];
+        lastStateChange = now;
+        lastState = {};
+        """.format(self.pta.get_state_id(transition.destination))
+
+    def init_code(self):
+        return """
+        totalEnergy = 0;
+        lastStateChange = 0;
+        lastState = 0;
+        """.format(num_states = len(self.pta.state))
+
 class StaticStateOnlyAccounting(AccountingMethod):
     def __init__(self, class_name: str, pta: PTA, ts_type = 'unsigned int', power_type = 'unsigned int', energy_type = 'unsigned long'):
         super().__init__(class_name, pta)
@@ -93,7 +126,7 @@ class StaticStateOnlyAccounting(AccountingMethod):
             type = power_type,
             name = 'state_power',
             length = len(pta.state),
-            elements = ', '.join(map(lambda state_name: str(pta.state[state_name].power), pta.get_state_names()))
+            elements = ', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
         ))
         self.private_variables.append('{} timeInState[{}];'.format(ts_type, len(pta.state)))
 
@@ -119,6 +152,8 @@ class StaticStateOnlyAccounting(AccountingMethod):
         for (unsigned char i = 0; i < {num_states}; i++) {{
             timeInState[i] = 0;
         }}
+        lastState = 0;
+        lastStateChange = 0;
         """.format(num_states = len(self.pta.state))
 
 
