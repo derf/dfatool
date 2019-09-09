@@ -1381,6 +1381,8 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
         else:
             # TODO do not hardcode values
             aggregate[key]['attributes'] = ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']
+            # Uncomment this line if you also want to analyze mean transition power
+            #aggrgate[key]['attributes'].append('power')
             if 'plan' in element and element['plan']['level'] == 'epilogue':
                 aggregate[key]['attributes'].insert(0, 'timeout')
         attributes = aggregate[key]['attributes'].copy()

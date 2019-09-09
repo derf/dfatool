@@ -253,6 +253,14 @@ if __name__ == '__main__':
                     param,
                     model.stats.param_dependence_ratio(state, 'power', param)))
         for trans in model.transitions():
+            # Mean power is not a typical transition attribute, but may be present for debugging or analysis purposes
+            try:
+                print('{:10s}: {:.0f} µW  ({:.2f})'.format(
+                    trans,
+                    static_model(trans, 'power'),
+                    model.stats.generic_param_dependence_ratio(trans, 'power')))
+            except KeyError:
+                pass
             print('{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  ({:.2f} / {:.2f} / {:.2f})'.format(
                 trans, static_model(trans, 'energy'),
                 static_model(trans, 'rel_energy_prev'),
