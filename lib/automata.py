@@ -537,6 +537,33 @@ class PTA:
         """Return PTA-specific ID of state."""
         return self.get_state_names().index(state.name)
 
+    def get_unique_transitions(self):
+        """
+        Return list of PTA transitions without duplicates.
+
+        I.e., each transition name only occurs once, even if it has several entries due to
+        multiple origin states and/or overloading.
+        """
+        seen_transitions = set()
+        ret_transitions = list()
+        for transition in self.transitions:
+            if transition.name not in seen_transitions:
+                ret_transitions.append(transition)
+                seen_transitions.add(transition.name)
+        return ret_transitions
+
+    def get_unique_transition_id(self, transition: Transition) -> int:
+        """
+        Return PTA-specific ID of transition in unique transition list.
+
+        The followinng condition holds:
+        `
+        max_index = max(map(lambda t: pta.get_unique_transition_id(t), pta.get_unique_transitions()))
+        max_index == len(pta.get_unique_transitions) - 1
+        `
+        """
+        return self.get_unique_transitions().index(transition)
+
     def get_initial_param_dict(self):
         return dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
 

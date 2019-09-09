@@ -155,7 +155,97 @@ class StaticStateOnlyAccounting(AccountingMethod):
         lastState = 0;
         lastStateChange = 0;
         """.format(num_states = len(self.pta.state))
+ 
+class StaticAccounting(AccountingMethod):
+    def __init__(self, class_name: str, pta: PTA, ts_type = 'unsigned int', power_type = 'unsigned int', energy_type = 'unsigned long'):
+        super().__init__(class_name, pta)
+        self.ts_type = ts_type
+        self.include_paths.append('driver/uptime.h')
+        self.private_variables.append('unsigned char lastState;')
+        self.private_variables.append('{} lastStateChange;'.format(ts_type))
+        self.private_variables.append(array_template.format(
+            type = power_type,
+            name = 'state_power',
+            length = len(pta.state),
+            elements = ', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
+        ))
+        self.private_variables.append(array_template.format(
+            type = energy_type,
+            name = 'transition_energy',
+            length = len(pta.get_unique_transitions()),
+            elements = ', '.join(map(lambda transition: '{:.0f}'.format(transition.energy), pta.get_unique_transitions()))
+        ))
+        self.private_variables.append('{} timeInState[{}];'.format(ts_type, len(pta.state)))
+        self.private_variables.append('{} transitionCount[{}];'.format('unsigned int', len(pta.get_unique_transitions())))
 
+        get_energy_function = """
+        {energy_type} total_energy = 0;
+        for (unsigned char i = 0; i < {num_states}; i++) {{
+            total_energy += timeInState[i] * state_power[i];
+        }}
+        for (unsigned char i = 0; i < {num_transitions}; i++) {{
+            total_energy += transitionCount[i] * transition_energy[i];
+        }}
+        return total_energy;
+        """.format(energy_type = energy_type, num_states = len(pta.state), num_transitions = len(pta.get_unique_transitions()))
+        self.public_functions.append(ClassFunction(class_name, energy_type, 'getEnergy', list(), get_energy_function))
+
+    def pre_transition_hook(self, transition):
+        return """
+        unsigned int now = uptime.get_us();
+        timeInState[lastState] += now - lastStateChange;
+        transitionCount[{}]++;
+        lastStateChange = now;
+        lastState = {};
+        """.format(self.pta.get_unique_transition_id(transition), self.pta.get_state_id(transition.destination))
+
+    def init_code(self):
+        return """
+        for (unsigned char i = 0; i < {num_states}; i++) {{
+            timeInState[i] = 0;
+        }}
+        for (unsigned char i = 0; i < {num_transitions}; i++) {{
+            transitionCount[i] = 0;
+        }}
+        lastState = 0;
+        lastStateChange = 0;
+        """.format(num_states = len(self.pta.state), num_transitions = len(self.pta.get_unique_transitions()))
+
+
+class StaticAccountingImmediateCalculation(AccountingMethod):
+    def __init__(self, class_name: str, pta: PTA, ts_type = 'unsigned int', power_type = 'unsigned int', energy_type = 'unsigned long'):
+        super().__init__(class_name, pta)
+        self.ts_type = ts_type
+        self.include_paths.append('driver/uptime.h')
+        self.private_variables.append('unsigned char lastState;')
+        self.private_variables.append('{} lastStateChange;'.format(ts_type))
+        self.private_variables.append('{} totalEnergy;'.format(energy_type))
+        self.private_variables.append(array_template.format(
+            type = power_type,
+            name = 'state_power',
+            length = len(pta.state),
+            elements = ', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
+        ))
+
+        get_energy_function = """
+        return total_energy;
+        """.format(energy_type = energy_type, num_states = len(pta.state), num_transitions = len(pta.get_unique_transitions()))
+        self.public_functions.append(ClassFunction(class_name, energy_type, 'getEnergy', list(), get_energy_function))
+
+    def pre_transition_hook(self, transition):
+        return """
+        unsigned int now = uptime.get_us();
+        totalEnergy += (now - lastStateChange) * state_power[lastState];
+        totalEnergy += {};
+        lastStateChange = now;
+        lastState = {};
+        """.format(transition.energy, self.pta.get_state_id(transition.destination))
+
+    def init_code(self):
+        return """
+        lastState = 0;
+        lastStateChange = 0;
+        """.format(num_states = len(self.pta.state), num_transitions = len(self.pta.get_unique_transitions()))
 
 class MultipassDriver:
     """Generate C++ header and no-op implementation for a multipass driver based on a DFA model."""
@@ -175,12 +265,8 @@ class MultipassDriver:
         public_variables = list()
 
         public_functions.append(ClassFunction(self.name, '', self.name, list(), accounting.init_code()))
-        seen_transitions = set()
 
-        for transition in self.pta.transitions:
-            if transition.name in seen_transitions:
-                continue
-            seen_transitions.add(transition.name)
+        for transition in self.pta.get_unique_transitions():
 
             # XXX right now we only verify whether both functions have the
             # same number of arguments. This breaks in many overloading cases.
