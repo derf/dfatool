@@ -63,8 +63,20 @@ class ClassFunction:
             return ''
         return '{} {}::{}({}) {{\n{}}}\n'.format(self.return_type, self.class_name, self.name, ', '.join(self.arguments), self.body)
 
+def get_accountingmethod(method):
+    """Return AccountingMethod class for method."""
+    if method == 'static_state_immediate':
+        return StaticStateOnlyAccountingImmediateCalculation
+    if method == 'static_state':
+        return StaticStateOnlyAccounting
+    if method == 'static_statetransition_immediate':
+        return StaticAccountingImmediateCalculation
+    if method == 'static_statetransition':
+        return StaticAccounting
+    raise ValueError('Unknown accounting method')
+
 class AccountingMethod:
-    def __init__(self, class_name: str, pta: PTA, ):
+    def __init__(self, class_name: str, pta: PTA):
         self.class_name = class_name
         self.pta = pta
         self.include_paths = list()
@@ -228,7 +240,7 @@ class StaticAccountingImmediateCalculation(AccountingMethod):
         ))
 
         get_energy_function = """
-        return total_energy;
+        return totalEnergy;
         """.format(energy_type = energy_type, num_states = len(pta.state), num_transitions = len(pta.get_unique_transitions()))
         self.public_functions.append(ClassFunction(class_name, energy_type, 'getEnergy', list(), get_energy_function))
 

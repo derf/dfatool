@@ -12,6 +12,12 @@ definition, each symbol corresponds to a function call with a specific set of
 arguments (so all argument combinations are present in the generated runs).
 
 Options:
+--accounting=static_state|static_state_immediate|static_statetransition|static_statetransition_immedate
+    Select accounting method for dummy driver generation
+
+--dummy=<class name>
+    Generate and use a dummy driver for online energy model overhead evaluation
+
 --depth=<depth> (default: 3)
     Maximum number of function calls per run
 
@@ -174,6 +180,7 @@ if __name__ == '__main__':
 
     try:
         optspec = (
+            'accounting= '
             'arch= '
             'app= '
             'depth= '
@@ -244,7 +251,11 @@ if __name__ == '__main__':
 
         pta.set_random_energy_model()
 
-        drv = MultipassDriver(opt['dummy'], pta, repo.class_by_name[opt['dummy']], enum=enum, accounting=StaticStateOnlyAccounting(opt['dummy'], pta))
+        if 'accounting' in opt:
+            accounting_object = get_accountingmethod(opt['accounting'])(opt['dummy'], pta)
+        else:
+            accounting_object = None
+        drv = MultipassDriver(opt['dummy'], pta, repo.class_by_name[opt['dummy']], enum=enum, accounting=accounting_object)
         with open('/home/derf/var/projects/multipass/src/driver/dummy.cc', 'w') as f:
             f.write(drv.impl)
         with open('/home/derf/var/projects/multipass/include/driver/dummy.h', 'w') as f:
