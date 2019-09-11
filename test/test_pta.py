@@ -191,6 +191,25 @@ class TestPTA(unittest.TestCase):
         self.assertEqual(pta.get_transition_id(trace[1][0]), 1)
         self.assertEqual(pta.get_transition_id(trace[2][0]), 2)
 
+    def test_dfs_with_sleep(self):
+        pta = PTA(['IDLE', 'TX'])
+        pta.add_transition('UNINITIALIZED', 'IDLE', 'init')
+        pta.add_transition('IDLE', 'TX', 'send')
+        pta.add_transition('TX', 'IDLE', 'txComplete')
+        traces = list(pta.dfs(2, sleep = 10))
+        self.assertEqual(len(traces), 1)
+        trace = traces[0]
+        self.assertEqual(len(trace), 6)
+        self.assertIsNone(trace[0][0])
+        self.assertEqual(trace[1][0].name, 'init')
+        self.assertIsNone(trace[2][0])
+        self.assertEqual(trace[3][0].name, 'send')
+        self.assertIsNone(trace[4][0])
+        self.assertEqual(trace[5][0].name, 'txComplete')
+        self.assertEqual(pta.get_transition_id(trace[1][0]), 0)
+        self.assertEqual(pta.get_transition_id(trace[3][0]), 1)
+        self.assertEqual(pta.get_transition_id(trace[5][0]), 2)
+
     def test_from_json(self):
         pta = PTA.from_json(example_json_1)
         self.assertEqual(pta.parameters, ['datarate', 'txbytes', 'txpower'])
