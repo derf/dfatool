@@ -1,6 +1,8 @@
 """Code generators for multipass dummy drivers for online model evaluation."""
 
-from automata import PTA
+from automata import PTA, Transition
+from modular_arithmetic import simulate_int_type
+import numpy as np
 
 header_template = """
 #ifndef DFATOOL_{name}_H
@@ -73,7 +75,131 @@ def get_accountingmethod(method):
         return StaticAccountingImmediateCalculation
     if method == 'static_statetransition':
         return StaticAccounting
-    raise ValueError('Unknown accounting method')
+    raise ValueError('Unknown accounting method: {}'.format(method))
+
+def get_simulated_accountingmethod(method):
+    """Return SimulatedAccountingMethod class for method."""
+    if method == 'static_state_immediate':
+        return SimulatedStaticStateOnlyAccountingImmediateCalculation
+    if method == 'static_statetransition_immediate':
+        return SimulatedStaticAccountingImmediateCalculation
+    if method == 'static_state':
+        return SimulatedStaticStateOnlyAccounting
+    if method == 'static_statetransition':
+        return SimulatedStaticAccounting
+    raise ValueError('Unknown accounting method: {}'.format(method))
+
+class SimulatedAccountingMethod:
+    """
+    Simulates overflows and timing inaccuracies in online energy accounting on embedded devices.
+
+    Inaccuracies are based on:
+    * timer resolution (e.g. a 10kHz timer cannot reliably measure sub-100us timings)
+    * timer counter size (e.g. a 16-bit timer at 1MHz will overflow after 65us)
+    * variable size for accounting of durations, power and energy values
+    """
+    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type):
+        """
+        Simulate Online Accounting for a given PTA.
+        
+        :param pta: PTA object
+        :param timer_freq_hz: Frequency of timer used for state time measurement, in Hz
+        :param timer_type: Size of timer counter register, as C standard type (uint8_t / uint16_t / uint32_t / uint64_t)
+        :param ts_type: Size of timestamp variables, as C standard type
+        :param power_type: Size of power variables, as C standard type
+        :param energy_type: Size of energy variables, as C standard type
+        """
+        self.pta = pta
+        self.timer_freq_hz = timer_freq_hz
+        self.timer_class = simulate_int_type(timer_type)
+        self.ts_class = simulate_int_type(ts_type)
+        self.power_class = simulate_int_type(power_type)
+        self.energy_class = simulate_int_type(energy_type)
+        self.current_state = pta.state['UNINITIALIZED']
+
+        self.energy = self.energy_class(0)
+
+    def _sleep_duration(self, duration_us):
+        """
+        Return the sleep duration a timer with the classes timer frequency would measure.
+
+        I.e., for a 35us sleep with a 50kHz timer (-> one tick per 20us), the OS would likely measure one tick == 20us.
+        This is based on the assumption that the timer is reset at each transition.
+        """
+        us_per_tick = 1000000 / self.timer_freq_hz
+        ticks = self.timer_class(int(duration_us // us_per_tick))
+        return int(ticks.val * us_per_tick)
+
+    def sleep(self, duration_us):
+        pass
+
+    def pass_transition(self, transition: Transition):
+        self.current_state = transition.destination
+
+    def get_energy(self):
+        return self.energy.val
+
+class SimulatedStaticStateOnlyAccountingImmediateCalculation(SimulatedAccountingMethod):
+    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type):
+        super().__init__(pta, timer_freq_hz, timer_type, ts_type, power_type, energy_type)
+
+    def sleep(self, duration_us):
+        self.energy += self.ts_class(self._sleep_duration(duration_us)) * self.power_class(int(self.current_state.power))
+
+class SimulatedStaticAccountingImmediateCalculation(SimulatedAccountingMethod):
+    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type):
+        super().__init__(pta, timer_freq_hz, timer_type, ts_type, power_type, energy_type)
+
+    def sleep(self, duration_us):
+        self.energy += self.ts_class(self._sleep_duration(duration_us)) * self.power_class(int(self.current_state.power))
+
+    def pass_transition(self, transition: Transition):
+        self.energy += int(transition.energy)
+        super().pass_transition(transition)
+
+class SimulatedStaticAccounting(SimulatedAccountingMethod):
+    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type):
+        super().__init__(pta, timer_freq_hz, timer_type, ts_type, power_type, energy_type)
+        self.time_in_state = dict()
+        for state_name in pta.state.keys():
+            self.time_in_state[state_name] = self.ts_class(0)
+        self.transition_count = list()
+        for transition in pta.transitions:
+            self.transition_count.append(simulate_int_type('uint16_t')(0))
+
+    def sleep(self, duration_us):
+        self.time_in_state[self.current_state.name] += self._sleep_duration(duration_us)
+
+    def pass_transition(self, transition: Transition):
+        self.transition_count[self.pta.transitions.index(transition)] += 1
+        super().pass_transition(transition)
+
+    def get_energy(self):
+        pta = self.pta
+        energy = self.energy_class(0)
+        for state in pta.state.values():
+            energy += self.time_in_state[state.name] * int(state.power)
+        for i, transition in enumerate(pta.transitions):
+            energy += self.transition_count[i] * int(transition.energy)
+        return energy.val
+
+
+class SimulatedStaticStateOnlyAccounting(SimulatedAccountingMethod):
+    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type):
+        super().__init__(pta, timer_freq_hz, timer_type, ts_type, power_type, energy_type)
+        self.time_in_state = dict()
+        for state_name in pta.state.keys():
+            self.time_in_state[state_name] = self.ts_class(0)
+
+    def sleep(self, duration_us):
+        self.time_in_state[self.current_state.name] += self._sleep_duration(duration_us)
+
+    def get_energy(self):
+        pta = self.pta
+        energy = self.energy_class(0)
+        for state in pta.state.values():
+            energy += self.time_in_state[state.name] * int(state.power)
+        return energy.val
 
 class AccountingMethod:
     def __init__(self, class_name: str, pta: PTA):
