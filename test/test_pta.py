@@ -328,9 +328,9 @@ class TestPTA(unittest.TestCase):
         pta.add_transition('TX', 'IDLE', 'txComplete', timeout = 2000, is_interrupt = True)
         trace = [
             ['init'],
-            ['sleep', 10000000],
+            [None, 10000000],
             ['send', 'foo', 3],
-            ['sleep', 5000000],
+            [None, 5000000],
             ['send', 'foo', 3]
         ]
         expected_energy = 5. * 10000000 + 3 + 100 * 2000 + 5 * 5000000 + 3 + 100 * 2000

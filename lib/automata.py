@@ -624,14 +624,28 @@ class PTA:
             return generator
 
     def simulate(self, trace: list, orig_state: str = 'UNINITIALIZED'):
+        """
+        Simulate a single run through the PTA and return total energy, duration, final state, and resulting parameters.
+
+        :param trace: list of (function name, arg1, arg2, ...) tuples representing the individual transitions,
+            or list of (Transition, argument tuple, parameter) tuples originating from dfs.
+            The tuple (None, duration) represents a sleep time between states in us
+        :param orig_state: origin state, default UNINITIALIZED
+
+        :returns (total energy in uJ, total duration in us, end state, end parameters)
+        """
         total_duration = 0.
         total_energy = 0.
         state = self.state[orig_state]
         param_dict = dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
         for function in trace:
-            function_name = function[0]
-            function_args = function[1 : ]
-            if function_name == 'sleep':
+            if isinstance(function[0], Transition):
+                function_name = function[0].name
+                function_args = function[1]
+            else:
+                function_name = function[0]
+                function_args = function[1 : ]
+            if function_name is None:
                 duration = function_args[0]
                 total_energy += state.get_energy(duration, param_dict)
                 total_duration += duration
