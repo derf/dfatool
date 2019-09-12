@@ -601,7 +601,10 @@ class PTA:
                 transition, arguments = elem
                 if transition is not None:
                     param = transition.get_params_after_transition(param, arguments)
-                ret.append((transition, arguments, self.normalize_parameters(param)))
+                    ret.append((transition, arguments, self.normalize_parameters(param)))
+                else:
+                    # parameters have already been normalized
+                    ret.append((transition, arguments, param))
             yield ret
 
     def dfs(self, depth: int = 10, orig_state: str = 'UNINITIALIZED', param_dict: dict = None, with_parameters: bool = False, **kwargs):
@@ -644,8 +647,8 @@ class PTA:
         else:
             return generator
 
-    def simulate(self, trace: list, orig_state: str = 'UNINITIALIZED'):
-        """
+    def simulate(self, trace: list, orig_state: str = 'UNINITIALIZED', accounting = None):
+        u"""
         Simulate a single run through the PTA and return total energy, duration, final state, and resulting parameters.
 
         :param trace: list of (function name, arg1, arg2, ...) tuples representing the individual transitions,
@@ -653,7 +656,7 @@ class PTA:
             The tuple (None, duration) represents a sleep time between states in us
         :param orig_state: origin state, default UNINITIALIZED
 
-        :returns (total energy in uJ, total duration in us, end state, end parameters)
+        :returns (total energy in pJ, total duration in µs, end state, end parameters)
         """
         total_duration = 0.
         total_energy = 0.
@@ -670,17 +673,24 @@ class PTA:
                 duration = function_args[0]
                 total_energy += state.get_energy(duration, param_dict)
                 total_duration += duration
+                if accounting is not None:
+                    accounting.sleep(duration)
             else:
                 transition = state.get_transition(function_name)
                 total_duration += transition.get_duration(param_dict, function_args)
                 total_energy += transition.get_energy(param_dict, function_args)
                 param_dict = transition.get_params_after_transition(param_dict, function_args)
                 state = transition.destination
+                if accounting is not None:
+                    accounting.pass_transition(transition)
                 while (state.has_interrupt_transitions()):
                     transition = state.get_next_interrupt(param_dict)
                     duration = transition.get_timeout(param_dict)
                     total_duration += duration
                     total_energy += state.get_energy(duration, param_dict)
+                    if accounting is not None:
+                        accounting.sleep(duration)
+                        accounting.pass_transition(transition)
                     param_dict = transition.get_params_after_transition(param_dict)
                     state = transition.destination
 
