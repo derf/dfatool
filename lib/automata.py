@@ -53,7 +53,7 @@ class State:
         return self.power * duration
 
     def set_random_energy_model(self, static_model = True):
-        self.power = np.random.sample() * 50000
+        self.power = int(np.random.sample() * 50000)
 
     def get_transition(self, transition_name: str) -> object:
         """Return Transition object for outgoing transtion transition_name."""
@@ -238,7 +238,7 @@ class Transition:
         return self.energy
 
     def set_random_energy_model(self, static_model = True):
-        self.energy = np.random.sample() * 50000
+        self.energy = int(np.random.sample() * 50000)
 
     def get_timeout(self, param_dict: dict = {}) -> float:
         u"""
