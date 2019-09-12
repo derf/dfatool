@@ -98,7 +98,7 @@ class SimulatedAccountingMethod:
     * timer counter size (e.g. a 16-bit timer at 1MHz will overflow after 65us)
     * variable size for accounting of durations, power and energy values
     """
-    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type):
+    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type, ts_granularity = 1e-6, power_granularity = 1e-6, energy_granularity = 1e-12):
         """
         Simulate Online Accounting for a given PTA.
         
@@ -117,14 +117,18 @@ class SimulatedAccountingMethod:
         self.energy_class = simulate_int_type(energy_type)
         self.current_state = pta.state['UNINITIALIZED']
 
+        self.ts_granularity = ts_granularity
+        self.power_granularity = power_granularity
+        self.energy_granularity = energy_granularity
+
         self.energy = self.energy_class(0)
 
     def _sleep_duration(self, duration_us):
-        """
-        Return the sleep duration a timer with the classes timer frequency would measure.
+        u"""
+        Return the sleep duration a timer with the configured timer frequency would measure, in µs
 
         I.e., for a 35us sleep with a 50kHz timer (-> one tick per 20us), the OS would likely measure one tick == 20us.
-        This is based on the assumption that the timer is reset at each transition.
+        This is based on the assumption that the timer is reset at each transition, so the duration of states may be under-, but not over-estimated
         """
         us_per_tick = 1000000 / self.timer_freq_hz
         ticks = self.timer_class(int(duration_us // us_per_tick))
@@ -137,18 +141,21 @@ class SimulatedAccountingMethod:
         self.current_state = transition.destination
 
     def get_energy(self):
-        return self.energy.val
+        """
+        Return total energy in pJ
+        """
+        return self.energy.val * self.energy_granularity * 1e12
 
 class SimulatedStaticStateOnlyAccountingImmediateCalculation(SimulatedAccountingMethod):
-    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type):
-        super().__init__(pta, timer_freq_hz, timer_type, ts_type, power_type, energy_type)
+    def __init__(self, pta: PTA, *args, **kwargs):
+        super().__init__(pta, *args, **kwargs)
 
     def sleep(self, duration_us):
         self.energy += self.ts_class(self._sleep_duration(duration_us)) * self.power_class(int(self.current_state.power))
 
 class SimulatedStaticAccountingImmediateCalculation(SimulatedAccountingMethod):
-    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type):
-        super().__init__(pta, timer_freq_hz, timer_type, ts_type, power_type, energy_type)
+    def __init__(self, pta: PTA, *args, **kwargs):
+        super().__init__(pta, *args, **kwargs)
 
     def sleep(self, duration_us):
         self.energy += self.ts_class(self._sleep_duration(duration_us)) * self.power_class(int(self.current_state.power))
@@ -158,8 +165,8 @@ class SimulatedStaticAccountingImmediateCalculation(SimulatedAccountingMethod):
         super().pass_transition(transition)
 
 class SimulatedStaticAccounting(SimulatedAccountingMethod):
-    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type):
-        super().__init__(pta, timer_freq_hz, timer_type, ts_type, power_type, energy_type)
+    def __init__(self, pta: PTA, *args, **kwargs):
+        super().__init__(pta, *args, **kwargs)
         self.time_in_state = dict()
         for state_name in pta.state.keys():
             self.time_in_state[state_name] = self.ts_class(0)
@@ -185,8 +192,8 @@ class SimulatedStaticAccounting(SimulatedAccountingMethod):
 
 
 class SimulatedStaticStateOnlyAccounting(SimulatedAccountingMethod):
-    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type):
-        super().__init__(pta, timer_freq_hz, timer_type, ts_type, power_type, energy_type)
+    def __init__(self, pta: PTA, *args, **kwargs):
+        super().__init__(pta, *args, **kwargs)
         self.time_in_state = dict()
         for state_name in pta.state.keys():
             self.time_in_state[state_name] = self.ts_class(0)
