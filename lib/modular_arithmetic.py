@@ -8,6 +8,8 @@ class Mod:
     __slots__ = ['val','mod']
  
     def __init__(self, val, mod):
+        if isinstance(val, Mod):
+            val = val.val
         if not isinstance(val, int):
             raise ValueError('Value must be integer')
         if not isinstance(mod, int) or mod<=0:
