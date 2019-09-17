@@ -702,4 +702,14 @@ class PTA:
                 state.power = static_model(state.name, 'power')
                 if param_model(state.name, 'power'):
                     state.power_function = param_model(state.name, 'power')['function']
-                print(state.name, state.power, state.power_function.__dict__)
+        for transition in self.transitions:
+            transition.duration = static_model(transition.name, 'duration')
+            if param_model(transition.name, 'duration'):
+                transition.duration_function = param_model(transition.name, 'duration')['function']
+            transition.energy = static_model(transition.name, 'energy')
+            if param_model(transition.name, 'energy'):
+                transition.energy_function = param_model(transition.name, 'energy')['function']
+            if transition.is_interrupt:
+                transition.timeout = static_model(transition.name, 'timeout')
+                if param_model(transition.name, 'timeout'):
+                    transition.timeout_function = param_model(transition.name, 'timeout')['function']
