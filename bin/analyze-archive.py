@@ -21,14 +21,15 @@ Options:
     parameters. Also plots the corresponding measurements.
     If gplearn function is set, it is plotted using dashed lines.
 
---show-models=<static|paramdetection|param|all|tex>
+--show-models=<static|paramdetection|param|all|tex|html>
     static: show static model values as well as parameter detection heuristic
     paramdetection: show stddev of static/lut/fitted model
     param: show parameterized model functions and regression variable values
     all: all of the above
     tex: print tex/pgfplots-compatible model data on stdout
+    html: print model and quality data as HTML table on stdout
 
---show-quality=<table|summary|all|tex>
+--show-quality=<table|summary|all|tex|html>
     table: show static/fitted/lut SMAPE and MAE for each name and attribute
     summary: show static/fitted/lut SMAPE and MAE for each attribute, averaged over all states/transitions
     all: all of the above
@@ -158,6 +159,39 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
             if state_or_tran in model._num_args:
                 for arg_index in range(model._num_args[state_or_tran]):
                     print('{} {} {:d} {:.8f}'.format(state_or_tran, attribute, arg_index, model.stats.arg_dependence_ratio(state_or_tran, attribute, arg_index)))
+
+def print_html_model_data(model, pm, pq, lm, lq, am, ai, aq):
+    state_attributes = model.attributes(model.states()[0])
+
+    print('<table><tr><th>state</th><th>' + '</th><th>'.join(state_attributes) + '</th></tr>')
+    for state in model.states():
+        print('<tr>', end='')
+        print('<td>{}</td>'.format(state), end='')
+        for attribute in state_attributes:
+            unit = ''
+            if attribute == 'power':
+                unit = 'µW'
+            print('<td>{:.0f} {} ({:.1f}%)</td>'.format(pm(state, attribute), unit, pq['by_name'][state][attribute]['smape']), end='')
+        print('</tr>')
+    print('</table>')
+
+    trans_attributes = model.attributes(model.transitions()[0])
+    if 'rel_energy_prev' in trans_attributes:
+        trans_attributes.remove('rel_energy_next')
+
+    print('<table><tr><th>transition</th><th>' + '</th><th>'.join(trans_attributes) + '</th></tr>')
+    for trans in model.transitions():
+        print('<tr>', end='')
+        print('<td>{}</td>'.format(trans), end='')
+        for attribute in trans_attributes:
+            unit = ''
+            if attribute == 'duration':
+                unit = 'µs'
+            elif attribute in ['energy', 'rel_energy_prev']:
+                unit = 'pJ'
+            print('<td>{:.0f} {} ({:.1f}%)</td>'.format(pm(trans, attribute), unit, pq['by_name'][trans][attribute]['smape']), end='')
+        print('</tr>')
+    print('</table>')
 
 if __name__ == '__main__':
 
@@ -331,6 +365,9 @@ if __name__ == '__main__':
 
     if 'tex' in show_models or 'tex' in show_quality:
         print_text_model_data(model, static_model, static_quality, lut_model, lut_quality, param_model, param_info, analytic_quality)
+
+    if 'html' in show_models or 'html' in show_quality:
+        print_html_model_data(model, static_model, static_quality, lut_model, lut_quality, param_model, param_info, analytic_quality)
 
     if 'table' in show_quality or 'all' in show_quality:
         model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
