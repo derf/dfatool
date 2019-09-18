@@ -96,25 +96,66 @@ class TransitionHarness:
     def stop_benchmark(self):
         return ''
 
-    def parser_cb(self, line):
-        pass
+    def _append_nondeterministic_parameter_value(self, log_data_target, parameter_name, parameter_value):
+        if log_data_target['parameter'][parameter_name] is None:
+            log_data_target['parameter'][parameter_name] = list()
+        log_data_target['parameter'][parameter_name].append(parameter_value)
 
-    def parse_log(self, lines):
-        sync = False
-        for line in lines:
-            print(line)
-            res = re.fullmatch(r'\[PTA\] (.*=.*)', line)
-            if re.fullmatch(r'\[PTA\] benchmark start, id=(.*)', line):
-                print('> got sync')
-                sync = True
-            elif not sync:
-                continue
-            elif re.fullmatch(r'\[PTA\] trace, count=(.*)', line):
-                print('> got transition')
-                pass
-            elif res:
-                print(dict(map(lambda x: x.split('='), res.group(1).split())))
-                pass
+    def parser_cb(self, line):
+        #print('[HARNESS] got line {}'.format(line))
+        if re.match(r'\[PTA\] benchmark start, id=(\S+)', line):
+            self.synced = True
+            print('[HARNESS] synced')
+        if self.synced:
+            res = re.match(r'\[PTA\] trace=(\S+) count=(\S+)', line)
+            if res:
+                self.trace_id = int(res.group(1))
+                self.trace_length = int(res.group(2))
+                self.current_transition_in_trace = 0
+                #print('[HARNESS] trace {:d} contains {:d} transitions. Expecting {:d} transitions.'.format(self.trace_id, self.trace_length, len(self.traces[self.trace_id]['trace']) // 2))
+            if self.log_return_values:
+                res = re.match(r'\[PTA\] transition=(\S+) return=(\S+)', line)
+            else:
+                res = re.match(r'\[PTA\] transition=(\S+)', line)
+            if res:
+                transition_id = int(res.group(1))
+                # self.traces contains transitions and states, UART output only contains transitions -> use index * 2
+                try:
+                    log_data_target = self.traces[self.trace_id]['trace'][self.current_transition_in_trace * 2]
+                except IndexError:
+                    transition_name = None
+                    if self.pta:
+                        transition_name = self.pta.transitions[transition_id].name
+                    print('[HARNESS] benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}, name {}) is out of bounds'.format(0, self.trace_id, self.current_transition_in_trace, transition_id, transition_name))
+                    print('          Offending line: {}'.format(line))
+                    return
+                if log_data_target['isa'] != 'transition':
+                    raise RuntimeError('Log mismatch: Expected transition, got {:s}'.format(log_data_target['isa']))
+                if self.pta:
+                    transition = self.pta.transitions[transition_id]
+                    if transition.name != log_data_target['name']:
+                        raise RuntimeError('Log mismatch: Expected transition {:s}, got transition {:s}'.format(log_data_target['name'], transition.name))
+                    if self.log_return_values and len(transition.return_value_handlers):
+                        for handler in transition.return_value_handlers:
+                            if 'parameter' in handler:
+                                parameter_value = return_value = int(res.group(2))
+
+                                if 'return_values' not in log_data_target:
+                                    log_data_target['return_values'] = list()
+                                log_data_target['return_values'].append(return_value)
+
+                                if 'formula' in handler:
+                                    parameter_value = handler['formula'].eval(return_value)
+
+                                self._append_nondeterministic_parameter_value(log_data_target, handler['parameter'], parameter_value)
+                                for following_log_data_target in self.traces[self.trace_id]['trace'][(self.current_transition_in_trace * 2 + 1) :]:
+                                    self._append_nondeterministic_parameter_value(following_log_data_target, handler['parameter'], parameter_value)
+                                if 'apply_from' in handler and any(map(lambda x: x['name'] == handler['apply_from'], self.traces[self.trace_id]['trace'][: (self.current_transition_in_trace * 2 + 1)])):
+                                    for preceding_log_data_target in reversed(self.traces[self.trace_id]['trace'][: (self.current_transition_in_trace * 2)]):
+                                        self._append_nondeterministic_parameter_value(preceding_log_data_target, handler['parameter'], parameter_value)
+                                        if preceding_log_data_target['name'] == handler['apply_from']:
+                                            break
+                self.current_transition_in_trace += 1
 
 class OnboardTimerHarness(TransitionHarness):
     """Bar."""
@@ -179,13 +220,12 @@ class OnboardTimerHarness(TransitionHarness):
                 res = re.match(r'\[PTA\] transition=(\S+) cycles=(\S+)/(\S+)', line)
             if res:
                 transition_id = int(res.group(1))
-                # TODO Handle Overflows (requires knowledge of arch-specific max cycle value)
                 cycles = int(res.group(2))
                 overflow = int(res.group(3))
                 if overflow >= self.counter_max_overflow:
                     raise RuntimeError('Counter overflow ({:d}/{:d}) in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d})'.format(cycles, overflow, 0, self.trace_id, self.current_transition_in_trace, transition_id))
                 duration_us = cycles * self.one_cycle_in_us + overflow * self.one_overflow_in_us
-                # self.traces contains transitions and states, UART output only contains trnasitions -> use index * 2
+                # self.traces contains transitions and states, UART output only contains transitions -> use index * 2
                 try:
                     log_data_target = self.traces[self.trace_id]['trace'][self.current_transition_in_trace * 2]
                 except IndexError:

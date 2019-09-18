@@ -40,16 +40,19 @@ Options:
 
 import getopt
 import json
+import os
 import re
 import runner
 import sys
+import tarfile
 import time
 import io
 import yaml
 from aspectc import Repo
 from automata import PTA
 from codegen import *
-from harness import OnboardTimerHarness
+from harness import OnboardTimerHarness, TransitionHarness
+from utils import flatten
 
 opt = dict()
 
@@ -77,7 +80,7 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
     # When flashing first and then starting the log, the first log lines may be lost.
     # To work around this, we flash first, then start the log, and use this delay statement to ensure that no output is lost.
     # This is also useful to faciliate MIMOSA calibration after flashing.
-    outbuf.write('arch.delay_ms(10000);\n')
+    outbuf.write('arch.delay_ms(12000);\n')
 
     outbuf.write('while (1) {\n')
     outbuf.write(harness.start_benchmark())
@@ -161,7 +164,7 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         return results
 
     runner.flash(arch, app, run_args)
-    monitor = runner.get_monitor(arch, callback = harness.parser_cb)
+    monitor = runner.get_monitor(arch, callback = harness.parser_cb, mimosa = {'shunt': 82})
 
     if arch == 'posix':
         print('[RUN] Will run benchmark for {:.0f} seconds'.format(run_timeout))
@@ -176,10 +179,9 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
             print('[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%'.format(run_offset, runs_total, run_offset * 100 / runs_total, slept * 100 / run_timeout))
     except KeyboardInterrupt:
         pass
-    lines = monitor.get_lines()
     monitor.close()
 
-    return [(runs, harness, lines)]
+    return [(runs, harness, monitor)]
 
 
 if __name__ == '__main__':
@@ -280,6 +282,7 @@ if __name__ == '__main__':
         need_return_values = True
 
     harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values)
+    harness = TransitionHarness(gpio_pin = timer_pin, pta = pta, log_return_values = need_return_values)
 
     if len(args) > 1:
         results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], opt['run'].split(), harness, opt['sleep'], opt['repeat'], runs_total = len(runs), dummy = 'dummy' in opt)
@@ -287,10 +290,25 @@ if __name__ == '__main__':
             'opt' : opt,
             'pta' : pta.to_json(),
             'traces' : list(map(lambda x: x[1].traces, results)),
-            'raw_output' : list(map(lambda x: x[2], results)),
+            'raw_output' : list(map(lambda x: x[2].get_lines(), results)),
+            'files' : list(map(lambda x: x[2].get_files(), results)),
+            'configs' : list(map(lambda x: x[2].get_config(), results)),
         }
-        with open(time.strftime('ptalog-%Y%m%d-%H%M%S.json'), 'w') as f:
+        extra_files = flatten(json_out['files'])
+        output_prefix = time.strftime('/home/derf/var/ess/aemr/data/ptalog-%Y%m%d-%H%M%S')
+        with open('{}.json'.format(output_prefix), 'w') as f:
             json.dump(json_out, f)
+        if len(extra_files):
+            with tarfile.open('{}.tar'.format(output_prefix), 'w') as tar:
+                tar.add('{}.json'.format(output_prefix))
+                for extra_file in extra_files:
+                    tar.add(extra_file)
+            print(' --> {}.tar'.format(output_prefix))
+            os.remove('{}.json'.format(output_prefix))
+            for extra_file in extra_files:
+                os.remove(extra_file)
+        else:
+            print(' --> {}.json'.format(output_prefix))
     else:
         outbuf = benchmark_from_runs(pta, runs, harness)
         print(outbuf.getvalue())

@@ -114,8 +114,14 @@ class SerialMonitor:
         time.sleep(timeout)
         return self.reader.get_lines()
 
-    def get_lines(self) ->list:
+    def get_lines(self) -> list:
         return self.reader.get_lines()
+
+    def get_files(self) -> list:
+        return list()
+
+    def get_config(self) -> dict:
+        return dict()
 
     def close(self):
         """Close serial connection."""
@@ -147,13 +153,12 @@ class MIMOSAMonitor(SerialMonitor):
             raise RuntimeError('{} returned {}'.format(' '.join(cmd), res.returncode))
 
     def _start_mimosa(self):
+        self._mimosactl('disconnect')
         self._mimosacmd(['--start'])
         self._mimosacmd(['--parameter', 'offset', str(self._offset)])
         self._mimosacmd(['--parameter', 'shunt', str(self._shunt)])
         self._mimosacmd(['--parameter', 'voltage', str(self._voltage)])
         self._mimosacmd(['--mimosa-start'])
-        time.sleep(1)
-        self._mimosactl('disconnect')
         time.sleep(2)
         self._mimosactl('1k') # 987 ohm
         time.sleep(2)
@@ -166,7 +171,11 @@ class MIMOSAMonitor(SerialMonitor):
         mtime_changed = True
         mim_file = None
         time.sleep(1)
-        for filename in os.listdir():
+        # reverse sort ensures that we will get the latest file, which must
+        # belong to the current measurements. This ensures that older .mim
+        # files lying around in the directory will not confuse our
+        # heuristic.
+        for filename in sorted(os.listdir(), reverse = True):
             if re.search(r'[.]mim$', filename):
                 mim_file = filename
                 break
@@ -180,8 +189,17 @@ class MIMOSAMonitor(SerialMonitor):
 
     def close(self):
         super().close()
-        mim_file = self._stop_mimosa()
-        os.remove(mim_file)
+        self.mim_file = self._stop_mimosa()
+
+    def get_files(self) -> list:
+        return [self.mim_file]
+
+    def get_config(self) -> dict:
+        return {
+            'offset' : self._offset,
+            'shunt' : self._shunt,
+            'voltage' : self._voltage,
+        }
 
 class ShellMonitor:
     """SerialMonitor runs a program and captures its output for a specific amount of time."""
