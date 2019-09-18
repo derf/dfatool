@@ -261,6 +261,11 @@ if __name__ == '__main__':
             accounting_object = get_accountingmethod(opt['accounting'])(opt['dummy'], pta)
         else:
             accounting_object = None
+        drv = MultipassDriver(opt['dummy'], pta, repo.class_by_name[opt['dummy']], enum=enum, accounting=accounting_object)
+        with open('/home/derf/var/projects/multipass/src/driver/dummy.cc', 'w') as f:
+            f.write(drv.impl)
+        with open('/home/derf/var/projects/multipass/include/driver/dummy.h', 'w') as f:
+            f.write(drv.header)
 
     runs = list(pta.dfs(opt['depth'], with_arguments = True, with_parameters = True, trace_filter = opt['trace-filter']))
 
@@ -273,5 +278,21 @@ if __name__ == '__main__':
     need_return_values = False
     if next(filter(lambda x: len(x.return_value_handlers), pta.transitions), None):
         need_return_values = True
+
+    harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values)
+
+    if len(args) > 1:
+        results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], opt['run'].split(), harness, opt['sleep'], opt['repeat'], runs_total = len(runs), dummy = 'dummy' in opt)
+        json_out = {
+            'opt' : opt,
+            'pta' : pta.to_json(),
+            'traces' : list(map(lambda x: x[1].traces, results)),
+            'raw_output' : list(map(lambda x: x[2], results)),
+        }
+        with open(time.strftime('ptalog-%Y%m%d-%H%M%S.json'), 'w') as f:
+            json.dump(json_out, f)
+    else:
+        outbuf = benchmark_from_runs(pta, runs, harness)
+        print(outbuf.getvalue())
 
     sys.exit(0)
