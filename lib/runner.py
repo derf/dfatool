@@ -124,6 +124,7 @@ class SerialMonitor:
 
 
 class MIMOSAMonitor(SerialMonitor):
+    """MIMOSAMonitor captures serial output and MIMOSA energy data for a specific amount of time."""
     def __init__(self, port: str, baud: int, callback = None, offset = 130, shunt = 330, voltage = 3.3):
         super().__init__(port = port, baud = baud, callback = callback)
         self._offset = offset
@@ -131,12 +132,19 @@ class MIMOSAMonitor(SerialMonitor):
         self._voltage = voltage
         self._start_mimosa()
 
+    def _mimosactl(self, subcommand):
+        cmd = ['mimosactl']
+        cmd.append(subcommand)
+        res = subprocess.run(cmd)
+        if res.returncode != 0:
+            raise RuntimeError('{} returned {}'.format(' '.join(cmd), res.returncode))
+
     def _mimosacmd(self, opts):
         cmd = ['MimosaCMD']
         cmd.extend(opts)
         res = subprocess.run(cmd)
         if res.returncode != 0:
-            raise RuntimeError('MimosaCMD returned ' + res.returncode)
+            raise RuntimeError('{} returned {}'.format(' '.join(cmd), res.returncode))
 
     def _start_mimosa(self):
         self._mimosacmd(['--start'])
@@ -144,6 +152,14 @@ class MIMOSAMonitor(SerialMonitor):
         self._mimosacmd(['--parameter', 'shunt', str(self._shunt)])
         self._mimosacmd(['--parameter', 'voltage', str(self._voltage)])
         self._mimosacmd(['--mimosa-start'])
+        time.sleep(1)
+        self._mimosactl('disconnect')
+        time.sleep(2)
+        self._mimosactl('1k') # 987 ohm
+        time.sleep(2)
+        self._mimosactl('100k') # 99.3 kohm
+        time.sleep(2)
+        self._mimosactl('connect')
 
     def _stop_mimosa(self):
         self._mimosacmd(['--mimosa-stop'])
@@ -250,10 +266,11 @@ def get_monitor(arch: str, **kwargs) -> object:
             _, port, arg = line.split(' ')
             if port == 'run':
                 return ShellMonitor(arg, **kwargs)
-            elif 'mimosa' in kwargs:
+            elif 'mimosa' in kwargs and kwargs['mimosa'] is not None:
                 mimosa_kwargs = kwargs.pop('mimosa')
                 return MIMOSAMonitor(port, arg, **mimosa_kwargs, **kwargs)
             else:
+                kwargs.pop('mimosa', None)
                 return SerialMonitor(port, arg, **kwargs)
     raise RuntimeError('Monitor failure')
 
