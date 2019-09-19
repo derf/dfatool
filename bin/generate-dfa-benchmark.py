@@ -56,7 +56,7 @@ from utils import flatten
 
 opt = dict()
 
-def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benchmark_id: int = 0, dummy = False) -> io.StringIO:
+def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benchmark_id: int = 0, dummy = False, repeat = 0) -> io.StringIO:
     outbuf = io.StringIO()
 
     outbuf.write('#include "arch.h"\n')
@@ -79,10 +79,15 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
     # When starting the log before flashing, output from a previous benchmark may cause bogus data to be added.
     # When flashing first and then starting the log, the first log lines may be lost.
     # To work around this, we flash first, then start the log, and use this delay statement to ensure that no output is lost.
-    # This is also useful to faciliate MIMOSA calibration after flashing.
+    # This is also useful to faciliate MIMOSA calibration after flashing
     outbuf.write('arch.delay_ms(12000);\n')
 
-    outbuf.write('while (1) {\n')
+    if repeat:
+        outbuf.write('unsigned char i = 0;\n')
+        outbuf.write('while (i++ < {}) {{\n'.format(repeat))
+    else:
+        outbuf.write('while (1) {\n')
+
     outbuf.write(harness.start_benchmark())
 
     class_prefix = ''
@@ -124,13 +129,18 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
 
     outbuf.write(harness.stop_benchmark())
     outbuf.write('}\n')
+
+    # Ensure logging can be terminated after the specified number of measurements
+    outbuf.write(harness.start_benchmark())
+
+    outbuf.write('while(1) { }\n')
     outbuf.write('return 0;\n')
     outbuf.write('}\n')
 
     return outbuf
 
 def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: str, run_args: list, harness: object, sleep: int = 0, repeat: int = 0, run_offset: int = 0, runs_total: int = 0, dummy = False):
-    outbuf = benchmark_from_runs(pta, runs, harness, dummy = dummy)
+    outbuf = benchmark_from_runs(pta, runs, harness, dummy = dummy, repeat = repeat)
     with open(application_file, 'w') as f:
         f.write(outbuf.getvalue())
         print('[MAKE] building benchmark with {:d} runs'.format(len(runs)))
@@ -173,7 +183,7 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
 
     try:
         slept = 0
-        while repeat == 0 or slept / run_timeout < 1:
+        while repeat == 0 or not harness.done:
             time.sleep(5)
             slept += 5
             print('[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%'.format(run_offset, runs_total, run_offset * 100 / runs_total, slept * 100 / run_timeout))
@@ -281,8 +291,8 @@ if __name__ == '__main__':
     if next(filter(lambda x: len(x.return_value_handlers), pta.transitions), None):
         need_return_values = True
 
-    harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values)
-    harness = TransitionHarness(gpio_pin = timer_pin, pta = pta, log_return_values = need_return_values)
+    harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = opt['repeat'])
+    harness = TransitionHarness(gpio_pin = timer_pin, pta = pta, log_return_values = need_return_values, repeat = opt['repeat'])
 
     if len(args) > 1:
         results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], opt['run'].split(), harness, opt['sleep'], opt['repeat'], runs_total = len(runs), dummy = 'dummy' in opt)
@@ -295,22 +305,27 @@ if __name__ == '__main__':
             'configs' : list(map(lambda x: x[2].get_config(), results)),
         }
         extra_files = flatten(json_out['files'])
-        output_prefix = time.strftime('/home/derf/var/ess/aemr/data/ptalog-%Y%m%d-%H%M%S')
-        with open('{}.json'.format(output_prefix), 'w') as f:
-            json.dump(json_out, f)
+        if 'instance' in pta.codegen:
+            output_prefix = time.strftime('/home/derf/var/ess/aemr/data/%Y%m%d-%H%M%S-') + pta.codegen['instance']
+        else:
+            output_prefix = time.strftime('/home/derf/var/ess/aemr/data/%Y%m%d-%H%M%S-ptalog')
         if len(extra_files):
+            with open('ptalog.json', 'w') as f:
+                json.dump(json_out, f)
             with tarfile.open('{}.tar'.format(output_prefix), 'w') as tar:
-                tar.add('{}.json'.format(output_prefix))
+                tar.add('ptalog.json')
                 for extra_file in extra_files:
                     tar.add(extra_file)
             print(' --> {}.tar'.format(output_prefix))
-            os.remove('{}.json'.format(output_prefix))
+            os.remove('ptalog.json')
             for extra_file in extra_files:
                 os.remove(extra_file)
         else:
+            with open('{}.json'.format(output_prefix), 'w') as f:
+                json.dump(json_out, f)
             print(' --> {}.json'.format(output_prefix))
     else:
-        outbuf = benchmark_from_runs(pta, runs, harness)
+        outbuf = benchmark_from_runs(pta, runs, harness, repeat = repeat)
         print(outbuf.getvalue())
 
     sys.exit(0)

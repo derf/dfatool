@@ -12,7 +12,7 @@ import re
 # not have states)
 class TransitionHarness:
     """Foo."""
-    def __init__(self, gpio_pin = None, pta = None, log_return_values = False):
+    def __init__(self, gpio_pin = None, pta = None, log_return_values = False, repeat = 0):
         """
         Create a new TransitionHarness
 
@@ -24,10 +24,11 @@ class TransitionHarness:
         self.gpio_pin = gpio_pin
         self.pta = pta
         self.log_return_values = log_return_values
+        self.repeat = repeat
         self.reset()
 
     def copy(self):
-        new_object = __class__(gpio_pin = self.gpio_pin, pta = self.pta, log_return_values = self.log_return_values)
+        new_object = __class__(gpio_pin = self.gpio_pin, pta = self.pta, log_return_values = self.log_return_values, repeat = self.repeat)
         new_object.traces = self.traces.copy()
         new_object.trace_id = self.trace_id
         return new_object
@@ -35,6 +36,8 @@ class TransitionHarness:
     def reset(self):
         self.traces = []
         self.trace_id = 0
+        self.repetitions = 0
+        self.done = False
         self.synced = False
 
     def global_code(self):
@@ -104,8 +107,14 @@ class TransitionHarness:
     def parser_cb(self, line):
         #print('[HARNESS] got line {}'.format(line))
         if re.match(r'\[PTA\] benchmark start, id=(\S+)', line):
+            if self.repeat > 0 and self.repetitions == self.repeat:
+                self.done = True
+                self.synced = False
+                print('[HARNESS] done')
+                return
             self.synced = True
-            print('[HARNESS] synced')
+            self.repetitions += 1
+            print('[HARNESS] synced, {}/{}'.format(self.repetitions, self.repeat))
         if self.synced:
             res = re.match(r'\[PTA\] trace=(\S+) count=(\S+)', line)
             if res:
