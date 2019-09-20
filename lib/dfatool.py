@@ -890,84 +890,59 @@ class RawData:
         if self.preprocessed:
             return self.traces
         if self.version == 0:
-            self._preprocess_0()
+            self._preprocess_01(0)
         elif self.version == 1:
-            self._preprocess_1()
+            self._preprocess_01(1)
         self.preprocessed = True
         return self.traces
 
-    def _preprocess_0(self):
+    def _preprocess_01(self, version):
         """Load raw MIMOSA data and turn it into measurements which are ready to be analyzed."""
         mim_files = []
         for i, filename in enumerate(self.filenames):
-            with tarfile.open(filename) as tf:
-                self.setup_by_fileno.append(json.load(tf.extractfile('setup.json')))
-                self.traces_by_fileno.append(json.load(tf.extractfile('src/apps/DriverEval/DriverLog.json')))
-                for member in tf.getmembers():
-                    _, extension = os.path.splitext(member.name)
-                    if extension == '.mim':
-                        mim_files.append({
-                            'content' : tf.extractfile(member).read(),
-                            'fileno' : i,
-                            'info' : member,
-                            'setup' : self.setup_by_fileno[i],
-                            'expected_trace' : self.traces_by_fileno[i],
-                        })
-        with Pool() as pool:
-            measurements = pool.map(_preprocess_measurement, mim_files)
 
-        num_valid = 0
-        valid_traces = list()
-        for measurement in measurements:
+            if version == 0:
 
-            # Strip the last state (it is not part of the scheduled measurement)
-            measurement['trace'].pop()
+                with tarfile.open(filename) as tf:
+                    self.setup_by_fileno.append(json.load(tf.extractfile('setup.json')))
+                    self.traces_by_fileno.append(json.load(tf.extractfile('src/apps/DriverEval/DriverLog.json')))
+                    for member in tf.getmembers():
+                        _, extension = os.path.splitext(member.name)
+                        if extension == '.mim':
+                            mim_files.append({
+                                'content' : tf.extractfile(member).read(),
+                                'fileno' : i,
+                                'info' : member,
+                                'setup' : self.setup_by_fileno[i],
+                                'expected_trace' : self.traces_by_fileno[i],
+                            })
 
-            if self._measurement_is_valid_01(measurement):
-                valid_traces.append(self._merge_online_and_offline(measurement))
-                num_valid += 1
-            else:
-                vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
-                    ar = self.filenames[measurement['fileno']],
-                    m = measurement['info'].name,
-                    e = measurement['error']))
-        vprint(self.verbose, '[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
-            num_valid = num_valid,
-            num_total = len(measurements)))
-        self.traces = self._concatenate_traces(valid_traces)
-        self.preprocessing_stats = {
-            'num_runs' : len(measurements),
-            'num_valid' : num_valid
-        }
+            elif version == 1:
 
-    def _preprocess_1(self):
-        """Load raw MIMOSA data."""
-        mim_files = list()
-        for i, filename in enumerate(self.filenames):
-            traces_by_file = list()
-            mim_files_by_file = list()
-            with tarfile.open(filename) as tf:
-                for member in tf.getmembers():
-                    _, extension = os.path.splitext(member.name)
-                    if extension == '.mim':
-                        mim_files_by_file.append({
-                            'content' : tf.extractfile(member).read(),
-                            'info' : member,
-                        })
-                    elif extension == '.json':
-                        ptalog = json.load(tf.extractfile(member))
-                traces_by_file.extend(ptalog['traces'])
-            self.traces_by_fileno.append(self._concatenate_traces(traces_by_file))
-            self.setup_by_fileno.append({
-                'mimosa_voltage' : ptalog['configs'][0]['voltage'],
-                'mimosa_shunt' : ptalog['configs'][0]['shunt'],
-                'state_duration' : ptalog['opt']['sleep']
-            })
-            for j, mim_file in enumerate(mim_files_by_file):
-                mim_file['setup'] = self.setup_by_fileno[i]
-                mim_file['expected_trace'] = ptalog['traces'][j]
-                mim_file['fileno'] = i
-            mim_files.extend(mim_files_by_file)
+                traces_by_file = list()
+                mim_files_by_file = list()
+                with tarfile.open(filename) as tf:
+                    for member in tf.getmembers():
+                        _, extension = os.path.splitext(member.name)
+                        if extension == '.mim':
+                            mim_files_by_file.append({
+                                'content' : tf.extractfile(member).read(),
+                                'info' : member,
+                            })
+                        elif extension == '.json':
+                            ptalog = json.load(tf.extractfile(member))
+                    traces_by_file.extend(ptalog['traces'])
+                self.traces_by_fileno.append(self._concatenate_traces(traces_by_file))
+                self.setup_by_fileno.append({
+                    'mimosa_voltage' : ptalog['configs'][0]['voltage'],
+                    'mimosa_shunt' : ptalog['configs'][0]['shunt'],
+                    'state_duration' : ptalog['opt']['sleep']
+                })
+                for j, mim_file in enumerate(mim_files_by_file):
+                    mim_file['setup'] = self.setup_by_fileno[i]
+                    mim_file['expected_trace'] = ptalog['traces'][j]
+                    mim_file['fileno'] = i
+                mim_files.extend(mim_files_by_file)
 
         with Pool() as pool:
             measurements = pool.map(_preprocess_measurement, mim_files)
@@ -975,10 +950,18 @@ class RawData:
         num_valid = 0
         valid_traces = list()
         for measurement in measurements:
-            # The first online measurement is the UNINITIALIZED state. In v1,
-            # it is not part of the expected PTA trace -> remove it.
-            measurement['trace'].pop(0)
-            if self._measurement_is_valid_01(measurement, ptalog['opt']['repeat']):
+
+            if version == 0:
+                # Strip the last state (it is not part of the scheduled measurement)
+                measurement['trace'].pop()
+                repeat = 0
+            elif version == 1:
+                # The first online measurement is the UNINITIALIZED state. In v1,
+                # it is not part of the expected PTA trace -> remove it.
+                measurement['trace'].pop(0)
+                repeat = ptalog['opt']['repeat']
+
+            if self._measurement_is_valid_01(measurement, repeat):
                 valid_traces.append(self._merge_online_and_offline(measurement))
                 num_valid += 1
             else:
