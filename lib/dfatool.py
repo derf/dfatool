@@ -360,7 +360,9 @@ def _preprocess_measurement(measurement):
         'triggers' : len(trigidx),
         'first_trig' : trigidx[0] * 10,
         'calibration' : caldata,
-        'trace' : mim.analyze_states(charges, trigidx, vcalfunc)
+        'trace' : mim.analyze_states(charges, trigidx, vcalfunc),
+        'has_mimosa_error' : mim.is_error,
+        'mimosa_errors' : mim.errors,
     }
 
     return processed_data
@@ -584,6 +586,8 @@ class RawData:
         Create a new RawData object.
 
         Each filename element corresponds to a measurement run. It must be a tar archive with the following contents:
+
+        Version 0:
 
         * `setup.json`: measurement setup. Must contain the keys `state_duration` (how long each state is active, in ms),
           `mimosa_voltage` (voltage applied to dut, in V), and `mimosa_shunt` (shunt value, in Ohm)
@@ -1827,33 +1831,53 @@ class MIMOSA:
     MIMOSA log loader for DFA traces with auto-calibration.
 
     Expects a MIMOSA log file generated via dfatool and a dfatool-generated
-    benchmark: There is an automatic calibration step at the start and the
-    trigger pin is high iff a transition is active. The resulting data
-    is a list of state/transition/state/transition/... measurements.
+    benchmark. A MIMOSA log consists of a series of measurements. Each measurement
+    gives the total charge (in pJ) and binary buzzer/trigger value during a 10µs interval.
+    
+    There must be a calibration run consisting of at least two seconds with disconnected DUT,
+    two seconds with 1 kOhm (984 Ohm), and two seconds with 100 kOhm (99013 Ohm) resistor at
+    the start. The first ten seconds of data are reserved for calbiration and must not contain
+    measurements, as trigger/buzzer signals are ignored in this time range.
+    
+    Resulting data is a list of state/transition/state/transition/... measurements.
     """
 
-    def __init__(self, voltage, shunt, verbose = True):
+    def __init__(self, voltage: float, shunt: int, verbose = True):
         """
         Initialize MIMOSA loader for a specific voltage and shunt setting.
 
-        arguments:
-        voltage -- MIMOSA voltage used for measurements
-        shunt -- Shunt value in Ohms
-        verbose -- notify about invalid data and the likes
+        :param voltage: MIMOSA DUT supply voltage (V)
+        :para mshunt: MIMOSA Shunt (Ohms)
+        :param verbose: print notices about invalid data on STDOUT?
         """
         self.voltage = voltage
         self.shunt = shunt
         self.verbose = verbose
         self.r1 = 984 # "1k"
         self.r2 = 99013 # "100k"
+        self.is_error = False
+        self.errors = list()
 
     def charge_to_current_nocal(self, charge):
-        u"""Convert charge per 10µs to mean currents without accounting for calibration."""
+        u"""
+        Convert charge per 10µs (in pJ) to mean currents (in µA) without accounting for calibration.
+        
+        :param charge: numpy array of charges (pJ per 10µs) as returned by `load_data` or `load_file`
+
+        :returns: numpy array of mean currents (µA per 10µs)
+        """
         ua_max = 1.836 / self.shunt * 1000000
         ua_step = ua_max / 65535
         return charge * ua_step
 
     def _load_tf(self, tf):
+        u"""
+        Load MIMOSA log data from an open `tarfile` instance.
+
+        :param tf: `tarfile` instance
+
+        :returns: (numpy array of charges (pJ per 10µs), numpy array of triggers (0/1 int, per 10µs))
+        """
         num_bytes = tf.getmember('/tmp/mimosa//mimosa_scale_1.tmp').size
         charges = np.ndarray(shape=(int(num_bytes / 4)), dtype=np.int32)
         triggers = np.ndarray(shape=(int(num_bytes / 4)), dtype=np.int8)
@@ -1868,19 +1892,37 @@ class MIMOSA:
         return charges, triggers
 
 
-    def load_data(self, raw_data):
-        """Load a MIMOSA log archive from a raw bytestring."""
+    def load_data(self, raw_data, first_is_state = True):
+        u"""
+        Load MIMOSA log data from a MIMOSA log file passed as raw byte string
+
+        :param raw_data: MIMOSA log file, passed as raw byte string
+
+        :returns: (numpy array of charges (pJ per 10µs), numpy array of triggers (0/1 int, per 10µs))
+        """
+        self.first_is_state = first_is_state
         with io.BytesIO(raw_data) as data_object:
             with tarfile.open(fileobj = data_object) as tf:
                 return self._load_tf(tf)
 
     def load_file(self, filename):
-        """Load a MIMOSA log archive from a filename."""
+        u"""
+        Load MIMOSA log data from a MIMOSA log file
+
+        :param filename: MIMOSA log file
+
+        :returns: (numpy array of charges (pJ per 10µs), numpy array of triggers (0/1 int, per 10µs))
+        """
         with tarfile.open(filename) as tf:
             return self._load_tf(tf)
 
     def currents_nocal(self, charges):
-        u"""Convert charge per 10µs to mean currents without accounting for calibration."""
+        u"""
+        Convert charges (pJ per 10µs) to mean currents without accounting for calibration.
+        
+        :param charges: numpy array of charges (pJ per 10µs)
+
+        :returns: numpy array of currents (mean µA per 10µs)"""
         ua_max = 1.836 / self.shunt * 1000000
         ua_step = ua_max / 65535
         return charges.astype(np.double) * ua_step
@@ -1889,41 +1931,45 @@ class MIMOSA:
         """
         Return indexes of trigger edges (both 0->1 and 1->0) in log data.
 
-        arguments:
-        triggers -- trigger array as returned by load_data
-
         Ignores the first 10 seconds, which are used for calibration and may
-        contain bogus triggers due to DUT resets. Returns a list of int.
+        contain bogus triggers due to DUT resets.
+
+        :param triggers: trigger array (int, 0/1) as returned by load_data
+
+        :returns: list of int (trigger indices, e.g. [2000000, ...] means the first trigger appears in charges/currents interval 2000000 -> 20s after start of measurements. Keep in mind that each interval is 10µs long, not 1µs, so index values are not µs timestamps)
         """
         trigidx = []
-        prevtrig = triggers[0]
+        prevtrig = triggers[999999]
+
+        # if the first trigger is high (i.e., trigger/buzzer pin is active before the benchmark starts),
+        # something went wrong and are unable to determine when the first
+        # transition starts.
+        if prevtrig != 0:
+            self.is_error = True
+            self.errors.append('Unable to find start of first transition (log starts with trigger == {} != 0)'.format(prevtrig))
+
         # the device is reset for MIMOSA calibration in the first 10s and may
         # send bogus interrupts -> bogus triggers
         for i in range(1000000, triggers.shape[0]):
             trig = triggers[i]
             if trig != prevtrig:
-                # Due to MIMOSA's integrate-read-reset cycle, the trigger
-                # appears two points (20µs) before the corresponding data
+                # Due to MIMOSA's integrate-read-reset cycle, the charge/current
+                # interval belonging to this trigger comes two intervals (20µs) later
                 trigidx.append(i+2)
             prevtrig = trig
         return trigidx
 
     def calibration_edges(self, currents):
-        """
+        u"""
         Return start/stop indexes of calibration measurements.
 
-        arguments:
-        currents -- uncalibrated currents as reported by MIMOSA. For best results,
+        :param currents: uncalibrated currents as reported by MIMOSA. For best results,
             it may help to use a running mean, like so:
-            currents = running_mean(currents_nocal(..., 10))
+            `currents = running_mean(currents_nocal(..., 10))`
 
-        Returns six indexes:
-        - Disconnected start
-        - Disconnected  stop
-        - R1 (1 kOhm) start
-        - R1 (1 kOhm) stop
-        - R2 (100 kOhm) start
-        - R2 (100 kOhm) stop
+        :returns: indices of calibration events in MIMOSA data:
+            (disconnect start, disconnect stop, R1 (1k) start, R1 (1k) stop, R2 (100k) start, R2 (100k) stop)
+            indices refer to charges/currents arrays, so 0 refers to the first 10µs interval, 1 to the second, and so on.
         """
         r1idx = 0
         r2idx = 0
@@ -1940,30 +1986,29 @@ class MIMOSA:
 
     def calibration_function(self, charges, cal_edges):
         u"""
-        Calculate calibration function from previously determined calibration phase.
+        Calculate calibration function from previously determined calibration edges.
 
-        arguments:
-        charges -- raw charges from MIMOSA
-        cal_edges -- calibration edges as returned by calibration_edges
+        :param charges: raw charges from MIMOSA
+        :param cal_edges: calibration edges as returned by calibration_edges
 
-        returns (calibration_function, calibration_data):
-        calibration_function -- charge in pJ (float) -> current in uA (float).
-            Converts the amount of charge in a 10 µs interval to the
-            mean current during the same interval.
-        calibration_data -- dict containing the following keys:
-            edges -- calibration points in the log file, in µs
-            offset -- ...
-            offset2 --  ...
-            slope_low -- ...
-            slope_high -- ...
-            add_low -- ...
-            add_high -- ..
-            r0_err_uW -- mean error of uncalibrated data at "∞ Ohm" in µW
-            r0_std_uW -- standard deviation of uncalibrated data at "∞ Ohm" in µW
-            r1_err_uW -- mean error of uncalibrated data at 1 kOhm
-            r1_std_uW -- stddev at 1 kOhm
-            r2_err_uW -- mean error at 100 kOhm
-            r2_std_uW -- stddev at 100 kOhm
+        :returns: (calibration_function, calibration_data):
+            calibration_function -- charge in pJ (float) -> current in uA (float).
+                Converts the amount of charge in a 10 µs interval to the
+                mean current during the same interval.
+            calibration_data -- dict containing the following keys:
+                edges -- calibration points in the log file, in µs
+                offset -- ...
+                offset2 --  ...
+                slope_low -- ...
+                slope_high -- ...
+                add_low -- ...
+                add_high -- ..
+                r0_err_uW -- mean error of uncalibrated data at "∞ Ohm" in µW
+                r0_std_uW -- standard deviation of uncalibrated data at "∞ Ohm" in µW
+                r1_err_uW -- mean error of uncalibrated data at 1 kOhm
+                r1_std_uW -- stddev at 1 kOhm
+                r2_err_uW -- mean error at 100 kOhm
+                r2_std_uW -- stddev at 100 kOhm
         """
         dis_start, dis_end, r1_start, r1_end, r2_start, r2_end = cal_edges
         if dis_start < 0:
@@ -2073,27 +2118,25 @@ class MIMOSA:
 
     def analyze_states(self, charges, trigidx, ua_func):
         u"""
-        Split log data into states and transitions and return mean power and duration for each element.
+        Split log data into states and transitions and return duration, energy, and mean power for each element.
 
-        arguments:
-        charges -- raw charges (each element describes the charge transferred during 10 µs)
-        trigidx -- "charges" indexes corresponding to a trigger edge
-        ua_func -- charge -> current function as returned by calibration_function
+        :param charges: raw charges (each element describes the charge in pJ transferred during 10 µs)
+        :param trigidx: "charges" indexes corresponding to a trigger edge, see `trigger_edges`
+        :param ua_func: charge(pJ) -> current(µA) function as returned by `calibration_function`
 
-        returns a list of (alternating) states and transitions.
-        Each element is a dict containing:
-            - isa: 'state' oder 'transition'
-            - clip_rate: range(0..1) Anteil an Clipping im Energieverbrauch
-            - raw_mean: Mittelwert der Rohwerte
-            - raw_std: Standardabweichung der Rohwerte
-            - uW_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
-            - uW_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
-            - us: Dauer
-
-            Nur falls isa == 'transition':
-            - timeout: Dauer des vorherigen Zustands
-            - uW_mean_delta_prev: Differenz zwischen uW_mean und uW_mean des vorherigen Zustands
-            - uW_mean_delta_next: Differenz zwischen uW_mean und uW_mean des Folgezustands
+        :returns: list of states and transitions, starting with a state and ending with a transition.
+            Each element is a dict containing:
+            * `isa`: 'state' or 'transition'
+            * `clip_rate`: range(0..1) Anteil an Clipping im Energieverbrauch
+            * `raw_mean`: Mittelwert der Rohwerte
+            * `raw_std`: Standardabweichung der Rohwerte
+            * `uW_mean`: Mittelwert der (kalibrierten) Leistungsaufnahme
+            * `uW_std`: Standardabweichung der (kalibrierten) Leistungsaufnahme
+            * `us`: Dauer
+            if isa == 'transition, it also contains:
+            * `timeout`: Dauer des vorherigen Zustands
+            * `uW_mean_delta_prev`: Differenz zwischen uW_mean und uW_mean des vorherigen Zustands
+            * `uW_mean_delta_next`: Differenz zwischen uW_mean und uW_mean des Folgezustands
         """
         previdx = 0
         is_state = True
