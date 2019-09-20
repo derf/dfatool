@@ -361,6 +361,7 @@ def _preprocess_measurement(measurement):
         'first_trig' : trigidx[0] * 10,
         'calibration' : caldata,
         'trace' : mim.analyze_states(charges, trigidx, vcalfunc),
+        'expected_trace' : measurement['expected_trace'],
         'has_mimosa_error' : mim.is_error,
         'mimosa_errors' : mim.errors,
     }
@@ -599,6 +600,21 @@ class RawData:
           Example: `[ {"id": 1, "trace": [ {"parameter": {...}, "isa": "state", "name": "UNINITIALIZED"}, ...] }, ... ]
         * At least one `*.mim` file. Each file corresponds to a single execution of the entire benchmark (i.e., all runs described in DriverLog.json) and starts with a MIMOSA Autocal calibration sequence.
           MIMOSA files are parsed by the `MIMOSA` class.
+
+        Version 1:
+
+        * `ptalog.json`: measurement setup and traces. Contents:
+          `.opt.sleep`: state duration
+          `.opt.pta`: PTA
+          `.opt.traces`: list of sub-benchmark traces (the benchmark may have been split due to code size limitations). Each item is a list of traces as returned by `harness.traces`:
+            `.opt.traces[]`: List of traces. Each trace has an 'id' (numeric, starting with 1) and 'trace' (list of states and transitions) element.
+              Each state/transition must have the members '`parameter` (dict with normalized parameter values), `.isa` ("state" or "transition") and `.name`
+              Each transition must additionally contain `.args`
+          `.opt.files`: list of coresponding MIMOSA measurements.
+            `.opt.files[]` = ['abc123.mim']
+          `.opt.configs`: ....
+
+        tbd
         """
         self.filenames = filenames.copy()
         self.traces_by_fileno = []
@@ -606,6 +622,12 @@ class RawData:
         self.version = 0
         self.preprocessed = False
         self._parameter_names = None
+
+        with tarfile.open(filenames[0]) as tf:
+            for member in tf.getmembers():
+                if member.name == 'ptalog.json':
+                    self.version = 1
+                    break
 
     def _state_is_too_short(self, online, offline, state_duration, next_transition):
         # We cannot control when an interrupt causes a state to be left
@@ -624,14 +646,48 @@ class RawData:
         # state_duration is stored as ms, not us
         return offline['us'] > state_duration * 1500
 
-    def _measurement_is_valid(self, processed_data):
+    def _measurement_is_valid_01(self, processed_data, repeat = 0):
+        """
+        Check if a dfatool v0 or v1 measurement is valid.
+
+        processed_data layout:
+        'fileno' : measurement['fileno'],
+        'info' : measurement['info'],
+        'triggers' : len(trigidx),
+        'first_trig' : trigidx[0] * 10,
+        'calibration' : caldata,
+        'trace' : mim.analyze_states(charges, trigidx, vcalfunc)
+        'expected_trace' : trace from PTA DFS (with parameter data)
+        mim.analyze_states returns a list of (alternating) states and transitions.
+        Each element is a dict containing:
+            - isa: 'state' oder 'transition'
+            - clip_rate: range(0..1) Anteil an Clipping im Energieverbrauch
+            - raw_mean: Mittelwert der Rohwerte
+            - raw_std: Standardabweichung der Rohwerte
+            - uW_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
+            - uW_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
+            - us: Dauer
+
+            Nur falls isa == 'transition':
+            - timeout: Dauer des vorherigen Zustands
+            - uW_mean_delta_prev: Differenz zwischen uW_mean und uW_mean des vorherigen Zustands
+            - uW_mean_delta_next: Differenz zwischen uW_mean und uW_mean des Folgezustands
+        """
         setup = self.setup_by_fileno[processed_data['fileno']]
-        traces = self.traces_by_fileno[processed_data['fileno']]
+        traces = processed_data['expected_trace']
         state_duration = setup['state_duration']
+
+        # Check MIMOSA error
+        if processed_data['has_mimosa_error']:
+            processed_data['error'] = '; '.join(processed_data['mimosa_errors'])
+            return False
+
         # Check trigger count
         sched_trigger_count = 0
         for run in traces:
             sched_trigger_count += len(run['trace'])
+        if repeat:
+            sched_trigger_count *= repeat
         if sched_trigger_count != processed_data['triggers']:
             processed_data['error'] = 'got {got:d} trigger edges, expected {exp:d}'.format(
                     got = processed_data['triggers'],
@@ -654,7 +710,7 @@ class RawData:
                 self._parameter_names = sorted(online_trace_part['parameter'].keys())
 
             if sorted(online_trace_part['parameter'].keys()) != self._parameter_names:
-                processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) has inconsistent paramete set: should be {param_want:s}, is {param_is:s}'.format(
+                processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) has inconsistent parameter set: should be {param_want:s}, is {param_is:s}'.format(
                     off_idx = offline_idx, on_idx = online_run_idx,
                     on_sub = online_trace_part_idx,
                     on_name = online_trace_part['name'],
@@ -683,7 +739,7 @@ class RawData:
                 return False
 
 
-            if online_trace_part['isa'] == 'state' and online_trace_part['name'] != 'UNINITIALIZED':
+            if online_trace_part['isa'] == 'state' and online_trace_part['name'] != 'UNINITIALIZED' and len(traces[online_run_idx]['trace']) > online_trace_part_idx+1:
                 online_prev_transition = traces[online_run_idx]['trace'][online_trace_part_idx-1]
                 online_next_transition = traces[online_run_idx]['trace'][online_trace_part_idx+1]
                 try:
@@ -706,9 +762,9 @@ class RawData:
                     # TODO es gibt next_transitions ohne 'plan'
         return True
 
-    def _merge_measurement_into_online_data(self, measurement):
+    def _merge_online_and_offline(self, measurement):
         online_datapoints = []
-        traces = self.traces_by_fileno[measurement['fileno']]
+        traces = measurement['expected_trace'].copy()
         for run_idx, run in enumerate(traces):
             for trace_part_idx in range(len(run['trace'])):
                 online_datapoints.append((run_idx, trace_part_idx))
@@ -767,14 +823,16 @@ class RawData:
                     offline_trace_part['uW_mean_delta_next'] * (offline_trace_part['us'] - 20))
                 online_trace_part['offline_aggregates']['timeout'].append(
                     offline_trace_part['timeout'])
+        return traces
 
-    def _concatenate_analyzed_traces(self):
-        self.traces = []
-        for trace in self.traces_by_fileno:
-            self.traces.extend(trace)
-        for i, trace in enumerate(self.traces):
+    def _concatenate_traces(self, list_of_traces):
+        trace_output = list()
+        for trace in list_of_traces:
+            trace_output.extend(trace.copy())
+        for i, trace in enumerate(trace_output):
             trace['orig_id'] = trace['id']
             trace['id'] = i
+        return trace_output
 
     def get_preprocessed_data(self, verbose = True):
         """
@@ -833,6 +891,8 @@ class RawData:
             return self.traces
         if self.version == 0:
             self._preprocess_0()
+        elif self.version == 1:
+            self._preprocess_1()
         self.preprocessed = True
         return self.traces
 
@@ -851,15 +911,20 @@ class RawData:
                             'fileno' : i,
                             'info' : member,
                             'setup' : self.setup_by_fileno[i],
-                            'traces' : self.traces_by_fileno[i],
+                            'expected_trace' : self.traces_by_fileno[i],
                         })
         with Pool() as pool:
             measurements = pool.map(_preprocess_measurement, mim_files)
 
         num_valid = 0
+        valid_traces = list()
         for measurement in measurements:
-            if self._measurement_is_valid(measurement):
-                self._merge_measurement_into_online_data(measurement)
+
+            # Strip the last state (it is not part of the scheduled measurement)
+            measurement['trace'].pop()
+
+            if self._measurement_is_valid_01(measurement):
+                valid_traces.append(self._merge_online_and_offline(measurement))
                 num_valid += 1
             else:
                 vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
@@ -869,7 +934,62 @@ class RawData:
         vprint(self.verbose, '[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
             num_valid = num_valid,
             num_total = len(measurements)))
-        self._concatenate_analyzed_traces()
+        self.traces = self._concatenate_traces(valid_traces)
+        self.preprocessing_stats = {
+            'num_runs' : len(measurements),
+            'num_valid' : num_valid
+        }
+
+    def _preprocess_1(self):
+        """Load raw MIMOSA data."""
+        mim_files = list()
+        for i, filename in enumerate(self.filenames):
+            traces_by_file = list()
+            mim_files_by_file = list()
+            with tarfile.open(filename) as tf:
+                for member in tf.getmembers():
+                    _, extension = os.path.splitext(member.name)
+                    if extension == '.mim':
+                        mim_files_by_file.append({
+                            'content' : tf.extractfile(member).read(),
+                            'info' : member,
+                        })
+                    elif extension == '.json':
+                        ptalog = json.load(tf.extractfile(member))
+                traces_by_file.extend(ptalog['traces'])
+            self.traces_by_fileno.append(self._concatenate_traces(traces_by_file))
+            self.setup_by_fileno.append({
+                'mimosa_voltage' : ptalog['configs'][0]['voltage'],
+                'mimosa_shunt' : ptalog['configs'][0]['shunt'],
+                'state_duration' : ptalog['opt']['sleep']
+            })
+            for j, mim_file in enumerate(mim_files_by_file):
+                mim_file['setup'] = self.setup_by_fileno[i]
+                mim_file['expected_trace'] = ptalog['traces'][j]
+                mim_file['fileno'] = i
+            mim_files.extend(mim_files_by_file)
+
+        with Pool() as pool:
+            measurements = pool.map(_preprocess_measurement, mim_files)
+
+        num_valid = 0
+        valid_traces = list()
+        for measurement in measurements:
+            # The first online measurement is the UNINITIALIZED state. In v1,
+            # it is not part of the expected PTA trace -> remove it.
+            measurement['trace'].pop(0)
+            if self._measurement_is_valid_01(measurement, ptalog['opt']['repeat']):
+                valid_traces.append(self._merge_online_and_offline(measurement))
+                num_valid += 1
+            else:
+                vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
+                    ar = self.filenames[measurement['fileno']],
+                    m = measurement['info'].name,
+                    e = measurement['error']))
+        vprint(self.verbose, '[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
+            num_valid = num_valid,
+            num_total = len(measurements)))
+        self.traces = self._concatenate_traces(valid_traces)
         self.preprocessing_stats = {
             'num_runs' : len(measurements),
             'num_valid' : num_valid
@@ -1892,7 +2012,7 @@ class MIMOSA:
         return charges, triggers
 
 
-    def load_data(self, raw_data, first_is_state = True):
+    def load_data(self, raw_data):
         u"""
         Load MIMOSA log data from a MIMOSA log file passed as raw byte string
 
@@ -1900,7 +2020,6 @@ class MIMOSA:
 
         :returns: (numpy array of charges (pJ per 10µs), numpy array of triggers (0/1 int, per 10µs))
         """
-        self.first_is_state = first_is_state
         with io.BytesIO(raw_data) as data_object:
             with tarfile.open(fileobj = data_object) as tf:
                 return self._load_tf(tf)
@@ -1947,6 +2066,13 @@ class MIMOSA:
         if prevtrig != 0:
             self.is_error = True
             self.errors.append('Unable to find start of first transition (log starts with trigger == {} != 0)'.format(prevtrig))
+
+        # if the last trigger is high (i.e., trigger/buzzer pin is active when the benchmark ends),
+        # it terminated in the middle of a transition -- meaning that it was not
+        # measured in its entirety.
+        if triggers[-1] != 0:
+            self.is_error = True
+            self.errors.append('Log ends during a transition'.format(prevtrig))
 
         # the device is reset for MIMOSA calibration in the first 10s and may
         # send bogus interrupts -> bogus triggers
@@ -2124,7 +2250,7 @@ class MIMOSA:
         :param trigidx: "charges" indexes corresponding to a trigger edge, see `trigger_edges`
         :param ua_func: charge(pJ) -> current(µA) function as returned by `calibration_function`
 
-        :returns: list of states and transitions, starting with a state and ending with a transition.
+        :returns: list of states and transitions, both starting andending with a state.
             Each element is a dict containing:
             * `isa`: 'state' or 'transition'
             * `clip_rate`: range(0..1) Anteil an Clipping im Energieverbrauch
@@ -2141,7 +2267,13 @@ class MIMOSA:
         previdx = 0
         is_state = True
         iterdata = []
-        for idx in trigidx:
+
+        # The last state (between the last transition and end of file) may also
+        # be important. Pretend it ends when the log ends.
+        trigger_indices = trigidx.copy()
+        trigger_indices.append(len(charges))
+
+        for idx in trigger_indices:
             range_raw = charges[previdx:idx]
             range_ua = ua_func(range_raw)
             substates = {}
