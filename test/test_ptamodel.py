@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 from dfatool import PTAModel, RawData, pta_trace_to_aggregate
+import os
 import unittest
+import pytest
 
 class TestModels(unittest.TestCase):
     def test_model_singlefile_rf24(self):
@@ -193,8 +195,8 @@ class TestModels(unittest.TestCase):
         self.assertAlmostEqual(static_model('off', 'duration'), 9140, places=0)
         self.assertAlmostEqual(static_model('red', 'duration'), 9140, places=0)
 
+    @pytest.mark.skipif('TEST_SLOW' not in os.environ, reason="slow test, set TEST_SLOW=1 to run")
     def test_model_multifile_cc1200(self):
-        return
         testfiles = [
             'test-data/20170125_125433_cc1200.tar',
             'test-data/20170125_142420_cc1200.tar',
