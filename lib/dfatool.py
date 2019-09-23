@@ -360,11 +360,13 @@ def _preprocess_measurement(measurement):
         'triggers' : len(trigidx),
         'first_trig' : trigidx[0] * 10,
         'calibration' : caldata,
-        'trace' : mim.analyze_states(charges, trigidx, vcalfunc),
-        'expected_trace' : measurement['expected_trace'],
+        'energy_trace' : mim.analyze_states(charges, trigidx, vcalfunc),
         'has_mimosa_error' : mim.is_error,
         'mimosa_errors' : mim.errors,
     }
+
+    if 'expected_trace' in measurement:
+        processed_data['expected_trace'] = measurement['expected_trace']
 
     return processed_data
 
@@ -656,7 +658,9 @@ class RawData:
         'triggers' : len(trigidx),
         'first_trig' : trigidx[0] * 10,
         'calibration' : caldata,
-        'trace' : mim.analyze_states(charges, trigidx, vcalfunc)
+        'energy_trace' : mim.analyze_states(charges, trigidx, vcalfunc)
+            A sequence of unnamed, unparameterized states and transitions with
+            energy and timing data
         'expected_trace' : trace from PTA DFS (with parameter data)
         mim.analyze_states returns a list of (alternating) states and transitions.
         Each element is a dict containing:
@@ -674,7 +678,10 @@ class RawData:
             - uW_mean_delta_next: Differenz zwischen uW_mean und uW_mean des Folgezustands
         """
         setup = self.setup_by_fileno[processed_data['fileno']]
-        traces = processed_data['expected_trace']
+        if 'expected_trace' in processed_data:
+            traces = processed_data['expected_trace']
+        else:
+            traces = self.traces_by_fileno[processed_data['fileno']]
         state_duration = setup['state_duration']
 
         # Check MIMOSA error
@@ -703,7 +710,7 @@ class RawData:
                 online_datapoints.append((run_idx, trace_part_idx))
         for offline_idx, online_ref in enumerate(online_datapoints):
             online_run_idx, online_trace_part_idx = online_ref
-            offline_trace_part = processed_data['trace'][offline_idx]
+            offline_trace_part = processed_data['energy_trace'][offline_idx]
             online_trace_part = traces[online_run_idx]['trace'][online_trace_part_idx]
 
             if self._parameter_names == None:
@@ -763,14 +770,21 @@ class RawData:
         return True
 
     def _merge_online_and_offline(self, measurement):
+        # Edits self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline']
+        # and self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline_aggregates'] in place
+        # (appends data from measurement['energy_trace'])
+        # If measurement['expected_trace'] exists, it is edited in place instead
         online_datapoints = []
-        traces = measurement['expected_trace'].copy()
+        if 'expected_trace' in measurement:
+            traces = measurement['expected_trace']
+        else:
+            traces = self.traces_by_fileno[measurement['fileno']]
         for run_idx, run in enumerate(traces):
             for trace_part_idx in range(len(run['trace'])):
                 online_datapoints.append((run_idx, trace_part_idx))
         for offline_idx, online_ref in enumerate(online_datapoints):
             online_run_idx, online_trace_part_idx = online_ref
-            offline_trace_part = measurement['trace'][offline_idx]
+            offline_trace_part = measurement['energy_trace'][offline_idx]
             online_trace_part = traces[online_run_idx]['trace'][online_trace_part_idx]
 
             if not 'offline' in online_trace_part:
@@ -823,7 +837,6 @@ class RawData:
                     offline_trace_part['uW_mean_delta_next'] * (offline_trace_part['us'] - 20))
                 online_trace_part['offline_aggregates']['timeout'].append(
                     offline_trace_part['timeout'])
-        return traces
 
     def _concatenate_traces(self, list_of_traces):
         trace_output = list()
@@ -914,7 +927,6 @@ class RawData:
                                 'fileno' : i,
                                 'info' : member,
                                 'setup' : self.setup_by_fileno[i],
-                                'expected_trace' : self.traces_by_fileno[i],
                             })
 
             elif version == 1:
@@ -922,6 +934,8 @@ class RawData:
                 traces_by_file = list()
                 mim_files_by_file = list()
                 with tarfile.open(filename) as tf:
+                    # Relies on generate-dfa-benchmark placing the .mim files
+                    # in the order they were created (i.e., lexically sorted)
                     for member in tf.getmembers():
                         _, extension = os.path.splitext(member.name)
                         if extension == '.mim':
@@ -931,8 +945,16 @@ class RawData:
                             })
                         elif extension == '.json':
                             ptalog = json.load(tf.extractfile(member))
+
+                    # ptalog['traces'] is a list of lists.
+                    # The first level corresponds to the individual .mim files:
+                    # ptalog['traces'][0] contains all traces belonging to the
+                    # first .mim file in the archive.
+                    # The second level holds the individual runs in this
+                    # sub-benchmark, so ptalog['traces'][0][0] is the first
+                    # run, ptalog['traces'][0][1] the second, and so on
+
                     traces_by_file.extend(ptalog['traces'])
-                self.traces_by_fileno.append(self._concatenate_traces(traces_by_file))
                 self.setup_by_fileno.append({
                     'mimosa_voltage' : ptalog['configs'][0]['voltage'],
                     'mimosa_shunt' : ptalog['configs'][0]['shunt'],
@@ -953,16 +975,16 @@ class RawData:
 
             if version == 0:
                 # Strip the last state (it is not part of the scheduled measurement)
-                measurement['trace'].pop()
+                measurement['energy_trace'].pop()
                 repeat = 0
             elif version == 1:
                 # The first online measurement is the UNINITIALIZED state. In v1,
                 # it is not part of the expected PTA trace -> remove it.
-                measurement['trace'].pop(0)
+                measurement['energy_trace'].pop(0)
                 repeat = ptalog['opt']['repeat']
 
             if self._measurement_is_valid_01(measurement, repeat):
-                valid_traces.append(self._merge_online_and_offline(measurement))
+                self._merge_online_and_offline(measurement)
                 num_valid += 1
             else:
                 vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
@@ -972,7 +994,10 @@ class RawData:
         vprint(self.verbose, '[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
             num_valid = num_valid,
             num_total = len(measurements)))
-        self.traces = self._concatenate_traces(valid_traces)
+        if version == 0:
+            self.traces = self._concatenate_traces(self.traces_by_fileno)
+        elif version == 1:
+            self.traces = self._concatenate_traces(map(lambda x: x['expected_trace'], measurements))
         self.preprocessing_stats = {
             'num_runs' : len(measurements),
             'num_valid' : num_valid
