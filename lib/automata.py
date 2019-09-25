@@ -1,6 +1,7 @@
 """Classes and helper functions for PTA and other automata."""
 
 from functions import AnalyticFunction, NormalizationFunction
+from utils import is_numeric
 import itertools
 import numpy as np
 
@@ -603,6 +604,31 @@ class PTA:
             state.set_random_energy_model(static_model)
         for transition in self.transitions:
             transition.set_random_energy_model(static_model)
+
+    def shrink_argument_values(self):
+        """
+        Throw away all but two values for each numeric argument of each transition.
+
+        This is meant to speed up an initial PTA-based benchmark by
+        reducing the parameter space while still gaining insights in the
+        effect (or nop) or individual parameters on hardware behaviour.
+
+        Parameters with non-numeric values (anything containing neither
+        numbers nor enums) are left as-is, as they may be distinct
+        toggles whose effect cannot be estimated when they are left out.
+        """
+        for transition in self.transitions:
+            for i, argument in enumerate(transition.arguments):
+                if len(transition.argument_values[i]) <= 2:
+                    continue
+                if transition.argument_combination == 'zip':
+                    continue
+                values_are_numeric = True
+                for value in transition.argument_values[i]:
+                    if not is_numeric(self.normalize_parameter(transition.arg_to_param_map[i], value)):
+                        values_are_numeric = False
+                if values_are_numeric and len(transition.argument_values[i]) > 2:
+                    transition.argument_values[i] = [transition.argument_values[i][0], transition.argument_values[i][-1]]
 
     def _dfs_with_param(self, generator, param_dict):
         for trace in generator:

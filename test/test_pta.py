@@ -171,6 +171,97 @@ transition:
     is_interrupt: true
 """)
 
+example_yaml_3 = yaml.safe_load("""
+codegen:
+  instance: nrf24l01
+  includes: ['driver/nrf24l01.h']
+  flags: ['drivers=nrf24l01', 'arch_drivers=spi_b']
+
+parameters:
+  - auto_ack!
+  - payload_size
+  - dynamic_payloads_enabled!
+  - max_retry_count
+  - retry_count
+  - retry_delay
+  - tx_power
+  - datarate
+  - channel
+
+parameter_normalization:
+  tx_power:
+    unit: dBm
+    enum:
+      Nrf24l01::RF24_PA_MIN: 0
+      Nrf24l01::RF24_PA_LOW: 6
+      Nrf24l01::RF24_PA_HIGH: 12
+      Nrf24l01::RF24_PA_MAX: 18
+  datarate:
+    unit: 'kbit/s'
+    enum:
+      Nrf24l01::RF24_1MBPS: 1000
+      Nrf24l01::RF24_2MBPS: 2000
+      Nrf24l01::RF24_250KBPS: 250
+  retry_delay:
+    unit: us
+    formula: '250 * param + 250'
+
+states:
+  - UNINITIALIZED
+  - STANDBY1
+
+transition:
+  setup:
+    src: [UNINITIALIZED, STANDBY1]
+    dst: STANDBY1
+    set_param:
+      'auto_ack!': 1
+      'dynamic_payloads_enabled!': 0
+      max_retry_count: 10
+      retry_delay: 5
+      datarate: 'Nrf24l01::RF24_1MBPS'
+      tx_power: 'Nrf24l01::RF24_PA_MAX'
+      channel: 76
+  setAutoAck:
+    src: [STANDBY1]
+    dst: STANDBY1
+    arguments:
+      - name: enable
+        values: [0, 1]
+        parameter: 'auto_ack!'
+  setPALevel:
+    src: [STANDBY1]
+    dst: STANDBY1
+    arguments:
+      - name: palevel
+        values: ['Nrf24l01::RF24_PA_MIN', 'Nrf24l01::RF24_PA_LOW', 'Nrf24l01::RF24_PA_HIGH', 'Nrf24l01::RF24_PA_MAX']
+        parameter: tx_power
+  setRetries:
+    src: [STANDBY1]
+    dst: STANDBY1
+    arguments:
+      - name: delay
+        values: [0, 5, 10, 15]
+        parameter: retry_delay
+      - name: count
+        values: [0, 5, 10, 15]
+        parameter: max_retry_count
+  write:
+    src: [STANDBY1]
+    dst: STANDBY1
+    arguments:
+      - name: buf
+        values: ['"foo"', '"foo"', '"foofoofoo"', '"foofoofoo"', '"123456789012345678901234567890"', '"123456789012345678901234567890"']
+      - name: len
+        values: [3, 3, 9, 9, 30, 30]
+        parameter: payload_size
+      - name: await_ack
+        values: [0, 1, 0, 1, 0, 1]
+      - name: blocking
+        values: [1, 1, 1, 1, 1, 1]
+    argument_combination: zip
+""")
+
 def dfs_tran_to_name(runs: list, with_args: bool = False, with_param: bool = False) -> list:
     if with_param:
         return list(map(lambda run: list(map(lambda x: (x[0].name, x[1], x[2]), run)), runs))
@@ -425,6 +516,21 @@ class TestPTA(unittest.TestCase):
                 [('init', (), no_param), ('setTxPower', (30,), param_txp30)],
             ]
         )
+
+    def test_shrink(self):
+        pta = PTA.from_yaml(example_yaml_3)
+        pta.shrink_argument_values()
+        self.assertEqual(pta.transitions[0].name, 'setAutoAck')
+        self.assertEqual(pta.transitions[1].name, 'setPALevel')
+        self.assertEqual(pta.transitions[2].name, 'setRetries')
+        self.assertEqual(pta.transitions[3].name, 'setup')
+        self.assertEqual(pta.transitions[4].name, 'setup')
+        self.assertEqual(pta.transitions[5].name, 'write')
+        self.assertEqual(pta.transitions[0].argument_values, [[0, 1]])
+        self.assertEqual(pta.transitions[1].argument_values, [['Nrf24l01::RF24_PA_MIN', 'Nrf24l01::RF24_PA_MAX']])
+        self.assertEqual(pta.transitions[2].argument_values, [[0, 15], [0, 15]])
+        self.assertEqual(pta.transitions[5].argument_values, [['"foo"', '"foo"', '"foofoofoo"', '"foofoofoo"', '"123456789012345678901234567890"',
+        '"123456789012345678901234567890"'], [3, 3, 9, 9, 30, 30], [0, 1, 0, 1, 0, 1],  [1, 1, 1, 1, 1, 1]])
 
     def test_simulation(self):
         pta = PTA()
