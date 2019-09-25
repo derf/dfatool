@@ -12,7 +12,7 @@ import re
 # not have states)
 class TransitionHarness:
     """Foo."""
-    def __init__(self, gpio_pin = None, pta = None, log_return_values = False, repeat = 0):
+    def __init__(self, gpio_pin = None, pta = None, log_return_values = False, repeat = 0, post_transition_delay_us = 0):
         """
         Create a new TransitionHarness
 
@@ -25,6 +25,7 @@ class TransitionHarness:
         self.pta = pta
         self.log_return_values = log_return_values
         self.repeat = repeat
+        self.post_transition_delay_us = post_transition_delay_us
         self.reset()
 
     def copy(self):
@@ -90,6 +91,8 @@ class TransitionHarness:
             ret += 'ptalog.logReturn(transition_return_value);\n'
         else:
             ret += '{}\n'.format(transition_code)
+        if self.post_transition_delay_us:
+            ret += 'arch.delay_us({});\n'.format(self.post_transition_delay_us)
         ret += 'ptalog.stopTransition();\n'
         return ret
 
