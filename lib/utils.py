@@ -14,11 +14,11 @@ def vprint(verbose, string):
         print(string)
 
 def is_numeric(n):
-    """Check if `n` is numeric (i.e., it can be converted to int)."""
+    """Check if `n` is numeric (i.e., it can be converted to float)."""
     if n == None:
         return False
     try:
-        int(n)
+        float(n)
         return True
     except ValueError:
         return False
