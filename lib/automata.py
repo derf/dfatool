@@ -487,15 +487,22 @@ class PTA:
                 kwargs['is_interrupt'] = transition['is_interrupt']
             if 'return_value' in transition:
                 kwargs['return_value_handlers'] = transition['return_value']
-            if not 'src' in transition:
-                transition['src'] = ['UNINITIALIZED']
-            if not 'dst' in transition:
-                transition['dst'] = 'UNINITIALIZED'
-            for origin in transition['src']:
-                pta.add_transition(origin, transition['dst'], trans_name,
-                    arguments = arguments, argument_values = argument_values,
-                    arg_to_param_map = arg_to_param_map,
-                    **kwargs)
+            if 'loop' in transition:
+                for state_name in transition['loop']:
+                    pta.add_transition(state_name, state_name, trans_name,
+                        arguments = arguments, argument_values = argument_values,
+                        arg_to_param_map = arg_to_param_map,
+                        **kwargs)
+            else:
+                if not 'src' in transition:
+                    transition['src'] = ['UNINITIALIZED']
+                if not 'dst' in transition:
+                    transition['dst'] = 'UNINITIALIZED'
+                for origin in transition['src']:
+                    pta.add_transition(origin, transition['dst'], trans_name,
+                        arguments = arguments, argument_values = argument_values,
+                        arg_to_param_map = arg_to_param_map,
+                        **kwargs)
 
         return pta
 
