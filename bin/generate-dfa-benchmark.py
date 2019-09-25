@@ -69,11 +69,9 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
 
     outbuf.write('int main(void)\n')
     outbuf.write('{\n')
+
     for driver in ('arch', 'gpio', 'kout'):
         outbuf.write('{}.setup();\n'.format(driver))
-    if 'setup' in pta.codegen:
-        for call in pta.codegen['setup']:
-            outbuf.write(call)
 
     # There is a race condition between flashing the code and starting the UART log.
     # When starting the log before flashing, output from a previous benchmark may cause bogus data to be added.
@@ -81,6 +79,11 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
     # To work around this, we flash first, then start the log, and use this delay statement to ensure that no output is lost.
     # This is also useful to faciliate MIMOSA calibration after flashing
     outbuf.write('arch.delay_ms(12000);\n')
+
+    if 'setup' in pta.codegen:
+        for call in pta.codegen['setup']:
+            outbuf.write(call)
+
 
     if repeat:
         outbuf.write('unsigned char i = 0;\n')
