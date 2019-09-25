@@ -31,6 +31,10 @@ Options:
 --sleep=<ms> (default: 0)
     How long to sleep between function calls.
 
+--shrink
+    Decrease amount of parameter values used in state space exploration
+    (only use minimum and maximum for numeric values)
+
 --trace-filter=<transition,transition,transition,...>[ <transition,transition,transition,...> ...]
     Only consider traces whose beginning matches one of the provided transition sequences.
     E.g. --trace-filter='init,foo init,bar' will only consider traces with init as first and foo or bar as second transition,
@@ -210,6 +214,7 @@ if __name__ == '__main__':
             'repeat= '
             'run= '
             'sleep= '
+            'shrink '
             'timer-pin= '
             'trace-filter= '
         )
@@ -253,6 +258,9 @@ if __name__ == '__main__':
             pta = PTA.from_json(json.load(f))
         else:
             pta = PTA.from_yaml(yaml.safe_load(f))
+
+    if 'shrink' in opt:
+        pta.shrink_argument_values()
 
     if 'timer-pin' in opt:
         timer_pin = opt['timer-pin']
