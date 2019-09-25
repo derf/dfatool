@@ -346,17 +346,21 @@ class PTA:
                 if 'formula' in normalization_spec:
                     normalization_spec['formula'] = NormalizationFunction(normalization_spec['formula'])
 
+    def normalize_parameter(self, parameter_name, parameter_value):
+        if parameter_value is not None and self.parameter_normalization is not None and parameter_name in self.parameter_normalization:
+            if 'enum' in self.parameter_normalization[parameter_name] and parameter_value in self.parameter_normalization[parameter_name]['enum']:
+                return self.parameter_normalization[parameter_name]['enum'][parameter_value]
+            if 'formula' in self.parameter_normalization[parameter_name]:
+                normalization_formula = self.parameter_normalization[parameter_name]['formula']
+                return normalization_formula.eval(parameter_value)
+        return parameter_value
+
     def normalize_parameters(self, param_dict):
         if self.parameter_normalization is None:
             return param_dict.copy()
         normalized_param = param_dict.copy()
         for parameter, value in param_dict.items():
-            if parameter in self.parameter_normalization:
-                if 'enum' in self.parameter_normalization[parameter] and value in self.parameter_normalization[parameter]['enum']:
-                    normalized_param[parameter] = self.parameter_normalization[parameter]['enum'][value]
-                if 'formula' in self.parameter_normalization[parameter]:
-                    normalization_formula = self.parameter_normalization[parameter]['formula']
-                    normalized_param[parameter] = normalization_formula.eval(value)
+            normalized_param[parameter] = self.normalize_parameter(parameter, value)
         return normalized_param
 
     @classmethod

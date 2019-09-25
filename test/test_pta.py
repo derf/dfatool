@@ -126,6 +126,51 @@ transition:
     is_interrupt: true
 """)
 
+example_yaml_2 = yaml.safe_load("""
+codegen:
+  instance: cc1200
+
+states:
+  - IDLE
+  - TX
+
+parameters:
+  - datarate
+  - txbytes
+  - txpower
+
+parameter_normalization:
+  txbytes:
+    enum:
+      FOO: 3
+      LONGER: 6
+  txpower:
+    formula: 'param - 16'
+
+transition:
+  init:
+    src: [UNINITIALIZED, IDLE]
+    dst: IDLE
+  setTxPower:
+    src: [IDLE]
+    dst: IDLE
+    arguments:
+      - name: txpower
+        values: [10, 20, 30]
+        parameter: txpower
+  send:
+    src: [IDLE]
+    dst: TX
+    arguments:
+      - name: data
+        values: ['FOO', 'LONGER']
+        parameter: txbytes
+  txComplete:
+    src: [TX]
+    dst: IDLE
+    is_interrupt: true
+""")
+
 def dfs_tran_to_name(runs: list, with_args: bool = False, with_param: bool = False) -> list:
     if with_param:
         return list(map(lambda run: list(map(lambda x: (x[0].name, x[1], x[2]), run)), runs))
@@ -332,6 +377,49 @@ class TestPTA(unittest.TestCase):
                 [('init', (), no_param), ('init', (), no_param)],
                 [('init', (), no_param), ('send', ('"foo"', 3), param_tx3)],
                 [('init', (), no_param), ('send', ('"hodor"', 5), param_tx5)],
+                [('init', (), no_param), ('setTxPower', (10,), param_txp10)],
+                [('init', (), no_param), ('setTxPower', (20,), param_txp20)],
+                [('init', (), no_param), ('setTxPower', (30,), param_txp30)],
+            ]
+        )
+
+    def test_normalization(self):
+        pta = PTA.from_yaml(example_yaml_2)
+        no_param = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : None,
+        }
+        param_tx3 = {
+            'datarate' : None,
+            'txbytes' : 3,
+            'txpower' : None,
+        }
+        param_tx6 = {
+            'datarate' : None,
+            'txbytes' : 6,
+            'txpower' : None,
+        }
+        param_txp10 = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : -6,
+        }
+        param_txp20 = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : 4,
+        }
+        param_txp30 = {
+            'datarate' : None,
+            'txbytes' : None,
+            'txpower' : 14,
+        }
+        self.assertEqual(sorted(dfs_tran_to_name(pta.dfs(1, with_arguments = True, with_parameters = True), True, True)),
+            [
+                [('init', (), no_param), ('init', (), no_param)],
+                [('init', (), no_param), ('send', ('FOO',), param_tx3)],
+                [('init', (), no_param), ('send', ('LONGER',), param_tx6)],
                 [('init', (), no_param), ('setTxPower', (10,), param_txp10)],
                 [('init', (), no_param), ('setTxPower', (20,), param_txp20)],
                 [('init', (), no_param), ('setTxPower', (30,), param_txp30)],
