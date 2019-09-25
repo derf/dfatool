@@ -42,7 +42,7 @@ example_json_1 = {
             'destination' : 'IDLE',
             'duration' : { 'static' : 120 },
             'energy ' : { 'static' : 10000 },
-            'arg_to_param_map' : { 'txpower' : 0 },
+            'arg_to_param_map' : { 0: 'txpower'},
             'argument_values' : [ [10, 20, 30] ],
         },
         {
@@ -65,7 +65,7 @@ example_json_1 = {
                     'regression_args' : [3, 5],
                 },
             },
-            'arg_to_param_map' : { 'txbytes' : 1 },
+            'arg_to_param_map' : { 1: 'txbytes'},
             'argument_values' : [ ['"foo"', '"hodor"'], [3, 5] ],
             'argument_combination' : 'zip',
         },
@@ -499,7 +499,7 @@ class TestPTA(unittest.TestCase):
         pta.add_state('TX', power = 100)
         pta.add_transition('UNINITIALIZED', 'IDLE', 'init', energy = 500000, duration = 50000)
         pta.add_transition('IDLE', 'IDLE', 'setTxPower', energy = 10000, duration = 120,
-            arg_to_param_map = {'txpower' : 0})
+            arg_to_param_map = {0: 'txpower'})
         pta.add_transition('IDLE', 'TX', 'send', energy = 3, duration = 10)
         pta.add_transition('TX', 'IDLE', 'txComplete', timeout = 2000, is_interrupt = True)
         trace = [

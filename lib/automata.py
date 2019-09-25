@@ -266,7 +266,7 @@ class Transition:
         ret = param_dict.copy()
         if self.arg_to_param_map:
             for k, v in self.arg_to_param_map.items():
-                ret[k] = args[v]
+                ret[v] = args[k]
         if self.set_param:
             for k, v in self.set_param.items():
                 ret[k] = v
@@ -482,7 +482,7 @@ class PTA:
                     arguments.append(argument['name'])
                     argument_values.append(argument['values'])
                     if 'parameter' in argument:
-                        arg_to_param_map[argument['parameter']] = i
+                        arg_to_param_map[i] = argument['parameter']
             if 'argument_combination' in transition:
                 kwargs['argument_combination'] = transition['argument_combination']
             if 'set_param' in transition:
