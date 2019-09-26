@@ -167,6 +167,8 @@ class MIMOSAMonitor(SerialMonitor):
         self._mimosactl('connect')
 
     def _stop_mimosa(self):
+        # Make sure the MIMOSA daemon has gathered all needed data
+        time.sleep(2)
         self._mimosacmd(['--mimosa-stop'])
         mtime_changed = True
         mim_file = None

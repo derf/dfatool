@@ -11,15 +11,35 @@ import re
 # generated otherwise and it should also work with AnalyticModel (which does
 # not have states)
 class TransitionHarness:
-    """Foo."""
+    """
+    TODO
+
+    :param done: True if the specified amount of iterations have been logged.
+    :param synced: True if `parser_cb` has synchronized with UART output, i.e., the benchmark has successfully started.
+    :param traces: List of annotated PTA traces from benchmark execution. This list is updated during UART logging and should only be read back when `done` is True.
+        Uses the standard dfatool trace format: `traces` is a list of `{'id': ..., 'trace': ...}` dictionaries, each of which represents a single PTA trace (AKA
+        run). Each `trace` is in turn a list of state or transition dictionaries with the
+        following attributes:
+        * `isa`: 'state' or 'transition'
+        * `name`: state or transition name
+        * `parameter`: currently valid parameter values. If normalization is used, they are already normalized. Each parameter value is either a primitive
+          int/float/str value (-> constant for each iteration) or a list of
+          primitive values (-> set by the return value of the current run, not necessarily constan)
+        * `args`: function arguments, if isa == 'transition'
+    """
     def __init__(self, gpio_pin = None, pta = None, log_return_values = False, repeat = 0, post_transition_delay_us = 0):
         """
         Create a new TransitionHarness
 
-        :param gpio_pin: multipass GPIO Pin used for transition synchronization, e.g. `GPIO::p1_0`. Optional.
+        :param gpio_pin: multipass GPIO Pin used for transition synchronization with an external measurement device, e.g. `GPIO::p1_0`. Optional.
             The GPIO output is high iff a transition is executing
-        :param pta: PTA object
+        :param pta: PTA object. Needed to map UART output IDs to states and transitions
         :param log_return_values: Log return values of transition function calls?
+        :param repeat: How many times to run the benchmark until setting `one`, default 0.
+            When 0, `done` is never set.
+        :param post_transition_delay_us: If set, inject `arch.delay_us` after each transition, before logging the transition as completed (and releasing
+            `gpio_pin`). This artificially increases transition duration by the specified time and is useful if an external measurement device's resolution is
+            lower than the expected minimum transition duration.
         """
         self.gpio_pin = gpio_pin
         self.pta = pta
@@ -29,19 +49,35 @@ class TransitionHarness:
         self.reset()
 
     def copy(self):
-        new_object = __class__(gpio_pin = self.gpio_pin, pta = self.pta, log_return_values = self.log_return_values, repeat = self.repeat)
+        new_object = __class__(gpio_pin = self.gpio_pin, pta = self.pta, log_return_values = self.log_return_values, repeat = self.repeat, post_transition_delay_us = self.post_transition_delay_us)
         new_object.traces = self.traces.copy()
         new_object.trace_id = self.trace_id
         return new_object
 
     def reset(self):
+        """
+        Reset harness for a new benchmark.
+
+        Truncates `traces`, `trace_id`, `done`, and `synced`.
+        """
         self.traces = []
         self.trace_id = 0
         self.repetitions = 0
         self.done = False
         self.synced = False
 
+    def restart(self):
+        """
+        Reset harness for a new execution of the current benchmark.
+
+        Resets `done` and `synced`.
+        """
+        self.repetitions = 0
+        self.done = False
+        self.synced = False
+
     def global_code(self):
+        """Return global (pre-`main()`) C++ code needed for tracing."""
         ret = ''
         if self.gpio_pin != None:
             ret += '#define PTALOG_GPIO {}\n'.format(self.gpio_pin)
@@ -56,9 +92,11 @@ class TransitionHarness:
         return ret
 
     def start_benchmark(self, benchmark_id = 0):
+        """Return C++ code to signal benchmark start to harness."""
         return 'ptalog.startBenchmark({:d});\n'.format(benchmark_id)
 
     def start_trace(self):
+        """Prepare a new trace/run in the internal `.traces` structure."""
         self.traces.append({
             'id' : self.trace_id,
             'trace' : list(),
@@ -66,6 +104,12 @@ class TransitionHarness:
         self.trace_id += 1
 
     def append_state(self, state_name, param):
+        """
+        Append a state to the current run in the internal `.traces` structure.
+
+        :param state_name: state name
+        :param param: parameter dict
+        """
         self.traces[-1]['trace'].append({
             'name': state_name,
             'isa': 'state',
@@ -73,6 +117,13 @@ class TransitionHarness:
         })
 
     def append_transition(self, transition_name, param, args = []):
+        """
+        Append a transition to the current run in the internal `.traces` structure.
+
+        :param transition_name: transition name
+        :param param: parameter dict
+        :param args: function arguments (optional)
+        """
         self.traces[-1]['trace'].append({
             'name': transition_name,
             'isa': 'transition',
@@ -81,9 +132,16 @@ class TransitionHarness:
         })
 
     def start_run(self):
+        """Return C++ code used to start a new run/trace."""
         return 'ptalog.reset();\n'
 
     def pass_transition(self, transition_id, transition_code, transition: object = None):
+        """
+        Return C++ code used to pass a transition, including the corresponding function call.
+
+        Tracks which transition has been executed and optionally its return value. May also inject a delay, if
+        `post_transition_delay_us` is set.
+        """
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
         ret += 'ptalog.startTransition();\n'
         if self.log_return_values and transition and len(transition.return_value_handlers):
@@ -170,14 +228,22 @@ class TransitionHarness:
                 self.current_transition_in_trace += 1
 
 class OnboardTimerHarness(TransitionHarness):
-    """Bar."""
+    """TODO
+
+    Additional parameters / changes from TransitionHarness:
+
+    :param traces: Each trace element (`.traces[*]['trace'][*]`) additionally contains
+        the dict `offline_aggregates` with the member `duration`. It contains a list of durations (in us) of the corresponding state/transition for each
+        benchmark iteration.
+        I.e. `.traces[*]['trace'][*]['offline_aggregates']['duration'] = [..., ...]`
+    """
     def __init__(self, counter_limits, **kwargs):
         super().__init__(**kwargs)
         self.trace_length = 0
         self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow = counter_limits
 
     def copy(self):
-        new_harness = __class__((self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow), gpio_pin = self.gpio_pin, pta = self.pta, log_return_values = self.log_return_values)
+        new_harness = __class__((self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow), gpio_pin = self.gpio_pin, pta = self.pta, log_return_values = self.log_return_values, repeat = self.repeat)
         new_harness.traces = self.traces.copy()
         new_harness.trace_id = self.trace_id
         return new_harness
@@ -217,8 +283,14 @@ class OnboardTimerHarness(TransitionHarness):
     def parser_cb(self, line):
         #print('[HARNESS] got line {}'.format(line))
         if re.match(r'\[PTA\] benchmark start, id=(\S+)', line):
+            if self.repeat > 0 and self.repetitions == self.repeat:
+                self.done = True
+                self.synced = False
+                print('[HARNESS] done')
+                return
             self.synced = True
-            print('[HARNESS] synced')
+            self.repetitions += 1
+            print('[HARNESS] synced, {}/{}'.format(self.repetitions, self.repeat))
         if self.synced:
             res = re.match(r'\[PTA\] trace=(\S+) count=(\S+)', line)
             if res:
@@ -237,6 +309,7 @@ class OnboardTimerHarness(TransitionHarness):
                 if overflow >= self.counter_max_overflow:
                     raise RuntimeError('Counter overflow ({:d}/{:d}) in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d})'.format(cycles, overflow, 0, self.trace_id, self.current_transition_in_trace, transition_id))
                 duration_us = cycles * self.one_cycle_in_us + overflow * self.one_overflow_in_us
+                # TODO subtract 'nop' cycles
                 # self.traces contains transitions and states, UART output only contains transitions -> use index * 2
                 try:
                     log_data_target = self.traces[self.trace_id]['trace'][self.current_transition_in_trace * 2]

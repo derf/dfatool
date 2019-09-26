@@ -27,10 +27,9 @@ class State:
         u"""
         Create a new PTA state.
 
-        arguments:
-        name -- state name
-        power -- static state power in µW
-        power_function -- parameterized state power in µW
+        :param name: state name
+        :param power: static state power in µW
+        :param power_function: parameterized state power in µW
         """
         self.name = name
         self.power = power
@@ -45,19 +44,25 @@ class State:
         u"""
         Return energy spent in state in pJ.
 
-        arguments:
-        duration -- duration in µs
-        param_dict -- current parameters
+        :param duration: duration in µs
+        :param param_dict: current parameters
+        :returns: energy spent in pJ
         """
         if self.power_function:
             return self.power_function.eval(_dict_to_list(param_dict)) * duration
         return self.power * duration
 
     def set_random_energy_model(self, static_model = True):
+        """Set a random static energy value."""
         self.power = int(np.random.sample() * 50000)
 
     def get_transition(self, transition_name: str) -> object:
-        """Return Transition object for outgoing transtion transition_name."""
+        """
+        Return Transition object for outgoing transtion transition_name.
+
+        :param transition_name: transition name
+        :returns: `Transition` object
+        """
         return self.outgoing_transitions[transition_name]
 
     def has_interrupt_transitions(self) -> bool:
@@ -73,8 +78,8 @@ class State:
 
         Must only be called if has_interrupt_transitions returned true.
 
-        arguments:
-        parameters -- current parameter values
+        :param parameters: current parameter values
+        :returns: Transition object
         """
         interrupts = filter(lambda x: x.is_interrupt, self.outgoing_transitions.values())
         interrupts = sorted(interrupts, key = lambda x: x.get_timeout(parameters))
@@ -84,14 +89,15 @@ class State:
         """
         Return a generator object for depth-first search over all outgoing transitions.
 
-        arguments:
-        depth -- search depth
-        with_arguments -- perform dfs with function+argument transitions instead of just function transitions.
-        trace_filter -- list of lists. Each sub-list is a trace. Only traces matching one of the provided sub-lists are returned.
+        :param depth: search depth
+        :param with_arguments: perform dfs with function+argument transitions instead of just function transitions.
+        :param trace_filter: list of lists. Each sub-list is a trace. Only traces matching one of the provided sub-lists are returned.
             E.g. trace_filter = [['init', 'foo'], ['init', 'bar']] will only return traces with init as first and foo or bar as second element.
             trace_filter = [['init', 'foo', '$'], ['init', 'bar', '$']] will only return the traces ['init', 'foo'] and ['init', 'bar'].
-        sleep -- if set and non-zero: include sleep pseudo-states with <sleep> us duration
+            Note that `trace_filter` takes precedence over `depth`: traces matching `trace_filter` are generated even if their length exceeds `depth`
+        :param sleep: if set and non-zero: include sleep pseudo-states with <sleep> us duration
             For the [['init', 'foo', '$'], ['init', 'bar', '$']] example above, sleep=10 results in [(None, 10), 'init', (None, 10), 'foo'] and [(None, 10), 'init', (None, 10), 'bar']
+        :returns: Generator object for depth-first search. Each access yields a list of (Transition, (arguments)) elements describing a single run through the PTA.
         """
 
         # A '$' entry in trace_filter indicates that the trace should (successfully) terminate here regardless of `depth`.
@@ -170,7 +176,28 @@ class State:
         return ret
 
 class Transition:
-    """A single PTA transition with one origin and one destination state."""
+    u"""
+    A single PTA transition with one origin and one destination state.
+
+    :param name: transition name, corresponds to driver function name
+    :param origin: origin `State`
+    :param destination: destination `State`
+    :param energy: static energy needed to execute this transition, in pJ
+    :param energy_function: parameterized transition energy `AnalyticFunction`, returning pJ
+    :param duration: transition duration, in µs
+    :param duration_function: parameterized duration `AnalyticFunction`, returning µs
+    :param timeout: transition timeout, in µs. Only set for interrupt transitions.
+    :param timeout_function: parameterized transition timeout `AnalyticFunction`, in µs. Only set for interrupt transitions.
+    :param is_interrupt: Is this an interrupt transition?
+    :param arguments: list of function argument names
+    :param argument_values: list of argument values used for benchmark generation. Each entry is a list of values for the corresponding argument
+    :param argument_combination: During benchmark generation, should arguments be combined via `cartesian` or `zip`?
+    :param param_update_function: Setter for parameters after a transition. Gets current parameter dict and function argument values as arguments, must return the new parameter dict
+    :param arg_to_param_map: dict mapping argument index to the name of the parameter affected by its value
+    :param set_param: dict mapping parameter name to their value (set as side-effect of executing the transition, not parameter-dependent)
+    :param return_value_handlers: todo
+    :param codegen: todo
+    """
 
     def __init__(self, orig_state: State, dest_state: State, name: str,
             energy: float = 0, energy_function: AnalyticFunction = None,
@@ -183,14 +210,14 @@ class Transition:
             param_update_function = None,
             arg_to_param_map: dict = None,
             set_param = None,
-            return_value_handlers: list = []):
+            return_value_handlers: list = [],
+            codegen = dict()):
         """
         Create a new transition between two PTA states.
 
-        arguments:
-        orig_state -- origin state
-        dest_state -- destination state
-        name -- transition name, typically the same as a driver/library function name
+        :param orig_state: origin `State`
+        :param dest_state: destination `State`
+        :param name: transition name, typically the same as a driver/library function name
         """
         self.name = name
         self.origin = orig_state
@@ -209,18 +236,21 @@ class Transition:
         self.arg_to_param_map = arg_to_param_map
         self.set_param = set_param
         self.return_value_handlers = return_value_handlers
+        self.codegen = codegen
 
         for handler in self.return_value_handlers:
             if 'formula' in handler:
                 handler['formula'] = NormalizationFunction(handler['formula'])
 
+
     def get_duration(self, param_dict: dict = {}, args: list = []) -> float:
         u"""
         Return transition duration in µs.
 
-        arguments:
-        param_dict -- current parameter values
-        args -- function arguments
+        :param param_dict: current parameter values
+        :param args: function arguments
+
+        :returns: transition duration in µs
         """
         if self.duration_function:
             return self.duration_function.eval(_dict_to_list(param_dict), args)
@@ -307,6 +337,14 @@ class PTA:
     A parameterized priced timed automaton. All states are accepting.
 
     Suitable for simulation, model storage, and (soon) benchmark generation.
+
+    :param state: dict mapping state name to `State` object
+    :param accepting_states: list of accepting state names
+    :param parameters: current parameters
+    :param parameter_normalization: TODO
+    :param codegen: TODO
+    :param initial_param_values: TODO
+    :param transitions: list of `Transition` objects
     """
 
     def __init__(self, state_names: list = [],

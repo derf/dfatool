@@ -28,12 +28,23 @@ Options:
 --instance=<name>
     Override the name of the class instance used for benchmarking
 
+--mimosa=[k=v,k=v,...]
+    Perform energy measurements with MIMOSA. Takes precedence over --timing.
+    mimosa options are key-value pairs. Possible settings with defaults:
+    offset = 130 (mysterious 0V offset)
+    shunt = 330 (measurement shunt in ohms)
+    voltage = 3.3 (VCC provided to DUT)
+
 --sleep=<ms> (default: 0)
     How long to sleep between function calls.
 
 --shrink
     Decrease amount of parameter values used in state space exploration
     (only use minimum and maximum for numeric values)
+
+--timing
+    Perform timing measurements using on-chip counters (no external hardware
+    required)
 
 --trace-filter=<transition,transition,transition,...>[ <transition,transition,transition,...> ...]
     Only consider traces whose beginning matches one of the provided transition sequences.
@@ -147,7 +158,10 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
     return outbuf
 
 def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: str, run_args: list, harness: object, sleep: int = 0, repeat: int = 0, run_offset: int = 0, runs_total: int = 0, dummy = False):
-    outbuf = benchmark_from_runs(pta, runs, harness, dummy = dummy, repeat = repeat)
+    if 'mimosa' in opt:
+        outbuf = benchmark_from_runs(pta, runs, harness, dummy = dummy, repeat = 1)
+    else:
+        outbuf = benchmark_from_runs(pta, runs, harness, dummy = dummy, repeat = repeat)
     with open(application_file, 'w') as f:
         f.write(outbuf.getvalue())
         print('[MAKE] building benchmark with {:d} runs'.format(len(runs)))
@@ -180,25 +194,46 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         results.extend(run_benchmark(application_file, pta, runs[mid:], arch, app, run_args, harness.copy(), sleep, repeat, run_offset = run_offset + mid, runs_total = runs_total, dummy = dummy))
         return results
 
-    runner.flash(arch, app, run_args)
-    monitor = runner.get_monitor(arch, callback = harness.parser_cb, mimosa = {'shunt': 82})
 
-    if arch == 'posix':
-        print('[RUN] Will run benchmark for {:.0f} seconds'.format(run_timeout))
-        lines = monitor.run(int(run_timeout))
-        return [(runs, harness, lines)]
+    if 'mimosa' in opt:
+        files = list()
+        for i in range(opt['repeat']):
+            runner.flash(arch, app, run_args)
+            monitor = runner.get_monitor(arch, callback = harness.parser_cb, mimosa = opt['mimosa'])
 
-    try:
-        slept = 0
-        while repeat == 0 or not harness.done:
-            time.sleep(5)
-            slept += 5
-            print('[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%'.format(run_offset, runs_total, run_offset * 100 / runs_total, slept * 100 / run_timeout))
-    except KeyboardInterrupt:
-        pass
-    monitor.close()
+            try:
+                slept = 0
+                while not harness.done:
+                    time.sleep(5)
+                    slept += 5
+                    print('[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%'.format(run_offset, runs_total, run_offset * 100 / runs_total, slept * 100 / run_timeout))
+            except KeyboardInterrupt:
+                pass
+            monitor.close()
+            files.extend(monitor.get_files())
+            harness.restart()
 
-    return [(runs, harness, monitor)]
+        return [(runs, harness, monitor, files)]
+    else:
+        runner.flash(arch, app, run_args)
+        monitor = runner.get_monitor(arch, callback = harness.parser_cb)
+
+        if arch == 'posix':
+            print('[RUN] Will run benchmark for {:.0f} seconds'.format(run_timeout))
+            lines = monitor.run(int(run_timeout))
+            return [(runs, harness, lines, list())]
+
+        try:
+            slept = 0
+            while not harness.done:
+                time.sleep(5)
+                slept += 5
+                print('[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%'.format(run_offset, runs_total, run_offset * 100 / runs_total, slept * 100 / run_timeout))
+        except KeyboardInterrupt:
+            pass
+        monitor.close()
+
+        return [(runs, harness, monitor, list())]
 
 
 if __name__ == '__main__':
@@ -211,10 +246,12 @@ if __name__ == '__main__':
             'depth= '
             'dummy= '
             'instance= '
+            'mimosa= '
             'repeat= '
             'run= '
             'sleep= '
             'shrink '
+            'timing '
             'timer-pin= '
             'trace-filter= '
         )
@@ -240,12 +277,21 @@ if __name__ == '__main__':
             opt['sleep'] = 0
 
         if 'trace-filter' in opt:
-            trace_filter = []
+            trace_filter = list()
             for trace in opt['trace-filter'].split():
                 trace_filter.append(trace.split(','))
             opt['trace-filter'] = trace_filter
         else:
             opt['trace-filter'] = None
+
+        if 'mimosa' in opt:
+            if opt['mimosa'] == '':
+                opt['mimosa'] = dict()
+            else:
+                opt['mimosa'] = dict(map(lambda x: x.split('='), opt['mimosa'].split(',')))
+            opt.pop('timing', None)
+            if opt['repeat'] == 0:
+                opt['repeat'] = 1
 
     except getopt.GetoptError as err:
         print(err)
@@ -302,8 +348,10 @@ if __name__ == '__main__':
     if next(filter(lambda x: len(x.return_value_handlers), pta.transitions), None):
         need_return_values = True
 
-    harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = opt['repeat'])
-    harness = TransitionHarness(gpio_pin = timer_pin, pta = pta, log_return_values = need_return_values, repeat = opt['repeat'], post_transition_delay_us = 20)
+    if 'mimosa' in opt:
+        harness = TransitionHarness(gpio_pin = timer_pin, pta = pta, log_return_values = need_return_values, repeat = 1, post_transition_delay_us = 20)
+    elif 'timing' in opt:
+        harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = opt['repeat'])
 
     if len(args) > 1:
         results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], opt['run'].split(), harness, opt['sleep'], opt['repeat'], runs_total = len(runs), dummy = 'dummy' in opt)
@@ -312,7 +360,7 @@ if __name__ == '__main__':
             'pta' : pta.to_json(),
             'traces' : list(map(lambda x: x[1].traces, results)),
             'raw_output' : list(map(lambda x: x[2].get_lines(), results)),
-            'files' : list(map(lambda x: x[2].get_files(), results)),
+            'files' : list(map(lambda x: x[3], results)),
             'configs' : list(map(lambda x: x[2].get_config(), results)),
         }
         extra_files = flatten(json_out['files'])
@@ -336,7 +384,7 @@ if __name__ == '__main__':
                 json.dump(json_out, f)
             print(' --> {}.json'.format(output_prefix))
     else:
-        outbuf = benchmark_from_runs(pta, runs, harness, repeat = repeat)
+        outbuf = benchmark_from_runs(pta, runs, harness, repeat = opt['repeat'])
         print(outbuf.getvalue())
 
     sys.exit(0)

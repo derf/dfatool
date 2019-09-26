@@ -648,7 +648,7 @@ class RawData:
         # state_duration is stored as ms, not us
         return offline['us'] > state_duration * 1500
 
-    def _measurement_is_valid_01(self, processed_data, repeat = 0):
+    def _measurement_is_valid_01(self, processed_data):
         """
         Check if a dfatool v0 or v1 measurement is valid.
 
@@ -693,8 +693,6 @@ class RawData:
         sched_trigger_count = 0
         for run in traces:
             sched_trigger_count += len(run['trace'])
-        if repeat:
-            sched_trigger_count *= repeat
         if sched_trigger_count != processed_data['triggers']:
             processed_data['error'] = 'got {got:d} trigger edges, expected {exp:d}'.format(
                     got = processed_data['triggers'],
@@ -931,20 +929,8 @@ class RawData:
 
             elif version == 1:
 
-                traces_by_file = list()
-                mim_files_by_file = list()
                 with tarfile.open(filename) as tf:
-                    # Relies on generate-dfa-benchmark placing the .mim files
-                    # in the order they were created (i.e., lexically sorted)
-                    for member in tf.getmembers():
-                        _, extension = os.path.splitext(member.name)
-                        if extension == '.mim':
-                            mim_files_by_file.append({
-                                'content' : tf.extractfile(member).read(),
-                                'info' : member,
-                            })
-                        elif extension == '.json':
-                            ptalog = json.load(tf.extractfile(member))
+                    ptalog = json.load(tf.extractfile(tf.getmember('ptalog.json')))
 
                     # ptalog['traces'] is a list of lists.
                     # The first level corresponds to the individual .mim files:
@@ -954,17 +940,22 @@ class RawData:
                     # sub-benchmark, so ptalog['traces'][0][0] is the first
                     # run, ptalog['traces'][0][1] the second, and so on
 
-                    traces_by_file.extend(ptalog['traces'])
-                self.setup_by_fileno.append({
-                    'mimosa_voltage' : ptalog['configs'][0]['voltage'],
-                    'mimosa_shunt' : ptalog['configs'][0]['shunt'],
-                    'state_duration' : ptalog['opt']['sleep']
-                })
-                for j, mim_file in enumerate(mim_files_by_file):
-                    mim_file['setup'] = self.setup_by_fileno[i]
-                    mim_file['expected_trace'] = ptalog['traces'][j]
-                    mim_file['fileno'] = i
-                mim_files.extend(mim_files_by_file)
+                    for j, traces in enumerate(ptalog['traces']):
+                        self.traces_by_fileno.append(traces)
+                        self.setup_by_fileno.append({
+                            'mimosa_voltage' : ptalog['configs'][j]['voltage'],
+                            'mimosa_shunt' : ptalog['configs'][j]['shunt'],
+                            'state_duration' : ptalog['opt']['sleep'],
+                        })
+                        for mim_file in ptalog['files'][j]:
+                            member = tf.getmember(mim_file)
+                            mim_files.append({
+                                'content' : tf.extractfile(member).read(),
+                                'fileno' : i,
+                                'info' : member,
+                                'setup' : self.setup_by_fileno[j],
+                                'expected_trace' : ptalog['traces'][j],
+                            })
 
         with Pool() as pool:
             measurements = pool.map(_preprocess_measurement, mim_files)
@@ -983,7 +974,7 @@ class RawData:
                 measurement['energy_trace'].pop(0)
                 repeat = ptalog['opt']['repeat']
 
-            if self._measurement_is_valid_01(measurement, repeat):
+            if self._measurement_is_valid_01(measurement):
                 self._merge_online_and_offline(measurement)
                 num_valid += 1
             else:
