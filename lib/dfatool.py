@@ -775,6 +775,7 @@ class RawData:
         online_datapoints = []
         if 'expected_trace' in measurement:
             traces = measurement['expected_trace']
+            traces = self.traces_by_fileno[measurement['fileno']]
         else:
             traces = self.traces_by_fileno[measurement['fileno']]
         for run_idx, run in enumerate(traces):
@@ -929,6 +930,7 @@ class RawData:
 
             elif version == 1:
 
+                new_filenames = list()
                 with tarfile.open(filename) as tf:
                     ptalog = json.load(tf.extractfile(tf.getmember('ptalog.json')))
 
@@ -941,6 +943,7 @@ class RawData:
                     # run, ptalog['traces'][0][1] the second, and so on
 
                     for j, traces in enumerate(ptalog['traces']):
+                        new_filenames.append('{}#{}'.format(filename, j))
                         self.traces_by_fileno.append(traces)
                         self.setup_by_fileno.append({
                             'mimosa_voltage' : ptalog['configs'][j]['voltage'],
@@ -951,11 +954,12 @@ class RawData:
                             member = tf.getmember(mim_file)
                             mim_files.append({
                                 'content' : tf.extractfile(member).read(),
-                                'fileno' : i,
+                                'fileno' : j,
                                 'info' : member,
                                 'setup' : self.setup_by_fileno[j],
                                 'expected_trace' : ptalog['traces'][j],
                             })
+            self.filenames = new_filenames
 
         with Pool() as pool:
             measurements = pool.map(_preprocess_measurement, mim_files)
@@ -989,6 +993,7 @@ class RawData:
             self.traces = self._concatenate_traces(self.traces_by_fileno)
         elif version == 1:
             self.traces = self._concatenate_traces(map(lambda x: x['expected_trace'], measurements))
+            self.traces = self._concatenate_traces(self.traces_by_fileno)
         self.preprocessing_stats = {
             'num_runs' : len(measurements),
             'num_valid' : num_valid
