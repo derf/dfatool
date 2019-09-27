@@ -959,7 +959,7 @@ class RawData:
                                 'setup' : self.setup_by_fileno[j],
                                 'expected_trace' : ptalog['traces'][j],
                             })
-            self.filenames = new_filenames
+                self.filenames = new_filenames
 
         with Pool() as pool:
             measurements = pool.map(_preprocess_measurement, mim_files)
