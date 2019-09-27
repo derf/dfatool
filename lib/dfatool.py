@@ -1520,6 +1520,32 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
     for datakey, dataval in element['offline_aggregates'].items():
         aggregate[key][datakey].extend(dataval)
 
+def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
+    """
+    Remove entries with certain parameter values from `aggregate`.
+
+    :param aggregate: aggregated measurement data, must be a dict conforming to
+        aggregate[state or transition name]['param'] = (first parameter value, second parameter value, ...)
+        and
+        aggregate[state or transition name]['attributes'] = [list of keys with measurement data, e.g. 'power' or 'duration']
+    :param parameters: list of parameters, used to map parameter index to parameter name. parameters=['foo', ...] means 'foo' is the first parameter
+    :param parameter_filter: [[name, value], [name, value], ...] list of parameter values to remove. Values refer to normalizad parameter data.
+    """
+    for param_name_and_value in parameter_filter:
+        param_index = parameters.index(param_name_and_value[0])
+        param_value = soft_cast_int(param_name_and_value[1])
+        names_to_remove = set()
+        for name in aggregate.keys():
+            indices_to_keep = list(map(lambda x: x[param_index] == param_value, aggregate[name]['param']))
+            aggregate[name]['param'] = list(map(lambda iv: iv[1], filter(lambda iv: indices_to_keep[iv[0]], enumerate(aggregate[name]['param']))))
+            for attribute in aggregate[name]['attributes']:
+                aggregate[name][attribute] = aggregate[name][attribute][indices_to_keep]
+                if len(aggregate[name][attribute]) == 0:
+                    names_to_remove.add(name)
+        for name in names_to_remove:
+            aggregate.pop(name)
+
+
 def pta_trace_to_aggregate(traces, ignore_trace_indexes = []):
     u"""
     Convert preprocessed DFA traces from peripherals/drivers to by_name aggregate for PTAModel.

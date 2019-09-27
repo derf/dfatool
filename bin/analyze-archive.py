@@ -61,6 +61,12 @@ Options:
     also defined for cases such as safe_inv(0) or safe_sqrt(-1). This allows
     a greater range of functions to be tried during fitting.
 
+--filter-param=<parameter name>=<parameter value>[,<parameter name>=<parameter value>...]
+    Only consider measurements where <parameter name> is <parameter value>
+    All other measurements (including those where it is None, that is, has
+    not been set yet) are discarded. Note that this may remove entire
+    function calls from the model.
+
 --hwmodel=<hwmodel.json>
     Load DFA hardware model from JSON
 
@@ -73,7 +79,7 @@ import json
 import plotter
 import re
 import sys
-from dfatool import PTAModel, RawData, pta_trace_to_aggregate
+from dfatool import PTAModel, RawData, pta_trace_to_aggregate, filter_aggregate_by_param
 from dfatool import soft_cast_int, is_numeric, gplearn_to_function
 from dfatool import CrossValidator
 
@@ -210,6 +216,7 @@ if __name__ == '__main__':
         optspec = (
             'plot-unparam= plot-param= show-models= show-quality= '
             'ignored-trace-indexes= discard-outliers= function-override= '
+            'filter-param= '
             'cross-validate= '
             'with-safe-functions hwmodel= export-energymodel='
         )
@@ -242,6 +249,11 @@ if __name__ == '__main__':
             xv_method, xv_count = opts['cross-validate'].split(':')
             xv_count = int(xv_count)
 
+        if 'filter-param' in opts:
+            opts['filter-param'] = list(map(lambda x: x.split('='), opts['filter-param'].split(',')))
+        else:
+            opts['filter-param'] = list()
+
         if 'with-safe-functions' in opts:
             safe_functions_enabled = True
 
@@ -257,6 +269,9 @@ if __name__ == '__main__':
 
     preprocessed_data = raw_data.get_preprocessed_data()
     by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data, ignored_trace_indexes)
+
+    filter_aggregate_by_param(by_name, parameters, opts['filter-param'])
+
     model = PTAModel(by_name, parameters, arg_count,
         traces = preprocessed_data,
         discard_outliers = discard_outliers,

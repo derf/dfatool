@@ -77,7 +77,7 @@ import re
 import sys
 from dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
 from dfatool import soft_cast_int, is_numeric, gplearn_to_function
-from dfatool import CrossValidator
+from dfatool import CrossValidator, filter_aggregate_by_param
 import utils
 
 opts = {}
@@ -208,19 +208,7 @@ if __name__ == '__main__':
 
     utils.prune_dependent_parameters(by_name, parameters)
 
-    for param_name_and_value in opts['filter-param']:
-        param_index = parameters.index(param_name_and_value[0])
-        param_value = soft_cast_int(param_name_and_value[1])
-        names_to_remove = set()
-        for name in by_name.keys():
-            indices_to_keep = list(map(lambda x: x[param_index] == param_value, by_name[name]['param']))
-            by_name[name]['param'] = list(map(lambda iv: iv[1], filter(lambda iv: indices_to_keep[iv[0]], enumerate(by_name[name]['param']))))
-            for attribute in by_name[name]['attributes']:
-                by_name[name][attribute] = by_name[name][attribute][indices_to_keep]
-                if len(by_name[name][attribute]) == 0:
-                    names_to_remove.add(name)
-        for name in names_to_remove:
-            by_name.pop(name)
+    filter_aggregate_by_param(by_name, parameters, opts['filter-param'])
 
     model = AnalyticModel(by_name, parameters, arg_count, use_corrcoef = opts['corrcoef'], function_override = function_override)
 
