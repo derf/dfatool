@@ -229,11 +229,13 @@ def compute_param_statistics(by_name, by_param, parameter_names, arg_count, stat
     np.seterr('raise')
 
     for param_idx, param in enumerate(parameter_names):
-        ret['std_by_param'][param] = _mean_std_by_param(by_param, state_or_trans, attribute, param_idx, verbose)
+        std_matrix, mean_std = _std_by_param(by_param, state_or_trans, attribute, param_idx, verbose)
+        ret['std_by_param'][param] = mean_std
         ret['corr_by_param'][param] = _corr_by_param(by_name, state_or_trans, attribute, param_idx)
     if arg_support_enabled and state_or_trans in arg_count:
         for arg_index in range(arg_count[state_or_trans]):
-            ret['std_by_arg'].append(_mean_std_by_param(by_param, state_or_trans, attribute, len(parameter_names) + arg_index, verbose))
+            std_matrix, mean_std = _std_by_param(by_param, state_or_trans, attribute, len(parameter_names) + arg_index, verbose)
+            ret['std_by_arg'].append(mean_std)
             ret['corr_by_arg'].append(_corr_by_param(by_name, state_or_trans, attribute, len(parameter_names) + arg_index))
 
     return ret
@@ -245,6 +247,14 @@ def _param_values(by_param, state_or_tran):
     E.g. if by_param.keys() contains the distinct parameter values (1, 1), (1, 2), (1, 3), (0, 3),
     this function returns [[1, 0], [1, 2, 3]].
     Note that the order is not deterministic at the moment.
+
+    Also note that this function deliberately also consider None
+    (uninitialized parameter with unknown value) as a distinct value. Benchmarks
+    and drivers must ensure that a parameter is only None when its value is
+    not important yet, e.g. a packet length parameter must only be None when
+    write() or similar has not been called yet. Other parameters should always
+    be initialized when leaving UNINITIALIZED.
+
     """
     param_tuples = list(map(lambda x: x[1], filter(lambda x: x[0] == state_or_tran, by_param.keys())))
     distinct_values = [set() for i in range(len(param_tuples[0]))]
@@ -258,16 +268,16 @@ def _param_values(by_param, state_or_tran):
     distinct_values = list(map(list, distinct_values))
     return distinct_values
 
-def _mean_std_by_param(by_param, state_or_tran, attribute, param_index, verbose = False):
+def _std_by_param(by_param, state_or_tran, attribute, param_index, verbose = False):
     u"""
-    Calculate the mean standard deviation for a static model where all parameters but param_index are constant.
+    Calculate standard deviations for a static model where all parameters but param_index are constant.
 
-    arguments:
-    by_param -- measurements sorted by key/transition name and parameter values
-    state_or_tran -- state or transition name (-> by_param[(state_or_tran, *)])
-    attribute -- model attribute, e.g. 'power' or 'duration'
+    :param by_param: measurements sorted by key/transition name and parameter values
+    :param state_or_tran: state or transition name (-> by_param[(state_or_tran, *)])
+    :param attribute: model attribute, e.g. 'power' or 'duration'
            (-> by_param[(state_or_tran, *)][attribute])
-    param_index -- index of variable parameter
+    :param param_index: index of variable parameter
+    :returns: (stddev matrix, mean stddev)
 
     Returns the mean standard deviation of all measurements of 'attribute'
     (e.g. power consumption or timeout) for state/transition 'state_or_tran' where
@@ -281,11 +291,15 @@ def _mean_std_by_param(by_param, state_or_tran, attribute, param_index, verbose 
     stddev of measurements with param0 == a, param1 == b, param2 variable,
     and param3 == d.
     """
-    partitions = []
-
     # TODO precalculate or cache info_shape (it only depends on state_or_tran)
     param_values = list(remove_index_from_tuple(_param_values(by_param, state_or_tran), param_index))
     info_shape = tuple(map(len, param_values))
+
+    # We will calculate the mean over the entire matrix later on. We cannot
+    # guarantee that each entry will be filled in this loop (e.g. transitions
+    # whose arguments are combined using 'zip' rather than 'cartesian' always
+    # have missing parameter combinations), we pre-fill it with NaN and use
+    # np.nanmean to skip those when calculating the mean.
     stddev_matrix = np.full(info_shape, np.nan)
 
     for param_value in itertools.product(*param_values):
@@ -300,22 +314,19 @@ def _mean_std_by_param(by_param, state_or_tran, attribute, param_index, verbose 
                 matrix_index[i] = param_values[i].index(param_value[i])
             matrix_index = tuple(matrix_index)
             stddev_matrix[matrix_index] = np.std(param_partition)
+        # This can (and will) happen in normal operation, e.g. when a transition's
+        # arguments are combined using 'zip' rather than 'cartesian'.
+        #elif len(param_partition) == 1:
+        #    vprint(verbose, '[W] parameter value partition for {} contains only one element -- skipping'.format(param_value))
+        #else:
+        #    vprint(verbose, '[W] parameter value partition for {} is empty'.format(param_value))
 
-    for param_value in filter(lambda x: x[0] == state_or_tran, by_param.keys()):
-        param_partition = []
-        for k, v in by_param.items():
-            if param_slice_eq(k, param_value, param_index):
-                param_partition.extend(v[attribute])
-        if len(param_partition) > 1:
-            partitions.append(param_partition)
-        elif len(param_partition) == 1:
-            vprint(verbose, '[W] parameter value partition for {} contains only one element -- skipping'.format(param_value))
-        else:
-            vprint(verbose, '[W] parameter value partition for {} is empty'.format(param_value))
-    if len(partitions) == 0:
-        vprint(verbose, '[W] Found no partitions for {}/{}/{} ???'.format(state_or_tran, attribute, param_index))
-        return 0.
-    return np.mean([np.std(partition) for partition in partitions])
+    if np.all(np.isnan(stddev_matrix)):
+        vprint(verbose, '[W] {}/{} parameter #{} has no data partitions -- how did this even happen?'.format(state_or_tran, attribute, param_index))
+        vprint(verbose, 'stddev_matrix = {}'.format(stddev_matrix))
+        return stddev_matrix, 0.
+
+    return stddev_matrix, np.nanmean(stddev_matrix) #np.mean([np.std(partition) for partition in partitions])
 
 def _corr_by_param(by_name, state_or_trans, attribute, param_index):
     if _all_params_are_numeric(by_name[state_or_trans], param_index):
