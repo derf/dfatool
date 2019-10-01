@@ -397,6 +397,7 @@ class ParamStats:
         """
         self.stats = dict()
         self.use_corrcoef = use_corrcoef
+        self._parameter_names = parameter_names
         # Note: This is deliberately single-threaded. The overhead incurred
         # by multiprocessing is higher than the speed gained by parallel
         # computation of statistics measures.
@@ -443,7 +444,20 @@ class ParamStats:
                 raise RuntimeError("wat")
             # In general, std_param_lut < std_by_param. So, if std_by_param == 0, std_param_lut == 0 follows.
             # This means that the variation of param does not affect the model quality -> no influence, return 1
-            return 1
+            return 1.
+
+        safe_div = np.vectorize(lambda x,y: 1. if x == 0 else x/y)
+        std_by_value = safe_div(statistics['lut_by_param_values'][param], statistics['std_by_param_values'][param])
+
+        i = 0
+        for other_param in self._parameter_names:
+            if param != other_param and not np.any(np.isnan(std_by_value)) and std_by_value.shape[i] > 1:
+                dep1 = np.all(std_by_value < 0.5, axis=i)
+                dep2 = np.all(std_by_value >= 0.5, axis=i)
+                if np.any(dep1 | dep2 == False):
+                    print('possible correlation {}/{}  {} <-> {}'.format(state_or_trans, attribute, param, other_param))
+                i += 1
+
         return statistics['std_param_lut'] / statistics['std_by_param'][param]
 
     def param_dependence_ratio(self, state_or_trans, attribute, param):

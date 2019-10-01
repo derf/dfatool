@@ -221,7 +221,11 @@ def compute_param_statistics(by_name, by_param, parameter_names, arg_count, stat
         'std_static' : np.std(by_name[state_or_trans][attribute]),
         'std_param_lut' : np.mean([np.std(by_param[x][attribute]) for x in by_param.keys() if x[0] == state_or_trans]),
         'std_by_param' : {},
+        'std_by_param_values' : {},
+        'lut_by_param_values' : {},
         'std_by_arg' : [],
+        'std_by_arg_values' : [],
+        'lut_by_arg_values' : [],
         'corr_by_param' : {},
         'corr_by_arg' : [],
     }
@@ -229,13 +233,17 @@ def compute_param_statistics(by_name, by_param, parameter_names, arg_count, stat
     np.seterr('raise')
 
     for param_idx, param in enumerate(parameter_names):
-        std_matrix, mean_std = _std_by_param(by_param, state_or_trans, attribute, param_idx, verbose)
+        std_matrix, mean_std, lut_matrix = _std_by_param(by_param, state_or_trans, attribute, param_idx, verbose)
         ret['std_by_param'][param] = mean_std
+        ret['std_by_param_values'][param] = std_matrix
+        ret['lut_by_param_values'][param] = lut_matrix
         ret['corr_by_param'][param] = _corr_by_param(by_name, state_or_trans, attribute, param_idx)
     if arg_support_enabled and state_or_trans in arg_count:
         for arg_index in range(arg_count[state_or_trans]):
-            std_matrix, mean_std = _std_by_param(by_param, state_or_trans, attribute, len(parameter_names) + arg_index, verbose)
+            std_matrix, mean_std, lut_matrix = _std_by_param(by_param, state_or_trans, attribute, len(parameter_names) + arg_index, verbose)
             ret['std_by_arg'].append(mean_std)
+            ret['std_by_arg_values'].append(std_matrix)
+            ret['lut_by_arg_values'].append(lut_matrix)
             ret['corr_by_arg'].append(_corr_by_param(by_name, state_or_trans, attribute, len(parameter_names) + arg_index))
 
     return ret
@@ -301,12 +309,15 @@ def _std_by_param(by_param, state_or_tran, attribute, param_index, verbose = Fal
     # have missing parameter combinations), we pre-fill it with NaN and use
     # np.nanmean to skip those when calculating the mean.
     stddev_matrix = np.full(info_shape, np.nan)
+    lut_matrix = np.full(info_shape, np.nan)
 
     for param_value in itertools.product(*param_values):
         param_partition = list()
+        std_list = list()
         for k, v in by_param.items():
             if k[0] == state_or_tran and (*k[1][:param_index], *k[1][param_index+1:]) == param_value:
                 param_partition.extend(v[attribute])
+                std_list.append(np.std(v[attribute]))
 
         if len(param_partition) > 1:
             matrix_index = list(range(len(param_value)))
@@ -314,6 +325,7 @@ def _std_by_param(by_param, state_or_tran, attribute, param_index, verbose = Fal
                 matrix_index[i] = param_values[i].index(param_value[i])
             matrix_index = tuple(matrix_index)
             stddev_matrix[matrix_index] = np.std(param_partition)
+            lut_matrix[matrix_index] = np.mean(std_list)
         # This can (and will) happen in normal operation, e.g. when a transition's
         # arguments are combined using 'zip' rather than 'cartesian'.
         #elif len(param_partition) == 1:
@@ -326,7 +338,7 @@ def _std_by_param(by_param, state_or_tran, attribute, param_index, verbose = Fal
         vprint(verbose, 'stddev_matrix = {}'.format(stddev_matrix))
         return stddev_matrix, 0.
 
-    return stddev_matrix, np.nanmean(stddev_matrix) #np.mean([np.std(partition) for partition in partitions])
+    return stddev_matrix, np.nanmean(stddev_matrix), lut_matrix #np.mean([np.std(partition) for partition in partitions])
 
 def _corr_by_param(by_name, state_or_trans, attribute, param_index):
     if _all_params_are_numeric(by_name[state_or_trans], param_index):
