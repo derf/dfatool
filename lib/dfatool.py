@@ -15,7 +15,7 @@ from multiprocessing import Pool
 from automata import PTA
 from functions import analytic
 from functions import AnalyticFunction
-from utils import vprint, is_numeric, soft_cast_int, param_slice_eq, compute_param_statistics, remove_index_from_tuple
+from utils import vprint, is_numeric, soft_cast_int, param_slice_eq, compute_param_statistics, remove_index_from_tuple, is_power_of_two, distinct_param_values
 
 arg_support_enabled = True
 
@@ -430,6 +430,48 @@ class ParamStats:
         """
         return 1 - self._generic_param_independence_ratio(state_or_trans, attribute)
 
+    def _reduce_param_matrix(self, matrix: np.ndarray, parameter_names: list) -> list:
+        """
+        :param matrix: parameter dependence matrix, M[(...)] == 1 iff (model attribute) is influenced by (parameter) for other parameter value indxe == (...)
+        :param parameter_names: names of parameters in the order in which they appear in the matrix index. The first entry corresponds to the first axis, etc.
+        :returns: parameters which determine whether (parameter) has an effect on (model attribute). If a parameter is not part of this list, its value does not
+            affect (parameter)'s influence on (model attribute) -- it either always or never has an influence
+        """
+        if np.all(matrix == True) or np.all(matrix == False):
+            return list()
+
+        if not is_power_of_two(np.count_nonzero(matrix)):
+            # cannot be reliably reduced to a list of parameters
+            return list()
+
+        if np.count_nonzero(matrix) == 1:
+            influential_parameters = list()
+            for i, parameter_name in enumerate(parameter_names):
+                if matrix.shape[i] > 1:
+                    influential_parameters.append(parameter_name)
+            return influential_parameters
+
+        for axis in range(matrix.ndim):
+            candidate = self._reduce_param_matrix(np.all(matrix, axis=axis), remove_index_from_tuple(parameter_names, axis))
+            if len(candidate):
+                return candidate
+
+        return list()
+
+    def _get_codependent_parameters(self, stats, param):
+        """
+        Return list of parameters which affect whether `param` influences the model attribute described in `stats` or not.
+        """
+        safe_div = np.vectorize(lambda x,y: 0. if x == 0 else 1 - x/y)
+        ratio_by_value = safe_div(stats['lut_by_param_values'][param], stats['std_by_param_values'][param])
+        err_mode = np.seterr('ignore')
+        dep_by_value = ratio_by_value > 0.5
+        np.seterr(**err_mode)
+
+        other_param_list = list(filter(lambda x: x != param, self._parameter_names))
+        influencer_parameters = self._reduce_param_matrix(dep_by_value, other_param_list)
+        return influencer_parameters
+
     def _param_independence_ratio(self, state_or_trans, attribute, param):
         """
         Return the heuristic ratio of parameter independence for state_or_trans, attribute, and param.
@@ -446,17 +488,9 @@ class ParamStats:
             # This means that the variation of param does not affect the model quality -> no influence, return 1
             return 1.
 
-        safe_div = np.vectorize(lambda x,y: 1. if x == 0 else x/y)
-        std_by_value = safe_div(statistics['lut_by_param_values'][param], statistics['std_by_param_values'][param])
-
-        i = 0
-        for other_param in self._parameter_names:
-            if param != other_param and not np.any(np.isnan(std_by_value)) and std_by_value.shape[i] > 1:
-                dep1 = np.all(std_by_value < 0.5, axis=i)
-                dep2 = np.all(std_by_value >= 0.5, axis=i)
-                if np.any(dep1 | dep2 == False):
-                    print('possible correlation {}/{}  {} <-> {}'.format(state_or_trans, attribute, param, other_param))
-                i += 1
+        influencer_parameters = self._get_codependent_parameters(statistics, param)
+        if len(influencer_parameters):
+            print('{}/{} {} <-> {}'.format(state_or_trans, attribute, param, influencer_parameters))
 
         return statistics['std_param_lut'] / statistics['std_by_param'][param]
 

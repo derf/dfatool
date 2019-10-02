@@ -23,6 +23,10 @@ def is_numeric(n):
     except ValueError:
         return False
 
+def is_power_of_two(n):
+    """Check if `n` is a power of two (1, 2, 4, 8, 16, ...)."""
+    return n > 0 and (n & (n-1)) == 0
+
 def float_or_nan(n):
     """Convert `n` to float (if numeric) or NaN."""
     if n == None:
@@ -34,7 +38,7 @@ def float_or_nan(n):
 
 def soft_cast_int(n):
     """
-    Convert `n` to int, if possible.
+    Convert `n` to int (if numeric) or return it as-is.
 
     If `n` is empty, returns None.
     If `n` is not numeric, it is left unchanged.
@@ -48,7 +52,7 @@ def soft_cast_int(n):
 
 def soft_cast_float(n):
     """
-    Convert `n` to float, if possible.
+    Convert `n` to float (if numeric) or return it as-is.
 
     If `n` is empty, returns None.
     If `n` is not numeric, it is left unchanged.
@@ -232,15 +236,17 @@ def compute_param_statistics(by_name, by_param, parameter_names, arg_count, stat
 
     np.seterr('raise')
 
+    param_values = distinct_param_values(by_name, state_or_trans)
+
     for param_idx, param in enumerate(parameter_names):
-        std_matrix, mean_std, lut_matrix = _std_by_param(by_param, state_or_trans, attribute, param_idx, verbose)
+        std_matrix, mean_std, lut_matrix = _std_by_param(by_param, param_values, state_or_trans, attribute, param_idx, verbose)
         ret['std_by_param'][param] = mean_std
         ret['std_by_param_values'][param] = std_matrix
         ret['lut_by_param_values'][param] = lut_matrix
         ret['corr_by_param'][param] = _corr_by_param(by_name, state_or_trans, attribute, param_idx)
     if arg_support_enabled and state_or_trans in arg_count:
         for arg_index in range(arg_count[state_or_trans]):
-            std_matrix, mean_std, lut_matrix = _std_by_param(by_param, state_or_trans, attribute, len(parameter_names) + arg_index, verbose)
+            std_matrix, mean_std, lut_matrix = _std_by_param(by_param, param_values, state_or_trans, attribute, len(parameter_names) + arg_index, verbose)
             ret['std_by_arg'].append(mean_std)
             ret['std_by_arg_values'].append(std_matrix)
             ret['lut_by_arg_values'].append(lut_matrix)
@@ -248,13 +254,13 @@ def compute_param_statistics(by_name, by_param, parameter_names, arg_count, stat
 
     return ret
 
-def _param_values(by_param, state_or_tran):
+def distinct_param_values(by_name, state_or_tran):
     """
-    Return the distinct values of each parameter in by_param.
+    Return the distinct values of each parameter in by_name[state_or_tran].
 
-    E.g. if by_param.keys() contains the distinct parameter values (1, 1), (1, 2), (1, 3), (0, 3),
+    E.g. if by_name[state_or_tran]['param'] contains the distinct entries (1, 1), (1, 2), (1, 3), (0, 3),
     this function returns [[1, 0], [1, 2, 3]].
-    Note that the order is not deterministic at the moment.
+    Note that the order is not guaranteed to be deterministic at the moment.
 
     Also note that this function deliberately also consider None
     (uninitialized parameter with unknown value) as a distinct value. Benchmarks
@@ -262,21 +268,19 @@ def _param_values(by_param, state_or_tran):
     not important yet, e.g. a packet length parameter must only be None when
     write() or similar has not been called yet. Other parameters should always
     be initialized when leaving UNINITIALIZED.
-
     """
-    param_tuples = list(map(lambda x: x[1], filter(lambda x: x[0] == state_or_tran, by_param.keys())))
-    distinct_values = [set() for i in range(len(param_tuples[0]))]
-    for param_tuple  in param_tuples:
+    # TODO a set() is an _unordered_ collection, so this must be converted to
+    # an OrderedDict or a list with a duplicate-pruning step
+    distinct_values = [set() for i in range(len(by_name[state_or_tran]['param'][0]))]
+    for param_tuple in by_name[state_or_tran]['param']:
         for i in range(len(param_tuple)):
             distinct_values[i].add(param_tuple[i])
-
-    # TODO returned values must have a deterministic order
 
     # Convert sets to lists
     distinct_values = list(map(list, distinct_values))
     return distinct_values
 
-def _std_by_param(by_param, state_or_tran, attribute, param_index, verbose = False):
+def _std_by_param(by_param, all_param_values, state_or_tran, attribute, param_index, verbose = False):
     u"""
     Calculate standard deviations for a static model where all parameters but param_index are constant.
 
@@ -299,8 +303,7 @@ def _std_by_param(by_param, state_or_tran, attribute, param_index, verbose = Fal
     stddev of measurements with param0 == a, param1 == b, param2 variable,
     and param3 == d.
     """
-    # TODO precalculate or cache info_shape (it only depends on state_or_tran)
-    param_values = list(remove_index_from_tuple(_param_values(by_param, state_or_tran), param_index))
+    param_values = list(remove_index_from_tuple(all_param_values, param_index))
     info_shape = tuple(map(len, param_values))
 
     # We will calculate the mean over the entire matrix later on. We cannot
