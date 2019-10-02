@@ -143,7 +143,9 @@ class MIMOSAMonitor(SerialMonitor):
         cmd.append(subcommand)
         res = subprocess.run(cmd)
         if res.returncode != 0:
-            raise RuntimeError('{} returned {}'.format(' '.join(cmd), res.returncode))
+            res = subprocess.run(cmd)
+            if res.returncode != 0:
+                raise RuntimeError('{} returned {}'.format(' '.join(cmd), res.returncode))
 
     def _mimosacmd(self, opts):
         cmd = ['MimosaCMD']
