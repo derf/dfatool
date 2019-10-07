@@ -472,7 +472,7 @@ class ParamStats:
         influencer_parameters = self._reduce_param_matrix(dep_by_value, other_param_list)
         return influencer_parameters
 
-    def _param_independence_ratio(self, state_or_trans, attribute, param):
+    def _param_independence_ratio(self, state_or_trans: str, attribute: str, param: str) -> float:
         """
         Return the heuristic ratio of parameter independence for state_or_trans, attribute, and param.
 
@@ -488,19 +488,36 @@ class ParamStats:
             # This means that the variation of param does not affect the model quality -> no influence, return 1
             return 1.
 
-        influencer_parameters = self._get_codependent_parameters(statistics, param)
-        if len(influencer_parameters):
-            print('{}/{} {} <-> {}'.format(state_or_trans, attribute, param, influencer_parameters))
-
         return statistics['std_param_lut'] / statistics['std_by_param'][param]
 
-    def param_dependence_ratio(self, state_or_trans, attribute, param):
+    def param_dependence_ratio(self, state_or_trans: str, attribute: str, param: str) -> float:
         """
         Return the heuristic ratio of parameter dependence for state_or_trans, attribute, and param.
 
         A value close to 0 means no influence, a value close to 1 means high probability of influence.
+
+        :param state_or_trans: state or transition name
+        :param attribute: model attribute
+        :param param: parameter name
+
+        :returns: parameter dependence (float between 0 == no influence and 1 == high probability of influence)
         """
         return 1 - self._param_independence_ratio(state_or_trans, attribute, param)
+
+    def reverse_dependent_parameters(self, state_or_trans: str, attribute: str, param: str) -> list:
+        """
+        Return parameters whose value influences whether `attribute` of `state_or_trans` depends on `param` or not.
+
+        For example, a radio's TX POWER is only influenced by the packet length if dynamically sized payloads are enabled.
+        So reverse_dependent_parameters('TX', 'POWER', 'packet_length') == ['dynamic_payload_size'].
+
+        :param state_or_trans: state or transition name
+        :param attribute: model attribute
+        :param param: parameter name
+
+        :returns: list of parameters
+        """
+        return self._get_codependent_parameters(self.stats[state_or_trans][attribute], param)
 
     def _arg_independence_ratio(self, state_or_trans, attribute, arg_index):
         statistics = self.stats[state_or_trans][attribute]
@@ -514,7 +531,7 @@ class ParamStats:
             return 1
         return statistics['std_param_lut'] / statistics['std_by_arg'][arg_index]
 
-    def arg_dependence_ratio(self, state_or_trans, attribute, arg_index):
+    def arg_dependence_ratio(self, state_or_trans: str, attribute: str, arg_index: int) -> float:
         return 1 - self._arg_independence_ratio(state_or_trans, attribute, arg_index)
 
     # This heuristic is very similar to the "function is not much better than
@@ -1570,14 +1587,14 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
 
 def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
     """
-    Remove entries with certain parameter values from `aggregate`.
+    Remove entries which do not have certain parameter values from `aggregate`.
 
     :param aggregate: aggregated measurement data, must be a dict conforming to
         aggregate[state or transition name]['param'] = (first parameter value, second parameter value, ...)
         and
         aggregate[state or transition name]['attributes'] = [list of keys with measurement data, e.g. 'power' or 'duration']
     :param parameters: list of parameters, used to map parameter index to parameter name. parameters=['foo', ...] means 'foo' is the first parameter
-    :param parameter_filter: [[name, value], [name, value], ...] list of parameter values to remove. Values refer to normalizad parameter data.
+    :param parameter_filter: [[name, value], [name, value], ...] list of parameter values to keep, all others are removed. Values refer to normalizad parameter data.
     """
     for param_name_and_value in parameter_filter:
         param_index = parameters.index(param_name_and_value[0])
@@ -1740,11 +1757,6 @@ class PTAModel:
         self.hwmodel = hwmodel
         self.ignore_trace_indexes = ignore_trace_indexes
         self._aggregate_to_ndarray(self.by_name)
-
-    def distinct_param_values(self, state_or_tran, param_index = None, arg_index = None):
-        if param_index != None:
-            param_values = map(lambda x: x[param_index], self.by_name[state_or_tran]['param'])
-        return sorted(set(param_values))
 
     def _aggregate_to_ndarray(self, aggregate):
         for elem in aggregate.values():
