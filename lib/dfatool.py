@@ -1990,28 +1990,32 @@ class PTAModel:
                         prev_name = trace['trace'][i-1]['name']
                         isa = trace_part['isa']
                         if name != 'UNINITIALIZED':
-                            param = trace_part['offline_aggregates']['param'][rep_id]
-                            prev_param = trace['trace'][i-1]['offline_aggregates']['param'][rep_id]
-                            power = trace_part['offline'][rep_id]['uW_mean']
-                            duration = trace_part['offline'][rep_id]['us']
-                            prev_duration = trace['trace'][i-1]['offline'][rep_id]['us']
-                            real_energy += power * duration
-                            if isa == 'state':
-                                model_energy += model_function(name, 'power', param=param) * duration
-                            else:
-                                model_energy += model_function(name, 'energy', param=param)
-                                # If i == 1, the previous state was UNINITIALIZED, for which we do not have model data
-                                if i == 1:
-                                    model_rel_energy += model_function(name, 'energy', param=param)
+                            try:
+                                param = trace_part['offline_aggregates']['param'][rep_id]
+                                prev_param = trace['trace'][i-1]['offline_aggregates']['param'][rep_id]
+                                power = trace_part['offline'][rep_id]['uW_mean']
+                                duration = trace_part['offline'][rep_id]['us']
+                                prev_duration = trace['trace'][i-1]['offline'][rep_id]['us']
+                                real_energy += power * duration
+                                if isa == 'state':
+                                    model_energy += model_function(name, 'power', param=param) * duration
                                 else:
-                                    model_rel_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
-                                    model_state_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
-                                model_rel_energy += model_function(name, 'rel_energy_prev', param=param)
-                                real_duration += duration
-                                model_duration += model_function(name, 'duration', param=param)
-                                if 'plan' in trace_part and trace_part['plan']['level'] == 'epilogue':
-                                    real_timeout += trace_part['offline'][rep_id]['timeout']
-                                    model_timeout += model_function(name, 'timeout', param=param)
+                                    model_energy += model_function(name, 'energy', param=param)
+                                    # If i == 1, the previous state was UNINITIALIZED, for which we do not have model data
+                                    if i == 1:
+                                        model_rel_energy += model_function(name, 'energy', param=param)
+                                    else:
+                                        model_rel_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
+                                        model_state_energy += model_function(prev_name, 'power', param=prev_param) * (prev_duration + duration)
+                                    model_rel_energy += model_function(name, 'rel_energy_prev', param=param)
+                                    real_duration += duration
+                                    model_duration += model_function(name, 'duration', param=param)
+                                    if 'plan' in trace_part and trace_part['plan']['level'] == 'epilogue':
+                                        real_timeout += trace_part['offline'][rep_id]['timeout']
+                                        model_timeout += model_function(name, 'timeout', param=param)
+                            except KeyError:
+                                # if states/transitions have been removed via --filter-param, this is harmless
+                                pass
                     real_energy_list.append(real_energy)
                     model_energy_list.append(model_energy)
                     model_rel_energy_list.append(model_rel_energy)
