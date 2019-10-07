@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
-from utils import prune_dependent_parameters
+from parameters import prune_dependent_parameters
 import unittest
 
 class TestModels(unittest.TestCase):
