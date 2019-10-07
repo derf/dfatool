@@ -173,15 +173,18 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         run_timeout *= repeat
 
     needs_split = False
-    try:
-        runner.build(arch, app, run_args)
-    except RuntimeError:
-        if len(runs) > 50:
-            # Application is too large -> split up runs
-            needs_split = True
-        else:
-            # Unknown error
-            raise
+    if len(runs) > 1000:
+        needs_split = True
+    else:
+        try:
+            runner.build(arch, app, run_args)
+        except RuntimeError:
+            if len(runs) > 50:
+                # Application is too large -> split up runs
+                needs_split = True
+            else:
+                # Unknown error
+                raise
 
     # This has been deliberately taken out of the except clause to avoid nested exception handlers
     # (they lead to pretty interesting tracebacks which are probably more confusing than helpful)
