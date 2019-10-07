@@ -1,77 +1,9 @@
 import itertools
 import numpy as np
-from utils import remove_index_from_tuple, is_numeric
-
-def compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_trans, attribute, verbose = False):
-    """
-    Compute standard deviation and correlation coefficient for various data partitions.
-
-    It is strongly recommended to vary all parameter values evenly across partitions.
-    For instance, given two parameters, providing only the combinations
-    (1, 1), (5, 1), (7, 1,) (10, 1), (1, 2), (1, 6) will lead to bogus results.
-    It is better to provide (1, 1), (5, 1), (1, 2), (5, 2), ... (i.e. a cross product of all individual parameter values)
-
-    :param by_name: ground truth partitioned by state/transition name.
-        by_name[state_or_trans][attribute] must be a list or 1-D numpy array.
-        by_name[state_or_trans]['param'] must be a list of parameter values
-        corresponding to the ground truth, e.g. [[1, 2, 3], ...] if the
-        first ground truth element has the (lexically) first parameter set to 1,
-        the second to 2 and the third to 3.
-    :param by_param: ground truth partitioned by state/transition name and parameters.
-        by_name[(state_or_trans, *)][attribute] must be a list or 1-D numpy array.
-    :param parameter_names: list of parameter names, must have the same order as the parameter
-        values in by_param (lexical sorting is recommended).
-    :param arg_count: dict providing the number of functions args ("local parameters") for each function.
-    :param state_or_trans: state or transition name, e.g. 'send' or 'TX'
-    :param attribute: model attribute, e.g. 'power' or 'duration'
-    :param verbose: print warning if some parameter partitions are too small for fitting
-
-    :returns: a dict with the following content:
-    std_static -- static parameter-unaware model error: stddev of by_name[state_or_trans][attribute]
-    std_param_lut -- static parameter-aware model error: mean stddev of by_param[(state_or_trans, *)][attribute]
-    std_by_param -- static parameter-aware model error ignoring a single parameter.
-        dictionary with one key per parameter. The value is the mean stddev
-        of measurements where all other parameters are fixed and the parameter
-        in question is variable. E.g. std_by_param['X'] is the mean stddev of
-        by_param[(state_or_trans, (X=*, Y=..., Z=...))][attribute].
-    std_by_arg -- same, but ignoring a single function argument
-        Only set if state_or_trans appears in arg_count, empty dict otherwise.
-    corr_by_param -- correlation coefficient
-    corr_by_arg -- same, but ignoring a single function argument
-        Only set if state_or_trans appears in arg_count, empty dict otherwise.
-    """
-    ret = {
-        'std_static' : np.std(by_name[state_or_trans][attribute]),
-        'std_param_lut' : np.mean([np.std(by_param[x][attribute]) for x in by_param.keys() if x[0] == state_or_trans]),
-        'std_by_param' : {},
-        'std_by_param_values' : {},
-        'lut_by_param_values' : {},
-        'std_by_arg' : [],
-        'std_by_arg_values' : [],
-        'lut_by_arg_values' : [],
-        'corr_by_param' : {},
-        'corr_by_arg' : [],
-    }
-
-    np.seterr('raise')
-
-    param_values = distinct_param_values(by_name, state_or_trans)
-
-    for param_idx, param in enumerate(parameter_names):
-        std_matrix, mean_std, lut_matrix = _std_by_param(by_param, param_values, state_or_trans, attribute, param_idx, verbose)
-        ret['std_by_param'][param] = mean_std
-        ret['std_by_param_values'][param] = std_matrix
-        ret['lut_by_param_values'][param] = lut_matrix
-        ret['corr_by_param'][param] = _corr_by_param(by_name, state_or_trans, attribute, param_idx)
-    if state_or_trans in arg_count:
-        for arg_index in range(arg_count[state_or_trans]):
-            std_matrix, mean_std, lut_matrix = _std_by_param(by_param, param_values, state_or_trans, attribute, len(parameter_names) + arg_index, verbose)
-            ret['std_by_arg'].append(mean_std)
-            ret['std_by_arg_values'].append(std_matrix)
-            ret['lut_by_arg_values'].append(lut_matrix)
-            ret['corr_by_arg'].append(_corr_by_param(by_name, state_or_trans, attribute, len(parameter_names) + arg_index))
-
-    return ret
+from collections import OrderedDict
+from copy import deepcopy
+from utils import remove_index_from_tuple, is_numeric, is_power_of_two
+from utils import filter_aggregate_by_param, by_name_to_by_param
 
 def distinct_param_values(by_name, state_or_tran):
     """
@@ -79,9 +11,8 @@ def distinct_param_values(by_name, state_or_tran):
 
     E.g. if by_name[state_or_tran]['param'] contains the distinct entries (1, 1), (1, 2), (1, 3), (0, 3),
     this function returns [[1, 0], [1, 2, 3]].
-    Note that the order is not guaranteed to be deterministic at the moment.
 
-    Also note that this function deliberately also consider None
+    Note that this function deliberately also consider None
     (uninitialized parameter with unknown value) as a distinct value. Benchmarks
     and drivers must ensure that a parameter is only None when its value is
     not important yet, e.g. a packet length parameter must only be None when
@@ -90,13 +21,13 @@ def distinct_param_values(by_name, state_or_tran):
     """
     # TODO a set() is an _unordered_ collection, so this must be converted to
     # an OrderedDict or a list with a duplicate-pruning step
-    distinct_values = [set() for i in range(len(by_name[state_or_tran]['param'][0]))]
+    distinct_values = [OrderedDict() for i in range(len(by_name[state_or_tran]['param'][0]))]
     for param_tuple in by_name[state_or_tran]['param']:
         for i in range(len(param_tuple)):
-            distinct_values[i].add(param_tuple[i])
+            distinct_values[i][param_tuple[i]] = True
 
     # Convert sets to lists
-    distinct_values = list(map(list, distinct_values))
+    distinct_values = list(map(lambda x: list(x.keys()), distinct_values))
     return distinct_values
 
 def _std_by_param(by_param, all_param_values, state_or_tran, attribute, param_index, verbose = False):
@@ -255,6 +186,11 @@ def remove_parameters_by_indices(by_name, parameter_names, parameter_indices_to_
         parameter_names.pop(parameter_index)
 
 class ParamStats:
+    """
+    :param stats: `stats[state_or_tran][attribute]` = std_static, std_param_lut, ... (see `compute_param_statistics`)
+    :param distinct_values: `distinct_values[state_or_tran][param]` = [distinct values in aggregate]
+    :param distinct_values_by_param_index: `distinct_values[state_or_tran][i]` = [distinct values in aggregate]
+    """
 
     def __init__(self, by_name, by_param, parameter_names, arg_count, use_corrcoef = False, verbose = False):
         """
@@ -280,6 +216,8 @@ class ParamStats:
         use_corrcoef -- use correlation coefficient instead of stddev heuristic for parameter detection
         """
         self.stats = dict()
+        self.distinct_values = dict()
+        self.distinct_values_by_param_index = dict()
         self.use_corrcoef = use_corrcoef
         self._parameter_names = parameter_names
         # Note: This is deliberately single-threaded. The overhead incurred
@@ -287,8 +225,127 @@ class ParamStats:
         # computation of statistics measures.
         for state_or_tran in by_name.keys():
             self.stats[state_or_tran] = dict()
+            self.distinct_values_by_param_index[state_or_tran] = distinct_param_values(by_name, state_or_tran)
+            self.distinct_values[state_or_tran] = dict()
+            for i, param in enumerate(parameter_names):
+                self.distinct_values[state_or_tran][param] = self.distinct_values_by_param_index[state_or_tran][i]
             for attribute in by_name[state_or_tran]['attributes']:
-                self.stats[state_or_tran][attribute] = compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_tran, attribute, verbose = verbose)
+                self.stats[state_or_tran][attribute] = self.compute_param_statistics(by_name, by_param, parameter_names, arg_count, state_or_tran, attribute, verbose = verbose)
+
+    def compute_param_statistics(self, by_name, by_param, parameter_names, arg_count, state_or_trans, attribute, verbose = False):
+        """
+        Compute standard deviation and correlation coefficient for various data partitions.
+
+        It is strongly recommended to vary all parameter values evenly across partitions.
+        For instance, given two parameters, providing only the combinations
+        (1, 1), (5, 1), (7, 1,) (10, 1), (1, 2), (1, 6) will lead to bogus results.
+        It is better to provide (1, 1), (5, 1), (1, 2), (5, 2), ... (i.e. a cross product of all individual parameter values)
+
+        :param by_name: ground truth partitioned by state/transition name.
+            by_name[state_or_trans][attribute] must be a list or 1-D numpy array.
+            by_name[state_or_trans]['param'] must be a list of parameter values
+            corresponding to the ground truth, e.g. [[1, 2, 3], ...] if the
+            first ground truth element has the (lexically) first parameter set to 1,
+            the second to 2 and the third to 3.
+        :param by_param: ground truth partitioned by state/transition name and parameters.
+            by_name[(state_or_trans, *)][attribute] must be a list or 1-D numpy array.
+        :param parameter_names: list of parameter names, must have the same order as the parameter
+            values in by_param (lexical sorting is recommended).
+        :param arg_count: dict providing the number of functions args ("local parameters") for each function.
+        :param state_or_trans: state or transition name, e.g. 'send' or 'TX'
+        :param attribute: model attribute, e.g. 'power' or 'duration'
+        :param verbose: print warning if some parameter partitions are too small for fitting
+
+        :returns: a dict with the following content:
+        std_static -- static parameter-unaware model error: stddev of by_name[state_or_trans][attribute]
+        std_param_lut -- static parameter-aware model error: mean stddev of by_param[(state_or_trans, *)][attribute]
+        std_by_param -- static parameter-aware model error ignoring a single parameter.
+            dictionary with one key per parameter. The value is the mean stddev
+            of measurements where all other parameters are fixed and the parameter
+            in question is variable. E.g. std_by_param['X'] is the mean stddev of
+            by_param[(state_or_trans, (X=*, Y=..., Z=...))][attribute].
+        std_by_arg -- same, but ignoring a single function argument
+            Only set if state_or_trans appears in arg_count, empty dict otherwise.
+        corr_by_param -- correlation coefficient
+        corr_by_arg -- same, but ignoring a single function argument
+            Only set if state_or_trans appears in arg_count, empty dict otherwise.
+        """
+        ret = {
+            'std_static' : np.std(by_name[state_or_trans][attribute]),
+            'std_param_lut' : np.mean([np.std(by_param[x][attribute]) for x in by_param.keys() if x[0] == state_or_trans]),
+            'std_by_param' : {},
+            'std_by_param_values' : {},
+            'lut_by_param_values' : {},
+            'std_by_arg' : [],
+            'std_by_arg_values' : [],
+            'lut_by_arg_values' : [],
+            'corr_by_param' : {},
+            'corr_by_arg' : [],
+            'depends_on_param' : {},
+            'depends_on_arg' : [],
+            'param_data' : {},
+        }
+
+        np.seterr('raise')
+
+        for param_idx, param in enumerate(parameter_names):
+            std_matrix, mean_std, lut_matrix = _std_by_param(by_param, self.distinct_values_by_param_index[state_or_trans], state_or_trans, attribute, param_idx, verbose)
+            ret['std_by_param'][param] = mean_std
+            ret['std_by_param_values'][param] = std_matrix
+            ret['lut_by_param_values'][param] = lut_matrix
+            ret['corr_by_param'][param] = _corr_by_param(by_name, state_or_trans, attribute, param_idx)
+
+            ret['depends_on_param'][param] = self._depends_on_param(ret['corr_by_param'][param], ret['std_by_param'][param], ret['std_param_lut'])
+
+            if ret['depends_on_param'][param]:
+                ret['param_data'][param] = {
+                    'codependent_parameters': self._codependent_parameters(param, lut_matrix, std_matrix),
+                    'depends_for_codependent_value': dict()
+                }
+
+                # calculate parameter dependence for individual values of codependent parameters
+                codependent_param_values = list()
+                for codependent_param in ret['param_data'][param]['codependent_parameters']:
+                    codependent_param_values.append(self.distinct_values[state_or_trans][codependent_param])
+                for combi in itertools.product(*codependent_param_values):
+                    by_name_part = deepcopy(by_name)
+                    filter_list = list(zip(ret['param_data'][param]['codependent_parameters'], combi))
+                    filter_aggregate_by_param(by_name_part, parameter_names, filter_list)
+                    by_param_part = by_name_to_by_param(by_name_part)
+                    # there may be no data for this specific parameter value combination
+                    if state_or_trans in by_name_part:
+                        part_corr = _corr_by_param(by_name_part, state_or_trans, attribute, param_idx)
+                        part_std_lut = np.mean([np.std(by_param_part[x][attribute]) for x in by_param_part.keys() if x[0] == state_or_trans])
+                        _, part_std_param, _ = _std_by_param(by_param_part, self.distinct_values_by_param_index[state_or_trans], state_or_trans, attribute, param_idx, verbose)
+                        ret['param_data'][param]['depends_for_codependent_value'][combi] = self._depends_on_param(part_corr, part_std_param, part_std_lut)
+
+        if state_or_trans in arg_count:
+            for arg_index in range(arg_count[state_or_trans]):
+                std_matrix, mean_std, lut_matrix = _std_by_param(by_param, self.distinct_values_by_param_index[state_or_trans], state_or_trans, attribute, len(parameter_names) + arg_index, verbose)
+                ret['std_by_arg'].append(mean_std)
+                ret['std_by_arg_values'].append(std_matrix)
+                ret['lut_by_arg_values'].append(lut_matrix)
+                ret['corr_by_arg'].append(_corr_by_param(by_name, state_or_trans, attribute, len(parameter_names) + arg_index))
+
+                if self.use_corrcoef:
+                    ret['depends_on_arg'].append(ret['corr_by_arg'][arg_index] > 0.1)
+                elif ret['std_by_arg'][arg_index] == 0:
+                    # In general, std_param_lut < std_by_arg. So, if std_by_arg == 0, std_param_lut == 0 follows.
+                    # This means that the variation of arg does not affect the model quality -> no influence
+                    ret['depends_on_arg'].append(False)
+                else:
+                    ret['depends_on_arg'].append(ret['std_param_lut'] / ret['std_by_arg'][arg_index] < 0.5)
+
+        return ret
+
+    def _depends_on_param(self, corr_param, std_param, std_lut):
+        if self.use_corrcoef:
+            return corr_param > 0.1
+        elif std_param == 0:
+            # In general, std_param_lut < std_by_param. So, if std_by_param == 0, std_param_lut == 0 follows.
+            # This means that the variation of param does not affect the model quality -> no influence
+            return False
+        return std_lut / std_param < 0.5
 
     def _generic_param_independence_ratio(self, state_or_trans, attribute):
         """
@@ -342,6 +399,20 @@ class ParamStats:
 
         return list()
 
+    def _codependent_parameters(self, param, lut_by_param_values, std_by_param_values):
+        """
+        Return list of parameters which affect whether a parameter affects a model attribute or not.
+        """
+        safe_div = np.vectorize(lambda x,y: 0. if x == 0 else 1 - x/y)
+        ratio_by_value = safe_div(lut_by_param_values, std_by_param_values)
+        err_mode = np.seterr('ignore')
+        dep_by_value = ratio_by_value > 0.5
+        np.seterr(**err_mode)
+
+        other_param_list = list(filter(lambda x: x != param, self._parameter_names))
+        influencer_parameters = self._reduce_param_matrix(dep_by_value, other_param_list)
+        return influencer_parameters
+
     def _get_codependent_parameters(self, stats, param):
         """
         Return list of parameters which affect whether `param` influences the model attribute described in `stats` or not.
@@ -392,8 +463,8 @@ class ParamStats:
         """
         Return parameters whose value influences whether `attribute` of `state_or_trans` depends on `param` or not.
 
-        For example, a radio's TX POWER is only influenced by the packet length if dynamically sized payloads are enabled.
-        So reverse_dependent_parameters('TX', 'POWER', 'packet_length') == ['dynamic_payload_size'].
+        For example, a radio's TX power is only influenced by the packet length if dynamically sized payloads are enabled.
+        So reverse_dependent_parameters('TX', 'power', 'packet_length') == ['dynamic_payload_size'].
 
         :param state_or_trans: state or transition name
         :param attribute: model attribute
@@ -424,16 +495,10 @@ class ParamStats:
     # --df, 2018-04-18
     def depends_on_param(self, state_or_trans, attribute, param):
         """Return whether attribute of state_or_trans depens on param."""
-        if self.use_corrcoef:
-            return self.param_dependence_ratio(state_or_trans, attribute, param) > 0.1
-        else:
-            return self.param_dependence_ratio(state_or_trans, attribute, param) > 0.5
+        return self.stats[state_or_trans][attribute]['depends_on_param'][param]
 
     # See notes on depends_on_param
     def depends_on_arg(self, state_or_trans, attribute, arg_index):
         """Return whether attribute of state_or_trans depens on arg_index."""
-        if self.use_corrcoef:
-            return self.arg_dependence_ratio(state_or_trans, attribute, arg_index) > 0.1
-        else:
-            return self.arg_dependence_ratio(state_or_trans, attribute, arg_index) > 0.5
+        return self.stats[state_or_trans][attribute]['depends_on_arg'][arg_index]
 

@@ -114,6 +114,55 @@ def param_slice_eq(a, b, index):
         return True
     return False
 
+def by_name_to_by_param(by_name: dict):
+    """
+    Convert aggregation by name to aggregation by name and parameter values.
+    """
+    by_param = dict()
+    for name in by_name.keys():
+        for i, parameters in enumerate(by_name[name]['param']):
+            param_key = (name, tuple(parameters))
+            if param_key not in by_param:
+                by_param[param_key] = dict()
+                for key in by_name[name].keys():
+                    by_param[param_key][key] = list()
+                by_param[param_key]['attributes'] = by_name[name]['attributes']
+                # special case for PTA models
+                if 'isa' in by_name[name]:
+                    by_param[param_key]['isa'] = by_name[name]['isa']
+            for attribute in by_name[name]['attributes']:
+                by_param[param_key][attribute].append(by_name[name][attribute][i])
+    return by_param
+
+def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
+    """
+    Remove entries which do not have certain parameter values from `aggregate`.
+
+    :param aggregate: aggregated measurement data, must be a dict conforming to
+        aggregate[state or transition name]['param'] = (first parameter value, second parameter value, ...)
+        and
+        aggregate[state or transition name]['attributes'] = [list of keys with measurement data, e.g. 'power' or 'duration']
+    :param parameters: list of parameters, used to map parameter index to parameter name. parameters=['foo', ...] means 'foo' is the first parameter
+    :param parameter_filter: [[name, value], [name, value], ...] list of parameter values to keep, all others are removed. Values refer to normalizad parameter data.
+    """
+    for param_name_and_value in parameter_filter:
+        param_index = parameters.index(param_name_and_value[0])
+        param_value = soft_cast_int(param_name_and_value[1])
+        names_to_remove = set()
+        for name in aggregate.keys():
+            indices_to_keep = list(map(lambda x: x[param_index] == param_value, aggregate[name]['param']))
+            aggregate[name]['param'] = list(map(lambda iv: iv[1], filter(lambda iv: indices_to_keep[iv[0]], enumerate(aggregate[name]['param']))))
+            if len(indices_to_keep) == 0:
+                print('??? {}->{}'.format(parameter_filter, name))
+                names_to_remove.add(name)
+            else:
+                for attribute in aggregate[name]['attributes']:
+                    aggregate[name][attribute] = aggregate[name][attribute][indices_to_keep]
+                    if len(aggregate[name][attribute]) == 0:
+                        names_to_remove.add(name)
+        for name in names_to_remove:
+            aggregate.pop(name)
+
 class OptionalTimingAnalysis:
     def __init__(self, enabled = True):
         self.enabled = enabled

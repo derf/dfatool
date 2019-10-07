@@ -79,9 +79,10 @@ import json
 import plotter
 import re
 import sys
-from dfatool import PTAModel, RawData, pta_trace_to_aggregate, filter_aggregate_by_param
+from dfatool import PTAModel, RawData, pta_trace_to_aggregate
 from dfatool import soft_cast_int, is_numeric, gplearn_to_function
 from dfatool import CrossValidator
+from utils import filter_aggregate_by_param
 
 opts = {}
 
@@ -301,6 +302,11 @@ if __name__ == '__main__':
                     '',
                     param,
                     model.stats.param_dependence_ratio(state, 'power', param)))
+                if model.depends_on_param(state, 'power', param) and len(model.stats.stats[state]['power']['param_data'][param]['codependent_parameters']):
+                    print('{:24s}  co-dependencies: {:s}'.format('', ', '.join(model.stats.stats[state]['power']['param_data'][param]['codependent_parameters'])))
+                    for combi, depends in model.stats.stats[state]['power']['param_data'][param]['depends_for_codependent_value'].items():
+                        print('{} -> {}'.format(combi, depends))
+
         for trans in model.transitions():
             # Mean power is not a typical transition attribute, but may be present for debugging or analysis purposes
             try:
