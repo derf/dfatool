@@ -1206,31 +1206,23 @@ class AnalyticModel:
             return self.parameters[param_index]
         return str(param_index)
 
-    def get_static(self):
+    def get_static(self, use_mean=False):
         """
         Get static model function: name, attribute -> model value.
 
         Uses the median of by_name for modeling.
         """
-        static_model = self._get_model_from_dict(self.by_name, np.median)
+        getter_function = np.median
 
-        def static_median_getter(name, key, **kwargs):
+        if use_mean:
+            getter_function = np.mean
+
+        static_model = self._get_model_from_dict(self.by_name, getter_function)
+
+        def static_model_getter(name, key, **kwargs):
             return static_model[name][key]
 
-        return static_median_getter
-
-    def get_static_using_mean(self):
-        """
-        Get static model function: name, attribute -> model value.
-
-        Uses the mean of by_name for modeling.
-        """
-        static_model = self._get_model_from_dict(self.by_name, np.mean)
-
-        def static_mean_getter(name, key, **kwargs):
-            return static_model[name][key]
-
-        return static_mean_getter
+        return static_model_getter
 
     def get_param_lut(self, fallback = False):
         """
@@ -1561,31 +1553,23 @@ class PTAModel:
                     vprint(self.verbose, '[W] Got no data for {} {}: {}'.format(name, key, fpe))
         return model
 
-    def get_static(self):
+    def get_static(self, use_mean=False):
         """
         Get static model function: name, attribute -> model value.
 
         Uses the median of by_name for modeling.
         """
-        static_model = self._get_model_from_dict(self.by_name, np.median)
+        getter_function = np.median
 
-        def static_median_getter(name, key, **kwargs):
+        if use_mean:
+            getter_function = np.mean
+
+        static_model = self._get_model_from_dict(self.by_name, getter_function)
+
+        def static_model_getter(name, key, **kwargs):
             return static_model[name][key]
 
-        return static_median_getter
-
-    def get_static_using_mean(self):
-        """
-        Get static model function: name, attribute -> model value.
-
-        Uses the mean of by_name for modeling.
-        """
-        static_model = self._get_model_from_dict(self.by_name, np.mean)
-
-        def static_mean_getter(name, key, **kwargs):
-            return static_model[name][key]
-
-        return static_mean_getter
+        return static_model_getter
 
     def get_param_lut(self, fallback = False):
         """
