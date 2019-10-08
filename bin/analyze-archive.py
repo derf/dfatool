@@ -21,6 +21,9 @@ Options:
     parameters. Also plots the corresponding measurements.
     If gplearn function is set, it is plotted using dashed lines.
 
+--param-info
+    Show parameter names and values
+
 --show-models=<static|paramdetection|param|all|tex|html>
     static: show static model values as well as parameter detection heuristic
     paramdetection: show stddev of static/lut/fitted model
@@ -215,7 +218,7 @@ if __name__ == '__main__':
 
     try:
         optspec = (
-            'plot-unparam= plot-param= show-models= show-quality= '
+            'plot-unparam= plot-param= param-info show-models= show-quality= '
             'ignored-trace-indexes= discard-outliers= function-override= '
             'filter-param= '
             'cross-validate= '
@@ -281,6 +284,12 @@ if __name__ == '__main__':
 
     if xv_method:
         xv = CrossValidator(PTAModel, by_name, parameters, arg_count)
+
+    if 'param-info' in opts:
+        for state in model.states():
+            print('{}:'.format(state))
+            for param in model.parameters():
+                print('    {} = {}'.format(param, model.stats.distinct_values[state][param]))
 
     if 'plot-unparam' in opts:
         for kv in opts['plot-unparam'].split(';'):
