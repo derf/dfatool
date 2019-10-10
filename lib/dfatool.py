@@ -11,6 +11,7 @@ from sklearn.metrics import r2_score
 import struct
 import sys
 import tarfile
+import hashlib
 from multiprocessing import Pool
 from automata import PTA
 from functions import analytic
@@ -495,6 +496,30 @@ class RawData:
                     self.version = 1
                     break
 
+        self.set_cache_file()
+        self.load_cache()
+
+    def set_cache_file(self):
+        cache_key = hashlib.sha256('!'.join(self.filenames).encode()).hexdigest()
+        self.cache_dir = os.path.dirname(self.filenames[0]) + '/cache'
+        self.cache_file = '{}/{}.json'.format(self.cache_dir, cache_key)
+
+    def load_cache(self):
+        print('checking {}...'.format(self.cache_file))
+        if os.path.exists(self.cache_file):
+            with open(self.cache_file, 'r') as f:
+                self.traces = json.load(f)
+                self.preprocessed = True
+                print('loaded cache')
+
+    def save_cache(self):
+        try:
+            os.mkdir(self.cache_dir)
+        except FileExistsError:
+            pass
+        with open(self.cache_file, 'w') as f:
+            json.dump(self.traces, f)
+
     def _state_is_too_short(self, online, offline, state_duration, next_transition):
         # We cannot control when an interrupt causes a state to be left
         if next_transition['plan']['level'] == 'epilogue':
@@ -770,6 +795,7 @@ class RawData:
         elif self.version == 1:
             self._preprocess_01(1)
         self.preprocessed = True
+        self.save_cache()
         return self.traces
 
     def _preprocess_01(self, version):
