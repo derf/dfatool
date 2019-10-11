@@ -114,6 +114,21 @@ def param_slice_eq(a, b, index):
         return True
     return False
 
+def match_parameter_values(input_param: dict, match_param: dict):
+    """
+    Check whether one of the paramaters in `input_param` has the same value in `match_param`.
+
+    :param input_param: parameter dict of a state/transition/... measurement
+    :param match_param: parameter value filter
+    :returns: True if for all parameters k in match_param: input_param[k] == match_param[k], or if match_param is None.
+    """
+    if match_param is None:
+        return True
+    for k, v in match_param.items():
+        if k in input_param and input_param[k] != v:
+            return False
+    return True
+
 def by_name_to_by_param(by_name: dict):
     """
     Convert aggregation by name to aggregation by name and parameter values.
@@ -132,6 +147,8 @@ def by_name_to_by_param(by_name: dict):
                     by_param[param_key]['isa'] = by_name[name]['isa']
             for attribute in by_name[name]['attributes']:
                 by_param[param_key][attribute].append(by_name[name][attribute][i])
+            # Required for match_parameter_valuse in _try_fits
+            by_param[param_key]['param'].append(by_name[name]['param'][i])
     return by_param
 
 def filter_aggregate_by_param(aggregate, parameters, parameter_filter):

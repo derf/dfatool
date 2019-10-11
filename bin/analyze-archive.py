@@ -311,10 +311,10 @@ if __name__ == '__main__':
                     '',
                     param,
                     model.stats.param_dependence_ratio(state, 'power', param)))
-                if model.depends_on_param(state, 'power', param) and len(model.stats.stats[state]['power']['param_data'][param]['codependent_parameters']):
-                    print('{:24s}  co-dependencies: {:s}'.format('', ', '.join(model.stats.stats[state]['power']['param_data'][param]['codependent_parameters'])))
-                    for combi, depends in model.stats.stats[state]['power']['param_data'][param]['depends_for_codependent_value'].items():
-                        print('{} -> {}'.format(combi, depends))
+                if model.stats.has_codependent_parameters(state, 'power', param):
+                    print('{:24s}  co-dependencies: {:s}'.format('', ', '.join(model.stats.codependent_parameters(state, 'power', param))))
+                    for param_dict in model.stats.codependent_parameter_value_dicts(state, 'power', param):
+                        print('{:24s}  parameter-aware for {}'.format('', param_dict))
 
         for trans in model.transitions():
             # Mean power is not a typical transition attribute, but may be present for debugging or analysis purposes
@@ -377,6 +377,8 @@ if __name__ == '__main__':
                             ))
 
     if 'param' in show_models or 'all' in show_models:
+        if not model.stats.can_be_fitted():
+            print('[!] measurements have insufficient distinct numeric parameters for fitting. A parameter-aware model is not available.')
         for state in model.states():
             for attribute in model.attributes(state):
                 if param_info(state, attribute):

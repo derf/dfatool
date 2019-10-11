@@ -21,6 +21,9 @@ Options:
     parameters. Also plots the corresponding measurements.
     If gplearn function is set, it is plotted using dashed lines.
 
+--param-info
+    Show parameter names and values
+
 --show-models=<static|paramdetection|param|all|tex>
     static: show static model values as well as parameter detection heuristic
     paramdetection: show stddev of static/lut/fitted model
@@ -77,7 +80,8 @@ import re
 import sys
 from dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
 from dfatool import soft_cast_int, is_numeric, gplearn_to_function
-from dfatool import CrossValidator, filter_aggregate_by_param
+from dfatool import CrossValidator
+from utils import filter_aggregate_by_param
 from parameters import prune_dependent_parameters
 import utils
 
@@ -151,7 +155,7 @@ if __name__ == '__main__':
             'ignored-trace-indexes= discard-outliers= function-override= '
             'filter-param= '
             'cross-validate= '
-            'corrcoef '
+            'corrcoef param-info '
             'with-safe-functions hwmodel= export-energymodel='
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
@@ -216,6 +220,12 @@ if __name__ == '__main__':
     if xv_method:
         xv = CrossValidator(AnalyticModel, by_name, parameters, arg_count)
 
+    if 'param-info' in opts:
+        for state in model.names:
+            print('{}:'.format(state))
+            for param in model.parameters:
+                print('    {} = {}'.format(param, model.stats.distinct_values[state][param]))
+
     if 'plot-unparam' in opts:
         for kv in opts['plot-unparam'].split(';'):
             state_or_trans, attribute, ylabel = kv.split(':')
@@ -228,6 +238,15 @@ if __name__ == '__main__':
     if 'static' in show_models or 'all' in show_models:
         for trans in model.names:
             print('{:10s}: {:.0f} µs'.format(trans, static_model(trans, 'duration')))
+            for param in model.parameters:
+                print('{:10s}  dependence on {:15s}: {:.2f}'.format(
+                    '',
+                    param,
+                    model.stats.param_dependence_ratio(trans, 'duration', param)))
+                if model.stats.has_codependent_parameters(trans, 'duration', param):
+                    print('{:24s}  co-dependencies: {:s}'.format('', ', '.join(model.stats.codependent_parameters(trans, 'duration', param))))
+                    for param_dict in model.stats.codependent_parameter_value_dicts(trans, 'duration', param):
+                        print('{:24s}  parameter-aware for {}'.format('', param_dict))
 
     if xv_method == 'montecarlo':
         static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
