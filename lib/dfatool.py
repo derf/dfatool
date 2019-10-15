@@ -1505,7 +1505,7 @@ class PTAModel:
     - rel_energy_next: transition energy relative to next state mean power in pJ
     """
 
-    def __init__(self, by_name, parameters, arg_count, traces = [], ignore_trace_indexes = [], discard_outliers = None, function_override = {}, verbose = True, use_corrcoef = False, hwmodel = None):
+    def __init__(self, by_name, parameters, arg_count, traces = [], ignore_trace_indexes = [], discard_outliers = None, function_override = {}, verbose = True, use_corrcoef = False, pta = None):
         """
         Prepare a new PTA energy model.
 
@@ -1534,7 +1534,7 @@ class PTAModel:
         verbose -- print informative output, e.g. when removing an outlier
         use_corrcoef -- use correlation coefficient instead of stddev comparison
             to detect whether a model attribute depends on a parameter
-        hwmodel -- hardware model suitable for PTA.from_hwmodel
+        pta -- hardware model as `PTA` object
         """
         self.by_name = by_name
         self.by_param = by_name_to_by_param(by_name)
@@ -1548,7 +1548,7 @@ class PTAModel:
         self._outlier_threshold = discard_outliers
         self.function_override = function_override.copy()
         self.verbose = verbose
-        self.hwmodel = hwmodel
+        self.pta = pta
         self.ignore_trace_indexes = ignore_trace_indexes
         self._aggregate_to_ndarray(self.by_name)
 
@@ -1715,9 +1715,8 @@ class PTAModel:
     def to_json(self):
         static_model = self.get_static()
         _, param_info = self.get_fitted()
-        pta = PTA.from_json(self.hwmodel)
-        pta.update(static_model, param_info)
-        return pta.to_json()
+        self.pta.update(static_model, param_info)
+        return self.pta.to_json()
 
     def states(self):
         return sorted(list(filter(lambda k: self.by_name[k]['isa'] == 'state', self.by_name.keys())))

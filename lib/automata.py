@@ -4,6 +4,7 @@ from functions import AnalyticFunction, NormalizationFunction
 from utils import is_numeric
 import itertools
 import numpy as np
+import json, yaml
 
 def _dict_to_list(input_dict: dict) -> list:
     return [input_dict[x] for x in sorted(input_dict.keys())]
@@ -99,6 +100,8 @@ class State:
             For the [['init', 'foo', '$'], ['init', 'bar', '$']] example above, sleep=10 results in [(None, 10), 'init', (None, 10), 'foo'] and [(None, 10), 'init', (None, 10), 'bar']
         :returns: Generator object for depth-first search. Each access yields a list of (Transition, (arguments)) elements describing a single run through the PTA.
         """
+
+        # TODO parametergewahrer Trace-Filter, z.B. "setHeaterDuration nur wenn bme680 power mode => FORCED und GAS_ENABLED"
 
         # A '$' entry in trace_filter indicates that the trace should (successfully) terminate here regardless of `depth`.
         if trace_filter is not None and next(filter(lambda x: x == '$', map(lambda x: x[0], trace_filter)), None) is not None:
@@ -401,6 +404,15 @@ class PTA:
         for parameter, value in param_dict.items():
             normalized_param[parameter] = self.normalize_parameter(parameter, value)
         return normalized_param
+
+    @classmethod
+    def from_file(cls, model_file: str):
+        """Return PTA loaded from the provided JSON or YAML file."""
+        with open(model_file, 'r') as f:
+            if '.json' in model_file:
+                return cls.from_json(json.load(f))
+            else:
+                return cls.from_yaml(yaml.safe_load(f))
 
     @classmethod
     def from_json(cls, json_input: dict):

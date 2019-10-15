@@ -302,11 +302,7 @@ if __name__ == '__main__':
 
     modelfile = args[0]
 
-    with open(modelfile, 'r') as f:
-        if '.json' in modelfile:
-            pta = PTA.from_json(json.load(f))
-        else:
-            pta = PTA.from_yaml(yaml.safe_load(f))
+    pta = PTA.from_file(modelfile)
 
     if 'shrink' in opt:
         pta.shrink_argument_values()
