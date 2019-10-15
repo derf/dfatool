@@ -263,9 +263,8 @@ class Transition:
         u"""
         Return transition energy cost in pJ.
 
-        arguments:
-        param_dict -- current parameter values
-        args -- function arguments
+        :param param_dict: current parameter values
+        :param args: function arguments
         """
         if self.energy_function:
             return self.energy_function.eval(_dict_to_list(param_dict), args)
@@ -280,9 +279,8 @@ class Transition:
 
         Returns 0 if the transition does not have a timeout.
 
-        arguments:
-        param_dict -- current parameter values
-        args -- function arguments
+        :param param_dict: current parameter values
+        :param args: function arguments
         """
         if self.timeout_function:
             return self.timeout_function.eval(_dict_to_list(param_dict))
@@ -294,6 +292,8 @@ class Transition:
 
         parameter values may be affected by this transition's update function,
         it's argument-to-param map, and its set_param settings.
+
+        Does not normalize parameter values.
         """
         if self.param_update_function:
             return self.param_update_function(param_dict, args)
@@ -344,7 +344,10 @@ class PTA:
     :param state: dict mapping state name to `State` object
     :param accepting_states: list of accepting state names
     :param parameters: current parameters
-    :param parameter_normalization: TODO
+    :param parameter_normalization:  dict mapping driver API parameter values to hardware values, e.g. a bitrate register value to an actual bitrate in kbit/s.
+            Each parameter key has in turn a dict value. Supported entries:
+            `enum`: Mapping of enum descriptors (eys) to parameter values. Note that the mapping is not required to correspond to the driver API.
+            `formula`: NormalizationFunction mapping an argument or return value (passed as `param`) to a parameter value.
     :param codegen: TODO
     :param initial_param_values: TODO
     :param transitions: list of `Transition` objects
@@ -357,17 +360,17 @@ class PTA:
         """
         Return a new PTA object.
 
-        arguments:
-        state_names -- names of PTA states. Note that the PTA always contains
+        :param state_names: names of PTA states. Note that the PTA always contains
             an initial UNINITIALIZED state, regardless of the content of state_names.
-        accepting_states -- names of accepting states. By default, all states are accepting
-        parameters -- names of PTA parameters
-        initial_param_values -- initial value for each parameter
-        instance -- class used for generated C++ code
-        header -- header include path for C++ class definition
-        parameter_normalization -- dict mapping driver API parameter values to hardware values, e.g. a bitrate register value to an actual bitrate in kbit/s.
+        :param accepting_states: names of accepting states. By default, all states are accepting
+        :param parameters: names of PTA parameters
+        :param initial_param_values: initial value for each parameter
+        :param instance: class used for generated C++ code
+        :param header: header include path for C++ class definition
+        :param parameter_normalization: dict mapping driver API parameter values to hardware values, e.g. a bitrate register value to an actual bitrate in kbit/s.
             Each parameter key has in turn a dict value. Supported entries:
-            `enum`: Mapping of enum descriptors (keys) to parameter values. Note that the mapping is not required to correspond to the driver API.
+            `enum`: maps enum descriptors (keys) to parameter values. Note that the mapping is not required to correspond to the driver API.
+            `formula`: maps an argument or return value (passed as `param`) to a parameter value. Must be a string describing a valid python lambda function. NumPy is available as `np`.
         """
         self.state = dict([[state_name, State(state_name)] for state_name in state_names])
         self.accepting_states = accepting_states.copy() if accepting_states else None
@@ -388,7 +391,16 @@ class PTA:
                 if 'formula' in normalization_spec:
                     normalization_spec['formula'] = NormalizationFunction(normalization_spec['formula'])
 
-    def normalize_parameter(self, parameter_name, parameter_value):
+    def normalize_parameter(self, parameter_name: str, parameter_value) -> float:
+        """
+        Return normalized parameter.
+
+        Normalization refers to anything specified in the model's `parameter_normalization` section,
+        e.g. enum -> int translation or argument -> parameter value formulas.
+
+        :param parameter_name: parameter name.
+        :param parameter_value: parameter value.
+        """
         if parameter_value is not None and self.parameter_normalization is not None and parameter_name in self.parameter_normalization:
             if 'enum' in self.parameter_normalization[parameter_name] and parameter_value in self.parameter_normalization[parameter_name]['enum']:
                 return self.parameter_normalization[parameter_name]['enum'][parameter_value]
@@ -397,7 +409,15 @@ class PTA:
                 return normalization_formula.eval(parameter_value)
         return parameter_value
 
-    def normalize_parameters(self, param_dict):
+    def normalize_parameters(self, param_dict) -> dict:
+        """
+        Return normalized parameters.
+
+        Normalization refers to anything specified in the model's `parameter_normalization` section,
+        e.g. enum -> int translation or argument -> parameter value formulas.
+
+        :param param_dict: non-normalized parameters.
+        """
         if self.parameter_normalization is None:
             return param_dict.copy()
         normalized_param = param_dict.copy()
