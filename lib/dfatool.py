@@ -1719,12 +1719,15 @@ class PTAModel:
         return self.pta.to_json()
 
     def states(self):
+        """Return sorted list of state names."""
         return sorted(list(filter(lambda k: self.by_name[k]['isa'] == 'state', self.by_name.keys())))
 
     def transitions(self):
+        """Return sorted list of transition names."""
         return sorted(list(filter(lambda k: self.by_name[k]['isa'] == 'transition', self.by_name.keys())))
 
     def states_and_transitions(self):
+        """Return list of states and transition names."""
         ret = self.states()
         ret.extend(self.transitions())
         return ret
@@ -1759,6 +1762,14 @@ class PTAModel:
         return {
             'by_name' : detailed_results
         }
+
+    def assess_states(self, model_function, model_attribute = 'power'):
+        """
+        Calculate overall model error assuming equal distribution of states
+        """
+        model_quality = self.assess(model_function)
+        total_error = np.sqrt(sum(map(lambda x: np.square(model_quality['by_name'][x][model_attribute]['mae']), self.states())))
+        return total_error
 
 
     def assess_on_traces(self, model_function):

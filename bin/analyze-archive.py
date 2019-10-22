@@ -403,6 +403,10 @@ if __name__ == '__main__':
 
     if 'table' in show_quality or 'all' in show_quality:
         model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
+    if 'overall' in show_quality or 'all' in show_quality:
+        print('overall MAE of static model: {} µW'.format(model.assess_states(static_model)))
+        print('overall MAE of param model: {} µW'.format(model.assess_states(param_model)))
+        print('overall MAE of LUT model: {} µW'.format(model.assess_states(lut_model)))
     if 'summary' in show_quality or 'all' in show_quality:
         model_summary_table([model.assess_on_traces(static_model), model.assess_on_traces(param_model), model.assess_on_traces(lut_model)])
 
