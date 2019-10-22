@@ -110,11 +110,7 @@ if __name__ == '__main__':
 
     modelfile = args[0]
 
-    with open(modelfile, 'r') as f:
-        if '.json' in modelfile:
-            pta = PTA.from_json(json.load(f))
-        else:
-            pta = PTA.from_yaml(yaml.safe_load(f))
+    pta = PTA.from_file(modelfile)
 
     enum = dict()
     if '.json' not in modelfile:
@@ -165,12 +161,15 @@ if __name__ == '__main__':
                 base_weight += 8
         return base_weight
 
+    #sys.exit(0)
+
     mean_errors = list()
     for timer_freq, timer_type, ts_type, power_type, energy_type in itertools.product(timer_freqs, timer_types, timestamp_types, power_types, energy_types):
         real_energies = list()
         real_durations = list()
         model_energies = list()
         # duration in µs
+        # Bei kurzer Dauer (z.B. nur [1e2]) performt auc uint32_t für Energie gut, sonst nicht so (weil overflow)
         for sleep_duration in [1e2, 1e3, 1e4, 1e5, 1e6]:
             runs = pta.dfs(opt['depth'], with_arguments = True, with_parameters = True, trace_filter = opt['trace-filter'], sleep = sleep_duration)
             for run in runs:
