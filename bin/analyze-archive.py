@@ -404,7 +404,7 @@ if __name__ == '__main__':
     if 'table' in show_quality or 'all' in show_quality:
         model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
     if 'summary' in show_quality or 'all' in show_quality:
-        model_summary_table([static_quality, analytic_quality, lut_quality])
+        model_summary_table([model.assess_on_traces(static_model), model.assess_on_traces(param_model), model.assess_on_traces(lut_model)])
 
     if 'plot-param' in opts:
         for kv in opts['plot-param'].split(';'):

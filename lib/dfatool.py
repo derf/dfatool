@@ -1743,15 +1743,32 @@ class PTAModel:
         The by_name entries of this PTAModel are used as ground truth and
         compared with the values predicted by model_function.
 
-        If 'traces' was set when creating this object, the model quality is
-        also assessed on a per-trace basis.
-
         For proper model assessments, the data used to generate model_function
         and the data fed into this AnalyticModel instance must be mutually
         exclusive (e.g. by performing cross validation). Otherwise,
         overfitting cannot be detected.
         """
         detailed_results = {}
+        for name, elem in sorted(self.by_name.items()):
+            detailed_results[name] = {}
+            for key in elem['attributes']:
+                predicted_data = np.array(list(map(lambda i: model_function(name, key, param=elem['param'][i]), range(len(elem[key])))))
+                measures = regression_measures(predicted_data, elem[key])
+                detailed_results[name][key] = measures
+
+        return {
+            'by_name' : detailed_results
+        }
+
+
+    def assess_on_traces(self, model_function):
+        """
+        Calculate MAE, SMAPE, etc. of model_function for each trace known to this PTAModel instance.
+
+        :returns: dict of `duration_by_trace`, `energy_by_trace`, `timeout_by_trace`, `rel_energy_by_trace` and `state_energy_by_trace`.
+            Each entry holds regression measures for the corresponding measure. Note that the determined model quality heavily depends on the
+            traces: small-ish absolute errors in states which frequently occur may have more effect than large absolute errors in rarely occuring states
+        """
         model_energy_list = []
         real_energy_list = []
         model_rel_energy_list = []
@@ -1760,12 +1777,6 @@ class PTAModel:
         real_duration_list = []
         model_timeout_list = []
         real_timeout_list = []
-        for name, elem in sorted(self.by_name.items()):
-            detailed_results[name] = {}
-            for key in elem['attributes']:
-                predicted_data = np.array(list(map(lambda i: model_function(name, key, param=elem['param'][i]), range(len(elem[key])))))
-                measures = regression_measures(predicted_data, elem[key])
-                detailed_results[name][key] = measures
 
         for trace in self.traces:
             if trace['id'] not in self.ignore_trace_indexes:
@@ -1818,19 +1829,13 @@ class PTAModel:
                     real_timeout_list.append(real_timeout)
                     model_timeout_list.append(model_timeout)
 
-        if len(self.traces):
-            return {
-                'by_name' : detailed_results,
-                'duration_by_trace' : regression_measures(np.array(model_duration_list), np.array(real_duration_list)),
-                'energy_by_trace' : regression_measures(np.array(model_energy_list), np.array(real_energy_list)),
-                'timeout_by_trace' : regression_measures(np.array(model_timeout_list), np.array(real_timeout_list)),
-                'rel_energy_by_trace' : regression_measures(np.array(model_rel_energy_list), np.array(real_energy_list)),
-                'state_energy_by_trace' : regression_measures(np.array(model_state_energy_list), np.array(real_energy_list)),
-            }
         return {
-            'by_name' : detailed_results
+            'duration_by_trace' : regression_measures(np.array(model_duration_list), np.array(real_duration_list)),
+            'energy_by_trace' : regression_measures(np.array(model_energy_list), np.array(real_energy_list)),
+            'timeout_by_trace' : regression_measures(np.array(model_timeout_list), np.array(real_timeout_list)),
+            'rel_energy_by_trace' : regression_measures(np.array(model_rel_energy_list), np.array(real_energy_list)),
+            'state_energy_by_trace' : regression_measures(np.array(model_state_energy_list), np.array(real_energy_list)),
         }
-
 
 
 class MIMOSA:
