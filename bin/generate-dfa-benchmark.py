@@ -95,6 +95,9 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
     # This is also useful to faciliate MIMOSA calibration after flashing
     outbuf.write('arch.delay_ms(12000);\n')
 
+    # Output some newlines to ensure the parser can determine the start of the first real output line
+    outbuf.write('kout << endl << endl;\n')
+
     if 'setup' in pta.codegen:
         for call in pta.codegen['setup']:
             outbuf.write(call)
@@ -200,20 +203,37 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
 
     if 'mimosa' in opt:
         files = list()
-        for i in range(opt['repeat']):
+        i = 0
+        while i < opt['repeat']:
             runner.flash(arch, app, run_args)
             monitor = runner.get_monitor(arch, callback = harness.parser_cb, mimosa = opt['mimosa'])
 
+            sync_error = False
             try:
                 slept = 0
                 while not harness.done:
+                    # possible race condition: if the benchmark completes at this
+                    # exact point, it sets harness.done and unsets harness.synced.
+                    #                                                   vvv
+                    if slept > 30 and slept < 40 and not harness.synced and not harness.done:
+                        print('[RUN] has been unsynced for more than 30 seconds, assuming error. Retrying.')
+                        sync_error = True
+                        break
                     time.sleep(5)
                     slept += 5
                     print('[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%'.format(run_offset, runs_total, run_offset * 100 / runs_total, slept * 100 / run_timeout))
             except KeyboardInterrupt:
                 pass
+
             monitor.close()
-            files.extend(monitor.get_files())
+
+            if sync_error:
+                for filename in monitor.get_files():
+                    os.remove(filename)
+            else:
+                files.extend(monitor.get_files())
+                i += 1
+
             harness.restart()
 
         return [(runs, harness, monitor, files)]
