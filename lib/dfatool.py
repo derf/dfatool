@@ -330,9 +330,26 @@ class CrossValidator:
 def _preprocess_measurement(measurement):
     setup = measurement['setup']
     mim = MIMOSA(float(setup['mimosa_voltage']), int(setup['mimosa_shunt']))
-    charges, triggers = mim.load_data(measurement['content'])
-    trigidx = mim.trigger_edges(triggers)
-    triggers = []
+    try:
+        charges, triggers = mim.load_data(measurement['content'])
+        trigidx = mim.trigger_edges(triggers)
+    except EOFError as e:
+        mim.is_error = True
+        mim.errors.append('MIMOSA logfile error: {}'.format(e))
+        trigidx = list()
+
+    if len(trigidx) == 0:
+        mim.is_error = True
+        mim.errors.append('MIMOSA log has no triggers')
+        return {
+            'fileno' : measurement['fileno'],
+            'info' : measurement['info'],
+            'has_mimosa_error' : mim.is_error,
+            'mimosa_errors' : mim.errors,
+            'expected_trace' : measurement['expected_trace'],
+            'repeat_id' : measurement['repeat_id'],
+        }
+
     cal_edges = mim.calibration_edges(running_mean(mim.currents_nocal(charges[0:trigidx[0]]), 10))
     calfunc, caldata = mim.calibration_function(charges, cal_edges)
     vcalfunc = np.vectorize(calfunc, otypes=[np.float64])
@@ -348,8 +365,9 @@ def _preprocess_measurement(measurement):
         'mimosa_errors' : mim.errors,
     }
 
-    if 'expected_trace' in measurement:
-        processed_data['expected_trace'] = measurement['expected_trace']
+    for key in ['expected_trace', 'repeat_id']:
+        if key in measurement:
+            processed_data[key] = measurement[key]
 
     return processed_data
 
@@ -489,6 +507,7 @@ class RawData:
         self.version = 0
         self.preprocessed = False
         self._parameter_names = None
+        self.ignore_clipping = False
 
         with tarfile.open(filenames[0]) as tf:
             for member in tf.getmembers():
@@ -621,7 +640,7 @@ class RawData:
 
             # Clipping in UNINITIALIZED (offline_idx == 0) can happen during
             # calibration and is handled by MIMOSA
-            if offline_idx != 0 and offline_trace_part['clip_rate'] != 0:
+            if offline_idx != 0 and offline_trace_part['clip_rate'] != 0 and not self.ignore_clipping:
                 processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) was clipping {clip:f}% of the time'.format(
                     off_idx = offline_idx, on_idx = online_run_idx,
                     on_sub = online_trace_part_idx,
@@ -679,13 +698,20 @@ class RawData:
                 online_trace_part['offline'].append(offline_trace_part)
 
             paramkeys = sorted(online_trace_part['parameter'].keys())
-            paramvalue = [soft_cast_int(online_trace_part['parameter'][x]) for x in paramkeys]
+
+            paramvalues = list()
+
+            for paramkey in paramkeys:
+                if type(online_trace_part['parameter'][paramkey]) is list:
+                    paramvalues.append(soft_cast_int(online_trace_part['parameter'][paramkey][measurement['repeat_id']]))
+                else:
+                    paramvalues.append(soft_cast_int(online_trace_part['parameter'][paramkey]))
 
             # NB: Unscheduled transitions do not have an 'args' field set.
             # However, they should only be caused by interrupts, and
             # interrupts don't have args anyways.
             if arg_support_enabled and 'args' in online_trace_part:
-                paramvalue.extend(map(soft_cast_int, online_trace_part['args']))
+                paramvalues.extend(map(soft_cast_int, online_trace_part['args']))
 
             if not 'offline_aggregates' in online_trace_part:
                 online_trace_part['offline_attributes'] = ['power', 'duration', 'energy']
@@ -715,7 +741,7 @@ class RawData:
             online_trace_part['offline_aggregates']['energy'].append(
                 offline_trace_part['uW_mean'] * (offline_trace_part['us'] - 20))
             online_trace_part['offline_aggregates']['paramkeys'].append(paramkeys)
-            online_trace_part['offline_aggregates']['param'].append(paramvalue)
+            online_trace_part['offline_aggregates']['param'].append(paramvalues)
             if online_trace_part['isa'] == 'transition':
                 online_trace_part['offline_aggregates']['rel_energy_prev'].append(
                     offline_trace_part['uW_mean_delta_prev'] * (offline_trace_part['us'] - 20))
@@ -838,13 +864,14 @@ class RawData:
                             'mimosa_shunt' : ptalog['configs'][j]['shunt'],
                             'state_duration' : ptalog['opt']['sleep'],
                         })
-                        for mim_file in ptalog['files'][j]:
+                        for repeat_id, mim_file in enumerate(ptalog['files'][j]):
                             member = tf.getmember(mim_file)
                             mim_files.append({
                                 'content' : tf.extractfile(member).read(),
                                 'fileno' : j,
                                 'info' : member,
                                 'setup' : self.setup_by_fileno[j],
+                                'repeat_id' : repeat_id,
                                 'expected_trace' : ptalog['traces'][j],
                             })
                 self.filenames = new_filenames
@@ -855,6 +882,13 @@ class RawData:
         num_valid = 0
         valid_traces = list()
         for measurement in measurements:
+
+            if not 'energy_trace' in measurement:
+                vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
+                    ar = self.filenames[measurement['fileno']],
+                    m = measurement['info'].name,
+                    e = '; '.join(measurement['mimosa_errors'])))
+                continue
 
             if version == 0:
                 # Strip the last state (it is not part of the scheduled measurement)
@@ -1763,12 +1797,27 @@ class PTAModel:
             'by_name' : detailed_results
         }
 
-    def assess_states(self, model_function, model_attribute = 'power'):
+    def assess_states(self, model_function, model_attribute = 'power', distribution: dict = None):
         """
         Calculate overall model error assuming equal distribution of states
         """
+        # TODO calculate mean power draw for distribution and use it to
+        # calculate relative error from MAE combination
         model_quality = self.assess(model_function)
-        total_error = np.sqrt(sum(map(lambda x: np.square(model_quality['by_name'][x][model_attribute]['mae']), self.states())))
+        num_states = len(self.states())
+        if distribution is None:
+            distribution = dict(map(lambda x: [x, 1/num_states], self.states()))
+
+        if not np.isclose(sum(distribution.values()), 1):
+            raise ValueError('distribution must be a probability distribution with sum 1')
+
+        total_value = None
+        try:
+            total_value = sum(map(lambda x: model_function(x, model_attribute) * distribution[x], self.states()))
+        except KeyError:
+            pass
+
+        total_error = np.sqrt(sum(map(lambda x: np.square(model_quality['by_name'][x][model_attribute]['mae'] * distribution[x]), self.states())))
         return total_error
 
 
@@ -1961,6 +2010,12 @@ class MIMOSA:
         :returns: list of int (trigger indices, e.g. [2000000, ...] means the first trigger appears in charges/currents interval 2000000 -> 20s after start of measurements. Keep in mind that each interval is 10µs long, not 1µs, so index values are not µs timestamps)
         """
         trigidx = []
+
+        if len(triggers) < 1000000:
+            self.is_error = True
+            self.errors.append('MIMOSA log is too short')
+            return trigidx
+
         prevtrig = triggers[999999]
 
         # if the first trigger is high (i.e., trigger/buzzer pin is active before the benchmark starts),
