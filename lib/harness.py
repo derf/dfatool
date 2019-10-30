@@ -321,11 +321,12 @@ class OnboardTimerHarness(TransitionHarness):
                     print('          Offending line: {}'.format(line))
                     return
                 if log_data_target['isa'] != 'transition':
-                    raise RuntimeError('Log mismatch: Expected transition, got {:s}'.format(log_data_target['isa']))
+                    raise RuntimeError('Log mismatch in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}): Expected transition, got {:s}'.format(0,
+                        self.trace_id, self.current_transition_in_trace, transition_id, log_data_target['isa']))
                 if self.pta:
                     transition = self.pta.transitions[transition_id]
                     if transition.name != log_data_target['name']:
-                        raise RuntimeError('Log mismatch: Expected transition {:s}, got transition {:s}'.format(log_data_target['name'], transition.name))
+                        raise RuntimeError('Log mismatch in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}): Expected transition {:s}, got transition {:s}'.format(0, self.trace_id, self.current_transition_in_trace, transition_id, log_data_target['name'], transition.name))
                     if self.log_return_values and len(transition.return_value_handlers):
                         for handler in transition.return_value_handlers:
                             if 'parameter' in handler:

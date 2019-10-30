@@ -128,6 +128,32 @@ class SerialMonitor:
         self.worker.stop()
         self.ser.close()
 
+class EnergyTraceMonitor(SerialMonitor):
+    """EnergyTraceMonitor captures serial timing output and EnergyTrace energy data."""
+    def __init__(self, port: str, baud: int, callback = None, voltage = 3.3):
+        super().__init__(port = port, baud = baud, callback = callback)
+        self._voltage = voltage
+        self._output = time.strftime('%Y%m%d-%H%M%S.etlog')
+        self._start_energytrace()
+
+    def _start_energytrace(self):
+        cmd = ['msp430-etv', '--save', self._output, '0']
+        self._logger = subprocess.Popen(cmd,
+            stdout = subprocess.PIPE, stderr = subprocess.PIPE,
+            universal_newlines = True)
+
+    def close(self):
+        super().close()
+        self._logger.send_signal(subprocess.signal.SIGINT)
+        stdout, stderr = self._logger.communicate(timeout = 15)
+
+    def get_files(self) -> list:
+        return [self._output]
+
+    def get_config(self) -> dict:
+        return {
+            'voltage' : self._voltage,
+        }
 
 class MIMOSAMonitor(SerialMonitor):
     """MIMOSAMonitor captures serial output and MIMOSA energy data for a specific amount of time."""
@@ -282,7 +308,15 @@ def get_info(arch, opts: list = []) -> list:
     return res.stdout.split('\n')
 
 def get_monitor(arch: str, **kwargs) -> object:
-    """Return a SerialMonitor or ShellMonitor, depending on "make info" output of arch."""
+    """
+    Return an appropriate monitor for arch, depending on "make info" output.
+
+    Port and Baud rate are taken from "make info".
+
+    :param arch: architecture name, e.g. 'msp430fr5994lp' or 'posix'
+    :param energytrace: `EnergyTraceMonitor` options. Returns an EnergyTrace monitor if not None.
+    :param mimosa: `MIMOSAMonitor` options. Returns a MIMOSA monitor if not None.
+    """
     for line in get_info(arch):
         if 'Monitor:' in line:
             _, port, arg = line.split(' ')
@@ -291,7 +325,11 @@ def get_monitor(arch: str, **kwargs) -> object:
             elif 'mimosa' in kwargs and kwargs['mimosa'] is not None:
                 mimosa_kwargs = kwargs.pop('mimosa')
                 return MIMOSAMonitor(port, arg, **mimosa_kwargs, **kwargs)
+            elif 'energytrace' in kwargs and kwargs['energytrace'] is not None:
+                energytrace_kwargs = kwargs.pop('energytrace')
+                return EnergyTraceMonitor(port, arg, **energytrace_kwargs, **kwargs)
             else:
+                kwargs.pop('energytrace', None)
                 kwargs.pop('mimosa', None)
                 return SerialMonitor(port, arg, **kwargs)
     raise RuntimeError('Monitor failure')

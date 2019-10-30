@@ -29,7 +29,7 @@ Options:
     Override the name of the class instance used for benchmarking
 
 --mimosa=[k=v,k=v,...]
-    Perform energy measurements with MIMOSA. Takes precedence over --timing.
+    Perform energy measurements with MIMOSA. Takes precedence over --timing and --energytrace.
     mimosa options are key-value pairs. Possible settings with defaults:
     offset = 130 (mysterious 0V offset)
     shunt = 330 (measurement shunt in ohms)
@@ -45,6 +45,9 @@ Options:
 --timing
     Perform timing measurements using on-chip counters (no external hardware
     required)
+
+--energytrace
+    Perform energy measurements using MSP430 EnergyTrace hardware. Includes --timing.
 
 --trace-filter=<transition,transition,transition,...>[ <transition,transition,transition,...> ...]
     Only consider traces whose beginning matches one of the provided transition sequences.
@@ -161,7 +164,7 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
     return outbuf
 
 def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: str, run_args: list, harness: object, sleep: int = 0, repeat: int = 0, run_offset: int = 0, runs_total: int = 0, dummy = False):
-    if 'mimosa' in opt:
+    if 'mimosa' in opt or 'energytrace' in opt:
         outbuf = benchmark_from_runs(pta, runs, harness, dummy = dummy, repeat = 1)
     else:
         outbuf = benchmark_from_runs(pta, runs, harness, dummy = dummy, repeat = repeat)
@@ -201,12 +204,15 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         return results
 
 
-    if 'mimosa' in opt:
+    if 'mimosa' in opt or 'energytrace' in opt:
         files = list()
         i = 0
         while i < opt['repeat']:
             runner.flash(arch, app, run_args)
-            monitor = runner.get_monitor(arch, callback = harness.parser_cb, mimosa = opt['mimosa'])
+            if 'mimosa' in opt:
+                monitor = runner.get_monitor(arch, callback = harness.parser_cb, mimosa = opt['mimosa'])
+            elif 'energytrace' in opt:
+                monitor = runner.get_monitor(arch, callback = harness.parser_cb, energytrace = opt['energytrace'])
 
             sync_error = False
             try:
@@ -268,6 +274,7 @@ if __name__ == '__main__':
             'app= '
             'depth= '
             'dummy= '
+            'energytrace= '
             'instance= '
             'mimosa= '
             'repeat= '
@@ -312,6 +319,15 @@ if __name__ == '__main__':
                 opt['mimosa'] = dict()
             else:
                 opt['mimosa'] = dict(map(lambda x: x.split('='), opt['mimosa'].split(',')))
+            opt.pop('timing', None)
+            if opt['repeat'] == 0:
+                opt['repeat'] = 1
+
+        if 'energytrace' in opt:
+            if opt['energytrace'] == '':
+                opt['energytrace'] = dict()
+            else:
+                opt['energytrace'] = dict(map(lambda x: x.split('='), opt['energytrace'].split(',')))
             opt.pop('timing', None)
             if opt['repeat'] == 0:
                 opt['repeat'] = 1
@@ -369,6 +385,8 @@ if __name__ == '__main__':
 
     if 'mimosa' in opt:
         harness = TransitionHarness(gpio_pin = timer_pin, pta = pta, log_return_values = need_return_values, repeat = 1, post_transition_delay_us = 20)
+    elif 'energytrace' in opt:
+        harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = 1)
     elif 'timing' in opt:
         harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = opt['repeat'])
 
