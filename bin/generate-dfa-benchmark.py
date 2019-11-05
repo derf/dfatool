@@ -398,7 +398,7 @@ if __name__ == '__main__':
     if 'mimosa' in opt:
         harness = TransitionHarness(gpio_pin = timer_pin, pta = pta, log_return_values = need_return_values, repeat = 1, post_transition_delay_us = 20)
     elif 'energytrace' in opt:
-        harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = 1)
+        harness = OnboardTimerHarness(gpio_pin = timer_pin, gpio_mode = 'before', pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = 1)
     elif 'timing' in opt:
         harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = opt['repeat'])
 
