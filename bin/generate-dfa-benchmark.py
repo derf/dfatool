@@ -143,7 +143,10 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
             outbuf.write('// current parameters: {}\n'.format(', '.join(map(lambda kv: '{}={}'.format(*kv), param.items()))))
 
             if opt['sleep']:
-                outbuf.write('arch.delay_ms({:d}); // {}\n'.format(opt['sleep'], transition.destination.name))
+                if 'energytrace' in opt:
+                    outbuf.write('arch.sleep_ms({:d}); // {}\n'.format(opt['sleep'], transition.destination.name))
+                else:
+                    outbuf.write('arch.delay_ms({:d}); // {}\n'.format(opt['sleep'], transition.destination.name))
 
         outbuf.write(harness.stop_run(num_traces))
         if dummy:
