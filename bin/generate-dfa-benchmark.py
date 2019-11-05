@@ -342,6 +342,7 @@ if __name__ == '__main__':
     modelfile = args[0]
 
     pta = PTA.from_file(modelfile)
+    run_flags = None
 
     if 'shrink' in opt:
         pta.shrink_argument_values()
@@ -349,7 +350,7 @@ if __name__ == '__main__':
     if 'timer-pin' in opt:
         timer_pin = opt['timer-pin']
     else:
-        timer_pin = 'GPIO::p1_0'
+        timer_pin = None
 
     if 'dummy' in opt:
 
@@ -374,6 +375,14 @@ if __name__ == '__main__':
         with open('/home/derf/var/projects/multipass/include/driver/dummy.h', 'w') as f:
             f.write(drv.header)
 
+    if '.json' not in modelfile:
+        with open(modelfile, 'r') as f:
+            driver_definition = yaml.safe_load(f)
+        if 'codegen' in driver_definition and 'flags' in driver_definition['codegen']:
+            run_flags = driver_definition['codegen']['flags']
+    if run_flags is None:
+        run_flags = opt['run'].split()
+
     runs = list(pta.dfs(opt['depth'], with_arguments = True, with_parameters = True, trace_filter = opt['trace-filter']))
 
     num_transitions = len(runs)
@@ -394,7 +403,7 @@ if __name__ == '__main__':
         harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = opt['repeat'])
 
     if len(args) > 1:
-        results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], opt['run'].split(), harness, opt['sleep'], opt['repeat'], runs_total = len(runs), dummy = 'dummy' in opt)
+        results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], run_flags, harness, opt['sleep'], opt['repeat'], runs_total = len(runs), dummy = 'dummy' in opt)
         json_out = {
             'opt' : opt,
             'pta' : pta.to_json(),
