@@ -128,6 +128,8 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
         param = pta.get_initial_param_dict()
         for transition, arguments, parameter in run:
             num_transitions += 1
+            # TODO für energytrace mode: BarCode-Library für Transition ID -> GPIO-LED-Pulse nutzen? Taugt genau so gut als sync und liefert obendrein noch
+            # Daten
             harness.append_transition(transition.name, param, arguments)
             harness.append_state(transition.destination.name, parameter.copy())
             outbuf.write('// {} -> {}\n'.format(transition.origin.name, transition.destination.name))
@@ -398,7 +400,7 @@ if __name__ == '__main__':
     if 'mimosa' in opt:
         harness = TransitionHarness(gpio_pin = timer_pin, pta = pta, log_return_values = need_return_values, repeat = 1, post_transition_delay_us = 20)
     elif 'energytrace' in opt:
-        harness = OnboardTimerHarness(gpio_pin = timer_pin, gpio_mode = 'before', pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = 1)
+        harness = OnboardTimerHarness(gpio_pin = timer_pin, gpio_mode = 'bar', pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = 1)
     elif 'timing' in opt:
         harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = opt['repeat'])
 

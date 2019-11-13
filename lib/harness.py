@@ -5,6 +5,7 @@ tbd
 """
 import subprocess
 import re
+from pubcode import Code128
 
 # TODO prepare benchmark log JSON with parameters etc.
 # Should be independent of PTA class, as benchmarks may also be
@@ -27,7 +28,7 @@ class TransitionHarness:
           primitive values (-> set by the return value of the current run, not necessarily constan)
         * `args`: function arguments, if isa == 'transition'
     """
-    def __init__(self, gpio_pin = None, pta = None, log_return_values = False, repeat = 0, post_transition_delay_us = 0):
+    def __init__(self, gpio_pin = None, gpio_mode = 'around', pta = None, log_return_values = False, repeat = 0, post_transition_delay_us = 0):
         """
         Create a new TransitionHarness
 
@@ -42,6 +43,7 @@ class TransitionHarness:
             lower than the expected minimum transition duration.
         """
         self.gpio_pin = gpio_pin
+        self.gpio_mode = gpio_mode
         self.pta = pta
         self.log_return_values = log_return_values
         self.repeat = repeat
@@ -49,7 +51,7 @@ class TransitionHarness:
         self.reset()
 
     def copy(self):
-        new_object = __class__(gpio_pin = self.gpio_pin, pta = self.pta, log_return_values = self.log_return_values, repeat = self.repeat, post_transition_delay_us = self.post_transition_delay_us)
+        new_object = __class__(gpio_pin = self.gpio_pin, gpio_mode = self.gpio_mode, pta = self.pta, log_return_values = self.log_return_values, repeat = self.repeat, post_transition_delay_us = self.post_transition_delay_us)
         new_object.traces = self.traces.copy()
         new_object.trace_id = self.trace_id
         return new_object
@@ -81,6 +83,10 @@ class TransitionHarness:
         ret = ''
         if self.gpio_pin != None:
             ret += '#define PTALOG_GPIO {}\n'.format(self.gpio_pin)
+            if self.gpio_mode == 'before':
+                ret += '#define PTALOG_GPIO_BEFORE\n'
+            elif self.gpio_mode == 'bar':
+                ret += '#define PTALOG_GPIO_BAR\n'
         if self.log_return_values:
             ret += '#define PTALOG_WITH_RETURNVALUES\n'
             ret += 'uint16_t transition_return_value;\n'
@@ -135,6 +141,15 @@ class TransitionHarness:
         """Return C++ code used to start a new run/trace."""
         return 'ptalog.reset();\n'
 
+    def _pass_transition_call(self, transition_id):
+        if self.gpio_mode == 'bar':
+            barcode_bits = Code128('T{}'.format(transition_id), charset='B').modules
+            barcode_bytes = [int("".join(map(str, reversed(barcode_bits[i:i+8]))), 2) for i in range(0, len(barcode_bits), 8)]
+            inline_array = "".join(map(lambda s: '\\x{:02x}'.format(s), barcode_bytes))
+            return 'ptalog.startTransition("{}", {});\n'.format(inline_array, len(barcode_bytes))
+        else:
+            return 'ptalog.startTransition();\n'
+
     def pass_transition(self, transition_id, transition_code, transition: object = None):
         """
         Return C++ code used to pass a transition, including the corresponding function call.
@@ -143,7 +158,7 @@ class TransitionHarness:
         `post_transition_delay_us` is set.
         """
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
-        ret += 'ptalog.startTransition();\n'
+        ret += self._pass_transition_call(transition_id)
         if self.log_return_values and transition and len(transition.return_value_handlers):
             ret += 'transition_return_value = {}\n'.format(transition_code)
             ret += 'ptalog.logReturn(transition_return_value);\n'
@@ -243,7 +258,7 @@ class OnboardTimerHarness(TransitionHarness):
         self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow = counter_limits
 
     def copy(self):
-        new_harness = __class__((self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow), gpio_pin = self.gpio_pin, pta = self.pta, log_return_values = self.log_return_values, repeat = self.repeat)
+        new_harness = __class__((self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow), gpio_pin = self.gpio_pin, gpio_mode = self.gpio_mode, pta = self.pta, log_return_values = self.log_return_values, repeat = self.repeat)
         new_harness.traces = self.traces.copy()
         new_harness.trace_id = self.trace_id
         return new_harness
@@ -263,7 +278,7 @@ class OnboardTimerHarness(TransitionHarness):
 
     def pass_transition(self, transition_id, transition_code, transition: object = None):
         ret = 'ptalog.passTransition({:d});\n'.format(transition_id)
-        ret += 'ptalog.startTransition();\n'
+        ret += self._pass_transition_call(transition_id)
         ret += 'counter.start();\n'
         if self.log_return_values and transition and len(transition.return_value_handlers):
             ret += 'transition_return_value = {}\n'.format(transition_code)
