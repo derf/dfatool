@@ -175,7 +175,7 @@ class TransitionHarness:
         return 'ptalog.dump({:d});\n'.format(num_traces)
 
     def stop_benchmark(self):
-        return ''
+        return 'ptalog.stopBenchmark();\n'
 
     def _append_nondeterministic_parameter_value(self, log_data_target, parameter_name, parameter_value):
         if log_data_target['parameter'][parameter_name] is None:
@@ -184,15 +184,16 @@ class TransitionHarness:
 
     def parser_cb(self, line):
         #print('[HARNESS] got line {}'.format(line))
-        if re.match(r'\[PTA\] benchmark start, id=(\S+)', line):
+        if re.match(r'\[PTA\] benchmark stop', line):
+            self.repetitions += 1
+            self.synced = False
             if self.repeat > 0 and self.repetitions == self.repeat:
                 self.done = True
-                self.synced = False
                 print('[HARNESS] done')
                 return
+        if re.match(r'\[PTA\] benchmark start, id=(\S+)', line):
             self.synced = True
-            self.repetitions += 1
-            print('[HARNESS] synced, {}/{}'.format(self.repetitions, self.repeat))
+            print('[HARNESS] synced, {}/{}'.format(self.repetitions + 1, self.repeat))
         if self.synced:
             res = re.match(r'\[PTA\] trace=(\S+) count=(\S+)', line)
             if res:
@@ -299,15 +300,18 @@ class OnboardTimerHarness(TransitionHarness):
 
     def parser_cb(self, line):
         #print('[HARNESS] got line {}'.format(line))
-        if re.match(r'\[PTA\] benchmark start, id=(\S+)', line):
+        if re.match(r'\[PTA\] benchmark stop', line):
+            self.repetitions += 1
+            self.synced = False
             if self.repeat > 0 and self.repetitions == self.repeat:
                 self.done = True
-                self.synced = False
                 print('[HARNESS] done')
                 return
+        # May be repeated, e.g. if the device is reset shortly after start by
+        # EnergyTrace.
+        if re.match(r'\[PTA\] benchmark start, id=(\S+)', line):
             self.synced = True
-            self.repetitions += 1
-            print('[HARNESS] synced, {}/{}'.format(self.repetitions, self.repeat))
+            print('[HARNESS] synced, {}/{}'.format(self.repetitions + 1, self.repeat))
         if self.synced:
             res = re.match(r'\[PTA\] trace=(\S+) count=(\S+)', line)
             if res:
