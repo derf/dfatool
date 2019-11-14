@@ -144,7 +144,9 @@ class TransitionHarness:
     def _pass_transition_call(self, transition_id):
         if self.gpio_mode == 'bar':
             barcode_bits = Code128('T{}'.format(transition_id), charset='B').modules
-            barcode_bytes = [int("".join(map(str, reversed(barcode_bits[i:i+8]))), 2) for i in range(0, len(barcode_bits), 8)]
+            if len(barcode_bits) % 8 != 0:
+                barcode_bits.extend([1] * (8 - (len(barcode_bits) % 8)))
+            barcode_bytes = [255 - int("".join(map(str, reversed(barcode_bits[i:i+8]))), 2) for i in range(0, len(barcode_bits), 8)]
             inline_array = "".join(map(lambda s: '\\x{:02x}'.format(s), barcode_bytes))
             return 'ptalog.startTransition("{}", {});\n'.format(inline_array, len(barcode_bytes))
         else:
