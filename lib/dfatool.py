@@ -12,6 +12,7 @@ import struct
 import sys
 import tarfile
 import hashlib
+import zbar
 from multiprocessing import Pool
 from automata import PTA
 from functions import analytic
@@ -327,7 +328,7 @@ class CrossValidator:
         return validation_data.assess(training_model)
 
 
-def _preprocess_measurement(measurement):
+def _preprocess_mimosa(measurement):
     setup = measurement['setup']
     mim = MIMOSA(float(setup['mimosa_voltage']), int(setup['mimosa_shunt']))
     try:
@@ -368,6 +369,28 @@ def _preprocess_measurement(measurement):
     for key in ['expected_trace', 'repeat_id']:
         if key in measurement:
             processed_data[key] = measurement[key]
+
+    return processed_data
+
+def _preprocess_etlog(measurement):
+    setup = measurement['setup']
+    etlog = EnergyTraceLog(float(setup['voltage']), int(setup['state_duration']))
+    try:
+        timestamps, durations, mean_power = etlog.load_data(measurement['content'])
+        states_and_transitions = etlog.analyze_states(timestamps, durations, mean_power, measurement['expected_trace'])
+    except EOFError as e:
+        etlog.is_error = True
+        etlog.errors.append('EnergyTrace logfile error: {}'.format(e))
+        trigidx = list()
+
+    processed_data = {
+        'fileno' : measurement['fileno'],
+        'info' : measurement['info'],
+        'expcted_trace' : measurement['expected_trace'],
+        'energy_trace' : etlog.analyze_states(currents, trigidx),
+        'has_mimosa_error' : etlog.is_error,
+        'mimosa_errors' : etlog.errors,
+    }
 
     return processed_data
 
@@ -496,8 +519,24 @@ class RawData:
               Each state/transition must have the members '`parameter` (dict with normalized parameter values), `.isa` ("state" or "transition") and `.name`
               Each transition must additionally contain `.args`
           `.opt.files`: list of coresponding MIMOSA measurements.
-            `.opt.files[]` = ['abc123.mim']
+            `.opt.files[]` = ['abc123.mim', ...]
           `.opt.configs`: ....
+        * MIMOSA log files (`*.mim`) as specified in `.opt.files`
+
+        Version 2:
+
+        * `ptalog.json`: measurement setup and traces. Contents:
+          `.opt.sleep`: state duration
+          `.opt.pta`: PTA
+          `.opt.traces`: list of sub-benchmark traces (the benchmark may have been split due to code size limitations). Each item is a list of traces as returned by `harness.traces`:
+            `.opt.traces[]`: List of traces. Each trace has an 'id' (numeric, starting with 1) and 'trace' (list of states and transitions) element.
+              Each state/transition must have the members '`parameter` (dict with normalized parameter values), `.isa` ("state" or "transition") and `.name`
+              Each transition must additionally contain `.args` and `.duration`
+              * `.duration`: list of durations, one per repetition
+          `.opt.files`: list of coresponding EnergyTrace measurements.
+            `.opt.files[]` = ['abc123.etlog', ...]
+          `.opt.configs`: ....
+        * EnergyTrace log files (`*.etlog`) as specified in `.opt.files`
 
         tbd
         """
@@ -513,6 +552,10 @@ class RawData:
             for member in tf.getmembers():
                 if member.name == 'ptalog.json':
                     self.version = 1
+                    # might also be version 2
+                    # depends on whether *.etlog exists or not
+                elif '.etlog' in member.name:
+                    self.version = 2
                     break
 
         self.set_cache_file()
@@ -815,16 +858,18 @@ class RawData:
         if self.preprocessed:
             return self.traces
         if self.version == 0:
-            self._preprocess_01(0)
+            self._preprocess_012(0)
         elif self.version == 1:
-            self._preprocess_01(1)
+            self._preprocess_012(1)
+        elif self.version == 2:
+            self._preprocess_012(2)
         self.preprocessed = True
         self.save_cache()
         return self.traces
 
-    def _preprocess_01(self, version):
+    def _preprocess_012(self, version):
         """Load raw MIMOSA data and turn it into measurements which are ready to be analyzed."""
-        mim_files = []
+        offline_data = []
         for i, filename in enumerate(self.filenames):
 
             if version == 0:
@@ -835,7 +880,7 @@ class RawData:
                     for member in tf.getmembers():
                         _, extension = os.path.splitext(member.name)
                         if extension == '.mim':
-                            mim_files.append({
+                            offline_data.append({
                                 'content' : tf.extractfile(member).read(),
                                 'fileno' : i,
                                 'info' : member,
@@ -848,13 +893,28 @@ class RawData:
                 with tarfile.open(filename) as tf:
                     ptalog = json.load(tf.extractfile(tf.getmember('ptalog.json')))
 
-                    # ptalog['traces'] is a list of lists.
-                    # The first level corresponds to the individual .mim files:
-                    # ptalog['traces'][0] contains all traces belonging to the
-                    # first .mim file in the archive.
-                    # The second level holds the individual runs in this
-                    # sub-benchmark, so ptalog['traces'][0][0] is the first
-                    # run, ptalog['traces'][0][1] the second, and so on
+                    # Benchmark code may be too large to be executed in a single
+                    # run, so benchmarks (a benchmark is basically a list of DFA runs)
+                    # may be split up. To accomodate this, ptalog['traces'] is
+                    # a list of lists: ptalog['traces'][0] corresponds to the
+                    # first benchmark part, ptalog['traces'][1] to the
+                    # second, and so on. ptalog['traces'][0][0] is the first
+                    # trace (a sequence of states and transitions) in the
+                    # first benchmark part, ptalog['traces'][0][1] the second, etc.
+                    #
+                    # As traces are typically repeated to minimize the effect
+                    # of random noise, observations for each benchmark part
+                    # are also lists. In this case, this applies in two
+                    # cases: traces[i][j]['parameter'][some_param] is either
+                    # a value (if the parameter is controlld by software)
+                    # or a list (if the parameter is known a posteriori, e.g.
+                    # "how many retransmissions did this packet take?").
+                    #
+                    # The second case is the MIMOSA energy measurements, which
+                    # are listed in ptalog['files']. ptalog['files'][0]
+                    # contains a list of files for the first benchmark part,
+                    # ptalog['files'][0][0] is its first iteration/repetition,
+                    # ptalog['files'][0][1] the second, etc.
 
                     for j, traces in enumerate(ptalog['traces']):
                         new_filenames.append('{}#{}'.format(filename, j))
@@ -866,7 +926,55 @@ class RawData:
                         })
                         for repeat_id, mim_file in enumerate(ptalog['files'][j]):
                             member = tf.getmember(mim_file)
-                            mim_files.append({
+                            offline_data.append({
+                                'content' : tf.extractfile(member).read(),
+                                'fileno' : j,
+                                'info' : member,
+                                'setup' : self.setup_by_fileno[j],
+                                'repeat_id' : repeat_id,
+                                'expected_trace' : ptalog['traces'][j],
+                            })
+                self.filenames = new_filenames
+
+            elif version == 2:
+
+                new_filenames = list()
+                with tarfile.open(filename) as tf:
+                    ptalog = json.load(tf.extractfile(tf.getmember('ptalog.json')))
+
+                    # Benchmark code may be too large to be executed in a single
+                    # run, so benchmarks (a benchmark is basically a list of DFA runs)
+                    # may be split up. To accomodate this, ptalog['traces'] is
+                    # a list of lists: ptalog['traces'][0] corresponds to the
+                    # first benchmark part, ptalog['traces'][1] to the
+                    # second, and so on. ptalog['traces'][0][0] is the first
+                    # trace (a sequence of states and transitions) in the
+                    # first benchmark part, ptalog['traces'][0][1] the second, etc.
+                    #
+                    # As traces are typically repeated to minimize the effect
+                    # of random noise, observations for each benchmark part
+                    # are also lists. In this case, this applies in two
+                    # cases: traces[i][j]['parameter'][some_param] is either
+                    # a value (if the parameter is controlld by software)
+                    # or a list (if the parameter is known a posteriori, e.g.
+                    # "how many retransmissions did this packet take?").
+                    #
+                    # The second case is the MIMOSA energy measurements, which
+                    # are listed in ptalog['files']. ptalog['files'][0]
+                    # contains a list of files for the first benchmark part,
+                    # ptalog['files'][0][0] is its first iteration/repetition,
+                    # ptalog['files'][0][1] the second, etc.
+
+                    for j, traces in enumerate(ptalog['traces']):
+                        new_filenames.append('{}#{}'.format(filename, j))
+                        self.traces_by_fileno.append(traces)
+                        self.setup_by_fileno.append({
+                            'voltage' : ptalog['configs'][j]['voltage'],
+                            'state_duration' : ptalog['opt']['sleep'],
+                        })
+                        for repeat_id, etlog_file in enumerate(ptalog['files'][j]):
+                            member = tf.getmember(etlog_file)
+                            offline_data.append({
                                 'content' : tf.extractfile(member).read(),
                                 'fileno' : j,
                                 'info' : member,
@@ -877,7 +985,10 @@ class RawData:
                 self.filenames = new_filenames
 
         with Pool() as pool:
-            measurements = pool.map(_preprocess_measurement, mim_files)
+            if self.version <= 1:
+                measurements = pool.map(_preprocess_mimosa, offline_data)
+            elif self.version == 2:
+                measurements = pool.map(_preprocess_etlog, offline_data)
 
         num_valid = 0
         valid_traces = list()
@@ -894,7 +1005,7 @@ class RawData:
                 # Strip the last state (it is not part of the scheduled measurement)
                 measurement['energy_trace'].pop()
                 repeat = 0
-            elif version == 1:
+            elif version == 1 or version == 2:
                 # The first online measurement is the UNINITIALIZED state. In v1,
                 # it is not part of the expected PTA trace -> remove it.
                 measurement['energy_trace'].pop(0)
@@ -1896,6 +2007,182 @@ class PTAModel:
             'rel_energy_by_trace' : regression_measures(np.array(model_rel_energy_list), np.array(real_energy_list)),
             'state_energy_by_trace' : regression_measures(np.array(model_state_energy_list), np.array(real_energy_list)),
         }
+
+class EnergyTraceLog:
+    """
+    EnergyTrace log loader for DFA traces.
+
+    Expects an EnergyTrace log file generated via msp430-etv / energytrace-util
+    and a dfatool-generated benchmark. An EnergyTrace log consits of a series
+    of measurements. Each measurement has a timestamp, mean current, voltage,
+    and cumulative energy since start of measurement.
+    """
+
+    def __init__(self, voltage: float, state_duration: int):
+        self.voltage = voltage
+        self.state_duration = state_duration
+        self.is_error = False
+        self.errors = list()
+
+    def load_data(self, log_data):
+        lines = log_data.decode('ascii').split('\n')
+        data_count = sum(map(lambda x: len(x) > 0 and x[0] != '#', lines))
+        data_lines = filter(lambda x: len(x) > 0 and x[0] != '#', lines)
+
+        data = np.empty((data_count, 4))
+
+        for i, line in enumerate(data_lines):
+            fields = line.split(' ')
+            if len(fields) == 4:
+                timestamp, current, voltage, total_energy = map(int, fields)
+            elif len(fields) == 5:
+                cpustate = fields[0]
+                timestamp, current, voltage, total_energy = map(int, fields[1:])
+            else:
+                raise RuntimeError('cannot parse line "{}"'.format(line))
+            data[i] = [timestamp, current, voltage, total_energy]
+
+
+        interval_start_timestamp = data[:-1, 0] * 1e-6
+        interval_duration = (data[1:, 0] - data[:-1, 0]) * 1e-6
+        interval_power = ((data[1:, 3] - data[:-1, 3]) * 1e-9) / ((data[1:, 0] - data[:-1, 0]) * 1e-6)
+
+        m_duration_us = data[-1, 0] - data[0, 0]
+        m_energy_nj = data[-1, 3] - data[0, 3]
+
+        self.sample_rate = data_count / (m_duration_us * 1e-6)
+
+        print('got {} samples with {} seconds of log data ({} Hz)'.format(data_count, m_duration_us * 1e-6, self.sample_rate))
+
+        return interval_start_timestamp, interval_duration, interval_power
+
+    def analyze_states(self, interval_start_timestamp, interval_duration, interval_power, traces):
+        u"""
+        Split log data into states and transitions and return duration, energy, and mean power for each element.
+
+        :param charges: raw charges (each element describes the charge in pJ transferred during 10 µs)
+        :param trigidx: "charges" indexes corresponding to a trigger edge, see `trigger_edges`
+        :param ua_func: charge(pJ) -> current(µA) function as returned by `calibration_function`
+
+        :returns: maybe returns list of states and transitions, both starting andending with a state.
+            Each element is a dict containing:
+            * `isa`: 'state' or 'transition'
+            * `clip_rate`: range(0..1) Anteil an Clipping im Energieverbrauch
+            * `raw_mean`: Mittelwert der Rohwerte
+            * `raw_std`: Standardabweichung der Rohwerte
+            * `uW_mean`: Mittelwert der (kalibrierten) Leistungsaufnahme
+            * `uW_std`: Standardabweichung der (kalibrierten) Leistungsaufnahme
+            * `us`: Dauer
+            if isa == 'transition, it also contains:
+            * `timeout`: Dauer des vorherigen Zustands
+            * `uW_mean_delta_prev`: Differenz zwischen uW_mean und uW_mean des vorherigen Zustands
+            * `uW_mean_delta_next`: Differenz zwischen uW_mean und uW_mean des Folgezustands
+        """
+
+        first_sync = self.find_first_sync(interval_start_timestamp, interval_power)
+
+        bc, start, stop = self.find_barcode(interval_start_timestamp, interval_power, interval_start_timestamp[first_sync])
+        print('barcode "{}" area: {} .... {} seconds'.format(bc, interval_start_timestamp[start], interval_start_timestamp[stop]))
+
+        # TODO combine transition duration + sleep duration to estimate
+        # start of next barcode (instead of hardcoded 0.4)
+        bc, start, stop = self.find_barcode(interval_start_timestamp, interval_power, interval_start_timestamp[stop] + 0.4)
+        print('barcode "{}" area: {:0.2f} .... {:0.2f} seconds'.format(bc, interval_start_timestamp[start], interval_start_timestamp[stop]))
+
+    def find_first_sync(self, interval_ts, interval_power):
+        # LED Power is approx. 10 mW, use 5 mW above surrounding median as threshold
+        sync_threshold_power = np.median(interval_power[: int(3 * self.sample_rate)]) + 5e-3
+        for i, ts in enumerate(interval_ts):
+            if ts > 2 and interval_power[i] > sync_threshold_power:
+                return i - 300
+        return None
+
+    def find_barcode(self, interval_ts, interval_power, start_ts):
+        """
+        Return absolute position and content of the next barcode following `start_ts`.
+
+        :param interval_ts: list of start timestamps (one per measurement interval) [s]
+        :param interval_power: mean power per measurement interval [W]
+        :param start_ts: timestamp at which to start looking for a barcode [s]
+        """
+
+        for i, ts in enumerate(interval_ts):
+            if ts >= start_ts:
+                start_position = i
+                break
+
+        # Lookaround: 100 ms in both directions
+        lookaround = int(0.1 * self.sample_rate)
+
+
+        # LED Power is approx. 30 mW, use 15 mW above surrounding median as threshold
+        sync_threshold_power = np.median(interval_power[start_position - lookaround : start_position + lookaround]) + 15e-3
+
+        print('looking for barcode starting at {:0.2f} s, threshold is {:0.1f} mW'.format(start_ts, sync_threshold_power * 1e3))
+
+        sync_area_start = None
+        sync_start_ts = None
+        sync_area_end = None
+        sync_end_ts = None
+        for i, ts in enumerate(interval_ts):
+            if sync_area_start is None and ts >= start_ts and interval_power[i] > sync_threshold_power:
+                sync_area_start = i - 300
+                sync_start_ts = ts
+            # minimum barcode duration is 600ms
+            if sync_area_start is not None and sync_area_end is None and ts > sync_start_ts + 0.6 and (ts > sync_start_ts + 1 or abs(sync_threshold_power - interval_power[i]) > 30e-3):
+                sync_area_end = i
+                sync_end_ts = ts
+                break
+
+        barcode_data = interval_power[sync_area_start : sync_area_end]
+
+        print('barcode search area: {:0.2f} ... {:0.2f} seconds ({} samples)'.format(sync_start_ts, sync_end_ts, len(barcode_data)))
+
+        bc, start, stop = self.find_barcode_in_power_data(barcode_data)
+
+        if bc is None:
+            return bc, start, stop
+
+        return bc, sync_area_start + start, sync_area_start + stop
+
+    def find_barcode_in_power_data(self, barcode_data):
+
+        min_power = np.min(barcode_data)
+        max_power = np.max(barcode_data)
+
+        # zbar seems to be confused by measurement (and thus image) noise
+        # inside of barcodes. As our barcodes are only 1px high, this is
+        # likely not trivial to fix.
+        # -> Create a black and white (not grayscale) image to avoid this.
+        # Unfortunately, this decreases resilience against background noise
+        # (e.g. a not-exactly-idle peripheral device or CPU interrupts).
+        image_data = np.around(1 - ((barcode_data - min_power) / (max_power - min_power)))
+        image_data *= 255
+
+        # zbar only returns the complete barcode position if it is at least
+        # two pixels high. For a 1px barcode, it only returns its right border.
+
+        width = len(image_data)
+        height = 2
+
+        image_data = bytes(map(int, image_data)) * height
+
+        #img = Image.frombytes('L', (width, height), image_data).resize((width, 100))
+        #img.save('/tmp/test-{}.png'.format(sync_area_start))
+
+        zbimg = zbar.Image(width, height, 'Y800', image_data)
+        scanner = zbar.ImageScanner()
+        scanner.parse_config('enable')
+
+        if scanner.scan(zbimg):
+            sym, = zbimg.symbols
+            sym_start = sym.location[1][0]
+            sym_end = sym.location[0][0]
+            return sym.data, sym_start, sym_end
+        else:
+            print('unable to find barcode')
+            return None, None, None
+
 
 
 class MIMOSA:
