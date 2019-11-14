@@ -96,7 +96,11 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
     # When flashing first and then starting the log, the first log lines may be lost.
     # To work around this, we flash first, then start the log, and use this delay statement to ensure that no output is lost.
     # This is also useful to faciliate MIMOSA calibration after flashing
-    outbuf.write('arch.delay_ms(12000);\n')
+    if 'energytrace' in opt:
+        outbuf.write('for (unsigned char i = 0; i < 10; i++) {\n')
+        outbuf.write('arch.sleep_ms(250);\n}\n')
+    else:
+        outbuf.write('arch.delay_ms(12000);\n')
 
     # Output some newlines to ensure the parser can determine the start of the first real output line
     outbuf.write('kout << endl << endl;\n')
