@@ -2063,9 +2063,9 @@ class EnergyTraceLog:
             data[i] = [timestamp, current, voltage, total_energy]
 
 
-        interval_start_timestamp = data[:-1, 0] * 1e-6
-        interval_duration = (data[1:, 0] - data[:-1, 0]) * 1e-6
-        interval_power = ((data[1:, 3] - data[:-1, 3]) * 1e-9) / ((data[1:, 0] - data[:-1, 0]) * 1e-6)
+        self.interval_start_timestamp = data[:-1, 0] * 1e-6
+        self.interval_duration = (data[1:, 0] - data[:-1, 0]) * 1e-6
+        self.interval_power = ((data[1:, 3] - data[:-1, 3]) * 1e-9) / ((data[1:, 0] - data[:-1, 0]) * 1e-6)
 
         m_duration_us = data[-1, 0] - data[0, 0]
         m_energy_nj = data[-1, 3] - data[0, 3]
@@ -2074,7 +2074,11 @@ class EnergyTraceLog:
 
         print('got {} samples with {} seconds of log data ({} Hz)'.format(data_count, m_duration_us * 1e-6, self.sample_rate))
 
-        return interval_start_timestamp, interval_duration, interval_power
+        return self.interval_start_timestamp, self.interval_duration, self.interval_power
+
+    # TODO Hilfsfunktionen für offset -> timestamp und timestamp -> offset
+    # (letzteres am besten per binary search)
+    # Damit die anderen Funktionen unfucken, Zustandsleistung bestimmen etc.
 
     def analyze_states(self, interval_start_timestamp, interval_duration, interval_power, traces, offline_index: int):
         u"""
@@ -2126,6 +2130,13 @@ class EnergyTraceLog:
             if bc != name:
                 print('[!!!] mismatch: expected "{}", got "{}"'.format(name, bc))
             print('{} estimated transition area: {:0.3f} .. {:0.3f} seconds'.format(offline_index, end, end + duration))
+
+            energy_trace.append({
+                'isa': 'transition',
+            })
+            energy_trace.append({
+                'isa': 'state'
+            })
 
         return energy_trace
 
