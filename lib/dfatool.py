@@ -20,6 +20,7 @@ from functions import AnalyticFunction
 from parameters import ParamStats
 from utils import vprint, is_numeric, soft_cast_int, param_slice_eq, remove_index_from_tuple
 from utils import by_name_to_by_param, match_parameter_values
+from pubcode import Code128
 
 arg_support_enabled = True
 
@@ -374,10 +375,10 @@ def _preprocess_mimosa(measurement):
 
 def _preprocess_etlog(measurement):
     setup = measurement['setup']
-    etlog = EnergyTraceLog(float(setup['voltage']), int(setup['state_duration']))
+    etlog = EnergyTraceLog(float(setup['voltage']), int(setup['state_duration']), measurement['transition_names'])
     try:
         timestamps, durations, mean_power = etlog.load_data(measurement['content'])
-        states_and_transitions = etlog.analyze_states(timestamps, durations, mean_power, measurement['expected_trace'])
+        states_and_transitions = etlog.analyze_states(timestamps, durations, mean_power, measurement['expected_trace'], measurement['repeat_id'])
     except EOFError as e:
         etlog.is_error = True
         etlog.errors.append('EnergyTrace logfile error: {}'.format(e))
@@ -385,9 +386,10 @@ def _preprocess_etlog(measurement):
 
     processed_data = {
         'fileno' : measurement['fileno'],
+        'repeat_id' : measurement['repeat_id'],
         'info' : measurement['info'],
         'expcted_trace' : measurement['expected_trace'],
-        'energy_trace' : etlog.analyze_states(currents, trigidx),
+        'energy_trace' : states_and_transitions,
         'has_mimosa_error' : etlog.is_error,
         'mimosa_errors' : etlog.errors,
     }
@@ -981,6 +983,7 @@ class RawData:
                                 'setup' : self.setup_by_fileno[j],
                                 'repeat_id' : repeat_id,
                                 'expected_trace' : ptalog['traces'][j],
+                                'transition_names' : list(map(lambda x: x['name'], ptalog['pta']['transitions']))
                             })
                 self.filenames = new_filenames
 
@@ -1009,6 +1012,10 @@ class RawData:
                 # The first online measurement is the UNINITIALIZED state. In v1,
                 # it is not part of the expected PTA trace -> remove it.
                 measurement['energy_trace'].pop(0)
+                repeat = ptalog['opt']['repeat']
+            elif version == 2:
+                # Strip the last state (it is not part of the scheduled measurement)
+                measurement['energy_trace'].pop()
                 repeat = ptalog['opt']['repeat']
 
             if self._measurement_is_valid_01(measurement):
@@ -2018,9 +2025,10 @@ class EnergyTraceLog:
     and cumulative energy since start of measurement.
     """
 
-    def __init__(self, voltage: float, state_duration: int):
+    def __init__(self, voltage: float, state_duration: int, transition_names: list):
         self.voltage = voltage
         self.state_duration = state_duration
+        self.transition_names = transition_names
         self.is_error = False
         self.errors = list()
 
@@ -2056,9 +2064,11 @@ class EnergyTraceLog:
 
         return interval_start_timestamp, interval_duration, interval_power
 
-    def analyze_states(self, interval_start_timestamp, interval_duration, interval_power, traces):
+    def analyze_states(self, interval_start_timestamp, interval_duration, interval_power, traces, offline_index: int):
         u"""
         Split log data into states and transitions and return duration, energy, and mean power for each element.
+
+        :param offline_index: Use traces[*]['trace'][*]['offline_aggregates']['duration'][offline_index] to find sync codes
 
         :param charges: raw charges (each element describes the charge in pJ transferred during 10 µs)
         :param trigidx: "charges" indexes corresponding to a trigger edge, see `trigger_edges`
@@ -2081,20 +2091,38 @@ class EnergyTraceLog:
 
         first_sync = self.find_first_sync(interval_start_timestamp, interval_power)
 
-        bc, start, stop = self.find_barcode(interval_start_timestamp, interval_power, interval_start_timestamp[first_sync])
-        print('barcode "{}" area: {} .... {} seconds'.format(bc, interval_start_timestamp[start], interval_start_timestamp[stop]))
+        energy_trace = list()
 
-        # TODO combine transition duration + sleep duration to estimate
-        # start of next barcode (instead of hardcoded 0.4)
-        bc, start, stop = self.find_barcode(interval_start_timestamp, interval_power, interval_start_timestamp[stop] + 0.4)
-        print('barcode "{}" area: {:0.2f} .... {:0.2f} seconds'.format(bc, interval_start_timestamp[start], interval_start_timestamp[stop]))
+        expected_transitions = list()
+        for trace_number, trace in enumerate(traces):
+            for state_or_transition_number, state_or_transition in enumerate(trace['trace']):
+                if state_or_transition['isa'] == 'transition':
+                    expected_transitions.append((
+                        state_or_transition['name'],
+                        state_or_transition['offline_aggregates']['duration'][offline_index] * 1e-6
+                    ))
+
+        next_barcode = first_sync
+
+        for name, duration in expected_transitions:
+            bc, start, stop, end = self.find_barcode(interval_start_timestamp, interval_power, next_barcode)
+            if bc is None:
+                print('[!!!] did not find transition "{}"'.format(name))
+                break
+            next_barcode = end + self.state_duration * 1e-3 + duration
+            print('{} barcode "{}" area: {:0.2f} .. {:0.2f} / {:0.2f} seconds'.format(offline_index, bc, start, stop, end))
+            if bc != name:
+                print('[!!!] mismatch: expected "{}", got "{}"'.format(name, bc))
+            print('{} estimated transition area: {:0.3f} .. {:0.3f} seconds'.format(offline_index, end, end + duration))
+
+        return energy_trace
 
     def find_first_sync(self, interval_ts, interval_power):
         # LED Power is approx. 10 mW, use 5 mW above surrounding median as threshold
         sync_threshold_power = np.median(interval_power[: int(3 * self.sample_rate)]) + 5e-3
         for i, ts in enumerate(interval_ts):
             if ts > 2 and interval_power[i] > sync_threshold_power:
-                return i - 300
+                return interval_ts[i - 300]
         return None
 
     def find_barcode(self, interval_ts, interval_power, start_ts):
@@ -2136,14 +2164,21 @@ class EnergyTraceLog:
 
         barcode_data = interval_power[sync_area_start : sync_area_end]
 
-        print('barcode search area: {:0.2f} ... {:0.2f} seconds ({} samples)'.format(sync_start_ts, sync_end_ts, len(barcode_data)))
+        print('barcode search area: {:0.2f} .. {:0.2f} seconds ({} samples)'.format(sync_start_ts, sync_end_ts, len(barcode_data)))
 
-        bc, start, stop = self.find_barcode_in_power_data(barcode_data)
+        bc, start, stop, padding_bits = self.find_barcode_in_power_data(barcode_data)
 
         if bc is None:
-            return bc, start, stop
+            return None, None, None, None
 
-        return bc, sync_area_start + start, sync_area_start + stop
+        start_ts = interval_ts[sync_area_start + start]
+        stop_ts = interval_ts[sync_area_start + stop]
+
+        # 20ms additional delay after padding
+        end_ts = stop_ts + 10e-3 * padding_bits + 20e-3
+
+        # barcode content, barcode start timestamp, barcode stop timestamp, barcode end (stop + padding) timestamp
+        return bc, start_ts, stop_ts, end_ts
 
     def find_barcode_in_power_data(self, barcode_data):
 
@@ -2176,12 +2211,32 @@ class EnergyTraceLog:
 
         if scanner.scan(zbimg):
             sym, = zbimg.symbols
-            sym_start = sym.location[1][0]
+            content = sym.data
+            try:
+                sym_start = sym.location[1][0]
+            except IndexError:
+                sym_start = 0
             sym_end = sym.location[0][0]
-            return sym.data, sym_start, sym_end
+
+            match = re.fullmatch(r'T(\d+)', content)
+            if match:
+                content = self.transition_names[int(match.group(1))]
+
+            # PTALog barcode generation operates on bytes, so there may be
+            # additional non-barcode padding (encoded as LED off / image white).
+            # Calculate the amount of extra bits to determine the offset until
+            # the transition starts.
+            padding_bits = len(Code128(sym.data, charset='B').modules) % 8
+
+            # sym_start leaves out the first two bars, but we don't do anything about that here
+            # sym_end leaves out the last three bars, each of which is one padding bit long.
+            # as a workaround, we unconditionally increment padding_bits by three.
+            padding_bits += 3
+
+            return content, sym_start, sym_end, padding_bits
         else:
             print('unable to find barcode')
-            return None, None, None
+            return None, None, None, None
 
 
 
