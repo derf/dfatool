@@ -7,7 +7,7 @@ run_tests:
   stage: test
   script:
   - apt-get update -qy
-  - apt-get install -y python3-dev python3-coverage python3-numpy python3-scipy python3-pytest python3-pytest-cov python3-sklearn python3-yaml wget
+  - apt-get install -y python3-dev python3-coverage python3-numpy python3-scipy python3-pytest python3-pytest-cov python3-sklearn python3-yaml python3-zbar wget
   - mkdir test-data
   - wget -qO test-data/20161221_123347_mmparam.tar https://lib.finalrewind.org/energy-models/20161221_123347_mmparam.tar
   - wget -qO test-data/20170116_124500_LM75x.tar https://lib.finalrewind.org/energy-models/20170116_124500_LM75x.tar
