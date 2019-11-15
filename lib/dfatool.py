@@ -12,7 +12,6 @@ import struct
 import sys
 import tarfile
 import hashlib
-import zbar
 from multiprocessing import Pool
 from automata import PTA
 from functions import analytic
@@ -20,7 +19,14 @@ from functions import AnalyticFunction
 from parameters import ParamStats
 from utils import vprint, is_numeric, soft_cast_int, param_slice_eq, remove_index_from_tuple
 from utils import by_name_to_by_param, match_parameter_values
-from pubcode import Code128
+
+try:
+    from pubcode import Code128
+    import zbar
+    zbar_available = True
+except ImportError:
+    zbar_available = False
+
 
 arg_support_enabled = True
 
@@ -2033,6 +2039,12 @@ class EnergyTraceLog:
         self.errors = list()
 
     def load_data(self, log_data):
+
+        if not zbar_available:
+            self.errors.append('zbar module is not available. Try "apt install python3-zbar"')
+            self.is_error = True
+            return list()
+
         lines = log_data.decode('ascii').split('\n')
         data_count = sum(map(lambda x: len(x) > 0 and x[0] != '#', lines))
         data_lines = filter(lambda x: len(x) > 0 and x[0] != '#', lines)
