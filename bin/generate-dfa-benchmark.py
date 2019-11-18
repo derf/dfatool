@@ -96,19 +96,25 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
     # When flashing first and then starting the log, the first log lines may be lost.
     # To work around this, we flash first, then start the log, and use this delay statement to ensure that no output is lost.
     # This is also useful to faciliate MIMOSA calibration after flashing
-    if 'energytrace' in opt:
-        outbuf.write('for (unsigned char i = 0; i < 10; i++) {\n')
-        outbuf.write('arch.sleep_ms(250);\n}\n')
-    else:
+    # For MIMOSA, the DUT is disconnected from power during calibration, so
+    # it must be set up after the calibration delay.
+    # For energytrace, the device is connected to VCC and set up before
+    # the initialization delay to -- this puts it into a well-defined state and
+    # decreases pre-sync power consumption
+    if 'energytrace' not in opt:
         outbuf.write('arch.delay_ms(12000);\n')
-
-    # Output some newlines to ensure the parser can determine the start of the first real output line
-    outbuf.write('kout << endl << endl;\n')
+        # Output some newlines to ensure the parser can determine the start of the first real output line
+        outbuf.write('kout << endl << endl;\n')
 
     if 'setup' in pta.codegen:
         for call in pta.codegen['setup']:
             outbuf.write(call)
 
+    if 'energytrace' in opt:
+        outbuf.write('for (unsigned char i = 0; i < 10; i++) {\n')
+        outbuf.write('arch.sleep_ms(250);\n}\n')
+        # Output some newlines to ensure the parser can determine the start of the first real output line
+        outbuf.write('kout << endl << endl;\n')
 
     if repeat:
         outbuf.write('unsigned char i = 0;\n')
