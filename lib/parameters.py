@@ -408,9 +408,6 @@ class ParamStats:
 
         stats_queue = list()
 
-        # Note: This is deliberately single-threaded. The overhead incurred
-        # by multiprocessing is higher than the speed gained by parallel
-        # computation of statistics measures.
         for state_or_tran in by_name.keys():
             self.stats[state_or_tran] = dict()
             self.distinct_values_by_param_index[state_or_tran] = distinct_param_values(by_name, state_or_tran)

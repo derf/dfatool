@@ -394,9 +394,9 @@ def _preprocess_etlog(measurement):
         'fileno' : measurement['fileno'],
         'repeat_id' : measurement['repeat_id'],
         'info' : measurement['info'],
-        'expcted_trace' : measurement['expected_trace'],
+        'expected_trace' : measurement['expected_trace'],
         'energy_trace' : states_and_transitions,
-        'has_mimosa_error' : etlog.is_error,
+        'has_mimosa_error' : len(etlog.errors) > 0,
         'mimosa_errors' : etlog.errors,
     }
 
@@ -605,6 +605,41 @@ class RawData:
         # state_duration is stored as ms, not us
         return offline['us'] > state_duration * 1500
 
+    def _measurement_is_valid_2(self, processed_data):
+        """
+        Check if a dfatool v2 measurement is valid.
+
+        processed_data layout:
+        'fileno' : measurement['fileno'],
+        'info' : measurement['info'],
+        'energy_trace' : etlog.analyze_states()
+            A sequence of unnamed, unparameterized states and transitions with
+            power and timing data
+        'expected_trace' : trace from PTA DFS (with parameter data)
+        etlog.analyze_states returns a list of (alternating) states and transitions.
+        Each element is a dict containing:
+            - isa: 'state' oder 'transition'
+            - W_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
+            - W_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
+            - s: duration
+
+            if isa == 'transition':
+            - W_mean_delta_prev: Differenz zwischen W_mean und W_mean des vorherigen Zustands
+            - W_mean_delta_next: Differenz zwischen W_mean und W_mean des Folgezustands
+        """
+        setup = self.setup_by_fileno[processed_data['fileno']]
+        traces = processed_data['expected_trace']
+
+        # Check for low-level parser errors
+        if processed_data['has_mimosa_error']:
+            processed_data['error'] = '; '.join(processed_data['mimosa_errors'])
+            return False
+
+        # Note that the low-level parser (EnergyTraceLog) already checks
+        # whether the transition count is correct
+
+        return True
+
     def _measurement_is_valid_01(self, processed_data):
         """
         Check if a dfatool v0 or v1 measurement is valid.
@@ -617,7 +652,7 @@ class RawData:
         'calibration' : caldata,
         'energy_trace' : mim.analyze_states(charges, trigidx, vcalfunc)
             A sequence of unnamed, unparameterized states and transitions with
-            energy and timing data
+            power and timing data
         'expected_trace' : trace from PTA DFS (with parameter data)
         mim.analyze_states returns a list of (alternating) states and transitions.
         Each element is a dict containing:
@@ -800,6 +835,76 @@ class RawData:
                     offline_trace_part['uW_mean_delta_next'] * (offline_trace_part['us'] - 20))
                 online_trace_part['offline_aggregates']['timeout'].append(
                     offline_trace_part['timeout'])
+
+    def _merge_online_and_etlog(self, measurement):
+        # Edits self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline']
+        # and self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline_aggregates'] in place
+        # (appends data from measurement['energy_trace'])
+        online_datapoints = []
+        traces = self.traces_by_fileno[measurement['fileno']]
+        for run_idx, run in enumerate(traces):
+            for trace_part_idx in range(len(run['trace'])):
+                online_datapoints.append((run_idx, trace_part_idx))
+        for offline_idx, online_ref in enumerate(online_datapoints):
+            online_run_idx, online_trace_part_idx = online_ref
+            offline_trace_part = measurement['energy_trace'][offline_idx]
+            online_trace_part = traces[online_run_idx]['trace'][online_trace_part_idx]
+
+            if not 'offline' in online_trace_part:
+                online_trace_part['offline'] = [offline_trace_part]
+            else:
+                online_trace_part['offline'].append(offline_trace_part)
+
+            paramkeys = sorted(online_trace_part['parameter'].keys())
+
+            paramvalues = list()
+
+            for paramkey in paramkeys:
+                if type(online_trace_part['parameter'][paramkey]) is list:
+                    paramvalues.append(soft_cast_int(online_trace_part['parameter'][paramkey][measurement['repeat_id']]))
+                else:
+                    paramvalues.append(soft_cast_int(online_trace_part['parameter'][paramkey]))
+
+            # NB: Unscheduled transitions do not have an 'args' field set.
+            # However, they should only be caused by interrupts, and
+            # interrupts don't have args anyways.
+            if arg_support_enabled and 'args' in online_trace_part:
+                paramvalues.extend(map(soft_cast_int, online_trace_part['args']))
+
+            # only if isa == 'state'
+            if 'offline_aggregates' not in online_trace_part:
+                online_trace_part['offline_aggregates'] = {
+                    'duration' : list()
+                }
+
+            offline_aggregates = online_trace_part['offline_aggregates']
+
+            if not 'power' in offline_aggregates:
+                online_trace_part['offline_attributes'] = ['power', 'duration', 'energy']
+                offline_aggregates['power'] = list()
+                offline_aggregates['power_std'] = list()
+                offline_aggregates['energy'] = list()
+                offline_aggregates['paramkeys'] = list()
+                offline_aggregates['param'] = list()
+
+                #if online_trace_part['isa'] == 'transitions':
+                #    online_trace_part['offline_attributes'].extend(['rel_energy_prev', 'rel_energy_next'])
+                #    offline_aggregates['rel_energy_prev'] = list()
+                #    offline_aggregates['rel_energy_next'] = list()
+
+            offline_aggregates['power'].append(offline_trace_part['W_mean'] * 1e6)
+            offline_aggregates['power_std'].append(offline_trace_part['W_std'] * 1e6)
+            offline_aggregates['energy'].append(offline_trace_part['W_mean'] * offline_trace_part['s'] * 1e12)
+            offline_aggregates['paramkeys'].append(paramkeys)
+            offline_aggregates['param'].append(paramvalues)
+
+            if online_trace_part['isa'] == 'state':
+                offline_aggregates['duration'].append(offline_trace_part['s'] * 1e6)
+
+            #if online_trace_part['isa'] == 'transition':
+            #    offline_aggregates['rel_energy_prev'].append(offline_trace_part['W_mean_delta_prev'] * offline_trace_part['s'] * 1e12)
+            #    offline_aggregates['rel_energy_next'].append(offline_trace_part['W_mean_delta_next'] * offline_trace_part['s'] * 1e12)
+
 
     def _concatenate_traces(self, list_of_traces):
         trace_output = list()
@@ -1014,24 +1119,32 @@ class RawData:
                 # Strip the last state (it is not part of the scheduled measurement)
                 measurement['energy_trace'].pop()
                 repeat = 0
-            elif version == 1 or version == 2:
+            elif version == 1:
                 # The first online measurement is the UNINITIALIZED state. In v1,
                 # it is not part of the expected PTA trace -> remove it.
                 measurement['energy_trace'].pop(0)
                 repeat = ptalog['opt']['repeat']
             elif version == 2:
-                # Strip the last state (it is not part of the scheduled measurement)
-                measurement['energy_trace'].pop()
                 repeat = ptalog['opt']['repeat']
 
-            if self._measurement_is_valid_01(measurement):
-                self._merge_online_and_offline(measurement)
-                num_valid += 1
-            else:
-                vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
-                    ar = self.filenames[measurement['fileno']],
-                    m = measurement['info'].name,
-                    e = measurement['error']))
+            if version == 0 or version == 1:
+                if self._measurement_is_valid_01(measurement):
+                    self._merge_online_and_offline(measurement)
+                    num_valid += 1
+                else:
+                    vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
+                        ar = self.filenames[measurement['fileno']],
+                        m = measurement['info'].name,
+                        e = measurement['error']))
+            elif version == 2:
+                if self._measurement_is_valid_2(measurement):
+                    self._merge_online_and_etlog(measurement)
+                    num_valid += 1
+                else:
+                    vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
+                        ar = self.filenames[measurement['fileno']],
+                        m = measurement['info'].name,
+                        e = measurement['error']))
         vprint(self.verbose, '[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
             num_valid = num_valid,
             num_total = len(measurements)))
@@ -1039,6 +1152,8 @@ class RawData:
             self.traces = self._concatenate_traces(self.traces_by_fileno)
         elif version == 1:
             self.traces = self._concatenate_traces(map(lambda x: x['expected_trace'], measurements))
+            self.traces = self._concatenate_traces(self.traces_by_fileno)
+        elif version == 2:
             self.traces = self._concatenate_traces(self.traces_by_fileno)
         self.preprocessing_stats = {
             'num_runs' : len(measurements),
@@ -2029,13 +2144,19 @@ class EnergyTraceLog:
     and a dfatool-generated benchmark. An EnergyTrace log consits of a series
     of measurements. Each measurement has a timestamp, mean current, voltage,
     and cumulative energy since start of measurement.
+
+    Note that the baseline power draw of board and peripherals is not subtracted
+    at the moment.
     """
 
     def __init__(self, voltage: float, state_duration: int, transition_names: list):
+        """
+        :param state_duration: state duration [ms]
+        """
         self.voltage = voltage
-        self.state_duration = state_duration
+        self.state_duration = state_duration * 1e-3
         self.transition_names = transition_names
-        self.is_error = False
+        self.verbose = True
         self.errors = list()
 
     def load_data(self, log_data):
@@ -2072,7 +2193,7 @@ class EnergyTraceLog:
 
         self.sample_rate = data_count / (m_duration_us * 1e-6)
 
-        print('got {} samples with {} seconds of log data ({} Hz)'.format(data_count, m_duration_us * 1e-6, self.sample_rate))
+        vprint(self.verbose, 'got {} samples with {} seconds of log data ({} Hz)'.format(data_count, m_duration_us * 1e-6, self.sample_rate))
 
         return self.interval_start_timestamp, self.interval_duration, self.interval_power
 
@@ -2080,11 +2201,36 @@ class EnergyTraceLog:
     # (letzteres am besten per binary search)
     # Damit die anderen Funktionen unfucken, Zustandsleistung bestimmen etc.
 
+    def ts_to_index(self, timestamp):
+        """
+        Convert timestamp in seconds to interval_start_timestamp / interval_duration / interval_power index.
+
+        Returns the index of the interval which timestamp is part of.
+        """
+        return self._ts_to_index(timestamp, 0, len(self.interval_start_timestamp))
+
+    def _ts_to_index(self, timestamp, left_index, right_index):
+        if left_index == right_index:
+            return left_index
+        if left_index + 1 == right_index:
+            return left_index
+
+        mid_index = left_index + (right_index - left_index) // 2
+
+        # I'm feeling lucky
+        if timestamp > self.interval_start_timestamp[mid_index] and timestamp <= self.interval_start_timestamp[mid_index] + self.interval_duration[mid_index]:
+            return mid_index
+
+        if timestamp <= self.interval_start_timestamp[mid_index]:
+            return self._ts_to_index(timestamp, left_index, mid_index)
+
+        return self._ts_to_index(timestamp, mid_index, right_index)
+
     def analyze_states(self, interval_start_timestamp, interval_duration, interval_power, traces, offline_index: int):
         u"""
         Split log data into states and transitions and return duration, energy, and mean power for each element.
 
-        :param offline_index: Use traces[*]['trace'][*]['offline_aggregates']['duration'][offline_index] to find sync codes
+        :param offline_index: This function uses traces[*]['trace'][*]['offline_aggregates']['duration'][offline_index] to find sync codes
 
         :param charges: raw charges (each element describes the charge in pJ transferred during 10 µs)
         :param trigidx: "charges" indexes corresponding to a trigger edge, see `trigger_edges`
@@ -2123,20 +2269,48 @@ class EnergyTraceLog:
         for name, duration in expected_transitions:
             bc, start, stop, end = self.find_barcode(interval_start_timestamp, interval_power, next_barcode)
             if bc is None:
-                print('[!!!] did not find transition "{}"'.format(name))
+                vprint(self.verbose, '[!!!] did not find transition "{}"'.format(name))
                 break
-            next_barcode = end + self.state_duration * 1e-3 + duration
-            print('{} barcode "{}" area: {:0.2f} .. {:0.2f} / {:0.2f} seconds'.format(offline_index, bc, start, stop, end))
+            next_barcode = end + self.state_duration + duration
+            vprint(self.verbose, '{} barcode "{}" area: {:0.2f} .. {:0.2f} / {:0.2f} seconds'.format(offline_index, bc, start, stop, end))
             if bc != name:
-                print('[!!!] mismatch: expected "{}", got "{}"'.format(name, bc))
-            print('{} estimated transition area: {:0.3f} .. {:0.3f} seconds'.format(offline_index, end, end + duration))
+                vprint(self.verbose, '[!!!] mismatch: expected "{}", got "{}"'.format(name, bc))
+            vprint(self.verbose, '{} estimated transition area: {:0.3f} .. {:0.3f} seconds'.format(offline_index, end, end + duration))
+
+            transition_start_index = self.ts_to_index(end)
+            transition_done_index = self.ts_to_index(end + duration) + 1
+            state_start_index = transition_done_index
+            state_done_index = self.ts_to_index(end + duration + self.state_duration) + 1
+
+            vprint(self.verbose, '{} estimated transitionindex: {:0.3f} .. {:0.3f} seconds'.format(offline_index, transition_start_index / self.sample_rate, transition_done_index / self.sample_rate))
 
             energy_trace.append({
                 'isa': 'transition',
+                'W_mean' : np.mean(self.interval_power[transition_start_index : transition_done_index]),
+                'W_std' : np.std(self.interval_power[transition_start_index : transition_done_index]),
+                's' : duration,
+                's_coarse' : self.interval_start_timestamp[transition_done_index] - self.interval_start_timestamp[transition_start_index]
+
             })
+
+            if len(energy_trace) > 1:
+                energy_trace[-1]['W_mean_delta_prev'] = energy_trace[-1]['W_mean'] - energy_trace[-2]['W_mean']
+
             energy_trace.append({
-                'isa': 'state'
+                'isa': 'state',
+                'W_mean' : np.mean(self.interval_power[state_start_index : state_done_index]),
+                'W_std' : np.std(self.interval_power[state_start_index : state_done_index]),
+                's' : self.state_duration,
+                's_coarse' : self.interval_start_timestamp[state_done_index] - self.interval_start_timestamp[state_start_index]
             })
+
+            energy_trace[-2]['W_mean_delta_next'] = energy_trace[-2]['W_mean'] - energy_trace[-1]['W_mean']
+
+        expected_transition_count = len(expected_transitions)
+        recovered_transition_ount = len(energy_trace) // 2
+
+        if expected_transition_count != recovered_transition_ount:
+            self.errors.append('Expected {:d} transitions, got {:d}'.format(expected_transition_count, recovered_transition_ount))
 
         return energy_trace
 
@@ -2169,7 +2343,7 @@ class EnergyTraceLog:
         # LED Power is approx. 30 mW, use 15 mW above surrounding median as threshold
         sync_threshold_power = np.median(interval_power[start_position - lookaround : start_position + lookaround]) + 15e-3
 
-        print('looking for barcode starting at {:0.2f} s, threshold is {:0.1f} mW'.format(start_ts, sync_threshold_power * 1e3))
+        vprint(self.verbose, 'looking for barcode starting at {:0.2f} s, threshold is {:0.1f} mW'.format(start_ts, sync_threshold_power * 1e3))
 
         sync_area_start = None
         sync_start_ts = None
@@ -2187,7 +2361,7 @@ class EnergyTraceLog:
 
         barcode_data = interval_power[sync_area_start : sync_area_end]
 
-        print('barcode search area: {:0.2f} .. {:0.2f} seconds ({} samples)'.format(sync_start_ts, sync_end_ts, len(barcode_data)))
+        vprint(self.verbose, 'barcode search area: {:0.2f} .. {:0.2f} seconds ({} samples)'.format(sync_start_ts, sync_end_ts, len(barcode_data)))
 
         bc, start, stop, padding_bits = self.find_barcode_in_power_data(barcode_data)
 
@@ -2258,7 +2432,7 @@ class EnergyTraceLog:
 
             return content, sym_start, sym_end, padding_bits
         else:
-            print('unable to find barcode')
+            vprint(self.verbose, 'unable to find barcode')
             return None, None, None, None
 
 
@@ -2298,7 +2472,7 @@ class MIMOSA:
     def charge_to_current_nocal(self, charge):
         u"""
         Convert charge per 10µs (in pJ) to mean currents (in µA) without accounting for calibration.
-        
+
         :param charge: numpy array of charges (pJ per 10µs) as returned by `load_data` or `load_file`
 
         :returns: numpy array of mean currents (µA per 10µs)

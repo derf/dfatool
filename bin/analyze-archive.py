@@ -325,13 +325,18 @@ if __name__ == '__main__':
                     model.stats.generic_param_dependence_ratio(trans, 'power')))
             except KeyError:
                 pass
-            print('{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  ({:.2f} / {:.2f} / {:.2f})'.format(
-                trans, static_model(trans, 'energy'),
-                static_model(trans, 'rel_energy_prev'),
-                static_model(trans, 'rel_energy_next'),
-                model.stats.generic_param_dependence_ratio(trans, 'energy'),
-                model.stats.generic_param_dependence_ratio(trans, 'rel_energy_prev'),
-                model.stats.generic_param_dependence_ratio(trans, 'rel_energy_next')))
+            try:
+                print('{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  ({:.2f} / {:.2f} / {:.2f})'.format(
+                    trans, static_model(trans, 'energy'),
+                    static_model(trans, 'rel_energy_prev'),
+                    static_model(trans, 'rel_energy_next'),
+                    model.stats.generic_param_dependence_ratio(trans, 'energy'),
+                    model.stats.generic_param_dependence_ratio(trans, 'rel_energy_prev'),
+                    model.stats.generic_param_dependence_ratio(trans, 'rel_energy_next')))
+            except KeyError:
+                print('{:10s}: {:.0f} pJ  ({:.2f})'.format(
+                    trans, static_model(trans, 'energy'),
+                    model.stats.generic_param_dependence_ratio(trans, 'energy')))
             print('{:10s}: {:.0f} µs'.format(trans, static_model(trans, 'duration')))
 
     if xv_method == 'montecarlo':
