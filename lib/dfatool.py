@@ -342,18 +342,16 @@ def _preprocess_mimosa(measurement):
         charges, triggers = mim.load_data(measurement['content'])
         trigidx = mim.trigger_edges(triggers)
     except EOFError as e:
-        mim.is_error = True
         mim.errors.append('MIMOSA logfile error: {}'.format(e))
         trigidx = list()
 
     if len(trigidx) == 0:
-        mim.is_error = True
         mim.errors.append('MIMOSA log has no triggers')
         return {
             'fileno' : measurement['fileno'],
             'info' : measurement['info'],
-            'has_mimosa_error' : mim.is_error,
-            'mimosa_errors' : mim.errors,
+            'has_datasource_error' : len(mim.errors) > 0,
+            'datasource_errors' : mim.errors,
             'expected_trace' : measurement['expected_trace'],
             'repeat_id' : measurement['repeat_id'],
         }
@@ -369,8 +367,8 @@ def _preprocess_mimosa(measurement):
         'first_trig' : trigidx[0] * 10,
         'calibration' : caldata,
         'energy_trace' : mim.analyze_states(charges, trigidx, vcalfunc),
-        'has_mimosa_error' : mim.is_error,
-        'mimosa_errors' : mim.errors,
+        'has_datasource_error' : len(mim.errors) > 0,
+        'datasource_errors' : mim.errors,
     }
 
     for key in ['expected_trace', 'repeat_id']:
@@ -386,7 +384,6 @@ def _preprocess_etlog(measurement):
         timestamps, durations, mean_power = etlog.load_data(measurement['content'])
         states_and_transitions = etlog.analyze_states(timestamps, durations, mean_power, measurement['expected_trace'], measurement['repeat_id'])
     except EOFError as e:
-        etlog.is_error = True
         etlog.errors.append('EnergyTrace logfile error: {}'.format(e))
         trigidx = list()
 
@@ -396,8 +393,8 @@ def _preprocess_etlog(measurement):
         'info' : measurement['info'],
         'expected_trace' : measurement['expected_trace'],
         'energy_trace' : states_and_transitions,
-        'has_mimosa_error' : len(etlog.errors) > 0,
-        'mimosa_errors' : etlog.errors,
+        'has_datasource_error' : len(etlog.errors) > 0,
+        'datasource_errors' : etlog.errors,
     }
 
     return processed_data
@@ -637,8 +634,8 @@ class RawData:
         traces = processed_data['expected_trace']
 
         # Check for low-level parser errors
-        if processed_data['has_mimosa_error']:
-            processed_data['error'] = '; '.join(processed_data['mimosa_errors'])
+        if processed_data['has_datasource_error']:
+            processed_data['error'] = '; '.join(processed_data['datasource_errors'])
             return False
 
         # Note that the low-level parser (EnergyTraceLog) already checks
@@ -683,8 +680,8 @@ class RawData:
         state_duration = setup['state_duration']
 
         # Check MIMOSA error
-        if processed_data['has_mimosa_error']:
-            processed_data['error'] = '; '.join(processed_data['mimosa_errors'])
+        if processed_data['has_datasource_error']:
+            processed_data['error'] = '; '.join(processed_data['datasource_errors'])
             return False
 
         # Check trigger count
@@ -1118,7 +1115,7 @@ class RawData:
                 vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
                     ar = self.filenames[measurement['fileno']],
                     m = measurement['info'].name,
-                    e = '; '.join(measurement['mimosa_errors'])))
+                    e = '; '.join(measurement['datasource_errors'])))
                 continue
 
             if version == 0:
@@ -2162,14 +2159,13 @@ class EnergyTraceLog:
         self.voltage = voltage
         self.state_duration = state_duration * 1e-3
         self.transition_names = transition_names
-        self.verbose = True
+        self.verbose = False
         self.errors = list()
 
     def load_data(self, log_data):
 
         if not zbar_available:
             self.errors.append('zbar module is not available. Try "apt install python3-zbar"')
-            self.is_error = True
             return list()
 
         lines = log_data.decode('ascii').split('\n')
@@ -2275,7 +2271,7 @@ class EnergyTraceLog:
         for name, duration in expected_transitions:
             bc, start, stop, end = self.find_barcode(interval_start_timestamp, interval_power, next_barcode)
             if bc is None:
-                vprint(self.verbose, '[!!!] did not find transition "{}"'.format(name))
+                print('[!!!] did not find transition "{}"'.format(name))
                 break
             next_barcode = end + self.state_duration + duration
             vprint(self.verbose, '{} barcode "{}" area: {:0.2f} .. {:0.2f} / {:0.2f} seconds'.format(offline_index, bc, start, stop, end))
@@ -2472,7 +2468,6 @@ class MIMOSA:
         self.verbose = verbose
         self.r1 = 984 # "1k"
         self.r2 = 99013 # "100k"
-        self.is_error = False
         self.errors = list()
 
     def charge_to_current_nocal(self, charge):
@@ -2557,7 +2552,6 @@ class MIMOSA:
         trigidx = []
 
         if len(triggers) < 1000000:
-            self.is_error = True
             self.errors.append('MIMOSA log is too short')
             return trigidx
 
@@ -2567,14 +2561,12 @@ class MIMOSA:
         # something went wrong and are unable to determine when the first
         # transition starts.
         if prevtrig != 0:
-            self.is_error = True
             self.errors.append('Unable to find start of first transition (log starts with trigger == {} != 0)'.format(prevtrig))
 
         # if the last trigger is high (i.e., trigger/buzzer pin is active when the benchmark ends),
         # it terminated in the middle of a transition -- meaning that it was not
         # measured in its entirety.
         if triggers[-1] != 0:
-            self.is_error = True
             self.errors.append('Log ends during a transition'.format(prevtrig))
 
         # the device is reset for MIMOSA calibration in the first 10s and may
