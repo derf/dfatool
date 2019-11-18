@@ -272,6 +272,11 @@ if __name__ == '__main__':
     raw_data = RawData(args)
 
     preprocessed_data = raw_data.get_preprocessed_data()
+
+    if raw_data.preprocessing_stats['num_valid'] == 0:
+        print('No valid data available. Abort.')
+        sys.exit(2)
+
     by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data, ignored_trace_indexes)
 
     filter_aggregate_by_param(by_name, parameters, opts['filter-param'])

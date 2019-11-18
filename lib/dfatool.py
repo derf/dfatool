@@ -577,7 +577,9 @@ class RawData:
     def load_cache(self):
         if os.path.exists(self.cache_file):
             with open(self.cache_file, 'r') as f:
-                self.traces = json.load(f)
+                cache_data = json.load(f)
+                self.traces = cache_data['traces']
+                self.preprocessing_stats = cache_data['preprocessing_stats']
                 self.preprocessed = True
 
     def save_cache(self):
@@ -586,7 +588,11 @@ class RawData:
         except FileExistsError:
             pass
         with open(self.cache_file, 'w') as f:
-            json.dump(self.traces, f)
+            cache_data = {
+                'traces' : self.traces,
+                'preprocessing_stats' : self.preprocessing_stats
+            }
+            json.dump(cache_data, f)
 
     def _state_is_too_short(self, online, offline, state_duration, next_transition):
         # We cannot control when an interrupt causes a state to be left
