@@ -2162,6 +2162,21 @@ class EnergyTraceLog:
         self.verbose = False
         self.errors = list()
 
+        # TODO auto-detect
+        self.led_power = 10e-3
+
+        # multipass/include/object/ptalog.h#startTransition
+        self.module_duration = 5e-3
+
+        # multipass/include/object/ptalog.h#startTransition
+        self.quiet_zone_duration = 60e-3
+
+        # TODO auto-detect?
+        # Note that we consider barcode duration after start, so only the
+        # quiet zone -after- the code is relevant
+        self.min_barcode_duration = 57 * self.module_duration + self.quiet_zone_duration
+        self.max_barcode_duration = 68 * self.module_duration + self.quiet_zone_duration
+
     def load_data(self, log_data):
 
         if not zbar_available:
@@ -2198,10 +2213,6 @@ class EnergyTraceLog:
         vprint(self.verbose, 'got {} samples with {} seconds of log data ({} Hz)'.format(data_count, m_duration_us * 1e-6, self.sample_rate))
 
         return self.interval_start_timestamp, self.interval_duration, self.interval_power
-
-    # TODO Hilfsfunktionen für offset -> timestamp und timestamp -> offset
-    # (letzteres am besten per binary search)
-    # Damit die anderen Funktionen unfucken, Zustandsleistung bestimmen etc.
 
     def ts_to_index(self, timestamp):
         """
@@ -2317,8 +2328,8 @@ class EnergyTraceLog:
         return energy_trace
 
     def find_first_sync(self, interval_ts, interval_power):
-        # LED Power is approx. 10 mW, use 5 mW above surrounding median as threshold
-        sync_threshold_power = np.median(interval_power[: int(3 * self.sample_rate)]) + 5e-3
+        # LED Power is approx. self.led_power W, use self.led_power/2 W above surrounding median as threshold
+        sync_threshold_power = np.median(interval_power[: int(3 * self.sample_rate)]) + self.led_power/3
         for i, ts in enumerate(interval_ts):
             if ts > 2 and interval_power[i] > sync_threshold_power:
                 return interval_ts[i - 300]
@@ -2342,8 +2353,8 @@ class EnergyTraceLog:
         lookaround = int(0.1 * self.sample_rate)
 
 
-        # LED Power is approx. 30 mW, use 15 mW above surrounding median as threshold
-        sync_threshold_power = np.median(interval_power[start_position - lookaround : start_position + lookaround]) + 15e-3
+        # LED Power is approx. self.led_power W, use self.led_power/2 W above surrounding median as threshold
+        sync_threshold_power = np.median(interval_power[start_position - lookaround : start_position + lookaround]) + self.led_power/3
 
         vprint(self.verbose, 'looking for barcode starting at {:0.2f} s, threshold is {:0.1f} mW'.format(start_ts, sync_threshold_power * 1e3))
 
@@ -2355,8 +2366,7 @@ class EnergyTraceLog:
             if sync_area_start is None and ts >= start_ts and interval_power[i] > sync_threshold_power:
                 sync_area_start = i - 300
                 sync_start_ts = ts
-            # minimum barcode duration is 600ms
-            if sync_area_start is not None and sync_area_end is None and ts > sync_start_ts + 0.6 and (ts > sync_start_ts + 1 or abs(sync_threshold_power - interval_power[i]) > 30e-3):
+            if sync_area_start is not None and sync_area_end is None and ts > sync_start_ts + self.min_barcode_duration and (ts > sync_start_ts + self.max_barcode_duration or abs(sync_threshold_power - interval_power[i]) > self.led_power):
                 sync_area_end = i
                 sync_end_ts = ts
                 break
@@ -2373,8 +2383,7 @@ class EnergyTraceLog:
         start_ts = interval_ts[sync_area_start + start]
         stop_ts = interval_ts[sync_area_start + stop]
 
-        # 20ms additional delay after padding
-        end_ts = stop_ts + 10e-3 * padding_bits + 20e-3
+        end_ts = stop_ts + self.module_duration * padding_bits + self.quiet_zone_duration
 
         # barcode content, barcode start timestamp, barcode stop timestamp, barcode end (stop + padding) timestamp
         return bc, start_ts, stop_ts, end_ts
@@ -2402,7 +2411,7 @@ class EnergyTraceLog:
         image_data = bytes(map(int, image_data)) * height
 
         #img = Image.frombytes('L', (width, height), image_data).resize((width, 100))
-        #img.save('/tmp/test-{}.png'.format(sync_area_start))
+        #img.save('/tmp/test-{}.png'.format(os.getpid()))
 
         zbimg = zbar.Image(width, height, 'Y800', image_data)
         scanner = zbar.ImageScanner()
