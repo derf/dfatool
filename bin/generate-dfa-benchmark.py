@@ -240,6 +240,10 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
                         print('[RUN] has been unsynced for more than 30 seconds, assuming error. Retrying.')
                         sync_error = True
                         break
+                    if harness.abort:
+                        print('[RUN] harness encountered an error. Retrying')
+                        sync_error = True
+                        break
                     time.sleep(5)
                     slept += 5
                     print('[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%'.format(run_offset, runs_total, run_offset * 100 / runs_total, slept * 100 / run_timeout))

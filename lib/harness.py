@@ -65,6 +65,7 @@ class TransitionHarness:
         self.traces = []
         self.trace_id = 0
         self.repetitions = 0
+        self.abort = False
         self.done = False
         self.synced = False
 
@@ -75,6 +76,7 @@ class TransitionHarness:
         Resets `done` and `synced`.
         """
         self.repetitions = 0
+        self.abort = False
         self.done = False
         self.synced = False
 
@@ -218,11 +220,13 @@ class TransitionHarness:
                     print('          Offending line: {}'.format(line))
                     return
                 if log_data_target['isa'] != 'transition':
+                    self.abort = True
                     raise RuntimeError('Log mismatch: Expected transition, got {:s}'.format(log_data_target['isa']))
                 if self.pta:
                     transition = self.pta.transitions[transition_id]
                     if transition.name != log_data_target['name']:
-                        raise RuntimeError('Log mismatch: Expected transition {:s}, got transition {:s}'.format(log_data_target['name'], transition.name))
+                        self.abort = True
+                        raise RuntimeError('Log mismatch: Expected transition {:s}, got transition {:s} -- may have been caused by preceding malformed UART output'.format(log_data_target['name'], transition.name))
                     if self.log_return_values and len(transition.return_value_handlers):
                         for handler in transition.return_value_handlers:
                             if 'parameter' in handler:
@@ -328,6 +332,7 @@ class OnboardTimerHarness(TransitionHarness):
                 cycles = int(res.group(2))
                 overflow = int(res.group(3))
                 if overflow >= self.counter_max_overflow:
+                    self.abort = True
                     raise RuntimeError('Counter overflow ({:d}/{:d}) in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d})'.format(cycles, overflow, 0, self.trace_id, self.current_transition_in_trace, transition_id))
                 duration_us = cycles * self.one_cycle_in_us + overflow * self.one_overflow_in_us
                 # TODO subtract 'nop' cycles
@@ -342,12 +347,14 @@ class OnboardTimerHarness(TransitionHarness):
                     print('          Offending line: {}'.format(line))
                     return
                 if log_data_target['isa'] != 'transition':
+                    self.abort = True
                     raise RuntimeError('Log mismatch in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}): Expected transition, got {:s}'.format(0,
                         self.trace_id, self.current_transition_in_trace, transition_id, log_data_target['isa']))
                 if self.pta:
                     transition = self.pta.transitions[transition_id]
                     if transition.name != log_data_target['name']:
-                        raise RuntimeError('Log mismatch in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}): Expected transition {:s}, got transition {:s}'.format(0, self.trace_id, self.current_transition_in_trace, transition_id, log_data_target['name'], transition.name))
+                        self.abort = True
+                        raise RuntimeError('Log mismatch in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}): Expected transition {:s}, got transition {:s} -- may have been caused by preceding maformed UART output'.format(0, self.trace_id, self.current_transition_in_trace, transition_id, log_data_target['name'], transition.name, line))
                     if self.log_return_values and len(transition.return_value_handlers):
                         for handler in transition.return_value_handlers:
                             if 'parameter' in handler:
