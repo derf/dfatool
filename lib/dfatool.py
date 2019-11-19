@@ -381,8 +381,8 @@ def _preprocess_etlog(measurement):
     setup = measurement['setup']
     etlog = EnergyTraceLog(float(setup['voltage']), int(setup['state_duration']), measurement['transition_names'])
     try:
-        timestamps, durations, mean_power = etlog.load_data(measurement['content'])
-        states_and_transitions = etlog.analyze_states(timestamps, durations, mean_power, measurement['expected_trace'], measurement['repeat_id'])
+        etlog.load_data(measurement['content'])
+        states_and_transitions = etlog.analyze_states(measurement['expected_trace'], measurement['repeat_id'])
     except EOFError as e:
         etlog.errors.append('EnergyTrace logfile error: {}'.format(e))
         trigidx = list()
@@ -2239,7 +2239,7 @@ class EnergyTraceLog:
 
         return self._ts_to_index(timestamp, mid_index, right_index)
 
-    def analyze_states(self, interval_start_timestamp, interval_duration, interval_power, traces, offline_index: int):
+    def analyze_states(self, traces, offline_index: int):
         u"""
         Split log data into states and transitions and return duration, energy, and mean power for each element.
 
@@ -2264,7 +2264,7 @@ class EnergyTraceLog:
             * `uW_mean_delta_next`: Differenz zwischen uW_mean und uW_mean des Folgezustands
         """
 
-        first_sync = self.find_first_sync(interval_start_timestamp, interval_power)
+        first_sync = self.find_first_sync()
 
         energy_trace = list()
 
@@ -2280,7 +2280,7 @@ class EnergyTraceLog:
         next_barcode = first_sync
 
         for name, duration in expected_transitions:
-            bc, start, stop, end = self.find_barcode(interval_start_timestamp, interval_power, next_barcode)
+            bc, start, stop, end = self.find_barcode(next_barcode)
             if bc is None:
                 print('[!!!] did not find transition "{}"'.format(name))
                 break
@@ -2327,15 +2327,15 @@ class EnergyTraceLog:
 
         return energy_trace
 
-    def find_first_sync(self, interval_ts, interval_power):
+    def find_first_sync(self):
         # LED Power is approx. self.led_power W, use self.led_power/2 W above surrounding median as threshold
-        sync_threshold_power = np.median(interval_power[: int(3 * self.sample_rate)]) + self.led_power/3
-        for i, ts in enumerate(interval_ts):
-            if ts > 2 and interval_power[i] > sync_threshold_power:
-                return interval_ts[i - 300]
+        sync_threshold_power = np.median(self.interval_power[: int(3 * self.sample_rate)]) + self.led_power/3
+        for i, ts in enumerate(self.interval_start_timestamp):
+            if ts > 2 and self.interval_power[i] > sync_threshold_power:
+                return self.interval_start_timestamp[i - 300]
         return None
 
-    def find_barcode(self, interval_ts, interval_power, start_ts):
+    def find_barcode(self, start_ts):
         """
         Return absolute position and content of the next barcode following `start_ts`.
 
@@ -2344,7 +2344,7 @@ class EnergyTraceLog:
         :param start_ts: timestamp at which to start looking for a barcode [s]
         """
 
-        for i, ts in enumerate(interval_ts):
+        for i, ts in enumerate(self.interval_start_timestamp):
             if ts >= start_ts:
                 start_position = i
                 break
@@ -2354,7 +2354,7 @@ class EnergyTraceLog:
 
 
         # LED Power is approx. self.led_power W, use self.led_power/2 W above surrounding median as threshold
-        sync_threshold_power = np.median(interval_power[start_position - lookaround : start_position + lookaround]) + self.led_power/3
+        sync_threshold_power = np.median(self.interval_power[start_position - lookaround : start_position + lookaround]) + self.led_power/3
 
         vprint(self.verbose, 'looking for barcode starting at {:0.2f} s, threshold is {:0.1f} mW'.format(start_ts, sync_threshold_power * 1e3))
 
@@ -2362,16 +2362,16 @@ class EnergyTraceLog:
         sync_start_ts = None
         sync_area_end = None
         sync_end_ts = None
-        for i, ts in enumerate(interval_ts):
-            if sync_area_start is None and ts >= start_ts and interval_power[i] > sync_threshold_power:
+        for i, ts in enumerate(self.interval_start_timestamp):
+            if sync_area_start is None and ts >= start_ts and self.interval_power[i] > sync_threshold_power:
                 sync_area_start = i - 300
                 sync_start_ts = ts
-            if sync_area_start is not None and sync_area_end is None and ts > sync_start_ts + self.min_barcode_duration and (ts > sync_start_ts + self.max_barcode_duration or abs(sync_threshold_power - interval_power[i]) > self.led_power):
+            if sync_area_start is not None and sync_area_end is None and ts > sync_start_ts + self.min_barcode_duration and (ts > sync_start_ts + self.max_barcode_duration or abs(sync_threshold_power - self.interval_power[i]) > self.led_power):
                 sync_area_end = i
                 sync_end_ts = ts
                 break
 
-        barcode_data = interval_power[sync_area_start : sync_area_end]
+        barcode_data = self.interval_power[sync_area_start : sync_area_end]
 
         vprint(self.verbose, 'barcode search area: {:0.2f} .. {:0.2f} seconds ({} samples)'.format(sync_start_ts, sync_end_ts, len(barcode_data)))
 
@@ -2380,8 +2380,8 @@ class EnergyTraceLog:
         if bc is None:
             return None, None, None, None
 
-        start_ts = interval_ts[sync_area_start + start]
-        stop_ts = interval_ts[sync_area_start + stop]
+        start_ts = self.interval_start_timestamp[sync_area_start + start]
+        stop_ts = self.interval_start_timestamp[sync_area_start + stop]
 
         end_ts = stop_ts + self.module_duration * padding_bits + self.quiet_zone_duration
 
