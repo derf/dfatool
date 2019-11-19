@@ -2154,7 +2154,12 @@ class EnergyTraceLog:
 
     def __init__(self, voltage: float, state_duration: int, transition_names: list):
         """
+        Create a new EnergyTraceLog object.
+
+        :param voltage: supply voltage [V], usually 3.3 V
         :param state_duration: state duration [ms]
+        :param transition_names: list of transition names in PTA transition order.
+            Needed to map barcode synchronization numbers to transitions.
         """
         self.voltage = voltage
         self.state_duration = state_duration * 1e-3
@@ -2178,6 +2183,11 @@ class EnergyTraceLog:
         self.max_barcode_duration = 68 * self.module_duration + self.quiet_zone_duration
 
     def load_data(self, log_data):
+        """
+        Load log data (raw energytrace .txt file, one line per event).
+
+        :param log_data: raw energytrace log file in 4-column .txt format
+        """
 
         if not zbar_available:
             self.errors.append('zbar module is not available. Try "apt install python3-zbar"')
@@ -2272,10 +2282,15 @@ class EnergyTraceLog:
         for trace_number, trace in enumerate(traces):
             for state_or_transition_number, state_or_transition in enumerate(trace['trace']):
                 if state_or_transition['isa'] == 'transition':
-                    expected_transitions.append((
-                        state_or_transition['name'],
-                        state_or_transition['offline_aggregates']['duration'][offline_index] * 1e-6
-                    ))
+                    try:
+                        expected_transitions.append((
+                            state_or_transition['name'],
+                            state_or_transition['offline_aggregates']['duration'][offline_index] * 1e-6
+                        ))
+                    except IndexError:
+                        self.errors.append('Entry #{} ("{}") in trace #{} has no duration entry for offline_index/repeat_id {}'.format(
+                            state_or_transition_number, state_or_transition['name'], trace_number, offline_index))
+                        return energy_trace
 
         next_barcode = first_sync
 
