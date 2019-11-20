@@ -138,8 +138,6 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
         param = pta.get_initial_param_dict()
         for transition, arguments, parameter in run:
             num_transitions += 1
-            # TODO für energytrace mode: BarCode-Library für Transition ID -> GPIO-LED-Pulse nutzen? Taugt genau so gut als sync und liefert obendrein noch
-            # Daten
             harness.append_transition(transition.name, param, arguments)
             harness.append_state(transition.destination.name, parameter.copy())
             outbuf.write('// {} -> {}\n'.format(transition.origin.name, transition.destination.name))
@@ -255,6 +253,7 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
             if sync_error:
                 for filename in monitor.get_files():
                     os.remove(filename)
+                harness.undo(i)
             else:
                 files.extend(monitor.get_files())
                 i += 1

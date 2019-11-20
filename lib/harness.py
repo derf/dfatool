@@ -7,10 +7,6 @@ import subprocess
 import re
 from pubcode import Code128
 
-# TODO prepare benchmark log JSON with parameters etc.
-# Should be independent of PTA class, as benchmarks may also be
-# generated otherwise and it should also work with AnalyticModel (which does
-# not have states)
 class TransitionHarness:
     """
     TODO
@@ -55,6 +51,23 @@ class TransitionHarness:
         new_object.traces = self.traces.copy()
         new_object.trace_id = self.trace_id
         return new_object
+
+    def undo(self, undo_from):
+        """
+        Undo all benchmark runs starting with index `undo_from`.
+
+        :param undo_from: index of measurements to be undone. Measurementh with a higher index (i.e., which happened later) will also be undone.
+
+        Removes all logged results (nondeterministic parameter values and return values)
+        of the current benchmark iteration. Resets `done` and `synced`,
+        """
+        for trace in self.traces:
+            for state_or_transition in trace['trace']:
+                if 'return_values' in state_or_transition:
+                    state_or_transition['return_values'] = state_or_transition['return_values'][:undo_from]
+                for param_name in state_or_transition['parameter'].keys():
+                    if type(state_or_transition['parameter'][param_name]) is list:
+                        state_or_transition['parameter'][param_name] = state_or_transition['parameter'][param_name][:undo_from]
 
     def reset(self):
         """
@@ -202,7 +215,6 @@ class TransitionHarness:
                 self.trace_id = int(res.group(1))
                 self.trace_length = int(res.group(2))
                 self.current_transition_in_trace = 0
-                #print('[HARNESS] trace {:d} contains {:d} transitions. Expecting {:d} transitions.'.format(self.trace_id, self.trace_length, len(self.traces[self.trace_id]['trace']) // 2))
             if self.log_return_values:
                 res = re.match(r'\[PTA\] transition=(\S+) return=(\S+)', line)
             else:
@@ -270,6 +282,21 @@ class OnboardTimerHarness(TransitionHarness):
         new_harness.trace_id = self.trace_id
         return new_harness
 
+    def undo(self, undo_from):
+        """
+        Undo all benchmark runs starting with index `undo_from`.
+
+        :param undo_from: index of measurements to be undone. Measurementh with a higher index (i.e., which happened later) will also be undone.
+
+        Removes all logged results (durations, nondeterministic parameter values, return values)
+        of the current benchmark iteration. Resets `done` and `synced`,
+        """
+        super().undo(undo_from)
+        for trace in self.traces:
+            for state_or_transition in trace['trace']:
+                if 'offline_aggregates' in state_or_transition:
+                    state_or_transition['offline_aggregates']['duration'] = state_or_transition['offline_aggregates']['duration'][:undo_from]
+
     def global_code(self):
         ret = '#include "driver/counter.h"\n'
         ret += '#define PTALOG_TIMING\n'
@@ -322,7 +349,6 @@ class OnboardTimerHarness(TransitionHarness):
                 self.trace_id = int(res.group(1))
                 self.trace_length = int(res.group(2))
                 self.current_transition_in_trace = 0
-                #print('[HARNESS] trace {:d} contains {:d} transitions. Expecting {:d} transitions.'.format(self.trace_id, self.trace_length, len(self.traces[self.trace_id]['trace']) // 2))
             if self.log_return_values:
                 res = re.match(r'\[PTA\] transition=(\S+) cycles=(\S+)/(\S+) return=(\S+)', line)
             else:
