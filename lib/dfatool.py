@@ -874,35 +874,30 @@ class RawData:
             if arg_support_enabled and 'args' in online_trace_part:
                 paramvalues.extend(map(soft_cast_int, online_trace_part['args']))
 
-            # only if isa == 'state'
             if 'offline_aggregates' not in online_trace_part:
                 online_trace_part['offline_aggregates'] = {
-                    'duration' : list()
+                    'offline_attributes' : ['power', 'duration', 'energy'],
+                    'duration' : list(),
+                    'power' : list(),
+                    'power_std' : list(),
+                    'energy' : list(),
+                    'paramkeys' : list(),
+                    'param' : list()
                 }
 
             offline_aggregates = online_trace_part['offline_aggregates']
 
-            if not 'power' in offline_aggregates:
-                online_trace_part['offline_attributes'] = ['power', 'duration', 'energy']
-                offline_aggregates['power'] = list()
-                offline_aggregates['power_std'] = list()
-                offline_aggregates['energy'] = list()
-                offline_aggregates['paramkeys'] = list()
-                offline_aggregates['param'] = list()
+            #if online_trace_part['isa'] == 'transitions':
+            #    online_trace_part['offline_attributes'].extend(['rel_energy_prev', 'rel_energy_next'])
+            #    offline_aggregates['rel_energy_prev'] = list()
+            #    offline_aggregates['rel_energy_next'] = list()
 
-                #if online_trace_part['isa'] == 'transitions':
-                #    online_trace_part['offline_attributes'].extend(['rel_energy_prev', 'rel_energy_next'])
-                #    offline_aggregates['rel_energy_prev'] = list()
-                #    offline_aggregates['rel_energy_next'] = list()
-
+            offline_aggregates['duration'].append(offline_trace_part['s'] * 1e6)
             offline_aggregates['power'].append(offline_trace_part['W_mean'] * 1e6)
             offline_aggregates['power_std'].append(offline_trace_part['W_std'] * 1e6)
             offline_aggregates['energy'].append(offline_trace_part['W_mean'] * offline_trace_part['s'] * 1e12)
             offline_aggregates['paramkeys'].append(paramkeys)
             offline_aggregates['param'].append(paramvalues)
-
-            if online_trace_part['isa'] == 'state':
-                offline_aggregates['duration'].append(offline_trace_part['s'] * 1e6)
 
             #if online_trace_part['isa'] == 'transition':
             #    offline_aggregates['rel_energy_prev'].append(offline_trace_part['W_mean_delta_prev'] * offline_trace_part['s'] * 1e12)
@@ -1081,6 +1076,23 @@ class RawData:
                     # ptalog['files'][0][0] is its first iteration/repetition,
                     # ptalog['files'][0][1] the second, etc.
 
+                    # generate-dfa-benchmark uses TimingHarness to obtain timing data.
+                    # Data is placed in 'offline_aggregates', which is also
+                    # where we are going to store power/energy data.
+                    # In case of invalid measurements, this can lead to a
+                    # mismatch between duration and power/energy data, e.g.
+                    # where duration = [A, B, C], power = [a, b], B belonging
+                    # to an invalid measurement and thus power[b] corresponding
+                    # to duration[C]. At the moment, this is harmless, but in the
+                    # future it might not be.
+                    if 'offline_aggregates' in ptalog['traces'][0][0]['trace'][0]:
+                        for trace_group in ptalog['traces']:
+                            for trace in trace_group:
+                                for state_or_transition in trace['trace']:
+                                    offline_aggregates = state_or_transition.pop('offline_aggregates', None)
+                                    if offline_aggregates:
+                                        state_or_transition['online_aggregates'] = offline_aggregates
+
                     for j, traces in enumerate(ptalog['traces']):
                         new_filenames.append('{}#{}'.format(filename, j))
                         self.traces_by_fileno.append(traces)
@@ -1100,6 +1112,11 @@ class RawData:
                                 'transition_names' : list(map(lambda x: x['name'], ptalog['pta']['transitions']))
                             })
                 self.filenames = new_filenames
+                # TODO remove 'offline_aggregates' from pre-parse data and place
+                # it under 'online_aggregates' or similar instead. This way, if
+                # a .etlog file fails to parse, its corresponding duration data
+                # will not linger in 'offline_aggregates' and confuse the hell
+                # out of other code paths
 
         with Pool() as pool:
             if self.version <= 1:
@@ -2253,7 +2270,11 @@ class EnergyTraceLog:
         u"""
         Split log data into states and transitions and return duration, energy, and mean power for each element.
 
-        :param offline_index: This function uses traces[*]['trace'][*]['offline_aggregates']['duration'][offline_index] to find sync codes
+        :param traces: expected traces, needed to synchronize with the measurement.
+            traces is a list of runs, traces[*]['trace'] is a single run
+            (i.e. a list of states and transitions, starting with a transition
+            and ending with a state).
+        :param offline_index: This function uses traces[*]['trace'][*]['online_aggregates']['duration'][offline_index] to find sync codes
 
         :param charges: raw charges (each element describes the charge in pJ transferred during 10 µs)
         :param trigidx: "charges" indexes corresponding to a trigger edge, see `trigger_edges`
@@ -2285,7 +2306,7 @@ class EnergyTraceLog:
                     try:
                         expected_transitions.append((
                             state_or_transition['name'],
-                            state_or_transition['offline_aggregates']['duration'][offline_index] * 1e-6
+                            state_or_transition['online_aggregates']['duration'][offline_index] * 1e-6
                         ))
                     except IndexError:
                         self.errors.append('Entry #{} ("{}") in trace #{} has no duration entry for offline_index/repeat_id {}'.format(
