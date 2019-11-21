@@ -79,13 +79,13 @@ import plotter
 import re
 import sys
 from dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
-from dfatool import soft_cast_int, is_numeric, gplearn_to_function
+from dfatool import gplearn_to_function
 from dfatool import CrossValidator
 from utils import filter_aggregate_by_param
 from parameters import prune_dependent_parameters
-import utils
 
 opts = {}
+
 
 def print_model_quality(results):
     for state_or_tran in results.keys():
@@ -98,11 +98,13 @@ def print_model_quality(results):
                 print('{:20s} {:15s} {:.0f}'.format(
                     state_or_tran, key, result['mae']))
 
+
 def format_quality_measures(result):
     if 'smape' in result:
         return '{:6.2f}% / {:9.0f}'.format(result['smape'], result['mae'])
     else:
         return '{:6}    {:9.0f}'.format('', result['mae'])
+
 
 def model_quality_table(result_lists, info_list):
     for state_or_tran in result_lists[0]['by_name'].keys():
@@ -111,7 +113,7 @@ def model_quality_table(result_lists, info_list):
             for i, results in enumerate(result_lists):
                 info = info_list[i]
                 buf += '  |||  '
-                if info == None or info(state_or_tran, key):
+                if info is None or info(state_or_tran, key):
                     result = results['by_name'][state_or_tran][key]
                     buf += format_quality_measures(result)
                 else:
@@ -135,6 +137,7 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
             if state_or_tran in model._num_args:
                 for arg_index in range(model._num_args[state_or_tran]):
                     print('{} {} {:d} {:.8f}'.format(state_or_tran, attribute, arg_index, model.stats.arg_dependence_ratio(state_or_tran, attribute, arg_index)))
+
 
 if __name__ == '__main__':
 
@@ -215,7 +218,7 @@ if __name__ == '__main__':
 
     filter_aggregate_by_param(by_name, parameters, opts['filter-param'])
 
-    model = AnalyticModel(by_name, parameters, arg_count, use_corrcoef = opts['corrcoef'], function_override = function_override)
+    model = AnalyticModel(by_name, parameters, arg_count, use_corrcoef=opts['corrcoef'], function_override=function_override)
 
     if xv_method:
         xv = CrossValidator(AnalyticModel, by_name, parameters, arg_count)
@@ -229,8 +232,8 @@ if __name__ == '__main__':
     if 'plot-unparam' in opts:
         for kv in opts['plot-unparam'].split(';'):
             state_or_trans, attribute, ylabel = kv.split(':')
-            fname = 'param_y_{}_{}.pdf'.format(state_or_trans,attribute)
-            plotter.plot_y(model.by_name[state_or_trans][attribute], xlabel = 'measurement #', ylabel = ylabel)
+            fname = 'param_y_{}_{}.pdf'.format(state_or_trans, attribute)
+            plotter.plot_y(model.by_name[state_or_trans][attribute], xlabel='measurement #', ylabel=ylabel)
 
     if len(show_models):
         print('--- simple static model ---')
@@ -247,6 +250,15 @@ if __name__ == '__main__':
                     print('{:24s}  co-dependencies: {:s}'.format('', ', '.join(model.stats.codependent_parameters(trans, 'duration', param))))
                     for param_dict in model.stats.codependent_parameter_value_dicts(trans, 'duration', param):
                         print('{:24s}  parameter-aware for {}'.format('', param_dict))
+        # import numpy as np
+        # safe_div = np.vectorize(lambda x,y: 0. if x == 0 else 1 - x/y)
+        # ratio_by_value = safe_div(model.stats.stats['write']['duration']['lut_by_param_values']['max_retry_count'], model.stats.stats['write']['duration']['std_by_param_values']['max_retry_count'])
+        # err_mode = np.seterr('warn')
+        # dep_by_value = ratio_by_value > 0.5
+        # np.seterr(**err_mode)
+        # Eigentlich sollte hier ein paar mal True stehen, ist aber nicht so...
+        # und warum ist da eine non-power-of-two Zahl von True-Einträgen in der Matrix? 3 stück ist komisch...
+        # print(dep_by_value)
 
     if xv_method == 'montecarlo':
         static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
@@ -265,7 +277,7 @@ if __name__ == '__main__':
     if len(show_models):
         print('--- param model ---')
 
-    param_model, param_info = model.get_fitted(safe_functions_enabled = safe_functions_enabled)
+    param_model, param_info = model.get_fitted(safe_functions_enabled=safe_functions_enabled)
 
     if 'paramdetection' in show_models or 'all' in show_models:
         for transition in model.names:
@@ -289,7 +301,7 @@ if __name__ == '__main__':
                     ))
                     print('{:10s} {:10s} dependence on arg{:d}: {:.2f}'.format(
                         transition, attribute, i, model.stats.arg_dependence_ratio(transition, attribute, i)))
-                if info != None:
+                if info is not None:
                     for param_name in sorted(info['fit_result'].keys(), key=str):
                         param_fit = info['fit_result'][param_name]['results']
                         for function_type in sorted(param_fit.keys()):
@@ -324,7 +336,5 @@ if __name__ == '__main__':
             else:
                 function = None
             plotter.plot_param(model, state_or_trans, attribute, model.param_index(param_name), extra_function=function)
-
-
 
     sys.exit(0)

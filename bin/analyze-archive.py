@@ -83,12 +83,13 @@ import plotter
 import re
 import sys
 from dfatool import PTAModel, RawData, pta_trace_to_aggregate
-from dfatool import soft_cast_int, is_numeric, gplearn_to_function
+from dfatool import gplearn_to_function
 from dfatool import CrossValidator
 from utils import filter_aggregate_by_param
 from automata import PTA
 
 opts = {}
+
 
 def print_model_quality(results):
     for state_or_tran in results.keys():
@@ -101,11 +102,13 @@ def print_model_quality(results):
                 print('{:20s} {:15s} {:.0f}'.format(
                     state_or_tran, key, result['mae']))
 
+
 def format_quality_measures(result):
     if 'smape' in result:
         return '{:6.2f}% / {:9.0f}'.format(result['smape'], result['mae'])
     else:
         return '{:6}    {:9.0f}'.format('', result['mae'])
+
 
 def model_quality_table(result_lists, info_list):
     for state_or_tran in result_lists[0]['by_name'].keys():
@@ -114,12 +117,13 @@ def model_quality_table(result_lists, info_list):
             for i, results in enumerate(result_lists):
                 info = info_list[i]
                 buf += '  |||  '
-                if info == None or info(state_or_tran, key):
+                if info is None or info(state_or_tran, key):
                     result = results['by_name'][state_or_tran][key]
                     buf += format_quality_measures(result)
                 else:
                     buf += '{:6}----{:9}'.format('', '')
             print(buf)
+
 
 def model_summary_table(result_list):
     buf = 'transition duration'
@@ -171,6 +175,7 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
                 for arg_index in range(model._num_args[state_or_tran]):
                     print('{} {} {:d} {:.8f}'.format(state_or_tran, attribute, arg_index, model.stats.arg_dependence_ratio(state_or_tran, attribute, arg_index)))
 
+
 def print_html_model_data(model, pm, pq, lm, lq, am, ai, aq):
     state_attributes = model.attributes(model.states()[0])
 
@@ -203,6 +208,7 @@ def print_html_model_data(model, pm, pq, lm, lq, am, ai, aq):
             print('<td>{:.0f} {} ({:.1f}%)</td>'.format(pm(trans, attribute), unit, pq['by_name'][trans][attribute]['smape']), end='')
         print('</tr>')
     print('</table>')
+
 
 if __name__ == '__main__':
 
@@ -282,10 +288,10 @@ if __name__ == '__main__':
     filter_aggregate_by_param(by_name, parameters, opts['filter-param'])
 
     model = PTAModel(by_name, parameters, arg_count,
-        traces = preprocessed_data,
-        discard_outliers = discard_outliers,
-        function_override = function_override,
-        pta = pta)
+                     traces=preprocessed_data,
+                     discard_outliers=discard_outliers,
+                     function_override=function_override,
+                     pta=pta)
 
     if xv_method:
         xv = CrossValidator(PTAModel, by_name, parameters, arg_count)
@@ -299,8 +305,8 @@ if __name__ == '__main__':
     if 'plot-unparam' in opts:
         for kv in opts['plot-unparam'].split(';'):
             state_or_trans, attribute, ylabel = kv.split(':')
-            fname = 'param_y_{}_{}.pdf'.format(state_or_trans,attribute)
-            plotter.plot_y(model.by_name[state_or_trans][attribute], xlabel = 'measurement #', ylabel = ylabel, output = fname)
+            fname = 'param_y_{}_{}.pdf'.format(state_or_trans, attribute)
+            plotter.plot_y(model.by_name[state_or_trans][attribute], xlabel='measurement #', ylabel=ylabel, output=fname)
 
     if len(show_models):
         print('--- simple static model ---')
@@ -361,7 +367,7 @@ if __name__ == '__main__':
     if len(show_models):
         print('--- param model ---')
 
-    param_model, param_info = model.get_fitted(safe_functions_enabled = safe_functions_enabled)
+    param_model, param_info = model.get_fitted(safe_functions_enabled=safe_functions_enabled)
 
     if 'paramdetection' in show_models or 'all' in show_models:
         for state in model.states_and_transitions():
@@ -377,7 +383,7 @@ if __name__ == '__main__':
                     print('{:10s} {:10s} {:10s} stddev {:f}'.format(
                         state, attribute, param, model.stats.stats[state][attribute]['std_by_param'][param]
                     ))
-                if info != None:
+                if info is not None:
                     for param_name in sorted(info['fit_result'].keys(), key=str):
                         param_fit = info['fit_result'][param_name]['results']
                         for function_type in sorted(param_fit.keys()):
@@ -413,10 +419,20 @@ if __name__ == '__main__':
 
     if 'table' in show_quality or 'all' in show_quality:
         model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
+
     if 'overall' in show_quality or 'all' in show_quality:
-        print('overall MAE of static model: {} µW'.format(model.assess_states(static_model)))
-        print('overall MAE of param model: {} µW'.format(model.assess_states(param_model)))
-        print('overall MAE of LUT model: {} µW'.format(model.assess_states(lut_model)))
+        print('overall static/param/lut MAE assuming equal state distribution:')
+        print('    {:6.1f}  /  {:6.1f}  /  {:6.1f}  µW'.format(
+            model.assess_states(static_model),
+            model.assess_states(param_model),
+            model.assess_states(lut_model)))
+        print('overall static/param/lut MAE assuming 95% STANDBY1:')
+        distrib = {'STANDBY1': 0.95, 'POWERDOWN': 0.03, 'TX': 0.01, 'RX': 0.01}
+        print('    {:6.1f}  /  {:6.1f}  /  {:6.1f}  µW'.format(
+            model.assess_states(static_model, distribution=distrib),
+            model.assess_states(param_model, distribution=distrib),
+            model.assess_states(lut_model, distribution=distrib)))
+
     if 'summary' in show_quality or 'all' in show_quality:
         model_summary_table([model.assess_on_traces(static_model), model.assess_on_traces(param_model), model.assess_on_traces(lut_model)])
 
@@ -435,7 +451,6 @@ if __name__ == '__main__':
             sys.exit(1)
         json_model = model.to_json()
         with open(opts['export-energymodel'], 'w') as f:
-            json.dump(json_model, f, indent = 2, sort_keys = True)
-
+            json.dump(json_model, f, indent=2, sort_keys=True)
 
     sys.exit(0)
