@@ -22,18 +22,14 @@ Options:
 """
 
 import getopt
-import json
 import re
-import runner
 import sys
-import time
-import io
 import itertools
 import yaml
 from automata import PTA
-from codegen import *
-from harness import OnboardTimerHarness
+from codegen import get_simulated_accountingmethod
 from dfatool import regression_measures
+import numpy as np
 
 opt = dict()
 
@@ -64,16 +60,16 @@ if __name__ == '__main__':
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
 
         opt_default = {
-            'depth' : 3,
-            'sleep' : 0,
-            'timer-freq' : 1e6,
-            'timer-type' : 'uint16_t',
-            'timestamp-type' : 'uint16_t',
-            'energy-type' : 'uint32_t',
-            'power-type' : 'uint16_t',
-            'timestamp-granularity' : 1e-6,
-            'power-granularity' : 1e-6,
-            'energy-granularity' : 1e-12,
+            'depth': 3,
+            'sleep': 0,
+            'timer-freq': 1e6,
+            'timer-type': 'uint16_t',
+            'timestamp-type': 'uint16_t',
+            'energy-type': 'uint32_t',
+            'power-type': 'uint16_t',
+            'timestamp-granularity': 1e-6,
+            'power-granularity': 1e-6,
+            'energy-granularity': 1e-12,
         }
 
         for option, parameter in raw_opts:
@@ -121,7 +117,7 @@ if __name__ == '__main__':
 
     pta.set_random_energy_model()
 
-    runs = list(pta.dfs(opt['depth'], with_arguments = True, with_parameters = True, trace_filter = opt['trace-filter'], sleep = opt['sleep']))
+    runs = list(pta.dfs(opt['depth'], with_arguments=True, with_parameters=True, trace_filter=opt['trace-filter'], sleep=opt['sleep']))
 
     num_transitions = len(runs)
 
@@ -134,8 +130,8 @@ if __name__ == '__main__':
     model_energies = list()
     for run in runs:
         accounting_method = get_simulated_accountingmethod(opt['accounting'])(pta, opt['timer-freq'], opt['timer-type'], opt['timestamp-type'],
-            opt['power-type'], opt['energy-type'])
-        real_energy, real_duration, _, _ = pta.simulate(run, accounting = accounting_method)
+                                                                              opt['power-type'], opt['energy-type'])
+        real_energy, real_duration, _, _ = pta.simulate(run, accounting=accounting_method)
         model_energy = accounting_method.get_energy()
         real_energies.append(real_energy)
         real_durations.append(real_duration)
@@ -143,7 +139,6 @@ if __name__ == '__main__':
 
     measures = regression_measures(np.array(model_energies), np.array(real_energies))
     print('SMAPE {:.0f}%, MAE {}'.format(measures['smape'], measures['mae']))
-
 
     timer_freqs = [1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6, 2e6, 5e6]
     timer_types = timestamp_types = power_types = energy_types = 'uint8_t uint16_t uint32_t uint64_t'.split()
@@ -161,7 +156,7 @@ if __name__ == '__main__':
                 base_weight += 8
         return base_weight
 
-    #sys.exit(0)
+    # sys.exit(0)
 
     mean_errors = list()
     for timer_freq, timer_type, ts_type, power_type, energy_type in itertools.product(timer_freqs, timer_types, timestamp_types, power_types, energy_types):
@@ -171,10 +166,10 @@ if __name__ == '__main__':
         # duration in µs
         # Bei kurzer Dauer (z.B. nur [1e2]) performt auc uint32_t für Energie gut, sonst nicht so (weil overflow)
         for sleep_duration in [1e2, 1e3, 1e4, 1e5, 1e6]:
-            runs = pta.dfs(opt['depth'], with_arguments = True, with_parameters = True, trace_filter = opt['trace-filter'], sleep = sleep_duration)
+            runs = pta.dfs(opt['depth'], with_arguments=True, with_parameters=True, trace_filter=opt['trace-filter'], sleep=sleep_duration)
             for run in runs:
                 accounting_method = get_simulated_accountingmethod(opt['accounting'])(pta, timer_freq, timer_type, ts_type, power_type, energy_type)
-                real_energy, real_duration, _, _ = pta.simulate(run, accounting = accounting_method)
+                real_energy, real_duration, _, _ = pta.simulate(run, accounting=accounting_method)
                 model_energy = accounting_method.get_energy()
                 real_energies.append(real_energy)
                 real_durations.append(real_duration)
@@ -182,8 +177,8 @@ if __name__ == '__main__':
         measures = regression_measures(np.array(model_energies), np.array(real_energies))
         mean_errors.append(((timer_freq, timer_type, ts_type, power_type, energy_type), config_weight(timer_freq, timer_type, ts_type, power_type, energy_type), measures))
 
-    mean_errors.sort(key = lambda x: x[1])
-    mean_errors.sort(key = lambda x: x[2]['mae'])
+    mean_errors.sort(key=lambda x: x[1])
+    mean_errors.sort(key=lambda x: x[2]['mae'])
 
     for result in mean_errors:
         config, weight, measures = result

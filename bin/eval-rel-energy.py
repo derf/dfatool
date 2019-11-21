@@ -7,15 +7,17 @@ from dfatool import PTAModel, RawData, pta_trace_to_aggregate
 
 opts = {}
 
+
 def get_file_groups(args):
     groups = []
     index_low = 0
-    while ':' in args[index_low : ]:
-        index_high = args[index_low : ].index(':') + index_low
-        groups.append(args[index_low : index_high])
+    while ':' in args[index_low:]:
+        index_high = args[index_low:].index(':') + index_low
+        groups.append(args[index_low: index_high])
         index_low = index_high + 1
-    groups.append(args[index_low : ])
+    groups.append(args[index_low:])
     return groups
+
 
 if __name__ == '__main__':
 
@@ -72,14 +74,14 @@ if __name__ == '__main__':
         print('{}:'.format(' '.join(file_group)))
         raw_data = RawData(file_group)
 
-        preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
+        preprocessed_data = raw_data.get_preprocessed_data(verbose=False)
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data, ignored_trace_indexes)
         model = PTAModel(by_name, parameters, arg_count,
-            traces = preprocessed_data,
-            ignore_trace_indexes = ignored_trace_indexes,
-            discard_outliers = discard_outliers,
-            function_override = function_override,
-            verbose = False)
+                         traces=preprocessed_data,
+                         ignore_trace_indexes=ignored_trace_indexes,
+                         discard_outliers=discard_outliers,
+                         function_override=function_override,
+                         verbose=False)
 
         lut_quality = model.assess(model.get_param_lut())
 

@@ -9,11 +9,9 @@ import re
 from scipy import optimize
 from sklearn.metrics import r2_score
 import struct
-import sys
 import tarfile
 import hashlib
 from multiprocessing import Pool
-from automata import PTA
 from functions import analytic
 from functions import AnalyticFunction
 from parameters import ParamStats
@@ -29,6 +27,7 @@ except ImportError:
 
 
 arg_support_enabled = True
+
 
 def running_mean(x: np.ndarray, N: int) -> np.ndarray:
     """
@@ -59,13 +58,13 @@ def gplearn_to_function(function_str: str):
     inv  --  1 / x if |x| > 0.001, otherwise 0
     """
     eval_globals = {
-        'add' : lambda x, y : x + y,
-        'sub' : lambda x, y : x - y,
-        'mul' : lambda x, y : x * y,
-        'div' : lambda x, y : np.divide(x, y) if np.abs(y) > 0.001 else 1.,
-        'sqrt': lambda x : np.sqrt(np.abs(x)),
-        'log' : lambda x : np.log(np.abs(x)) if np.abs(x) > 0.001 else 0.,
-        'inv' : lambda x : 1. / x if np.abs(x) > 0.001 else 0.,
+        'add': lambda x, y: x + y,
+        'sub': lambda x, y: x - y,
+        'mul': lambda x, y: x * y,
+        'div': lambda x, y: np.divide(x, y) if np.abs(y) > 0.001 else 1.,
+        'sqrt': lambda x: np.sqrt(np.abs(x)),
+        'log': lambda x: np.log(np.abs(x)) if np.abs(x) > 0.001 else 0.,
+        'inv': lambda x: 1. / x if np.abs(x) > 0.001 else 0.,
     }
 
     last_arg_index = 0
@@ -74,17 +73,19 @@ def gplearn_to_function(function_str: str):
             last_arg_index = i
 
     arg_list = []
-    for i in range(0, last_arg_index+1):
+    for i in range(0, last_arg_index + 1):
         arg_list.append('X{:d}'.format(i))
 
     eval_str = 'lambda {}, *whatever: {}'.format(','.join(arg_list), function_str)
     print(eval_str)
     return eval(eval_str, eval_globals)
 
+
 def append_if_set(aggregate: dict, data: dict, key: str):
     """Append data[key] to aggregate if key in data."""
     if key in data:
         aggregate.append(data[key])
+
 
 def mean_or_none(arr):
     """
@@ -95,6 +96,7 @@ def mean_or_none(arr):
     if len(arr):
         return np.mean(arr)
     return -1
+
 
 def aggregate_measures(aggregate: float, actual: list) -> dict:
     """
@@ -109,6 +111,7 @@ def aggregate_measures(aggregate: float, actual: list) -> dict:
     """
     aggregate_array = np.array([aggregate] * len(actual))
     return regression_measures(aggregate_array, np.array(actual))
+
 
 def regression_measures(predicted: np.ndarray, actual: np.ndarray):
     """
@@ -135,32 +138,33 @@ def regression_measures(predicted: np.ndarray, actual: np.ndarray):
     if type(actual) != np.ndarray:
         raise ValueError('second arg must be ndarray, is {}'.format(type(actual)))
     deviations = predicted - actual
-    #mean = np.mean(actual)
+    # mean = np.mean(actual)
     if len(deviations) == 0:
         return {}
     measures = {
-        'mae' : np.mean(np.abs(deviations), dtype=np.float64),
-        'msd' : np.mean(deviations**2, dtype=np.float64),
-        'rmsd' : np.sqrt(np.mean(deviations**2), dtype=np.float64),
-        'ssr' : np.sum(deviations**2, dtype=np.float64),
-        'rsq' : r2_score(actual, predicted),
-        'count' : len(actual),
+        'mae': np.mean(np.abs(deviations), dtype=np.float64),
+        'msd': np.mean(deviations**2, dtype=np.float64),
+        'rmsd': np.sqrt(np.mean(deviations**2), dtype=np.float64),
+        'ssr': np.sum(deviations**2, dtype=np.float64),
+        'rsq': r2_score(actual, predicted),
+        'count': len(actual),
     }
 
-    #rsq_quotient = np.sum((actual - mean)**2, dtype=np.float64) * np.sum((predicted - mean)**2, dtype=np.float64)
+    # rsq_quotient = np.sum((actual - mean)**2, dtype=np.float64) * np.sum((predicted - mean)**2, dtype=np.float64)
 
     if np.all(actual != 0):
-        measures['mape'] = np.mean(np.abs(deviations / actual)) * 100 # bad measure
+        measures['mape'] = np.mean(np.abs(deviations / actual)) * 100  # bad measure
     else:
         measures['mape'] = np.nan
     if np.all(np.abs(predicted) + np.abs(actual) != 0):
-        measures['smape'] = np.mean(np.abs(deviations) / (( np.abs(predicted) + np.abs(actual)) / 2 )) * 100
+        measures['smape'] = np.mean(np.abs(deviations) / ((np.abs(predicted) + np.abs(actual)) / 2)) * 100
     else:
         measures['smape'] = np.nan
-    #if np.all(rsq_quotient != 0):
+    # if np.all(rsq_quotient != 0):
     #    measures['rsq'] = (np.sum((actual - mean) * (predicted - mean), dtype=np.float64)**2) / rsq_quotient
 
     return measures
+
 
 class KeysightCSV:
     """Simple loader for Keysight CSV data, as exported by the windows software."""
@@ -178,8 +182,8 @@ class KeysightCSV:
         with open(filename) as f:
             for i, _ in enumerate(f):
                 pass
-            timestamps = np.ndarray((i-3), dtype=float)
-            currents = np.ndarray((i-3), dtype=float)
+            timestamps = np.ndarray((i - 3), dtype=float)
+            currents = np.ndarray((i - 3), dtype=float)
         # basically seek back to start
         with open(filename) as f:
             for _ in range(4):
@@ -200,12 +204,14 @@ def _xv_partitions_kfold(length, num_slices):
         pairs.append((training, validation))
     return pairs
 
+
 def _xv_partition_montecarlo(length):
     shuffled = np.random.permutation(np.arange(length))
     border = int(length * float(2) / 3)
     training = shuffled[:border]
     validation = shuffled[border:]
     return (training, validation)
+
 
 class CrossValidator:
     """
@@ -240,7 +246,7 @@ class CrossValidator:
         self.parameters = sorted(parameters)
         self.arg_count = arg_count
 
-    def montecarlo(self, model_getter, count = 200):
+    def montecarlo(self, model_getter, count=200):
         """
         Perform Monte Carlo cross-validation and return average model quality.
 
@@ -272,7 +278,7 @@ class CrossValidator:
         }
         """
         ret = {
-            'by_name' : dict()
+            'by_name': dict()
         }
 
         for name in self.names:
@@ -302,10 +308,10 @@ class CrossValidator:
         validation = dict()
         for name in self.names:
             training[name] = {
-                'attributes' : self.by_name[name]['attributes']
+                'attributes': self.by_name[name]['attributes']
             }
             validation[name] = {
-                'attributes' : self.by_name[name]['attributes']
+                'attributes': self.by_name[name]['attributes']
             }
 
             if 'isa' in self.by_name[name]:
@@ -328,9 +334,9 @@ class CrossValidator:
             for idx in validation_subset:
                 validation[name]['param'].append(self.by_name[name]['param'][idx])
 
-        training_data = self.model_class(training, self.parameters, self.arg_count, verbose = False)
+        training_data = self.model_class(training, self.parameters, self.arg_count, verbose=False)
         training_model = model_getter(training_data)
-        validation_data = self.model_class(validation, self.parameters, self.arg_count, verbose = False)
+        validation_data = self.model_class(validation, self.parameters, self.arg_count, verbose=False)
 
         return validation_data.assess(training_model)
 
@@ -348,12 +354,12 @@ def _preprocess_mimosa(measurement):
     if len(trigidx) == 0:
         mim.errors.append('MIMOSA log has no triggers')
         return {
-            'fileno' : measurement['fileno'],
-            'info' : measurement['info'],
-            'has_datasource_error' : len(mim.errors) > 0,
-            'datasource_errors' : mim.errors,
-            'expected_trace' : measurement['expected_trace'],
-            'repeat_id' : measurement['repeat_id'],
+            'fileno': measurement['fileno'],
+            'info': measurement['info'],
+            'has_datasource_error': len(mim.errors) > 0,
+            'datasource_errors': mim.errors,
+            'expected_trace': measurement['expected_trace'],
+            'repeat_id': measurement['repeat_id'],
         }
 
     cal_edges = mim.calibration_edges(running_mean(mim.currents_nocal(charges[0:trigidx[0]]), 10))
@@ -361,14 +367,14 @@ def _preprocess_mimosa(measurement):
     vcalfunc = np.vectorize(calfunc, otypes=[np.float64])
 
     processed_data = {
-        'fileno' : measurement['fileno'],
-        'info' : measurement['info'],
-        'triggers' : len(trigidx),
-        'first_trig' : trigidx[0] * 10,
-        'calibration' : caldata,
-        'energy_trace' : mim.analyze_states(charges, trigidx, vcalfunc),
-        'has_datasource_error' : len(mim.errors) > 0,
-        'datasource_errors' : mim.errors,
+        'fileno': measurement['fileno'],
+        'info': measurement['info'],
+        'triggers': len(trigidx),
+        'first_trig': trigidx[0] * 10,
+        'calibration': caldata,
+        'energy_trace': mim.analyze_states(charges, trigidx, vcalfunc),
+        'has_datasource_error': len(mim.errors) > 0,
+        'datasource_errors': mim.errors,
     }
 
     for key in ['expected_trace', 'repeat_id']:
@@ -376,6 +382,7 @@ def _preprocess_mimosa(measurement):
             processed_data[key] = measurement[key]
 
     return processed_data
+
 
 def _preprocess_etlog(measurement):
     setup = measurement['setup']
@@ -385,19 +392,19 @@ def _preprocess_etlog(measurement):
         states_and_transitions = etlog.analyze_states(measurement['expected_trace'], measurement['repeat_id'])
     except EOFError as e:
         etlog.errors.append('EnergyTrace logfile error: {}'.format(e))
-        trigidx = list()
 
     processed_data = {
-        'fileno' : measurement['fileno'],
-        'repeat_id' : measurement['repeat_id'],
-        'info' : measurement['info'],
-        'expected_trace' : measurement['expected_trace'],
-        'energy_trace' : states_and_transitions,
-        'has_datasource_error' : len(etlog.errors) > 0,
-        'datasource_errors' : etlog.errors,
+        'fileno': measurement['fileno'],
+        'repeat_id': measurement['repeat_id'],
+        'info': measurement['info'],
+        'expected_trace': measurement['expected_trace'],
+        'energy_trace': states_and_transitions,
+        'has_datasource_error': len(etlog.errors) > 0,
+        'datasource_errors': etlog.errors,
     }
 
     return processed_data
+
 
 class TimingData:
     """
@@ -427,7 +434,7 @@ class TimingData:
                 # TimingHarness logs states, but does not aggregate any data for them at the moment -> throw all states away
                 transitions = list(filter(lambda x: x['isa'] == 'transition', trace['trace']))
                 self.traces.append({
-                    'id' : trace['id'],
+                    'id': trace['id'],
                     'trace': transitions,
                 })
         for i, trace in enumerate(self.traces):
@@ -435,7 +442,7 @@ class TimingData:
             trace['id'] = i
             for log_entry in trace['trace']:
                 paramkeys = sorted(log_entry['parameter'].keys())
-                if not 'param' in log_entry['offline_aggregates']:
+                if 'param' not in log_entry['offline_aggregates']:
                     log_entry['offline_aggregates']['param'] = list()
                 if 'duration' in log_entry['offline_aggregates']:
                     for i in range(len(log_entry['offline_aggregates']['duration'])):
@@ -456,7 +463,7 @@ class TimingData:
                 self.traces_by_fileno.extend(log_data['traces'])
         self._concatenate_analyzed_traces()
 
-    def get_preprocessed_data(self, verbose = True):
+    def get_preprocessed_data(self, verbose=True):
         """
         Return a list of DFA traces annotated with timing and parameter data.
 
@@ -471,14 +478,15 @@ class TimingData:
         self.preprocessed = True
         return self.traces
 
+
 def sanity_check_aggregate(aggregate):
     for key in aggregate:
-        if not 'param' in aggregate[key]:
+        if 'param' not in aggregate[key]:
             raise RuntimeError('aggregate[{}][param] does not exist'.format(key))
-        if not 'attributes' in aggregate[key]:
+        if 'attributes' not in aggregate[key]:
             raise RuntimeError('aggregate[{}][attributes] does not exist'.format(key))
         for attribute in aggregate[key]['attributes']:
-            if not attribute in aggregate[key]:
+            if attribute not in aggregate[key]:
                 raise RuntimeError('aggregate[{}][{}] does not exist, even though it is contained in aggregate[{}][attributes]'.format(key, attribute, key))
             param_len = len(aggregate[key]['param'])
             attr_len = len(aggregate[key][attribute])
@@ -586,8 +594,8 @@ class RawData:
             pass
         with open(self.cache_file, 'w') as f:
             cache_data = {
-                'traces' : self.traces,
-                'preprocessing_stats' : self.preprocessing_stats
+                'traces': self.traces,
+                'preprocessing_stats': self.preprocessing_stats
             }
             json.dump(cache_data, f)
 
@@ -630,8 +638,6 @@ class RawData:
             - W_mean_delta_prev: Differenz zwischen W_mean und W_mean des vorherigen Zustands
             - W_mean_delta_next: Differenz zwischen W_mean und W_mean des Folgezustands
         """
-        setup = self.setup_by_fileno[processed_data['fileno']]
-        traces = processed_data['expected_trace']
 
         # Check for low-level parser errors
         if processed_data['has_datasource_error']:
@@ -690,8 +696,8 @@ class RawData:
             sched_trigger_count += len(run['trace'])
         if sched_trigger_count != processed_data['triggers']:
             processed_data['error'] = 'got {got:d} trigger edges, expected {exp:d}'.format(
-                    got = processed_data['triggers'],
-                    exp = sched_trigger_count
+                got=processed_data['triggers'],
+                exp=sched_trigger_count
             )
             return False
         # Check state durations. Very short or long states can indicate a
@@ -706,56 +712,55 @@ class RawData:
             offline_trace_part = processed_data['energy_trace'][offline_idx]
             online_trace_part = traces[online_run_idx]['trace'][online_trace_part_idx]
 
-            if self._parameter_names == None:
+            if self._parameter_names is None:
                 self._parameter_names = sorted(online_trace_part['parameter'].keys())
 
             if sorted(online_trace_part['parameter'].keys()) != self._parameter_names:
                 processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) has inconsistent parameter set: should be {param_want:s}, is {param_is:s}'.format(
-                    off_idx = offline_idx, on_idx = online_run_idx,
-                    on_sub = online_trace_part_idx,
-                    on_name = online_trace_part['name'],
-                    param_want = self._parameter_names,
-                    param_is = sorted(online_trace_part['parameter'].keys())
+                    off_idx=offline_idx, on_idx=online_run_idx,
+                    on_sub=online_trace_part_idx,
+                    on_name=online_trace_part['name'],
+                    param_want=self._parameter_names,
+                    param_is=sorted(online_trace_part['parameter'].keys())
                 )
 
             if online_trace_part['isa'] != offline_trace_part['isa']:
                 processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) claims to be {off_isa:s}, but should be {on_isa:s}'.format(
-                        off_idx = offline_idx, on_idx = online_run_idx,
-                        on_sub = online_trace_part_idx,
-                        on_name = online_trace_part['name'],
-                        off_isa = offline_trace_part['isa'],
-                        on_isa = online_trace_part['isa'])
+                    off_idx=offline_idx, on_idx=online_run_idx,
+                    on_sub=online_trace_part_idx,
+                    on_name=online_trace_part['name'],
+                    off_isa=offline_trace_part['isa'],
+                    on_isa=online_trace_part['isa'])
                 return False
 
             # Clipping in UNINITIALIZED (offline_idx == 0) can happen during
             # calibration and is handled by MIMOSA
             if offline_idx != 0 and offline_trace_part['clip_rate'] != 0 and not self.ignore_clipping:
                 processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) was clipping {clip:f}% of the time'.format(
-                    off_idx = offline_idx, on_idx = online_run_idx,
-                    on_sub = online_trace_part_idx,
-                    on_name = online_trace_part['name'],
-                    clip = offline_trace_part['clip_rate'] * 100,
+                    off_idx=offline_idx, on_idx=online_run_idx,
+                    on_sub=online_trace_part_idx,
+                    on_name=online_trace_part['name'],
+                    clip=offline_trace_part['clip_rate'] * 100,
                 )
                 return False
 
-
-            if online_trace_part['isa'] == 'state' and online_trace_part['name'] != 'UNINITIALIZED' and len(traces[online_run_idx]['trace']) > online_trace_part_idx+1:
-                online_prev_transition = traces[online_run_idx]['trace'][online_trace_part_idx-1]
-                online_next_transition = traces[online_run_idx]['trace'][online_trace_part_idx+1]
+            if online_trace_part['isa'] == 'state' and online_trace_part['name'] != 'UNINITIALIZED' and len(traces[online_run_idx]['trace']) > online_trace_part_idx + 1:
+                online_prev_transition = traces[online_run_idx]['trace'][online_trace_part_idx - 1]
+                online_next_transition = traces[online_run_idx]['trace'][online_trace_part_idx + 1]
                 try:
                     if self._state_is_too_short(online_trace_part, offline_trace_part, state_duration, online_next_transition):
                         processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too short (duration = {dur:d} us)'.format(
-                            off_idx = offline_idx, on_idx = online_run_idx,
-                            on_sub = online_trace_part_idx,
-                            on_name = online_trace_part['name'],
-                            dur = offline_trace_part['us'])
+                            off_idx=offline_idx, on_idx=online_run_idx,
+                            on_sub=online_trace_part_idx,
+                            on_name=online_trace_part['name'],
+                            dur=offline_trace_part['us'])
                         return False
                     if self._state_is_too_long(online_trace_part, offline_trace_part, state_duration, online_prev_transition):
                         processed_data['error'] = 'Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too long (duration = {dur:d} us)'.format(
-                            off_idx = offline_idx, on_idx = online_run_idx,
-                            on_sub = online_trace_part_idx,
-                            on_name = online_trace_part['name'],
-                            dur = offline_trace_part['us'])
+                            off_idx=offline_idx, on_idx=online_run_idx,
+                            on_sub=online_trace_part_idx,
+                            on_name=online_trace_part['name'],
+                            dur=offline_trace_part['us'])
                         return False
                 except KeyError:
                     pass
@@ -781,7 +786,7 @@ class RawData:
             offline_trace_part = measurement['energy_trace'][offline_idx]
             online_trace_part = traces[online_run_idx]['trace'][online_trace_part_idx]
 
-            if not 'offline' in online_trace_part:
+            if 'offline' not in online_trace_part:
                 online_trace_part['offline'] = [offline_trace_part]
             else:
                 online_trace_part['offline'].append(offline_trace_part)
@@ -802,14 +807,14 @@ class RawData:
             if arg_support_enabled and 'args' in online_trace_part:
                 paramvalues.extend(map(soft_cast_int, online_trace_part['args']))
 
-            if not 'offline_aggregates' in online_trace_part:
+            if 'offline_aggregates' not in online_trace_part:
                 online_trace_part['offline_attributes'] = ['power', 'duration', 'energy']
                 online_trace_part['offline_aggregates'] = {
-                    'power' : [],
-                    'duration' : [],
-                    'power_std' : [],
-                    'energy' : [],
-                    'paramkeys' : [],
+                    'power': [],
+                    'duration': [],
+                    'power_std': [],
+                    'energy': [],
+                    'paramkeys': [],
                     'param': [],
                 }
                 if online_trace_part['isa'] == 'transition':
@@ -853,7 +858,7 @@ class RawData:
             offline_trace_part = measurement['energy_trace'][offline_idx]
             online_trace_part = traces[online_run_idx]['trace'][online_trace_part_idx]
 
-            if not 'offline' in online_trace_part:
+            if 'offline' not in online_trace_part:
                 online_trace_part['offline'] = [offline_trace_part]
             else:
                 online_trace_part['offline'].append(offline_trace_part)
@@ -876,18 +881,18 @@ class RawData:
 
             if 'offline_aggregates' not in online_trace_part:
                 online_trace_part['offline_aggregates'] = {
-                    'offline_attributes' : ['power', 'duration', 'energy'],
-                    'duration' : list(),
-                    'power' : list(),
-                    'power_std' : list(),
-                    'energy' : list(),
-                    'paramkeys' : list(),
-                    'param' : list()
+                    'offline_attributes': ['power', 'duration', 'energy'],
+                    'duration': list(),
+                    'power': list(),
+                    'power_std': list(),
+                    'energy': list(),
+                    'paramkeys': list(),
+                    'param': list()
                 }
 
             offline_aggregates = online_trace_part['offline_aggregates']
 
-            #if online_trace_part['isa'] == 'transitions':
+            # if online_trace_part['isa'] == 'transitions':
             #    online_trace_part['offline_attributes'].extend(['rel_energy_prev', 'rel_energy_next'])
             #    offline_aggregates['rel_energy_prev'] = list()
             #    offline_aggregates['rel_energy_next'] = list()
@@ -899,10 +904,9 @@ class RawData:
             offline_aggregates['paramkeys'].append(paramkeys)
             offline_aggregates['param'].append(paramvalues)
 
-            #if online_trace_part['isa'] == 'transition':
+            # if online_trace_part['isa'] == 'transition':
             #    offline_aggregates['rel_energy_prev'].append(offline_trace_part['W_mean_delta_prev'] * offline_trace_part['s'] * 1e12)
             #    offline_aggregates['rel_energy_next'].append(offline_trace_part['W_mean_delta_next'] * offline_trace_part['s'] * 1e12)
-
 
     def _concatenate_traces(self, list_of_traces):
         trace_output = list()
@@ -913,7 +917,7 @@ class RawData:
             trace['id'] = i
         return trace_output
 
-    def get_preprocessed_data(self, verbose = True):
+    def get_preprocessed_data(self, verbose=True):
         """
         Return a list of DFA traces annotated with energy, timing, and parameter data.
 
@@ -953,7 +957,7 @@ class RawData:
            If isa == transition, it contains power, duration, energy, rel_energy_prev, rel_energy_next, timeout
          * `online`: List of online estimations for this state/transition. Each entry contains a result for this state/transition during one benchmark execution.
           Entry contents for isa == state:
-            - `time`: state/transition 
+            - `time`: state/transition
           Entry contents for isa == transition:
             - `timeout`: Duration of previous state, measured using on-board timers
          * `parameter`: dictionary describing parameter values for this state/transition. Parameter values refer to the begin of the state/transition and do not account for changes made by the transition.
@@ -992,10 +996,10 @@ class RawData:
                         _, extension = os.path.splitext(member.name)
                         if extension == '.mim':
                             offline_data.append({
-                                'content' : tf.extractfile(member).read(),
-                                'fileno' : i,
-                                'info' : member,
-                                'setup' : self.setup_by_fileno[i],
+                                'content': tf.extractfile(member).read(),
+                                'fileno': i,
+                                'info': member,
+                                'setup': self.setup_by_fileno[i],
                             })
 
             elif version == 1:
@@ -1031,19 +1035,19 @@ class RawData:
                         new_filenames.append('{}#{}'.format(filename, j))
                         self.traces_by_fileno.append(traces)
                         self.setup_by_fileno.append({
-                            'mimosa_voltage' : ptalog['configs'][j]['voltage'],
-                            'mimosa_shunt' : ptalog['configs'][j]['shunt'],
-                            'state_duration' : ptalog['opt']['sleep'],
+                            'mimosa_voltage': ptalog['configs'][j]['voltage'],
+                            'mimosa_shunt': ptalog['configs'][j]['shunt'],
+                            'state_duration': ptalog['opt']['sleep'],
                         })
                         for repeat_id, mim_file in enumerate(ptalog['files'][j]):
                             member = tf.getmember(mim_file)
                             offline_data.append({
-                                'content' : tf.extractfile(member).read(),
-                                'fileno' : j,
-                                'info' : member,
-                                'setup' : self.setup_by_fileno[j],
-                                'repeat_id' : repeat_id,
-                                'expected_trace' : ptalog['traces'][j],
+                                'content': tf.extractfile(member).read(),
+                                'fileno': j,
+                                'info': member,
+                                'setup': self.setup_by_fileno[j],
+                                'repeat_id': repeat_id,
+                                'expected_trace': ptalog['traces'][j],
                             })
                 self.filenames = new_filenames
 
@@ -1097,19 +1101,19 @@ class RawData:
                         new_filenames.append('{}#{}'.format(filename, j))
                         self.traces_by_fileno.append(traces)
                         self.setup_by_fileno.append({
-                            'voltage' : ptalog['configs'][j]['voltage'],
-                            'state_duration' : ptalog['opt']['sleep'],
+                            'voltage': ptalog['configs'][j]['voltage'],
+                            'state_duration': ptalog['opt']['sleep'],
                         })
                         for repeat_id, etlog_file in enumerate(ptalog['files'][j]):
                             member = tf.getmember(etlog_file)
                             offline_data.append({
-                                'content' : tf.extractfile(member).read(),
-                                'fileno' : j,
-                                'info' : member,
-                                'setup' : self.setup_by_fileno[j],
-                                'repeat_id' : repeat_id,
-                                'expected_trace' : ptalog['traces'][j],
-                                'transition_names' : list(map(lambda x: x['name'], ptalog['pta']['transitions']))
+                                'content': tf.extractfile(member).read(),
+                                'fileno': j,
+                                'info': member,
+                                'setup': self.setup_by_fileno[j],
+                                'repeat_id': repeat_id,
+                                'expected_trace': ptalog['traces'][j],
+                                'transition_names': list(map(lambda x: x['name'], ptalog['pta']['transitions']))
                             })
                 self.filenames = new_filenames
                 # TODO remove 'offline_aggregates' from pre-parse data and place
@@ -1125,27 +1129,22 @@ class RawData:
                 measurements = pool.map(_preprocess_etlog, offline_data)
 
         num_valid = 0
-        valid_traces = list()
         for measurement in measurements:
 
-            if not 'energy_trace' in measurement:
+            if 'energy_trace' not in measurement:
                 vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
-                    ar = self.filenames[measurement['fileno']],
-                    m = measurement['info'].name,
-                    e = '; '.join(measurement['datasource_errors'])))
+                    ar=self.filenames[measurement['fileno']],
+                    m=measurement['info'].name,
+                    e='; '.join(measurement['datasource_errors'])))
                 continue
 
             if version == 0:
                 # Strip the last state (it is not part of the scheduled measurement)
                 measurement['energy_trace'].pop()
-                repeat = 0
             elif version == 1:
                 # The first online measurement is the UNINITIALIZED state. In v1,
                 # it is not part of the expected PTA trace -> remove it.
                 measurement['energy_trace'].pop(0)
-                repeat = ptalog['opt']['repeat']
-            elif version == 2:
-                repeat = ptalog['opt']['repeat']
 
             if version == 0 or version == 1:
                 if self._measurement_is_valid_01(measurement):
@@ -1153,21 +1152,21 @@ class RawData:
                     num_valid += 1
                 else:
                     vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
-                        ar = self.filenames[measurement['fileno']],
-                        m = measurement['info'].name,
-                        e = measurement['error']))
+                        ar=self.filenames[measurement['fileno']],
+                        m=measurement['info'].name,
+                        e=measurement['error']))
             elif version == 2:
                 if self._measurement_is_valid_2(measurement):
                     self._merge_online_and_etlog(measurement)
                     num_valid += 1
                 else:
                     vprint(self.verbose, '[W] Skipping {ar:s}/{m:s}: {e:s}'.format(
-                        ar = self.filenames[measurement['fileno']],
-                        m = measurement['info'].name,
-                        e = measurement['error']))
+                        ar=self.filenames[measurement['fileno']],
+                        m=measurement['info'].name,
+                        e=measurement['error']))
         vprint(self.verbose, '[I] {num_valid:d}/{num_total:d} measurements are valid'.format(
-            num_valid = num_valid,
-            num_total = len(measurements)))
+            num_valid=num_valid,
+            num_total=len(measurements)))
         if version == 0:
             self.traces = self._concatenate_traces(self.traces_by_fileno)
         elif version == 1:
@@ -1176,9 +1175,10 @@ class RawData:
         elif version == 2:
             self.traces = self._concatenate_traces(self.traces_by_fileno)
         self.preprocessing_stats = {
-            'num_runs' : len(measurements),
-            'num_valid' : num_valid
+            'num_runs': len(measurements),
+            'num_valid': num_valid
         }
+
 
 class ParallelParamFit:
     """
@@ -1193,15 +1193,15 @@ class ParallelParamFit:
         self.fit_queue = []
         self.by_param = by_param
 
-    def enqueue(self, state_or_tran, attribute, param_index, param_name, safe_functions_enabled = False, param_filter = None):
+    def enqueue(self, state_or_tran, attribute, param_index, param_name, safe_functions_enabled=False, param_filter=None):
         """
         Add state_or_tran/attribute/param_name to fit queue.
 
         This causes fit() to compute the best-fitting function for this model part.
         """
         self.fit_queue.append({
-            'key' : [state_or_tran, attribute, param_name, param_filter],
-            'args' : [self.by_param, state_or_tran, attribute, param_index, safe_functions_enabled, param_filter]
+            'key': [state_or_tran, attribute, param_name, param_filter],
+            'args': [self.by_param, state_or_tran, attribute, param_index, safe_functions_enabled, param_filter]
         })
 
     def fit(self):
@@ -1215,6 +1215,7 @@ class ParallelParamFit:
         with Pool() as pool:
             self.results = pool.map(_try_fits_parallel, self.fit_queue)
 
+
 def _try_fits_parallel(arg):
     """
     Call _try_fits(*arg['args']) and return arg['key'] and the _try_fits result.
@@ -1222,11 +1223,12 @@ def _try_fits_parallel(arg):
     Must be a global function as it is called from a multiprocessing Pool.
     """
     return {
-        'key' : arg['key'],
-        'result' : _try_fits(*arg['args'])
+        'key': arg['key'],
+        'result': _try_fits(*arg['args'])
     }
 
-def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functions_enabled = False, param_filter: dict = None):
+
+def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functions_enabled=False, param_filter: dict = None):
     """
     Determine goodness-of-fit for prediction of `by_param[(state_or_tran, *)][model_attribute]` dependence on `param_index` using various functions.
 
@@ -1250,13 +1252,13 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
 
     :param model_attribute: attribute for which goodness-of-fit will be calculated.
     Example: `'bar'`
-    
+
     :param param_index: index of the parameter used as model input
     :param safe_functions_enabled: Include "safe" variants of functions with limited argument range.
     :param param_filter: Only use measurements whose parameters match param_filter for fitting.
     """
 
-    functions = analytic.functions(safe_functions_enabled = safe_functions_enabled)
+    functions = analytic.functions(safe_functions_enabled=safe_functions_enabled)
 
     for param_key in filter(lambda x: x[0] == state_or_tran, by_param.keys()):
         # We might remove elements from 'functions' while iterating over
@@ -1271,8 +1273,8 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
     raw_results = dict()
     raw_results_by_param = dict()
     ref_results = {
-        'mean' : list(),
-        'median' : list()
+        'mean': list(),
+        'median': list()
     }
     results = dict()
     results_by_param = dict()
@@ -1305,17 +1307,17 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
             raw_results_by_param[other_parameters] = dict()
             results_by_param[other_parameters] = dict()
             for function_name, param_function in functions.items():
-                if not function_name in raw_results:
+                if function_name not in raw_results:
                     raw_results[function_name] = dict()
                 error_function = param_function.error_function
                 res = optimize.least_squares(error_function, [0, 1], args=(X, Y), xtol=2e-15)
                 measures = regression_measures(param_function.eval(res.x, X), Y)
                 raw_results_by_param[other_parameters][function_name] = measures
                 for measure, error_rate in measures.items():
-                    if not measure in raw_results[function_name]:
+                    if measure not in raw_results[function_name]:
                         raw_results[function_name][measure] = list()
                     raw_results[function_name][measure].append(error_rate)
-                #print(function_name, res, measures)
+                # print(function_name, res, measures)
             mean_measures = aggregate_measures(np.mean(Y), Y)
             ref_results['mean'].append(mean_measures['rmsd'])
             raw_results_by_param[other_parameters]['mean'] = mean_measures
@@ -1325,13 +1327,13 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
 
     if not len(ref_results['mean']):
         # Insufficient data for fitting
-        #print('[W] Insufficient data for fitting {}/{}/{}'.format(state_or_tran, model_attribute, param_index))
+        # print('[W] Insufficient data for fitting {}/{}/{}'.format(state_or_tran, model_attribute, param_index))
         return {
-            'best' : None,
-            'best_rmsd' : np.inf,
-            'results' : results
+            'best': None,
+            'best_rmsd': np.inf,
+            'results': results
         }
-    
+
     for other_parameter_combination, other_parameter_results in raw_results_by_param.items():
         best_fit_val = np.inf
         best_fit_name = None
@@ -1346,9 +1348,9 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
         results_by_param[other_parameter_combination] = {
             'best': best_fit_name,
             'best_rmsd': best_fit_val,
-            'mean_rmsd' : results['mean']['rmsd'],
-            'median_rmsd' : results['median']['rmsd'],
-            'results' : results
+            'mean_rmsd': results['mean']['rmsd'],
+            'median_rmsd': results['median']['rmsd'],
+            'results': results
         }
 
     best_fit_val = np.inf
@@ -1365,13 +1367,14 @@ def _try_fits(by_param, state_or_tran, model_attribute, param_index, safe_functi
                 best_fit_name = function_name
 
     return {
-        'best' : best_fit_name,
-        'best_rmsd' : best_fit_val,
-        'mean_rmsd' : np.mean(ref_results['mean']),
-        'median_rmsd' : np.mean(ref_results['median']),
-        'results' : results,
-        'results_by_other_param' : results_by_param
+        'best': best_fit_name,
+        'best_rmsd': best_fit_val,
+        'mean_rmsd': np.mean(ref_results['mean']),
+        'median_rmsd': np.mean(ref_results['median']),
+        'results': results,
+        'results_by_other_param': results_by_param
     }
+
 
 def _num_args_from_by_name(by_name):
     num_args = dict()
@@ -1380,7 +1383,8 @@ def _num_args_from_by_name(by_name):
             num_args[key] = len(value['args'][0])
     return num_args
 
-def get_fit_result(results, name, attribute, verbose = False, param_filter: dict = None):
+
+def get_fit_result(results, name, attribute, verbose=False, param_filter: dict = None):
     """
     Parse and sanitize fit results for state/transition/... 'name' and model attribute 'attribute'.
 
@@ -1390,12 +1394,12 @@ def get_fit_result(results, name, attribute, verbose = False, param_filter: dict
     :param name: state/transition/... name, e.g. 'TX'
     :param attribute: model attribute, e.g. 'duration'
     :param verbose: print debug message to stdout when deliberately not using a determined fit function
-    :param param_filter: 
+    :param param_filter:
     :returns: dict with fit result (see `_try_fits`) for each successfully fitted parameter. E.g. {'param 1': {'best' : 'function name', ...} }
     """
     fit_result = dict()
     for result in results:
-        if result['key'][0] == name and result['key'][1] == attribute and result['key'][3] == param_filter and result['result']['best'] != None: # dürfte an ['best'] != None liegen-> Fit für gefilterten Kram schlägt fehl?
+        if result['key'][0] == name and result['key'][1] == attribute and result['key'][3] == param_filter and result['result']['best'] is not None:  # dürfte an ['best'] != None liegen-> Fit für gefilterten Kram schlägt fehl?
             this_result = result['result']
             if this_result['best_rmsd'] >= min(this_result['mean_rmsd'], this_result['median_rmsd']):
                 vprint(verbose, '[I] Not modeling {} {} as function of {}: best ({:.0f}) is worse than ref ({:.0f}, {:.0f})'.format(
@@ -1409,6 +1413,7 @@ def get_fit_result(results, name, attribute, verbose = False, param_filter: dict
             else:
                 fit_result[result['key'][2]] = this_result
     return fit_result
+
 
 class AnalyticModel:
     u"""
@@ -1452,10 +1457,10 @@ class AnalyticModel:
     assess -- calculate model quality
     """
 
-    def __init__(self, by_name, parameters, arg_count = None, function_override = dict(), verbose = True, use_corrcoef = False):
+    def __init__(self, by_name, parameters, arg_count=None, function_override=dict(), verbose=True, use_corrcoef=False):
         """
         Create a new AnalyticModel and compute parameter statistics.
-        
+
         :param by_name: measurements aggregated by (function/state/...) name.
             Layout: dictionary with one key per name ('send', 'TX', ...) or
             one key per name and parameter combination
@@ -1502,7 +1507,7 @@ class AnalyticModel:
         if self._num_args is None:
             self._num_args = _num_args_from_by_name(by_name)
 
-        self.stats = ParamStats(self.by_name, self.by_param, self.parameters, self._num_args, verbose = verbose, use_corrcoef = use_corrcoef)
+        self.stats = ParamStats(self.by_name, self.by_param, self.parameters, self._num_args, verbose=verbose, use_corrcoef=use_corrcoef)
 
     def _get_model_from_dict(self, model_dict, model_function):
         model = {}
@@ -1545,7 +1550,7 @@ class AnalyticModel:
 
         return static_model_getter
 
-    def get_param_lut(self, fallback = False):
+    def get_param_lut(self, fallback=False):
         """
         Get parameter-look-up-table model function: name, attribute, parameter values -> model value.
 
@@ -1558,7 +1563,7 @@ class AnalyticModel:
         static_model = self._get_model_from_dict(self.by_name, np.median)
         lut_model = self._get_model_from_dict(self.by_param, np.median)
 
-        def lut_median_getter(name, key, param, arg = [], **kwargs):
+        def lut_median_getter(name, key, param, arg=[], **kwargs):
             param.extend(map(soft_cast_int, arg))
             try:
                 return lut_model[(name, tuple(param))][key]
@@ -1569,7 +1574,7 @@ class AnalyticModel:
 
         return lut_median_getter
 
-    def get_fitted(self, safe_functions_enabled = False):
+    def get_fitted(self, safe_functions_enabled=False):
         """
         Get paramete-aware model function and model information function.
 
@@ -1610,7 +1615,7 @@ class AnalyticModel:
                     if x.fit_success:
                         param_model[name][attribute] = {
                             'fit_result': fit_result,
-                            'function' : x
+                            'function': x
                         }
                 elif len(fit_result.keys()):
                     x = analytic.function_powerset(fit_result, self.parameters, num_args)
@@ -1619,7 +1624,7 @@ class AnalyticModel:
                     if x.fit_success:
                         param_model[name][attribute] = {
                             'fit_result': fit_result,
-                            'function' : x
+                            'function': x
                         }
 
         def model_getter(name, key, **kwargs):
@@ -1664,7 +1669,7 @@ class AnalyticModel:
                 detailed_results[name][attribute] = measures
 
         return {
-            'by_name' : detailed_results,
+            'by_name': detailed_results,
         }
 
     def to_json(self):
@@ -1675,9 +1680,9 @@ class AnalyticModel:
 def _add_trace_data_to_aggregate(aggregate, key, element):
     # Only cares about element['isa'], element['offline_aggregates'], and
     # element['plan']['level']
-    if not key in aggregate:
+    if key not in aggregate:
         aggregate[key] = {
-            'isa' : element['isa']
+            'isa': element['isa']
         }
         for datakey in element['offline_aggregates'].keys():
             aggregate[key][datakey] = []
@@ -1687,7 +1692,7 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
             # TODO do not hardcode values
             aggregate[key]['attributes'] = ['duration', 'energy', 'rel_energy_prev', 'rel_energy_next']
             # Uncomment this line if you also want to analyze mean transition power
-            #aggrgate[key]['attributes'].append('power')
+            # aggrgate[key]['attributes'].append('power')
             if 'plan' in element and element['plan']['level'] == 'epilogue':
                 aggregate[key]['attributes'].insert(0, 'timeout')
         attributes = aggregate[key]['attributes'].copy()
@@ -1698,7 +1703,7 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
         aggregate[key][datakey].extend(dataval)
 
 
-def pta_trace_to_aggregate(traces, ignore_trace_indexes = []):
+def pta_trace_to_aggregate(traces, ignore_trace_indexes=[]):
     u"""
     Convert preprocessed DFA traces from peripherals/drivers to by_name aggregate for PTAModel.
 
@@ -1761,8 +1766,8 @@ def pta_trace_to_aggregate(traces, ignore_trace_indexes = []):
                 if elem['name'] != 'UNINITIALIZED':
                     _add_trace_data_to_aggregate(by_name, elem['name'], elem)
     for elem in by_name.values():
-            for key in elem['attributes']:
-                elem[key] = np.array(elem[key])
+        for key in elem['attributes']:
+            elem[key] = np.array(elem[key])
     return by_name, parameter_names, arg_count
 
 
@@ -1798,7 +1803,7 @@ class PTAModel:
     - rel_energy_next: transition energy relative to next state mean power in pJ
     """
 
-    def __init__(self, by_name, parameters, arg_count, traces = [], ignore_trace_indexes = [], discard_outliers = None, function_override = {}, verbose = True, use_corrcoef = False, pta = None):
+    def __init__(self, by_name, parameters, arg_count, traces=[], ignore_trace_indexes=[], discard_outliers=None, function_override={}, verbose=True, use_corrcoef=False, pta=None):
         """
         Prepare a new PTA energy model.
 
@@ -1835,7 +1840,7 @@ class PTAModel:
         self._num_args = arg_count
         self._use_corrcoef = use_corrcoef
         self.traces = traces
-        self.stats = ParamStats(self.by_name, self.by_param, self._parameter_names, self._num_args, self._use_corrcoef, verbose = verbose)
+        self.stats = ParamStats(self.by_name, self.by_param, self._parameter_names, self._num_args, self._use_corrcoef, verbose=verbose)
         self.cache = {}
         np.seterr('raise')
         self._outlier_threshold = discard_outliers
@@ -1892,7 +1897,7 @@ class PTAModel:
 
         return static_model_getter
 
-    def get_param_lut(self, fallback = False):
+    def get_param_lut(self, fallback=False):
         """
         Get parameter-look-up-table model function: name, attribute, parameter values -> model value.
 
@@ -1905,7 +1910,7 @@ class PTAModel:
         static_model = self._get_model_from_dict(self.by_name, np.median)
         lut_model = self._get_model_from_dict(self.by_param, np.median)
 
-        def lut_median_getter(name, key, param, arg = [], **kwargs):
+        def lut_median_getter(name, key, param, arg=[], **kwargs):
             param.extend(map(soft_cast_int, arg))
             try:
                 return lut_model[(name, tuple(param))][key]
@@ -1926,7 +1931,7 @@ class PTAModel:
             return self._parameter_names[param_index]
         return str(param_index)
 
-    def get_fitted(self, safe_functions_enabled = False):
+    def get_fitted(self, safe_functions_enabled=False):
         """
         Get parameter-aware model function and model information function.
 
@@ -1974,7 +1979,7 @@ class PTAModel:
                     if x.fit_success:
                         param_model[state_or_tran][model_attribute] = {
                             'fit_result': fit_results,
-                            'function' : x
+                            'function': x
                         }
                 elif len(fit_results.keys()):
                     x = analytic.function_powerset(fit_results, self._parameter_names, num_args)
@@ -1982,7 +1987,7 @@ class PTAModel:
                     if x.fit_success:
                         param_model[state_or_tran][model_attribute] = {
                             'fit_result': fit_results,
-                            'function' : x
+                            'function': x
                         }
 
         def model_getter(name, key, **kwargs):
@@ -2053,10 +2058,10 @@ class PTAModel:
                 detailed_results[name][key] = measures
 
         return {
-            'by_name' : detailed_results
+            'by_name': detailed_results
         }
 
-    def assess_states(self, model_function, model_attribute = 'power', distribution: dict = None):
+    def assess_states(self, model_function, model_attribute='power', distribution: dict = None):
         """
         Calculate overall model error assuming equal distribution of states
         """
@@ -2065,20 +2070,19 @@ class PTAModel:
         model_quality = self.assess(model_function)
         num_states = len(self.states())
         if distribution is None:
-            distribution = dict(map(lambda x: [x, 1/num_states], self.states()))
+            distribution = dict(map(lambda x: [x, 1 / num_states], self.states()))
 
         if not np.isclose(sum(distribution.values()), 1):
             raise ValueError('distribution must be a probability distribution with sum 1')
 
-        total_value = None
-        try:
-            total_value = sum(map(lambda x: model_function(x, model_attribute) * distribution[x], self.states()))
-        except KeyError:
-            pass
+        # total_value = None
+        # try:
+        #     total_value = sum(map(lambda x: model_function(x, model_attribute) * distribution[x], self.states()))
+        # except KeyError:
+        #     pass
 
         total_error = np.sqrt(sum(map(lambda x: np.square(model_quality['by_name'][x][model_attribute]['mae'] * distribution[x]), self.states())))
         return total_error
-
 
     def assess_on_traces(self, model_function):
         """
@@ -2110,15 +2114,15 @@ class PTAModel:
                     real_timeout = 0.
                     for i, trace_part in enumerate(trace['trace']):
                         name = trace_part['name']
-                        prev_name = trace['trace'][i-1]['name']
+                        prev_name = trace['trace'][i - 1]['name']
                         isa = trace_part['isa']
                         if name != 'UNINITIALIZED':
                             try:
                                 param = trace_part['offline_aggregates']['param'][rep_id]
-                                prev_param = trace['trace'][i-1]['offline_aggregates']['param'][rep_id]
+                                prev_param = trace['trace'][i - 1]['offline_aggregates']['param'][rep_id]
                                 power = trace_part['offline'][rep_id]['uW_mean']
                                 duration = trace_part['offline'][rep_id]['us']
-                                prev_duration = trace['trace'][i-1]['offline'][rep_id]['us']
+                                prev_duration = trace['trace'][i - 1]['offline'][rep_id]['us']
                                 real_energy += power * duration
                                 if isa == 'state':
                                     model_energy += model_function(name, 'power', param=param) * duration
@@ -2149,12 +2153,13 @@ class PTAModel:
                     model_timeout_list.append(model_timeout)
 
         return {
-            'duration_by_trace' : regression_measures(np.array(model_duration_list), np.array(real_duration_list)),
-            'energy_by_trace' : regression_measures(np.array(model_energy_list), np.array(real_energy_list)),
-            'timeout_by_trace' : regression_measures(np.array(model_timeout_list), np.array(real_timeout_list)),
-            'rel_energy_by_trace' : regression_measures(np.array(model_rel_energy_list), np.array(real_energy_list)),
-            'state_energy_by_trace' : regression_measures(np.array(model_state_energy_list), np.array(real_energy_list)),
+            'duration_by_trace': regression_measures(np.array(model_duration_list), np.array(real_duration_list)),
+            'energy_by_trace': regression_measures(np.array(model_energy_list), np.array(real_energy_list)),
+            'timeout_by_trace': regression_measures(np.array(model_timeout_list), np.array(real_timeout_list)),
+            'rel_energy_by_trace': regression_measures(np.array(model_rel_energy_list), np.array(real_energy_list)),
+            'state_energy_by_trace': regression_measures(np.array(model_state_energy_list), np.array(real_energy_list)),
         }
+
 
 class EnergyTraceLog:
     """
@@ -2221,19 +2226,17 @@ class EnergyTraceLog:
             if len(fields) == 4:
                 timestamp, current, voltage, total_energy = map(int, fields)
             elif len(fields) == 5:
-                cpustate = fields[0]
+                # cpustate = fields[0]
                 timestamp, current, voltage, total_energy = map(int, fields[1:])
             else:
                 raise RuntimeError('cannot parse line "{}"'.format(line))
             data[i] = [timestamp, current, voltage, total_energy]
-
 
         self.interval_start_timestamp = data[:-1, 0] * 1e-6
         self.interval_duration = (data[1:, 0] - data[:-1, 0]) * 1e-6
         self.interval_power = ((data[1:, 3] - data[:-1, 3]) * 1e-9) / ((data[1:, 0] - data[:-1, 0]) * 1e-6)
 
         m_duration_us = data[-1, 0] - data[0, 0]
-        m_energy_nj = data[-1, 3] - data[0, 3]
 
         self.sample_rate = data_count / (m_duration_us * 1e-6)
 
@@ -2335,10 +2338,10 @@ class EnergyTraceLog:
 
             energy_trace.append({
                 'isa': 'transition',
-                'W_mean' : np.mean(self.interval_power[transition_start_index : transition_done_index]),
-                'W_std' : np.std(self.interval_power[transition_start_index : transition_done_index]),
-                's' : duration,
-                's_coarse' : self.interval_start_timestamp[transition_done_index] - self.interval_start_timestamp[transition_start_index]
+                'W_mean': np.mean(self.interval_power[transition_start_index: transition_done_index]),
+                'W_std': np.std(self.interval_power[transition_start_index: transition_done_index]),
+                's': duration,
+                's_coarse': self.interval_start_timestamp[transition_done_index] - self.interval_start_timestamp[transition_start_index]
 
             })
 
@@ -2347,10 +2350,10 @@ class EnergyTraceLog:
 
             energy_trace.append({
                 'isa': 'state',
-                'W_mean' : np.mean(self.interval_power[state_start_index : state_done_index]),
-                'W_std' : np.std(self.interval_power[state_start_index : state_done_index]),
-                's' : self.state_duration,
-                's_coarse' : self.interval_start_timestamp[state_done_index] - self.interval_start_timestamp[state_start_index]
+                'W_mean': np.mean(self.interval_power[state_start_index: state_done_index]),
+                'W_std': np.std(self.interval_power[state_start_index: state_done_index]),
+                's': self.state_duration,
+                's_coarse': self.interval_start_timestamp[state_done_index] - self.interval_start_timestamp[state_start_index]
             })
 
             energy_trace[-2]['W_mean_delta_next'] = energy_trace[-2]['W_mean'] - energy_trace[-1]['W_mean']
@@ -2365,7 +2368,7 @@ class EnergyTraceLog:
 
     def find_first_sync(self):
         # LED Power is approx. self.led_power W, use self.led_power/2 W above surrounding median as threshold
-        sync_threshold_power = np.median(self.interval_power[: int(3 * self.sample_rate)]) + self.led_power/3
+        sync_threshold_power = np.median(self.interval_power[: int(3 * self.sample_rate)]) + self.led_power / 3
         for i, ts in enumerate(self.interval_start_timestamp):
             if ts > 2 and self.interval_power[i] > sync_threshold_power:
                 return self.interval_start_timestamp[i - 300]
@@ -2388,9 +2391,8 @@ class EnergyTraceLog:
         # Lookaround: 100 ms in both directions
         lookaround = int(0.1 * self.sample_rate)
 
-
         # LED Power is approx. self.led_power W, use self.led_power/2 W above surrounding median as threshold
-        sync_threshold_power = np.median(self.interval_power[start_position - lookaround : start_position + lookaround]) + self.led_power/3
+        sync_threshold_power = np.median(self.interval_power[start_position - lookaround: start_position + lookaround]) + self.led_power / 3
 
         vprint(self.verbose, 'looking for barcode starting at {:0.2f} s, threshold is {:0.1f} mW'.format(start_ts, sync_threshold_power * 1e3))
 
@@ -2407,7 +2409,7 @@ class EnergyTraceLog:
                 sync_end_ts = ts
                 break
 
-        barcode_data = self.interval_power[sync_area_start : sync_area_end]
+        barcode_data = self.interval_power[sync_area_start: sync_area_end]
 
         vprint(self.verbose, 'barcode search area: {:0.2f} .. {:0.2f} seconds ({} samples)'.format(sync_start_ts, sync_end_ts, len(barcode_data)))
 
@@ -2446,8 +2448,8 @@ class EnergyTraceLog:
 
         image_data = bytes(map(int, image_data)) * height
 
-        #img = Image.frombytes('L', (width, height), image_data).resize((width, 100))
-        #img.save('/tmp/test-{}.png'.format(os.getpid()))
+        # img = Image.frombytes('L', (width, height), image_data).resize((width, 100))
+        # img.save('/tmp/test-{}.png'.format(os.getpid()))
 
         zbimg = zbar.Image(width, height, 'Y800', image_data)
         scanner = zbar.ImageScanner()
@@ -2483,7 +2485,6 @@ class EnergyTraceLog:
             return None, None, None, None
 
 
-
 class MIMOSA:
     """
     MIMOSA log loader for DFA traces with auto-calibration.
@@ -2491,16 +2492,16 @@ class MIMOSA:
     Expects a MIMOSA log file generated via dfatool and a dfatool-generated
     benchmark. A MIMOSA log consists of a series of measurements. Each measurement
     gives the total charge (in pJ) and binary buzzer/trigger value during a 10µs interval.
-    
+
     There must be a calibration run consisting of at least two seconds with disconnected DUT,
     two seconds with 1 kOhm (984 Ohm), and two seconds with 100 kOhm (99013 Ohm) resistor at
     the start. The first ten seconds of data are reserved for calbiration and must not contain
     measurements, as trigger/buzzer signals are ignored in this time range.
-    
+
     Resulting data is a list of state/transition/state/transition/... measurements.
     """
 
-    def __init__(self, voltage: float, shunt: int, verbose = True):
+    def __init__(self, voltage: float, shunt: int, verbose=True):
         """
         Initialize MIMOSA loader for a specific voltage and shunt setting.
 
@@ -2511,8 +2512,8 @@ class MIMOSA:
         self.voltage = voltage
         self.shunt = shunt
         self.verbose = verbose
-        self.r1 = 984 # "1k"
-        self.r2 = 99013 # "100k"
+        self.r1 = 984  # "1k"
+        self.r2 = 99013  # "100k"
         self.errors = list()
 
     def charge_to_current_nocal(self, charge):
@@ -2548,7 +2549,6 @@ class MIMOSA:
                 i += 1
         return charges, triggers
 
-
     def load_data(self, raw_data):
         u"""
         Load MIMOSA log data from a MIMOSA log file passed as raw byte string
@@ -2558,7 +2558,7 @@ class MIMOSA:
         :returns: (numpy array of charges (pJ per 10µs), numpy array of triggers (0/1 int, per 10µs))
         """
         with io.BytesIO(raw_data) as data_object:
-            with tarfile.open(fileobj = data_object) as tf:
+            with tarfile.open(fileobj=data_object) as tf:
                 return self._load_tf(tf)
 
     def load_file(self, filename):
@@ -2575,7 +2575,7 @@ class MIMOSA:
     def currents_nocal(self, charges):
         u"""
         Convert charges (pJ per 10µs) to mean currents without accounting for calibration.
-        
+
         :param charges: numpy array of charges (pJ per 10µs)
 
         :returns: numpy array of currents (mean µA per 10µs)"""
@@ -2621,7 +2621,7 @@ class MIMOSA:
             if trig != prevtrig:
                 # Due to MIMOSA's integrate-read-reset cycle, the charge/current
                 # interval belonging to this trigger comes two intervals (20µs) later
-                trigidx.append(i+2)
+                trigidx.append(i + 2)
             prevtrig = trig
         return trigidx
 
@@ -2717,24 +2717,24 @@ class MIMOSA:
                     return charge * b_upper + a_upper + ua_r2
 
         caldata = {
-            'edges' : [x * 10 for x in cal_edges],
+            'edges': [x * 10 for x in cal_edges],
             'offset': cal_0_mean,
-            'offset2' : cal_r2_mean,
-            'slope_low' : b_lower,
-            'slope_high' : b_upper,
-            'add_low' : a_lower,
-            'add_high' : a_upper,
-            'r0_err_uW' : np.mean(self.currents_nocal(chg_r0)) * self.voltage,
-            'r0_std_uW' : np.std(self.currents_nocal(chg_r0)) * self.voltage,
-            'r1_err_uW' : (np.mean(self.currents_nocal(chg_r1)) - ua_r1) * self.voltage,
-            'r1_std_uW' : np.std(self.currents_nocal(chg_r1)) * self.voltage,
-            'r2_err_uW' : (np.mean(self.currents_nocal(chg_r2)) - ua_r2) * self.voltage,
-            'r2_std_uW' : np.std(self.currents_nocal(chg_r2)) * self.voltage,
+            'offset2': cal_r2_mean,
+            'slope_low': b_lower,
+            'slope_high': b_upper,
+            'add_low': a_lower,
+            'add_high': a_upper,
+            'r0_err_uW': np.mean(self.currents_nocal(chg_r0)) * self.voltage,
+            'r0_std_uW': np.std(self.currents_nocal(chg_r0)) * self.voltage,
+            'r1_err_uW': (np.mean(self.currents_nocal(chg_r1)) - ua_r1) * self.voltage,
+            'r1_std_uW': np.std(self.currents_nocal(chg_r1)) * self.voltage,
+            'r2_err_uW': (np.mean(self.currents_nocal(chg_r2)) - ua_r2) * self.voltage,
+            'r2_std_uW': np.std(self.currents_nocal(chg_r2)) * self.voltage,
         }
 
-        #print("if charge < %f : return 0" % cal_0_mean)
-        #print("if charge <= %f : return charge * %f + %f" % (cal_r2_mean, b_lower, a_lower))
-        #print("else : return charge * %f + %f + %f" % (b_upper, a_upper, ua_r2))
+        # print("if charge < %f : return 0" % cal_0_mean)
+        # print("if charge <= %f : return charge * %f + %f" % (cal_r2_mean, b_lower, a_lower))
+        # print("else : return charge * %f + %f + %f" % (b_upper, a_upper, ua_r2))
 
         return calfunc, caldata
 
@@ -2819,20 +2819,20 @@ class MIMOSA:
             substates = {}
 
             if previdx != 0 and idx - previdx > 200:
-                thr, subst = 0, [] #self.gradfoo(range_ua)
+                thr, subst = 0, []  # self.gradfoo(range_ua)
                 if len(subst):
                     statelist = []
                     prevsubidx = 0
                     for subidx in subst:
                         statelist.append({
                             'duration': (subidx - prevsubidx) * 10,
-                            'uW_mean' : np.mean(range_ua[prevsubidx : subidx] * self.voltage),
-                            'uW_std'  : np.std(range_ua[prevsubidx : subidx] * self.voltage),
+                            'uW_mean': np.mean(range_ua[prevsubidx: subidx] * self.voltage),
+                            'uW_std': np.std(range_ua[prevsubidx: subidx] * self.voltage),
                         })
                         prevsubidx = subidx
                     substates = {
-                        'threshold' : thr,
-                        'states' : statelist,
+                        'threshold': thr,
+                        'states': statelist,
                     }
 
             isa = 'state'
@@ -2841,17 +2841,17 @@ class MIMOSA:
 
             data = {
                 'isa': isa,
-                'clip_rate' : np.mean(range_raw == 65535),
+                'clip_rate': np.mean(range_raw == 65535),
                 'raw_mean': np.mean(range_raw),
-                'raw_std' : np.std(range_raw),
-                'uW_mean' : np.mean(range_ua * self.voltage),
-                'uW_std' : np.std(range_ua * self.voltage),
-                'us' : (idx - previdx) * 10,
+                'raw_std': np.std(range_raw),
+                'uW_mean': np.mean(range_ua * self.voltage),
+                'uW_std': np.std(range_ua * self.voltage),
+                'us': (idx - previdx) * 10,
             }
 
             if 'states' in substates:
                 data['substates'] = substates
-                ssum = np.sum(list(map(lambda x : x['duration'], substates['states'])))
+                ssum = np.sum(list(map(lambda x: x['duration'], substates['states'])))
                 if ssum != data['us']:
                     vprint(self.verbose, "ERR: duration %d vs %d" % (data['us'], ssum))
 
