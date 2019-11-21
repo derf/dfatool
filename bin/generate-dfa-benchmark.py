@@ -53,7 +53,7 @@ Options:
     Only consider traces whose beginning matches one of the provided transition sequences.
     E.g. --trace-filter='init,foo init,bar' will only consider traces with init as first and foo or bar as second transition,
     and --trace-filter='init,foo,$ init,bar,$' will only consider the traces init -> foo and init -> bar.
-        
+
 """
 
 import getopt
@@ -68,13 +68,14 @@ import io
 import yaml
 from aspectc import Repo
 from automata import PTA
-from codegen import *
+from codegen import get_accountingmethod, MultipassDriver
 from harness import OnboardTimerHarness, TransitionHarness
 from utils import flatten
 
 opt = dict()
 
-def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benchmark_id: int = 0, dummy = False, repeat = 0) -> io.StringIO:
+
+def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benchmark_id: int = 0, dummy=False, repeat=0) -> io.StringIO:
     outbuf = io.StringIO()
 
     outbuf.write('#include "arch.h"\n')
@@ -146,7 +147,7 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
                 transition_code = '// TODO add startTransition / stopTransition calls to interrupt routine'
             else:
                 transition_code = '{}{}({});'.format(class_prefix, transition.name, ', '.join(map(str, arguments)))
-            outbuf.write(harness.pass_transition(pta.get_transition_id(transition), transition_code, transition = transition))
+            outbuf.write(harness.pass_transition(pta.get_transition_id(transition), transition_code, transition=transition))
 
             param = parameter
 
@@ -176,17 +177,18 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
 
     return outbuf
 
-def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: str, run_args: list, harness: object, sleep: int = 0, repeat: int = 0, run_offset: int = 0, runs_total: int = 0, dummy = False):
+
+def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: str, run_args: list, harness: object, sleep: int = 0, repeat: int = 0, run_offset: int = 0, runs_total: int = 0, dummy=False):
     if 'mimosa' in opt or 'energytrace' in opt:
-        outbuf = benchmark_from_runs(pta, runs, harness, dummy = dummy, repeat = 1)
+        outbuf = benchmark_from_runs(pta, runs, harness, dummy=dummy, repeat=1)
     else:
-        outbuf = benchmark_from_runs(pta, runs, harness, dummy = dummy, repeat = repeat)
+        outbuf = benchmark_from_runs(pta, runs, harness, dummy=dummy, repeat=repeat)
     with open(application_file, 'w') as f:
         f.write(outbuf.getvalue())
         print('[MAKE] building benchmark with {:d} runs'.format(len(runs)))
 
     # assume an average of 10ms per transition. Mind the 10s start delay.
-    run_timeout = 10 + num_transitions * (sleep+10) / 1000
+    run_timeout = 10 + num_transitions * (sleep + 10) / 1000
 
     if repeat:
         run_timeout *= repeat
@@ -212,10 +214,9 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         mid = len(runs) // 2
         # Previously prepared trace data is useless
         harness.reset()
-        results = run_benchmark(application_file, pta, runs[:mid], arch, app, run_args, harness.copy(), sleep, repeat, run_offset = run_offset, runs_total = runs_total, dummy = dummy)
-        results.extend(run_benchmark(application_file, pta, runs[mid:], arch, app, run_args, harness.copy(), sleep, repeat, run_offset = run_offset + mid, runs_total = runs_total, dummy = dummy))
+        results = run_benchmark(application_file, pta, runs[:mid], arch, app, run_args, harness.copy(), sleep, repeat, run_offset=run_offset, runs_total=runs_total, dummy=dummy)
+        results.extend(run_benchmark(application_file, pta, runs[mid:], arch, app, run_args, harness.copy(), sleep, repeat, run_offset=run_offset + mid, runs_total=runs_total, dummy=dummy))
         return results
-
 
     if 'mimosa' in opt or 'energytrace' in opt:
         files = list()
@@ -223,9 +224,9 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         while i < opt['repeat']:
             runner.flash(arch, app, run_args)
             if 'mimosa' in opt:
-                monitor = runner.get_monitor(arch, callback = harness.parser_cb, mimosa = opt['mimosa'])
+                monitor = runner.get_monitor(arch, callback=harness.parser_cb, mimosa=opt['mimosa'])
             elif 'energytrace' in opt:
-                monitor = runner.get_monitor(arch, callback = harness.parser_cb, energytrace = opt['energytrace'])
+                monitor = runner.get_monitor(arch, callback=harness.parser_cb, energytrace=opt['energytrace'])
 
             sync_error = False
             try:
@@ -263,7 +264,7 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         return [(runs, harness, monitor, files)]
     else:
         runner.flash(arch, app, run_args)
-        monitor = runner.get_monitor(arch, callback = harness.parser_cb)
+        monitor = runner.get_monitor(arch, callback=harness.parser_cb)
 
         if arch == 'posix':
             print('[RUN] Will run benchmark for {:.0f} seconds'.format(run_timeout))
@@ -398,7 +399,7 @@ if __name__ == '__main__':
     if run_flags is None:
         run_flags = opt['run'].split()
 
-    runs = list(pta.dfs(opt['depth'], with_arguments = True, with_parameters = True, trace_filter = opt['trace-filter']))
+    runs = list(pta.dfs(opt['depth'], with_arguments=True, with_parameters=True, trace_filter=opt['trace-filter']))
 
     num_transitions = len(runs)
 
@@ -411,21 +412,21 @@ if __name__ == '__main__':
         need_return_values = True
 
     if 'mimosa' in opt:
-        harness = TransitionHarness(gpio_pin = timer_pin, pta = pta, log_return_values = need_return_values, repeat = 1, post_transition_delay_us = 20)
+        harness = TransitionHarness(gpio_pin=timer_pin, pta=pta, log_return_values=need_return_values, repeat=1, post_transition_delay_us=20)
     elif 'energytrace' in opt:
-        harness = OnboardTimerHarness(gpio_pin = timer_pin, gpio_mode = 'bar', pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = 1)
+        harness = OnboardTimerHarness(gpio_pin=timer_pin, gpio_mode='bar', pta=pta, counter_limits=runner.get_counter_limits_us(opt['arch']), log_return_values=need_return_values, repeat=1)
     elif 'timing' in opt:
-        harness = OnboardTimerHarness(gpio_pin = timer_pin, pta = pta, counter_limits = runner.get_counter_limits_us(opt['arch']), log_return_values = need_return_values, repeat = opt['repeat'])
+        harness = OnboardTimerHarness(gpio_pin=timer_pin, pta=pta, counter_limits=runner.get_counter_limits_us(opt['arch']), log_return_values=need_return_values, repeat=opt['repeat'])
 
     if len(args) > 1:
-        results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], run_flags, harness, opt['sleep'], opt['repeat'], runs_total = len(runs), dummy = 'dummy' in opt)
+        results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], run_flags, harness, opt['sleep'], opt['repeat'], runs_total=len(runs), dummy='dummy' in opt)
         json_out = {
-            'opt' : opt,
-            'pta' : pta.to_json(),
-            'traces' : list(map(lambda x: x[1].traces, results)),
-            'raw_output' : list(map(lambda x: x[2].get_lines(), results)),
-            'files' : list(map(lambda x: x[3], results)),
-            'configs' : list(map(lambda x: x[2].get_config(), results)),
+            'opt': opt,
+            'pta': pta.to_json(),
+            'traces': list(map(lambda x: x[1].traces, results)),
+            'raw_output': list(map(lambda x: x[2].get_lines(), results)),
+            'files': list(map(lambda x: x[3], results)),
+            'configs': list(map(lambda x: x[2].get_config(), results)),
         }
         extra_files = flatten(json_out['files'])
         if 'instance' in pta.codegen:
@@ -448,7 +449,7 @@ if __name__ == '__main__':
                 json.dump(json_out, f)
             print(' --> {}.json'.format(output_prefix))
     else:
-        outbuf = benchmark_from_runs(pta, runs, harness, repeat = opt['repeat'])
+        outbuf = benchmark_from_runs(pta, runs, harness, repeat=opt['repeat'])
         print(outbuf.getvalue())
 
     sys.exit(0)

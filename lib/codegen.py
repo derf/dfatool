@@ -2,7 +2,6 @@
 
 from automata import PTA, Transition
 from modular_arithmetic import simulate_int_type
-import numpy as np
 
 header_template = """
 #ifndef DFATOOL_{name}_H
@@ -40,6 +39,7 @@ array_template = """
 {type} const {name}[{length}] = {{{elements}}};
 """
 
+
 class ClassFunction:
     def __init__(self, class_name, return_type, name, arguments, body):
         """
@@ -65,6 +65,7 @@ class ClassFunction:
             return ''
         return '{} {}::{}({}) {{\n{}}}\n'.format(self.return_type, self.class_name, self.name, ', '.join(self.arguments), self.body)
 
+
 def get_accountingmethod(method):
     """Return AccountingMethod class for method."""
     if method == 'static_state_immediate':
@@ -76,6 +77,7 @@ def get_accountingmethod(method):
     if method == 'static_statetransition':
         return StaticAccounting
     raise ValueError('Unknown accounting method: {}'.format(method))
+
 
 def get_simulated_accountingmethod(method):
     """Return SimulatedAccountingMethod class for method."""
@@ -89,6 +91,7 @@ def get_simulated_accountingmethod(method):
         return SimulatedStaticAccounting
     raise ValueError('Unknown accounting method: {}'.format(method))
 
+
 class SimulatedAccountingMethod:
     """
     Simulates overflows and timing inaccuracies in online energy accounting on embedded devices.
@@ -99,10 +102,10 @@ class SimulatedAccountingMethod:
     * variable size for accounting of durations, power and energy values
     """
 
-    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type, ts_granularity = 1e-6, power_granularity = 1e-6, energy_granularity = 1e-12):
+    def __init__(self, pta: PTA, timer_freq_hz, timer_type, ts_type, power_type, energy_type, ts_granularity=1e-6, power_granularity=1e-6, energy_granularity=1e-12):
         """
         Simulate Online Accounting for a given PTA.
-        
+
         :param pta: PTA object
         :param timer_freq_hz: Frequency of timer used for state time measurement, in Hz
         :param timer_type: Size of timer counter register, as C standard type (uint8_t / uint16_t / uint32_t / uint64_t)
@@ -157,6 +160,7 @@ class SimulatedAccountingMethod:
         """Return total energy in pJ."""
         return self.energy.val * self.energy_granularity * 1e12
 
+
 class SimulatedStaticStateOnlyAccountingImmediateCalculation(SimulatedAccountingMethod):
     """
     Simulated state-only energy accounting with immediate calculation.
@@ -177,6 +181,7 @@ class SimulatedStaticStateOnlyAccountingImmediateCalculation(SimulatedAccounting
         power = int(self.current_state.power)
         energy = self._energy_from_power_and_time(time, power)
         self.energy += energy
+
 
 class SimulatedStaticAccountingImmediateCalculation(SimulatedAccountingMethod):
     """
@@ -205,6 +210,7 @@ class SimulatedStaticAccountingImmediateCalculation(SimulatedAccountingMethod):
     def pass_transition(self, transition: Transition):
         self.energy += int(transition.energy)
         super().pass_transition(transition)
+
 
 class SimulatedStaticAccounting(SimulatedAccountingMethod):
     """
@@ -270,6 +276,7 @@ class SimulatedStaticStateOnlyAccounting(SimulatedAccountingMethod):
             energy += self._energy_from_power_and_time(self.time_in_state[state.name], int(state.power))
         return energy.val
 
+
 class AccountingMethod:
     def __init__(self, class_name: str, pta: PTA):
         self.class_name = class_name
@@ -279,7 +286,7 @@ class AccountingMethod:
         self.public_variables = list()
         self.private_functions = list()
         self.public_functions = list()
-    
+
     def pre_transition_hook(self, transition):
         return ''
 
@@ -289,8 +296,9 @@ class AccountingMethod:
     def get_includes(self):
         return map(lambda x: '#include "{}"'.format(x), self.include_paths)
 
+
 class StaticStateOnlyAccountingImmediateCalculation(AccountingMethod):
-    def __init__(self, class_name: str, pta: PTA, ts_type = 'unsigned int', power_type = 'unsigned int', energy_type = 'unsigned long'):
+    def __init__(self, class_name: str, pta: PTA, ts_type='unsigned int', power_type='unsigned int', energy_type='unsigned long'):
         super().__init__(class_name, pta)
         self.ts_type = ts_type
         self.include_paths.append('driver/uptime.h')
@@ -298,10 +306,10 @@ class StaticStateOnlyAccountingImmediateCalculation(AccountingMethod):
         self.private_variables.append('{} lastStateChange;'.format(ts_type))
         self.private_variables.append('{} totalEnergy;'.format(energy_type))
         self.private_variables.append(array_template.format(
-            type = power_type,
-            name = 'state_power',
-            length = len(pta.state),
-            elements = ', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
+            type=power_type,
+            name='state_power',
+            length=len(pta.state),
+            elements=', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
         ))
 
         get_energy_function = """return totalEnergy;"""
@@ -320,20 +328,21 @@ class StaticStateOnlyAccountingImmediateCalculation(AccountingMethod):
         totalEnergy = 0;
         lastStateChange = 0;
         lastState = 0;
-        """.format(num_states = len(self.pta.state))
+        """.format(num_states=len(self.pta.state))
+
 
 class StaticStateOnlyAccounting(AccountingMethod):
-    def __init__(self, class_name: str, pta: PTA, ts_type = 'unsigned int', power_type = 'unsigned int', energy_type = 'unsigned long'):
+    def __init__(self, class_name: str, pta: PTA, ts_type='unsigned int', power_type='unsigned int', energy_type='unsigned long'):
         super().__init__(class_name, pta)
         self.ts_type = ts_type
         self.include_paths.append('driver/uptime.h')
         self.private_variables.append('unsigned char lastState;')
         self.private_variables.append('{} lastStateChange;'.format(ts_type))
         self.private_variables.append(array_template.format(
-            type = power_type,
-            name = 'state_power',
-            length = len(pta.state),
-            elements = ', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
+            type=power_type,
+            name='state_power',
+            length=len(pta.state),
+            elements=', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
         ))
         self.private_variables.append('{} timeInState[{}];'.format(ts_type, len(pta.state)))
 
@@ -343,7 +352,7 @@ class StaticStateOnlyAccounting(AccountingMethod):
             total_energy += timeInState[i] * state_power[i];
         }}
         return total_energy;
-        """.format(energy_type = energy_type, num_states = len(pta.state))
+        """.format(energy_type=energy_type, num_states=len(pta.state))
         self.public_functions.append(ClassFunction(class_name, energy_type, 'getEnergy', list(), get_energy_function))
 
     def pre_transition_hook(self, transition):
@@ -361,26 +370,27 @@ class StaticStateOnlyAccounting(AccountingMethod):
         }}
         lastState = 0;
         lastStateChange = 0;
-        """.format(num_states = len(self.pta.state))
- 
+        """.format(num_states=len(self.pta.state))
+
+
 class StaticAccounting(AccountingMethod):
-    def __init__(self, class_name: str, pta: PTA, ts_type = 'unsigned int', power_type = 'unsigned int', energy_type = 'unsigned long'):
+    def __init__(self, class_name: str, pta: PTA, ts_type='unsigned int', power_type='unsigned int', energy_type='unsigned long'):
         super().__init__(class_name, pta)
         self.ts_type = ts_type
         self.include_paths.append('driver/uptime.h')
         self.private_variables.append('unsigned char lastState;')
         self.private_variables.append('{} lastStateChange;'.format(ts_type))
         self.private_variables.append(array_template.format(
-            type = power_type,
-            name = 'state_power',
-            length = len(pta.state),
-            elements = ', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
+            type=power_type,
+            name='state_power',
+            length=len(pta.state),
+            elements=', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
         ))
         self.private_variables.append(array_template.format(
-            type = energy_type,
-            name = 'transition_energy',
-            length = len(pta.get_unique_transitions()),
-            elements = ', '.join(map(lambda transition: '{:.0f}'.format(transition.energy), pta.get_unique_transitions()))
+            type=energy_type,
+            name='transition_energy',
+            length=len(pta.get_unique_transitions()),
+            elements=', '.join(map(lambda transition: '{:.0f}'.format(transition.energy), pta.get_unique_transitions()))
         ))
         self.private_variables.append('{} timeInState[{}];'.format(ts_type, len(pta.state)))
         self.private_variables.append('{} transitionCount[{}];'.format('unsigned int', len(pta.get_unique_transitions())))
@@ -394,7 +404,7 @@ class StaticAccounting(AccountingMethod):
             total_energy += transitionCount[i] * transition_energy[i];
         }}
         return total_energy;
-        """.format(energy_type = energy_type, num_states = len(pta.state), num_transitions = len(pta.get_unique_transitions()))
+        """.format(energy_type=energy_type, num_states=len(pta.state), num_transitions=len(pta.get_unique_transitions()))
         self.public_functions.append(ClassFunction(class_name, energy_type, 'getEnergy', list(), get_energy_function))
 
     def pre_transition_hook(self, transition):
@@ -416,11 +426,11 @@ class StaticAccounting(AccountingMethod):
         }}
         lastState = 0;
         lastStateChange = 0;
-        """.format(num_states = len(self.pta.state), num_transitions = len(self.pta.get_unique_transitions()))
+        """.format(num_states=len(self.pta.state), num_transitions=len(self.pta.get_unique_transitions()))
 
 
 class StaticAccountingImmediateCalculation(AccountingMethod):
-    def __init__(self, class_name: str, pta: PTA, ts_type = 'unsigned int', power_type = 'unsigned int', energy_type = 'unsigned long'):
+    def __init__(self, class_name: str, pta: PTA, ts_type='unsigned int', power_type='unsigned int', energy_type='unsigned long'):
         super().__init__(class_name, pta)
         self.ts_type = ts_type
         self.include_paths.append('driver/uptime.h')
@@ -428,15 +438,15 @@ class StaticAccountingImmediateCalculation(AccountingMethod):
         self.private_variables.append('{} lastStateChange;'.format(ts_type))
         self.private_variables.append('{} totalEnergy;'.format(energy_type))
         self.private_variables.append(array_template.format(
-            type = power_type,
-            name = 'state_power',
-            length = len(pta.state),
-            elements = ', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
+            type=power_type,
+            name='state_power',
+            length=len(pta.state),
+            elements=', '.join(map(lambda state_name: '{:.0f}'.format(pta.state[state_name].power), pta.get_state_names()))
         ))
 
         get_energy_function = """
         return totalEnergy;
-        """.format(energy_type = energy_type, num_states = len(pta.state), num_transitions = len(pta.get_unique_transitions()))
+        """.format(energy_type=energy_type, num_states=len(pta.state), num_transitions=len(pta.get_unique_transitions()))
         self.public_functions.append(ClassFunction(class_name, energy_type, 'getEnergy', list(), get_energy_function))
 
     def pre_transition_hook(self, transition):
@@ -452,12 +462,13 @@ class StaticAccountingImmediateCalculation(AccountingMethod):
         return """
         lastState = 0;
         lastStateChange = 0;
-        """.format(num_states = len(self.pta.state), num_transitions = len(self.pta.get_unique_transitions()))
+        """.format(num_states=len(self.pta.state), num_transitions=len(self.pta.get_unique_transitions()))
+
 
 class MultipassDriver:
     """Generate C++ header and no-op implementation for a multipass driver based on a DFA model."""
 
-    def __init__(self, name, pta, class_info, enum = dict(), accounting = AccountingMethod):
+    def __init__(self, name, pta, class_info, enum=dict(), accounting=AccountingMethod):
         self.impl = ''
         self.header = ''
         self.name = name
@@ -487,9 +498,6 @@ class MultipassDriver:
             for i in range(len(transition.arguments)):
                 function_arguments.append('{} {}'.format(function_info.argument_types[i], transition.arguments[i]))
 
-            function_definition = '{} {}({})'.format(function_info.return_type, transition.name, ', '.join(function_arguments))
-            function_head = '{} {}::{}({})'.format(function_info.return_type, self.name, transition.name, ', '.join(function_arguments))
-
             function_body = accounting.pre_transition_hook(transition)
 
             if function_info.return_type != 'void':
@@ -509,11 +517,11 @@ class MultipassDriver:
             public_variables.extend(accounting.public_variables)
 
         self.header = header_template.format(
-            name = self.name, name_lower = self.name.lower(),
-            includes = '\n'.join(includes),
-            private_variables = '\n'.join(private_variables),
-            public_variables = '\n'.join(public_variables),
-            public_functions = '\n'.join(map(lambda x: x.get_definition(), public_functions)),
-            private_functions = '',
-            enums = '\n'.join(enums))
-        self.impl = implementation_template.format(name = self.name, name_lower = self.name.lower(), functions = '\n\n'.join(map(lambda x: x.get_implementation(), public_functions)))
+            name=self.name, name_lower=self.name.lower(),
+            includes='\n'.join(includes),
+            private_variables='\n'.join(private_variables),
+            public_variables='\n'.join(public_variables),
+            public_functions='\n'.join(map(lambda x: x.get_definition(), public_functions)),
+            private_functions='',
+            enums='\n'.join(enums))
+        self.impl = implementation_template.format(name=self.name, name_lower=self.name.lower(), functions='\n\n'.join(map(lambda x: x.get_implementation(), public_functions)))
