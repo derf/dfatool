@@ -343,7 +343,7 @@ def _json_get_static(base, attribute: str):
 
 class PTA:
     """
-    A parameterized priced timed automaton. All states are accepting.
+    A parameterized priced timed automaton.
 
     Suitable for simulation, model storage, and (soon) benchmark generation.
 
