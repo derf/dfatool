@@ -7,6 +7,8 @@ header_template = """
 #ifndef DFATOOL_{name}_H
 #define DFATOOL_{name}_H
 
+#include "stdint.h"
+
 {includes}
 
 class {name}
@@ -485,6 +487,9 @@ class MultipassDriver:
         public_functions.append(ClassFunction(self.name, '', self.name, list(), accounting.init_code()))
 
         for transition in self.pta.get_unique_transitions():
+
+            if transition.name == 'getEnergy':
+                continue
 
             # XXX right now we only verify whether both functions have the
             # same number of arguments. This breaks in many overloading cases.

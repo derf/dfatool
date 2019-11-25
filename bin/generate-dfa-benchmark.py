@@ -381,6 +381,10 @@ if __name__ == '__main__':
 
         repo = Repo('/home/derf/var/projects/multipass/build/repo.acp')
 
+        if 'accounting' in opt and 'getEnergy' not in map(lambda x: x.name, pta.transitions):
+            for state in pta.get_state_names():
+                pta.add_transition(state, state, 'getEnergy')
+
         pta.set_random_energy_model()
 
         if 'accounting' in opt:
