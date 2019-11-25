@@ -331,6 +331,11 @@ class OnboardTimerHarness(TransitionHarness):
 
     def parser_cb(self, line):
         #print('[HARNESS] got line {}'.format(line))
+        res = re.match(r'\[PTA\] nop=(\S+)/(\S+)', line)
+        if res:
+            self.nop_cycles = int(res.group(1))
+            if int(res.group(2)):
+                raise RuntimeError('Counter overflow ({:d}/{:d}) during NOP test, wtf?!'.format(res.group(1), res.group(2)))
         if re.match(r'\[PTA\] benchmark stop', line):
             self.repetitions += 1
             self.synced = False
@@ -360,8 +365,9 @@ class OnboardTimerHarness(TransitionHarness):
                 if overflow >= self.counter_max_overflow:
                     self.abort = True
                     raise RuntimeError('Counter overflow ({:d}/{:d}) in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d})'.format(cycles, overflow, 0, self.trace_id, self.current_transition_in_trace, transition_id))
-                duration_us = cycles * self.one_cycle_in_us + overflow * self.one_overflow_in_us
-                # TODO subtract 'nop' cycles
+                duration_us = cycles * self.one_cycle_in_us + overflow * self.one_overflow_in_us - self.nop_cycles * self.one_cycle_in_us
+                if duration_us < 0:
+                    duration_us = 0
                 # self.traces contains transitions and states, UART output only contains transitions -> use index * 2
                 try:
                     log_data_target = self.traces[self.trace_id]['trace'][self.current_transition_in_trace * 2]
