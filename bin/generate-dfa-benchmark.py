@@ -104,7 +104,10 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
     # the initialization delay to -- this puts it into a well-defined state and
     # decreases pre-sync power consumption
     if 'energytrace' not in opt:
-        outbuf.write('arch.delay_ms(12000);\n')
+        if 'mimosa' in opt:
+            outbuf.write('arch.delay_ms(12000);\n')
+        else:
+            outbuf.write('arch.delay_ms(2000);\n')
         # Output some newlines to ensure the parser can determine the start of the first real output line
         outbuf.write('kout << endl << endl;\n')
 
