@@ -290,13 +290,13 @@ def build(arch, app, opts=[]):
     res = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          universal_newlines=True)
     if res.returncode != 0:
-        raise RuntimeError('Build failure: ' + res.stderr)
+        raise RuntimeError('Build failure, executing {}:\n'.format(command) + res.stderr)
     command = ['make', '-B', 'arch={}'.format(arch), 'app={}'.format(app)]
     command.extend(opts)
     res = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          universal_newlines=True)
     if res.returncode != 0:
-        raise RuntimeError('Build failure: ' + res.stderr)
+        raise RuntimeError('Build failure, executing {}:\n '.format(command) + res.stderr)
     return command
 
 
