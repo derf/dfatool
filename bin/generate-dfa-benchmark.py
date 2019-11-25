@@ -377,6 +377,8 @@ if __name__ == '__main__':
             if 'dummygen' in driver_definition and 'enum' in driver_definition['dummygen']:
                 enum = driver_definition['dummygen']['enum']
 
+        run_flags = ['drivers=dummy']
+
         repo = Repo('/home/derf/var/projects/multipass/build/repo.acp')
 
         pta.set_random_energy_model()
@@ -395,7 +397,8 @@ if __name__ == '__main__':
         with open(modelfile, 'r') as f:
             driver_definition = yaml.safe_load(f)
         if 'codegen' in driver_definition and 'flags' in driver_definition['codegen']:
-            run_flags = driver_definition['codegen']['flags']
+            if run_flags is None:
+                run_flags = driver_definition['codegen']['flags']
     if run_flags is None:
         run_flags = opt['run'].split()
 
