@@ -12,8 +12,9 @@ definition, each symbol corresponds to a function call with a specific set of
 arguments (so all argument combinations are present in the generated runs).
 
 Options:
---accounting=static_state|static_state_immediate|static_statetransition|static_statetransition_immedate
-    Select accounting method for dummy driver generation
+--accounting=static_state|static_state_immediate|static_statetransition|static_statetransition_immedate[,opt1=val1,opt2=val2,...]
+    Select accounting method for dummy driver generation.
+    May be followed by a list of key=value driver options, e.g. energy_type=uint64_t
 
 --dummy=<class name>
     Generate and use a dummy driver for online energy model overhead evaluation
@@ -351,6 +352,12 @@ if __name__ == '__main__':
             if opt['repeat'] == 0:
                 opt['repeat'] = 1
 
+        if 'dummy' in opt:
+            if opt['dummy'] == '':
+                opt['dummy'] = dict()
+            else:
+                opt['dummy'] = dict(map(lambda x: x.split('='), opt['dummy'].split(',')))
+
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)
@@ -377,6 +384,11 @@ if __name__ == '__main__':
             if 'dummygen' in driver_definition and 'enum' in driver_definition['dummygen']:
                 enum = driver_definition['dummygen']['enum']
 
+        if 'class' in opt['dummy']:
+            class_name = opt['dummy']['class']
+        else:
+            class_name = driver_definition['codegen']['class']
+
         run_flags = ['drivers=dummy']
 
         repo = Repo('/home/derf/var/projects/multipass/build/repo.acp')
@@ -388,10 +400,16 @@ if __name__ == '__main__':
         pta.set_random_energy_model()
 
         if 'accounting' in opt:
-            accounting_object = get_accountingmethod(opt['accounting'])(opt['dummy'], pta)
+            if ',' in opt['accounting']:
+                accounting_settings = opt['accounting'].split(',')
+                accounting_name = accounting_settings[0]
+                accounting_options = dict(map(lambda x: x.split('='), accounting_settings[1:]))
+                accounting_object = get_accountingmethod(accounting_name)(class_name, pta, **accounting_options)
+            else:
+                accounting_object = get_accountingmethod(opt['accounting'])(class_name, pta)
         else:
             accounting_object = None
-        drv = MultipassDriver(opt['dummy'], pta, repo.class_by_name[opt['dummy']], enum=enum, accounting=accounting_object)
+        drv = MultipassDriver(class_name, pta, repo.class_by_name[class_name], enum=enum, accounting=accounting_object)
         with open('/home/derf/var/projects/multipass/src/driver/dummy.cc', 'w') as f:
             f.write(drv.impl)
         with open('/home/derf/var/projects/multipass/include/driver/dummy.h', 'w') as f:
@@ -416,7 +434,13 @@ if __name__ == '__main__':
 
     need_return_values = False
     if next(filter(lambda x: len(x.return_value_handlers), pta.transitions), None):
+        # A PTA transition indicates that its return value determines an online
+        # parameter (e.g. Nrf24l01 getObserveTx, which is used to determine the
+        # actual number of transmission retries after a write operation)
         need_return_values = True
+    # elif 'accounting' in opt:
+    #    # getEnergy() returns energy data. Log it.
+    #    need_return_values = True
 
     if 'mimosa' in opt:
         harness = TransitionHarness(gpio_pin=timer_pin, pta=pta, log_return_values=need_return_values, repeat=1, post_transition_delay_us=20)
