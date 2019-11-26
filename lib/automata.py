@@ -708,7 +708,7 @@ class PTA:
                 min_state = state
         return min_state
 
-    def min_duration_until_energy_overflow(self, energy_granularity = 1e-12, max_energy_value = 2 ** 32 - 1):
+    def min_duration_until_energy_overflow(self, energy_granularity=1e-12, max_energy_value=2 ** 32 - 1):
         """
         Return minimum duration (in s) until energy counter overflow during online accounting.
 
@@ -726,7 +726,7 @@ class PTA:
         min_duration = max_energy_value * energy_granularity / max_power
         return min_duration
 
-    def max_duration_until_energy_overflow(self, energy_granularity = 1e-12, max_energy_value = 2 ** 32 - 1):
+    def max_duration_until_energy_overflow(self, energy_granularity=1e-12, max_energy_value=2 ** 32 - 1):
         """
         Return maximum duration (in s) until energy counter overflow during online accounting.
 

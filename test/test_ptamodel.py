@@ -5,12 +5,13 @@ import os
 import unittest
 import pytest
 
+
 class TestModels(unittest.TestCase):
     def test_model_singlefile_rf24(self):
         raw_data = RawData(['test-data/20170220_164723_RF24_int_A.tar'])
-        preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
+        preprocessed_data = raw_data.get_preprocessed_data(verbose=False)
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
-        model = PTAModel(by_name, parameters, arg_count, verbose = False)
+        model = PTAModel(by_name, parameters, arg_count, verbose=False)
         self.assertEqual(model.states(), 'POWERDOWN RX STANDBY1 TX'.split(' '))
         self.assertEqual(model.transitions(), 'begin epilogue powerDown powerUp setDataRate_num setPALevel_num startListening stopListening write_nb'.split(' '))
         static_model = model.get_static()
@@ -62,25 +63,24 @@ class TestModels(unittest.TestCase):
         param_model, param_info = model.get_fitted()
         self.assertEqual(param_info('POWERDOWN', 'power'), None)
         self.assertEqual(param_info('RX', 'power')['function']._model_str,
-            '0 + regression_arg(0) + regression_arg(1) * np.sqrt(parameter(datarate))')
+                         '0 + regression_arg(0) + regression_arg(1) * np.sqrt(parameter(datarate))')
         self.assertAlmostEqual(param_info('RX', 'power')['function']._regression_args[0], 48530.7, places=0)
         self.assertAlmostEqual(param_info('RX', 'power')['function']._regression_args[1], 117, places=0)
         self.assertEqual(param_info('STANDBY1', 'power'), None)
         self.assertEqual(param_info('TX', 'power')['function']._model_str,
-            '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate)) + regression_arg(2) * parameter(txpower) + regression_arg(3) * 1/(parameter(datarate)) * parameter(txpower)')
+                         '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate)) + regression_arg(2) * parameter(txpower) + regression_arg(3) * 1/(parameter(datarate)) * parameter(txpower)')
         self.assertEqual(param_info('epilogue', 'timeout')['function']._model_str,
-            '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate))')
+                         '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate))')
         self.assertEqual(param_info('stopListening', 'duration')['function']._model_str,
-            '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate))')
+                         '0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate))')
 
         self.assertAlmostEqual(param_model('RX', 'power', param=[1, None, None]), 48647, places=-1)
 
-
     def test_model_singlefile_mmparam(self):
         raw_data = RawData(['test-data/20161221_123347_mmparam.tar'])
-        preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
+        preprocessed_data = raw_data.get_preprocessed_data(verbose=False)
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
-        model = PTAModel(by_name, parameters, arg_count, verbose = False)
+        model = PTAModel(by_name, parameters, arg_count, verbose=False)
         self.assertEqual(model.states(), 'OFF ON'.split(' '))
         self.assertEqual(model.transitions(), 'off setBrightness'.split(' '))
         static_model = model.get_static()
@@ -100,7 +100,7 @@ class TestModels(unittest.TestCase):
             param_lut_model('ON', 'power', param=['a'])
             param_lut_model('ON', 'power', param=[0])
         self.assertTrue(param_lut_model('ON', 'power', param=[0, 0]))
-        param_lut_model = model.get_param_lut(fallback = True)
+        param_lut_model = model.get_param_lut(fallback=True)
         self.assertAlmostEqual(param_lut_model('ON', 'power', param=[None, None]), 17866, places=0)
 
     def test_model_multifile_lm75x(self):
@@ -109,9 +109,9 @@ class TestModels(unittest.TestCase):
             'test-data/20170116_131306_LM75x.tar',
         ]
         raw_data = RawData(testfiles)
-        preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
+        preprocessed_data = raw_data.get_preprocessed_data(verbose=False)
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
-        model = PTAModel(by_name, parameters, arg_count, verbose = False)
+        model = PTAModel(by_name, parameters, arg_count, verbose=False)
         self.assertEqual(model.states(), 'ACTIVE POWEROFF'.split(' '))
         self.assertEqual(model.transitions(), 'getTemp setHyst setOS shutdown start'.split(' '))
         static_model = model.get_static()
@@ -139,9 +139,9 @@ class TestModels(unittest.TestCase):
             'test-data/20170116_151348_sharpLS013B4DN.tar',
         ]
         raw_data = RawData(testfiles)
-        preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
+        preprocessed_data = raw_data.get_preprocessed_data(verbose=False)
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
-        model = PTAModel(by_name, parameters, arg_count, verbose = False)
+        model = PTAModel(by_name, parameters, arg_count, verbose=False)
         self.assertEqual(model.states(), 'DISABLED ENABLED'.split(' '))
         self.assertEqual(model.transitions(), 'clear disable enable ioInit sendLine toggleVCOM'.split(' '))
         static_model = model.get_static()
@@ -172,9 +172,9 @@ class TestModels(unittest.TestCase):
             'test-data/20170116_142654_mmstatic.tar',
         ]
         raw_data = RawData(testfiles)
-        preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
+        preprocessed_data = raw_data.get_preprocessed_data(verbose=False)
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
-        model = PTAModel(by_name, parameters, arg_count, verbose = False)
+        model = PTAModel(by_name, parameters, arg_count, verbose=False)
         self.assertEqual(model.states(), 'B G OFF R'.split(' '))
         self.assertEqual(model.transitions(), 'blue green off red'.split(' '))
         static_model = model.get_static()
@@ -206,9 +206,9 @@ class TestModels(unittest.TestCase):
             'test-data/20170125_154019_cc1200.tar',
         ]
         raw_data = RawData(testfiles)
-        preprocessed_data = raw_data.get_preprocessed_data(verbose = False)
+        preprocessed_data = raw_data.get_preprocessed_data(verbose=False)
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
-        model = PTAModel(by_name, parameters, arg_count, verbose = False)
+        model = PTAModel(by_name, parameters, arg_count, verbose=False)
         self.assertEqual(model.states(), 'IDLE RX SLEEP SLEEP_EWOR SYNTH_ON TX XOFF'.split(' '))
         self.assertEqual(model.transitions(), 'crystal_off eWOR idle init prepare_xmit receive send setSymbolRate setTxPower sleep txDone'.split(' '))
         static_model = model.get_static()
@@ -234,7 +234,7 @@ class TestModels(unittest.TestCase):
         param_model, param_info = model.get_fitted()
         self.assertEqual(param_info('IDLE', 'power'), None)
         self.assertEqual(param_info('RX', 'power')['function']._model_str,
-            '0 + regression_arg(0) + regression_arg(1) * np.log(parameter(symbolrate) + 1)')
+                         '0 + regression_arg(0) + regression_arg(1) * np.log(parameter(symbolrate) + 1)')
         self.assertEqual(param_info('SLEEP', 'power'), None)
         self.assertEqual(param_info('SLEEP_EWOR', 'power'), None)
         self.assertEqual(param_info('SYNTH_ON', 'power'), None)
@@ -242,6 +242,7 @@ class TestModels(unittest.TestCase):
 
         self.assertAlmostEqual(param_info('RX', 'power')['function']._regression_args[0], 84415, places=0)
         self.assertAlmostEqual(param_info('RX', 'power')['function']._regression_args[1], 206, places=0)
+
 
 if __name__ == '__main__':
     unittest.main()

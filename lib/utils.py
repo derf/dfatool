@@ -3,6 +3,7 @@ import re
 
 arg_support_enabled = True
 
+
 def vprint(verbose, string):
     """
     Print `string` if `verbose`.
@@ -12,9 +13,10 @@ def vprint(verbose, string):
     if verbose:
         print(string)
 
+
 def is_numeric(n):
     """Check if `n` is numeric (i.e., it can be converted to float)."""
-    if n == None:
+    if n is None:
         return False
     try:
         float(n)
@@ -22,18 +24,21 @@ def is_numeric(n):
     except ValueError:
         return False
 
+
 def is_power_of_two(n):
     """Check if `n` is a power of two (1, 2, 4, 8, 16, ...)."""
-    return n > 0 and (n & (n-1)) == 0
+    return n > 0 and (n & (n - 1)) == 0
+
 
 def float_or_nan(n):
     """Convert `n` to float (if numeric) or NaN."""
-    if n == None:
+    if n is None:
         return np.nan
     try:
         return float(n)
     except ValueError:
         return np.nan
+
 
 def soft_cast_int(n):
     """
@@ -42,12 +47,13 @@ def soft_cast_int(n):
     If `n` is empty, returns None.
     If `n` is not numeric, it is left unchanged.
     """
-    if n == None or n == '':
+    if n is None or n == '':
         return None
     try:
         return int(n)
     except ValueError:
         return n
+
 
 def soft_cast_float(n):
     """
@@ -56,7 +62,7 @@ def soft_cast_float(n):
     If `n` is empty, returns None.
     If `n` is not numeric, it is left unchanged.
     """
-    if n == None or n == '':
+    if n is None or n == '':
         return None
     try:
         return float(n)
@@ -72,6 +78,7 @@ def flatten(somelist):
     """
     return [item for sublist in somelist for item in sublist]
 
+
 def parse_conf_str(conf_str):
     """
     Parse a configuration string `k1=v1,k2=v2`... and return a dict `{'k1': v1, 'k2': v2}`...
@@ -84,6 +91,7 @@ def parse_conf_str(conf_str):
         conf_dict[key] = soft_cast_float(value)
     return conf_dict
 
+
 def remove_index_from_tuple(parameters, index):
     """
     Remove the element at `index` from tuple `parameters`.
@@ -92,7 +100,8 @@ def remove_index_from_tuple(parameters, index):
     :param index: index of element which is to be removed
     :returns: parameters tuple without the element at index
     """
-    return (*parameters[:index], *parameters[index+1:])
+    return (*parameters[:index], *parameters[index + 1:])
+
 
 def param_slice_eq(a, b, index):
     """
@@ -110,9 +119,10 @@ def param_slice_eq(a, b, index):
     ('foo', [1, 4]), ('foo', [2, 4]), 1 -> False
 
     """
-    if (*a[1][:index], *a[1][index+1:]) == (*b[1][:index], *b[1][index+1:]) and a[0] == b[0]:
+    if (*a[1][:index], *a[1][index + 1:]) == (*b[1][:index], *b[1][index + 1:]) and a[0] == b[0]:
         return True
     return False
+
 
 def match_parameter_values(input_param: dict, match_param: dict):
     """
@@ -128,6 +138,7 @@ def match_parameter_values(input_param: dict, match_param: dict):
         if k in input_param and input_param[k] != v:
             return False
     return True
+
 
 def by_name_to_by_param(by_name: dict):
     """
@@ -150,6 +161,7 @@ def by_name_to_by_param(by_name: dict):
             # Required for match_parameter_valuse in _try_fits
             by_param[param_key]['param'].append(by_name[name]['param'][i])
     return by_param
+
 
 def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
     """
@@ -180,8 +192,9 @@ def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
         for name in names_to_remove:
             aggregate.pop(name)
 
+
 class OptionalTimingAnalysis:
-    def __init__(self, enabled = True):
+    def __init__(self, enabled=True):
         self.enabled = enabled
         self.wrapped_lines = list()
         self.index = 1
