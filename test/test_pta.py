@@ -15,11 +15,11 @@ example_json_1 = {
         },
         'TX' : {
             'power' : {
-                'static' : 100,
+                'static' : 10000,
                 'function' : {
                     'raw' : 'regression_arg(0) + regression_arg(1)'
                         ' * parameter(txpower)',
-                    'regression_args' : [ 100, 2 ]
+                    'regression_args' : [ 10000, 2 ]
                 },
             }
         },
@@ -425,7 +425,7 @@ class TestPTA(unittest.TestCase):
 
     def test_from_json_function(self):
         pta = PTA.from_json(example_json_1)
-        self.assertEqual(pta.state['TX'].get_energy(1000, {'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 1000 * (100 + 2 * 10))
+        self.assertEqual(pta.state['TX'].get_energy(1000, {'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 1000 * (10000 + 2 * 10))
         self.assertEqual(pta.transitions[4].get_timeout({'datarate' : 10, 'txbytes' : 6, 'txpower' : 10 }), 500 + 16 * 6)
 
     def test_from_yaml(self):
@@ -724,6 +724,15 @@ class TestPTA(unittest.TestCase):
             'txpower' : 10,
             'length' : 3
         })
+
+    def test_get_X_expensive_state(self):
+        pta = PTA.from_json(example_json_1)
+        self.assertEqual(pta.get_least_expensive_state(), pta.state['IDLE'])
+        self.assertEqual(pta.get_most_expensive_state(), pta.state['TX'])
+        self.assertAlmostEqual(pta.min_duration_until_energy_overflow(), (2**32-1) * 1e-12 / 10e-3, places=9)
+        self.assertAlmostEqual(pta.min_duration_until_energy_overflow(energy_granularity = 1e-9), (2**32-1) * 1e-9 / 10e-3, places=9)
+        self.assertAlmostEqual(pta.max_duration_until_energy_overflow(), (2**32-1) * 1e-12 / 5e-6, places=9)
+        self.assertAlmostEqual(pta.max_duration_until_energy_overflow(energy_granularity = 1e-9), (2**32-1) * 1e-9 / 5e-6, places=9)
 
 
 

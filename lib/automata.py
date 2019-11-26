@@ -32,13 +32,16 @@ class State:
         Create a new PTA state.
 
         :param name: state name
-        :param power: static state power in µW
-        :param power_function: parameterized state power in µW
+        :param power: static state power in µW, default 0
+        :param power_function: parameterized state power in µW, default None
         """
         self.name = name
         self.power = power
         self.power_function = power_function
         self.outgoing_transitions = {}
+
+    def __repr__(self):
+        return 'State<{:s}, {:.0f}, {}>'.format(self.name, self.power, self.power_function)
 
     def add_outgoing_transition(self, new_transition: object):
         """Add a new outgoing transition."""
@@ -57,7 +60,7 @@ class State:
         return self.power * duration
 
     def set_random_energy_model(self, static_model=True):
-        """Set a random static energy value."""
+        u"""Set a random static state power between 0 µW and 50 mW."""
         self.power = int(np.random.sample() * 50000)
 
     def get_transition(self, transition_name: str) -> object:
@@ -70,7 +73,7 @@ class State:
         return self.outgoing_transitions[transition_name]
 
     def has_interrupt_transitions(self) -> bool:
-        """Check whether this state has any outgoing interrupt transitions."""
+        """Return whether this state has any outgoing interrupt transitions."""
         for trans in self.outgoing_transitions.values():
             if trans.is_interrupt:
                 return True
@@ -275,6 +278,9 @@ class Transition:
 
     def set_random_energy_model(self, static_model=True):
         self.energy = int(np.random.sample() * 50000)
+        self.duration = int(np.random.sample() * 50000)
+        if self.is_interrupt:
+            self.timeout = int(np.random.sample() * 50000)
 
     def get_timeout(self, param_dict: dict = {}) -> float:
         u"""
@@ -619,11 +625,10 @@ class PTA:
         """
         Add function_name as new transition from orig_state to dest_state.
 
-        arguments:
-        orig_state -- origin state name. Must be known to PTA
-        dest_state -- destination state name. Must be known to PTA.
-        function_name -- function name
-        kwargs -- see Transition() documentation
+        :param orig_state: origin state name. Must be known to PTA
+        :param dest_state: destination state name. Must be known to PTA.
+        :param function_name: function name
+        :param kwargs: see Transition() documentation
         """
         orig_state = self.state[orig_state]
         dest_state = self.state[dest_state]
@@ -678,10 +683,66 @@ class PTA:
         return dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
 
     def set_random_energy_model(self, static_model=True):
+        u"""
+        Set random power/energy/duration/timeout for all states and transitions.
+
+        Values in µW/pJ/µs are chosen from a uniform [0 .. 50000] distribution.
+        Only sets the static model at the moment.
+        """
         for state in self.state.values():
             state.set_random_energy_model(static_model)
         for transition in self.transitions:
             transition.set_random_energy_model(static_model)
+
+    def get_most_expensive_state(self):
+        max_state = None
+        for state in self.state.values():
+            if state.name != 'UNINITIALIZED' and (max_state is None or state.power > max_state.power):
+                max_state = state
+        return max_state
+
+    def get_least_expensive_state(self):
+        min_state = None
+        for state in self.state.values():
+            if state.name != 'UNINITIALIZED' and (min_state is None or state.power < min_state.power):
+                min_state = state
+        return min_state
+
+    def min_duration_until_energy_overflow(self, energy_granularity = 1e-12, max_energy_value = 2 ** 32 - 1):
+        """
+        Return minimum duration (in s) until energy counter overflow during online accounting.
+
+        :param energy_granularity: granularity of energy counter variable in J, i.e., how many Joules does an increment of one in the energy counter represent. Default: 1e-12 J = 1 pJ
+        :param max_energy_value: maximum raw value in energy variable. Default: 2^32 - 1
+        """
+
+        max_power_state = self.get_most_expensive_state()
+        if max_power_state.has_interrupt_transitions():
+            raise RuntimeWarning('state with maximum power consumption has outgoing interrupt transitions, results will be inaccurate')
+
+        # convert from µW to W
+        max_power = max_power_state.power * 1e-6
+
+        min_duration = max_energy_value * energy_granularity / max_power
+        return min_duration
+
+    def max_duration_until_energy_overflow(self, energy_granularity = 1e-12, max_energy_value = 2 ** 32 - 1):
+        """
+        Return maximum duration (in s) until energy counter overflow during online accounting.
+
+        :param energy_granularity: granularity of energy counter variable in J, i.e., how many Joules does an increment of one in the energy counter represent. Default: 1e-12 J = 1 pJ
+        :param max_energy_value: maximum raw value in energy variable. Default: 2^32 - 1
+        """
+
+        min_power_state = self.get_least_expensive_state()
+        if min_power_state.has_interrupt_transitions():
+            raise RuntimeWarning('state with maximum power consumption has outgoing interrupt transitions, results will be inaccurate')
+
+        # convert from µW to W
+        min_power = min_power_state.power * 1e-6
+
+        max_duration = max_energy_value * energy_granularity / min_power
+        return max_duration
 
     def shrink_argument_values(self):
         """
@@ -689,7 +750,7 @@ class PTA:
 
         This is meant to speed up an initial PTA-based benchmark by
         reducing the parameter space while still gaining insights in the
-        effect (or nop) or individual parameters on hardware behaviour.
+        effect (or lack thereof) or individual parameters on hardware behaviour.
 
         Parameters with non-numeric values (anything containing neither
         numbers nor enums) are left as-is, as they may be distinct
