@@ -469,7 +469,7 @@ class PTA:
             energy_function = _json_function_to_analytic_function(transition, 'energy', pta.parameters)
             timeout_function = _json_function_to_analytic_function(transition, 'timeout', pta.parameters)
             kwargs = dict()
-            for key in ['arg_to_param_map', 'argument_values', 'argument_combination']:
+            for key in ['arguments', 'arg_to_param_map', 'argument_values', 'argument_combination', 'is_interrupt', 'set_param']:
                 if key in transition:
                     kwargs[key] = transition[key]
             origins = transition['origin']
