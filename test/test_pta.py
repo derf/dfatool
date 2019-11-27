@@ -348,6 +348,30 @@ class TestPTA(unittest.TestCase):
         self.assertEqual(pta.get_transition_id(trace[3][0]), 1)
         self.assertEqual(pta.get_transition_id(trace[5][0]), 2)
 
+    def test_bfs(self):
+        pta = PTA(['IDLE', 'TX'])
+        pta.add_transition('UNINITIALIZED', 'IDLE', 'init')
+        pta.add_transition('IDLE', 'TX', 'send')
+        pta.add_transition('TX', 'IDLE', 'txComplete')
+        self.assertEqual(dfs_tran_to_name(pta.bfs(0), False), [['init']])
+        self.assertEqual(dfs_tran_to_name(pta.bfs(1), False), [['init'], ['init', 'send']])
+        self.assertEqual(dfs_tran_to_name(pta.bfs(2), False), [['init'], ['init', 'send'], ['init', 'send', 'txComplete']])
+        self.assertEqual(dfs_tran_to_name(pta.bfs(3), False), [['init'], ['init', 'send'], ['init', 'send', 'txComplete'], ['init', 'send', 'txComplete', 'send']])
+
+        pta = PTA(['IDLE'])
+        pta.add_transition('UNINITIALIZED', 'IDLE', 'init')
+        pta.add_transition('IDLE', 'IDLE', 'set1')
+        pta.add_transition('IDLE', 'IDLE', 'set2')
+        self.assertEqual(dfs_tran_to_name(pta.bfs(0), False), [['init']])
+        self.assertEqual(sorted(dfs_tran_to_name(pta.bfs(1), False)), [['init'], ['init', 'set1'], ['init', 'set2']])
+        self.assertEqual(sorted(dfs_tran_to_name(pta.bfs(2), False)), [['init'],
+                                                                       ['init', 'set1'],
+                                                                       ['init', 'set1', 'set1'],
+                                                                       ['init', 'set1', 'set2'],
+                                                                       ['init', 'set2'],
+                                                                       ['init', 'set2', 'set1'],
+                                                                       ['init', 'set2', 'set2']])
+
     def test_from_json(self):
         pta = PTA.from_json(example_json_1)
         self.assertEqual(pta.parameters, ['datarate', 'txbytes', 'txpower'])
