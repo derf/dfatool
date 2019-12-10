@@ -74,7 +74,7 @@ Options:
     Load DFA hardware model from JSON or YAML
 
 --export-energymodel=<model.json>
-    Export energy model. Requires --hwmodel.
+    Export energy model. Works out of the box for v1 and v2 logfiles. Requires --hwmodel for v0 logfiles.
 """
 
 import getopt
@@ -282,6 +282,9 @@ if __name__ == '__main__':
     if raw_data.preprocessing_stats['num_valid'] == 0:
         print('No valid data available. Abort.')
         sys.exit(2)
+
+    if pta is None and raw_data.pta is not None:
+        pta = PTA.from_json(raw_data.pta)
 
     by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data, ignored_trace_indexes)
 

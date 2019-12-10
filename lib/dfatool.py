@@ -560,10 +560,11 @@ class RawData:
         self.preprocessed = False
         self._parameter_names = None
         self.ignore_clipping = False
+        self.pta = None
 
         with tarfile.open(filenames[0]) as tf:
             for member in tf.getmembers():
-                if member.name == 'ptalog.json':
+                if member.name == 'ptalog.json' and self.version == 0:
                     self.version = 1
                     # might also be version 2
                     # depends on whether *.etlog exists or not
@@ -585,6 +586,8 @@ class RawData:
                 cache_data = json.load(f)
                 self.traces = cache_data['traces']
                 self.preprocessing_stats = cache_data['preprocessing_stats']
+                if 'pta' in cache_data:
+                    self.pta = cache_data['pta']
                 self.preprocessed = True
 
     def save_cache(self):
@@ -595,7 +598,8 @@ class RawData:
         with open(self.cache_file, 'w') as f:
             cache_data = {
                 'traces': self.traces,
-                'preprocessing_stats': self.preprocessing_stats
+                'preprocessing_stats': self.preprocessing_stats,
+                'pta': self.pta,
             }
             json.dump(cache_data, f)
 
@@ -909,6 +913,13 @@ class RawData:
             #    offline_aggregates['rel_energy_next'].append(offline_trace_part['W_mean_delta_next'] * offline_trace_part['s'] * 1e12)
 
     def _concatenate_traces(self, list_of_traces):
+        """
+        Concatenate `list_of_traces` (list of lists) into a single trace while adjusting trace IDs.
+
+        :param list_of_traces: List of list of traces.
+        :returns: List of traces with ['id'] in ascending order and ['orig_id'] as previous ['id']
+        """
+
         trace_output = list()
         for trace in list_of_traces:
             trace_output.extend(trace.copy())
@@ -1007,6 +1018,7 @@ class RawData:
                 new_filenames = list()
                 with tarfile.open(filename) as tf:
                     ptalog = json.load(tf.extractfile(tf.getmember('ptalog.json')))
+                    self.pta = ptalog['pta']
 
                     # Benchmark code may be too large to be executed in a single
                     # run, so benchmarks (a benchmark is basically a list of DFA runs)
@@ -1056,6 +1068,7 @@ class RawData:
                 new_filenames = list()
                 with tarfile.open(filename) as tf:
                     ptalog = json.load(tf.extractfile(tf.getmember('ptalog.json')))
+                    self.pta = ptalog['pta']
 
                     # Benchmark code may be too large to be executed in a single
                     # run, so benchmarks (a benchmark is basically a list of DFA runs)
@@ -2168,7 +2181,9 @@ class EnergyTraceLog:
     Expects an EnergyTrace log file generated via msp430-etv / energytrace-util
     and a dfatool-generated benchmark. An EnergyTrace log consits of a series
     of measurements. Each measurement has a timestamp, mean current, voltage,
-    and cumulative energy since start of measurement.
+    and cumulative energy since start of measurement. Each transition is
+    preceded by a Code128 barcode embedded into the energy consumption by
+    toggling a LED.
 
     Note that the baseline power draw of board and peripherals is not subtracted
     at the moment.

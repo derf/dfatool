@@ -914,17 +914,25 @@ class PTA:
     def update(self, static_model, param_model):
         for state in self.state.values():
             if state.name != 'UNINITIALIZED':
-                state.power = static_model(state.name, 'power')
-                if param_model(state.name, 'power'):
-                    state.power_function = param_model(state.name, 'power')['function']
+                try:
+                    state.power = static_model(state.name, 'power')
+                    if param_model(state.name, 'power'):
+                        state.power_function = param_model(state.name, 'power')['function']
+                except KeyError:
+                    print('[W] skipping model update of state {} due to missing data'.format(state.name))
+                    pass
         for transition in self.transitions:
-            transition.duration = static_model(transition.name, 'duration')
-            if param_model(transition.name, 'duration'):
-                transition.duration_function = param_model(transition.name, 'duration')['function']
-            transition.energy = static_model(transition.name, 'energy')
-            if param_model(transition.name, 'energy'):
-                transition.energy_function = param_model(transition.name, 'energy')['function']
-            if transition.is_interrupt:
-                transition.timeout = static_model(transition.name, 'timeout')
-                if param_model(transition.name, 'timeout'):
-                    transition.timeout_function = param_model(transition.name, 'timeout')['function']
+            try:
+                transition.duration = static_model(transition.name, 'duration')
+                if param_model(transition.name, 'duration'):
+                    transition.duration_function = param_model(transition.name, 'duration')['function']
+                transition.energy = static_model(transition.name, 'energy')
+                if param_model(transition.name, 'energy'):
+                    transition.energy_function = param_model(transition.name, 'energy')['function']
+                if transition.is_interrupt:
+                    transition.timeout = static_model(transition.name, 'timeout')
+                    if param_model(transition.name, 'timeout'):
+                        transition.timeout_function = param_model(transition.name, 'timeout')['function']
+            except KeyError:
+                print('[W] skipping model update of transition {} due to missing data'.format(state.name))
+                pass
