@@ -91,12 +91,12 @@ class TestCG(unittest.TestCase):
     def test_statetransition_immediate(self):
         pta = PTA.from_json(example_json_1)
         pta.set_random_energy_model()
-        pta.state['IDLE'].power = 9
+        pta.state['IDLE'].power.value = 9
         cg = get_simulated_accountingmethod('static_statetransition_immediate')(pta, 1000000, 'uint8_t', 'uint8_t', 'uint8_t', 'uint8_t')
         cg.current_state = pta.state['IDLE']
         cg.sleep(7)
         self.assertEqual(cg.get_energy(), 9 * 7)
-        pta.transitions[1].energy = 123
+        pta.transitions[1].energy.value = 123
         cg.pass_transition(pta.transitions[1])
         self.assertEqual(cg.get_energy(), 9 * 7 + 123)
         cg.pass_transition(pta.transitions[1])
@@ -120,8 +120,8 @@ class TestCG(unittest.TestCase):
         cg.sleep(90)
         self.assertEqual(cg.get_energy(), 900)
 
-        pta.state['IDLE'].power = 9  # -> 90 uW
-        pta.transitions[1].energy = 1  # -> 100 pJ
+        pta.state['IDLE'].power.value = 9  # -> 90 uW
+        pta.transitions[1].energy.value = 1  # -> 100 pJ
         cg = get_simulated_accountingmethod('static_statetransition_immediate')(pta, 1000000, 'uint8_t', 'uint8_t', 'uint8_t', 'uint8_t', 1e-5, 1e-5, 1e-10)
         cg.current_state = pta.state['IDLE']
         cg.sleep(10)  # 10 us
@@ -134,12 +134,12 @@ class TestCG(unittest.TestCase):
     def test_statetransition(self):
         pta = PTA.from_json(example_json_1)
         pta.set_random_energy_model()
-        pta.state['IDLE'].power = 9
+        pta.state['IDLE'].power.value = 9
         cg = get_simulated_accountingmethod('static_statetransition')(pta, 1000000, 'uint8_t', 'uint8_t', 'uint8_t', 'uint8_t')
         cg.current_state = pta.state['IDLE']
         cg.sleep(7)
         self.assertEqual(cg.get_energy(), 9 * 7)
-        pta.transitions[1].energy = 123
+        pta.transitions[1].energy.value = 123
         cg.pass_transition(pta.transitions[1])
         self.assertEqual(cg.get_energy(), 9 * 7 + 123)
         cg.pass_transition(pta.transitions[1])
@@ -148,12 +148,12 @@ class TestCG(unittest.TestCase):
     def test_state_immediate(self):
         pta = PTA.from_json(example_json_1)
         pta.set_random_energy_model()
-        pta.state['IDLE'].power = 9
+        pta.state['IDLE'].power.value = 9
         cg = get_simulated_accountingmethod('static_state_immediate')(pta, 1000000, 'uint8_t', 'uint8_t', 'uint8_t', 'uint8_t')
         cg.current_state = pta.state['IDLE']
         cg.sleep(7)
         self.assertEqual(cg.get_energy(), 9 * 7)
-        pta.transitions[1].energy = 123
+        pta.transitions[1].energy.value = 123
         cg.pass_transition(pta.transitions[1])
         self.assertEqual(cg.get_energy(), 9 * 7)
         cg.pass_transition(pta.transitions[1])
@@ -162,12 +162,12 @@ class TestCG(unittest.TestCase):
     def test_state(self):
         pta = PTA.from_json(example_json_1)
         pta.set_random_energy_model()
-        pta.state['IDLE'].power = 9
+        pta.state['IDLE'].power.value = 9
         cg = get_simulated_accountingmethod('static_state')(pta, 1000000, 'uint8_t', 'uint8_t', 'uint8_t', 'uint8_t')
         cg.current_state = pta.state['IDLE']
         cg.sleep(7)
         self.assertEqual(cg.get_energy(), 9 * 7)
-        pta.transitions[1].energy = 123
+        pta.transitions[1].energy.value = 123
         cg.pass_transition(pta.transitions[1])
         self.assertEqual(cg.get_energy(), 9 * 7)
         cg.pass_transition(pta.transitions[1])

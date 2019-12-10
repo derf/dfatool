@@ -180,7 +180,7 @@ class SimulatedStaticStateOnlyAccountingImmediateCalculation(SimulatedAccounting
 
     def sleep(self, duration_us):
         time = self._sleep_duration(duration_us)
-        power = int(self.current_state.power)
+        power = int(self.current_state.power.value)
         energy = self._energy_from_power_and_time(time, power)
         self.energy += energy
 
@@ -203,14 +203,14 @@ class SimulatedStaticAccountingImmediateCalculation(SimulatedAccountingMethod):
     def sleep(self, duration_us):
         time = self._sleep_duration(duration_us)
         print('sleep duration is {}'.format(time))
-        power = int(self.current_state.power)
+        power = int(self.current_state.power.value)
         print('power is {}'.format(power))
         energy = self._energy_from_power_and_time(time, power)
         print('energy is {}'.format(energy))
         self.energy += energy
 
     def pass_transition(self, transition: Transition):
-        self.energy += int(transition.energy)
+        self.energy += int(transition.energy.value)
         super().pass_transition(transition)
 
 
@@ -245,9 +245,9 @@ class SimulatedStaticAccounting(SimulatedAccountingMethod):
         pta = self.pta
         energy = self.energy_class(0)
         for state in pta.state.values():
-            energy += self._energy_from_power_and_time(self.time_in_state[state.name], int(state.power))
+            energy += self._energy_from_power_and_time(self.time_in_state[state.name], int(state.power.value))
         for i, transition in enumerate(pta.transitions):
-            energy += self.transition_count[i] * int(transition.energy)
+            energy += self.transition_count[i] * int(transition.energy.value)
         return energy.val
 
 
@@ -275,7 +275,7 @@ class SimulatedStaticStateOnlyAccounting(SimulatedAccountingMethod):
         pta = self.pta
         energy = self.energy_class(0)
         for state in pta.state.values():
-            energy += self._energy_from_power_and_time(self.time_in_state[state.name], int(state.power))
+            energy += self._energy_from_power_and_time(self.time_in_state[state.name], int(state.power.value))
         return energy.val
 
 
