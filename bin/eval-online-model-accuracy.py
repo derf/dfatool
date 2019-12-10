@@ -164,7 +164,7 @@ if __name__ == '__main__':
         real_durations = list()
         model_energies = list()
         # duration in µs
-        # Bei kurzer Dauer (z.B. nur [1e2]) performt auc uint32_t für Energie gut, sonst nicht so (weil overflow)
+        # Bei kurzer Dauer (z.B. nur [1e2]) performt auch uint32_t für Energie gut, sonst nicht so (weil overflow)
         for sleep_duration in [1e2, 1e3, 1e4, 1e5, 1e6]:
             runs = pta.dfs(opt['depth'], with_arguments=True, with_parameters=True, trace_filter=opt['trace-filter'], sleep=sleep_duration)
             for run in runs:

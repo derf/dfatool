@@ -575,6 +575,8 @@ class PTA:
                 kwargs['is_interrupt'] = transition['is_interrupt']
             if 'return_value' in transition:
                 kwargs['return_value_handlers'] = transition['return_value']
+            if 'codegen' in transition:
+                kwargs['codegen'] = transition['codegen']
             if 'loop' in transition:
                 for state_name in transition['loop']:
                     pta.add_transition(state_name, state_name, trans_name,
@@ -784,7 +786,7 @@ class PTA:
                     ret.append((transition, arguments, param))
             yield ret
 
-    def bfs(self, depth: int = 10, orig_state: str = 'UNINITIALIZED', transition_filter=None, state_filter=None):
+    def bfs(self, depth: int = 10, orig_state: str = 'UNINITIALIZED', param_dict: dict = None, with_parameters: bool = False, transition_filter=None, state_filter=None):
         """
         Return a generator object for breadth-first search of traces starting at orig_state.
 
@@ -804,6 +806,9 @@ class PTA:
 
         :param orig_state: initial state for breadth-first search
         :param depth: search depth, default 10
+        :param param_dict: initial parameter values
+        :param with_arguments: perform dfs with argument values
+        :param with_parameters: include parameters in trace?
         :param transition_filter: If set, only follow a transition if transition_filter(transition object) returns true. Default None.
         :param state_iflter: If set, only follow a state if state_filter(state_object) returns true. Default None.
         """

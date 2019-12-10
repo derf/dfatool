@@ -330,7 +330,7 @@ class OnboardTimerHarness(TransitionHarness):
         log_data_target['parameter'][parameter_name].append(parameter_value)
 
     def parser_cb(self, line):
-        #print('[HARNESS] got line {}'.format(line))
+        # print('[HARNESS] got line {}'.format(line))
         res = re.match(r'\[PTA\] nop=(\S+)/(\S+)', line)
         if res:
             self.nop_cycles = int(res.group(1))
