@@ -157,7 +157,12 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
 
             outbuf.write('// current parameters: {}\n'.format(', '.join(map(lambda kv: '{}={}'.format(*kv), param.items()))))
 
-            if opt['sleep']:
+            if 'delay_after_ms' in transition.codegen:
+                if 'energytrace' in opt:
+                    outbuf.write('arch.sleep_ms({:d}); // {} -- delay mandated by codegen.delay_after_ms\n'.format(transition.codegen['delay_after_ms'], transition.destination.name))
+                else:
+                    outbuf.write('arch.delay_ms({:d}); // {} -- delay mandated by codegen.delay_after_ms\n'.format(transition.codegen['delay_after_ms'], transition.destination.name))
+            elif opt['sleep']:
                 if 'energytrace' in opt:
                     outbuf.write('arch.sleep_ms({:d}); // {}\n'.format(opt['sleep'], transition.destination.name))
                 else:
@@ -313,6 +318,9 @@ if __name__ == '__main__':
         for option, parameter in raw_opts:
             optname = re.sub(r'^--', '', option)
             opt[optname] = parameter
+
+        if 'app' not in opt:
+            opt['app'] = 'test_benchmark'
 
         if 'depth' in opt:
             opt['depth'] = int(opt['depth'])
