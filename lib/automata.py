@@ -14,9 +14,11 @@ def _dict_to_list(input_dict: dict) -> list:
 
 
 class PTAAttribute:
-    def __init__(self, value: float = 0, function: AnalyticFunction = None):
+    def __init__(self, value: float = 0, function: AnalyticFunction = None, value_error=None, function_error=None):
         self.value = value
         self.function = function
+        self.value_error = value_error
+        self.function_error = function_error
 
     def __repr__(self):
         if self.function is not None:
@@ -30,13 +32,15 @@ class PTAAttribute:
 
     def to_json(self):
         ret = {
-            'static': self.value
+            'static': self.value,
+            'static_error': self.value_error,
         }
         if self.function:
             ret['function'] = {
                 'raw': self.function._model_str,
                 'regression_args': list(self.function._regression_args)
             }
+            ret['function_error'] = self.function_error
         return ret
 
     @classmethod
@@ -954,13 +958,17 @@ class PTA:
 
         return total_energy, total_duration, state, param_dict
 
-    def update(self, static_model, param_model):
+    def update(self, static_model, param_model, static_error=None, analytic_error=None):
         for state in self.state.values():
             if state.name != 'UNINITIALIZED':
                 try:
                     state.power.value = static_model(state.name, 'power')
+                    if static_error is not None:
+                        state.power.value_error = static_error[state.name]['power']
                     if param_model(state.name, 'power'):
                         state.power.function = param_model(state.name, 'power')['function']
+                        if analytic_error is not None:
+                            state.power.function_error = analytic_error[state.name]['power']
                 except KeyError:
                     print('[W] skipping model update of state {} due to missing data'.format(state.name))
                     pass
@@ -969,13 +977,24 @@ class PTA:
                 transition.duration.value = static_model(transition.name, 'duration')
                 if param_model(transition.name, 'duration'):
                     transition.duration.function = param_model(transition.name, 'duration')['function']
+                    if analytic_error is not None:
+                        transition.duration.function_error = analytic_error[transition.name]['duration']
                 transition.energy.value = static_model(transition.name, 'energy')
                 if param_model(transition.name, 'energy'):
                     transition.energy.function = param_model(transition.name, 'energy')['function']
+                    if analytic_error is not None:
+                        transition.energy.function_error = analytic_error[transition.name]['energy']
                 if transition.is_interrupt:
                     transition.timeout.value = static_model(transition.name, 'timeout')
                     if param_model(transition.name, 'timeout'):
                         transition.timeout.function = param_model(transition.name, 'timeout')['function']
+                        if analytic_error is not None:
+                            transition.timeout.function_error = analytic_error[transition.name]['timeout']
+
+                if static_error is not None:
+                    transition.duration.value_error = static_error[transition.name]['duration']
+                    transition.energy.value_error = static_error[transition.name]['energy']
+                    transition.timeout.value_error = static_error[transition.name]['timeout']
             except KeyError:
-                print('[W] skipping model update of transition {} due to missing data'.format(state.name))
+                print('[W] skipping model update of transition {} due to missing data'.format(transition.name))
                 pass

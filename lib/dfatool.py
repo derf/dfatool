@@ -2025,8 +2025,10 @@ class PTAModel:
 
     def to_json(self):
         static_model = self.get_static()
-        _, param_info = self.get_fitted()
-        self.pta.update(static_model, param_info)
+        static_quality = self.assess(static_model)
+        param_model, param_info = self.get_fitted()
+        analytic_quality = self.assess(param_model)
+        self.pta.update(static_model, param_info, static_error=static_quality['by_name'], analytic_error=analytic_quality['by_name'])
         return self.pta.to_json()
 
     def states(self):
