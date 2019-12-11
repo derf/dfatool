@@ -13,6 +13,15 @@ def _dict_to_list(input_dict: dict) -> list:
     return [input_dict[x] for x in sorted(input_dict.keys())]
 
 
+class SimulationResult:
+    def __init__(self, duration: float, energy: float, end_state, parameters):
+        self.duration = duration * 1e-6
+        self.energy = energy * 1e-12
+        self.end_state = end_state
+        self.parameters = parameters
+        self.mean_power = self.energy / self.duration
+
+
 class PTAAttribute:
     def __init__(self, value: float = 0, function: AnalyticFunction = None, value_error=None, function_error=None):
         self.value = value
@@ -957,7 +966,7 @@ class PTA:
                     param_dict = transition.get_params_after_transition(param_dict)
                     state = transition.destination
 
-        return total_energy, total_duration, state, param_dict
+        return SimulationResult(total_duration, total_energy, state, param_dict)
 
     def update(self, static_model, param_model, static_error=None, analytic_error=None):
         for state in self.state.values():

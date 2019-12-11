@@ -571,11 +571,11 @@ class TestPTA(unittest.TestCase):
         ]
         expected_energy = 5. * 10000000 + 3 + 100 * 2000 + 5 * 5000000 + 3 + 100 * 2000
         expected_duration = 50000 + 10000000 + 10 + 2000 + 5000000 + 10 + 2000
-        energy, duration, state, parameters = pta.simulate(trace)
-        self.assertEqual(energy, expected_energy)
-        self.assertEqual(duration, expected_duration)
-        self.assertEqual(state.name, 'IDLE')
-        self.assertEqual(parameters, {})
+        result = pta.simulate(trace)
+        self.assertAlmostEqual(result.energy, expected_energy * 1e-12, places=12)
+        self.assertAlmostEqual(result.duration, expected_duration * 1e-6, places=6)
+        self.assertEqual(result.end_state.name, 'IDLE')
+        self.assertEqual(result.parameters, {})
 
     def test_simulation_param_none(self):
         pta = PTA(parameters=['txpower', 'length'])
@@ -589,11 +589,11 @@ class TestPTA(unittest.TestCase):
         ]
         expected_energy = 500000
         expected_duration = 50000
-        energy, duration, state, parameters = pta.simulate(trace)
-        self.assertEqual(energy, expected_energy)
-        self.assertEqual(duration, expected_duration)
-        self.assertEqual(state.name, 'IDLE')
-        self.assertEqual(parameters, {
+        result = pta.simulate(trace)
+        self.assertAlmostEqual(result.energy, expected_energy * 1e-12, places=12)
+        self.assertAlmostEqual(result.duration, expected_duration * 1e-6, places=6)
+        self.assertEqual(result.end_state.name, 'IDLE')
+        self.assertEqual(result.parameters, {
             'txpower': None,
             'length': None
         })
@@ -613,11 +613,11 @@ class TestPTA(unittest.TestCase):
         ]
         expected_energy = 510000
         expected_duration = 50120
-        energy, duration, state, parameters = pta.simulate(trace)
-        self.assertEqual(energy, expected_energy)
-        self.assertEqual(duration, expected_duration)
-        self.assertEqual(state.name, 'IDLE')
-        self.assertEqual(parameters, {
+        result = pta.simulate(trace)
+        self.assertAlmostEqual(result.energy, expected_energy * 1e-12, places=12)
+        self.assertAlmostEqual(result.duration, expected_duration * 1e-6, places=6)
+        self.assertEqual(result.end_state.name, 'IDLE')
+        self.assertEqual(result.parameters, {
             'txpower': 10,
             'length': None
         })
@@ -637,11 +637,11 @@ class TestPTA(unittest.TestCase):
         ]
         expected_energy = 510000
         expected_duration = 50120
-        energy, duration, state, parameters = pta.simulate(trace)
-        self.assertEqual(energy, expected_energy)
-        self.assertEqual(duration, expected_duration)
-        self.assertEqual(state.name, 'IDLE')
-        self.assertEqual(parameters, {
+        result = pta.simulate(trace)
+        self.assertAlmostEqual(result.energy, expected_energy * 1e-12, places=12)
+        self.assertAlmostEqual(result.duration, expected_duration * 1e-6, places=6)
+        self.assertEqual(result.end_state.name, 'IDLE')
+        self.assertEqual(result.parameters, {
             'txpower': 10,
             'length': None
         })
@@ -656,11 +656,11 @@ class TestPTA(unittest.TestCase):
         ]
         expected_energy = 500000
         expected_duration = 50000
-        energy, duration, state, parameters = pta.simulate(trace)
-        self.assertEqual(energy, expected_energy)
-        self.assertEqual(duration, expected_duration)
-        self.assertEqual(state.name, 'IDLE')
-        self.assertEqual(parameters, {
+        result = pta.simulate(trace)
+        self.assertAlmostEqual(result.energy, expected_energy * 1e-12, places=12)
+        self.assertAlmostEqual(result.duration, expected_duration * 1e-6, places=6)
+        self.assertEqual(result.end_state.name, 'IDLE')
+        self.assertEqual(result.parameters, {
             'txpower': 10,
             'length': None
         })
@@ -683,11 +683,11 @@ class TestPTA(unittest.TestCase):
         ]
         expected_energy = 500000 + 10000 + (3 + 5 * 3) + (2000 * 100)
         expected_duration = 50000 + 120 + (48 + 8 * 3) + 2000
-        energy, duration, state, parameters = pta.simulate(trace)
-        self.assertEqual(energy, expected_energy)
-        self.assertEqual(duration, expected_duration)
-        self.assertEqual(state.name, 'IDLE')
-        self.assertEqual(parameters, {
+        result = pta.simulate(trace)
+        self.assertAlmostEqual(result.energy, expected_energy * 1e-12, places=12)
+        self.assertAlmostEqual(result.duration, expected_duration * 1e-6, places=6)
+        self.assertEqual(result.end_state.name, 'IDLE')
+        self.assertEqual(result.parameters, {
             'txpower': 10,
             'length': None
         })
@@ -709,11 +709,11 @@ class TestPTA(unittest.TestCase):
         ]
         expected_energy = 500000 + 10000 + (3 + 5 * 6) + (2000 * 100)
         expected_duration = 50000 + 120 + (48 + 8 * 6) + 2000
-        energy, duration, state, parameters = pta.simulate(trace)
-        self.assertEqual(energy, expected_energy)
-        self.assertEqual(duration, expected_duration)
-        self.assertEqual(state.name, 'IDLE')
-        self.assertEqual(parameters, {
+        result = pta.simulate(trace)
+        self.assertAlmostEqual(result.energy, expected_energy * 1e-12, places=12)
+        self.assertAlmostEqual(result.duration, expected_duration * 1e-6, places=6)
+        self.assertEqual(result.end_state.name, 'IDLE')
+        self.assertEqual(result.parameters, {
             'txpower': 10,
             'length': None
         })
@@ -738,11 +738,11 @@ class TestPTA(unittest.TestCase):
         ]
         expected_energy = 500000 + 10000 + (3 + 5 * 3) + (1000 + 2 * 10) * (500 + 16 * 3)
         expected_duration = 50000 + 120 + 10 + (500 + 16 * 3)
-        energy, duration, state, parameters = pta.simulate(trace)
-        self.assertEqual(energy, expected_energy)
-        self.assertEqual(duration, expected_duration)
-        self.assertEqual(state.name, 'IDLE')
-        self.assertEqual(parameters, {
+        result = pta.simulate(trace)
+        self.assertAlmostEqual(result.energy, expected_energy * 1e-12, places=12)
+        self.assertAlmostEqual(result.duration, expected_duration * 1e-6, places=6)
+        self.assertEqual(result.end_state.name, 'IDLE')
+        self.assertEqual(result.parameters, {
             'txpower': 10,
             'length': 3
         })
