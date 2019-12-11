@@ -14,6 +14,13 @@ def vprint(verbose, string):
         print(string)
 
 
+def human_readable(value, unit):
+    for prefix, factor in (('p', 1e-12), ('n', 1e-9), (u'µ', 1e-6), ('m', 1e-3), ('', 1), ('k', 1e3)):
+        if value < 1e3 * factor:
+            return '{:.2f} {}{}'.format(value * (1 / factor), prefix, unit)
+    return '{:.2f} {}'.format(value, unit)
+
+
 def is_numeric(n):
     """Check if `n` is numeric (i.e., it can be converted to float)."""
     if n is None:
