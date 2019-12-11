@@ -26,8 +26,9 @@ class PTAAttribute:
         return 'PTAATtribute<{:.0f}, None>'.format(self.value)
 
     def eval(self, param_dict=dict(), args=list()):
-        if self.function:
-            return self.function.eval(_dict_to_list(param_dict), args)
+        param_list = _dict_to_list(param_dict)
+        if self.function and self.function.is_predictable(param_list):
+            return self.function.eval(param_list, args)
         return self.value
 
     def to_json(self):
