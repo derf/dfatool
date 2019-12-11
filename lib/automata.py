@@ -14,9 +14,13 @@ def _dict_to_list(input_dict: dict) -> list:
 
 
 class SimulationResult:
-    def __init__(self, duration: float, energy: float, end_state, parameters):
+    def __init__(self, duration: float, energy: float, end_state, parameters, duration_mae: float = None, energy_mae: float = None):
         self.duration = duration * 1e-6
+        self.duration_mae = duration_mae * 1e-6
+        self.duration_mape = self.duration_mae * 100 / self.duration
         self.energy = energy * 1e-12
+        self.energy_mae = energy_mae * 1e-12
+        self.energy_mape = self.energy_mae * 100 / self.energy
         self.end_state = end_state
         self.parameters = parameters
         self.mean_power = self.energy / self.duration
@@ -40,6 +44,12 @@ class PTAAttribute:
             return self.function.eval(param_list, args)
         return self.value
 
+    def eval_mae(self, param_dict=dict(), args=list()):
+        param_list = _dict_to_list(param_dict)
+        if self.function and self.function.is_predictable(param_list):
+            return self.function_error['mae']
+        return self.value_error['mae']
+
     def to_json(self):
         ret = {
             'static': self.value,
@@ -58,8 +68,12 @@ class PTAAttribute:
         ret = cls()
         if 'static' in json_input:
             ret.value = json_input['static']
+        if 'static_error' in json_input:
+            ret.value_error = json_input['static_error']
         if 'function' in json_input:
             ret.function = AnalyticFunction(json_input['function']['raw'], parameters, 0, regression_args=json_input['function']['regression_args'])
+        if 'function_error' in json_input:
+            ret.function_error = json_input['function_error']
         return ret
 
     @classmethod
@@ -928,10 +942,12 @@ class PTA:
             The tuple (None, duration) represents a sleep time between states in us
         :param orig_state: origin state, default UNINITIALIZED
 
-        :returns (total energy in pJ, total duration in µs, end state, end parameters)
+        :returns: SimulationResult with duration in s, total energy in J, end state, and final parameters
         """
         total_duration = 0.
+        total_duration_mae = 0.
         total_energy = 0.
+        total_energy_error = 0.
         state = self.state[orig_state]
         param_dict = dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
         for function in trace:
@@ -944,13 +960,20 @@ class PTA:
             if function_name is None:
                 duration = function_args[0]
                 total_energy += state.get_energy(duration, param_dict)
+                if state.power.value_error is not None:
+                    total_energy_error += (duration * state.power.eval_mae(param_dict, function_args))**2
                 total_duration += duration
+                # assumption: sleep is near-exact and does not contribute to the duration error
                 if accounting is not None:
                     accounting.sleep(duration)
             else:
                 transition = state.get_transition(function_name)
-                total_duration += transition.get_duration(param_dict, function_args)
+                total_duration += transition.duration.eval(param_dict, function_args)
+                if transition.duration.value_error is not None:
+                    total_duration_mae += transition.duration.eval_mae(param_dict, function_args)**2
                 total_energy += transition.get_energy(param_dict, function_args)
+                if transition.energy.value_error is not None:
+                    total_energy_error += transition.energy.eval_mae(param_dict, function_args)**2
                 param_dict = transition.get_params_after_transition(param_dict, function_args)
                 state = transition.destination
                 if accounting is not None:
@@ -966,7 +989,7 @@ class PTA:
                     param_dict = transition.get_params_after_transition(param_dict)
                     state = transition.destination
 
-        return SimulationResult(total_duration, total_energy, state, param_dict)
+        return SimulationResult(total_duration, total_energy, state, param_dict, duration_mae=np.sqrt(total_duration_mae), energy_mae=np.sqrt(total_energy_error))
 
     def update(self, static_model, param_model, static_error=None, analytic_error=None):
         for state in self.state.values():
