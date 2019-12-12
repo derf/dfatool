@@ -956,7 +956,10 @@ class PTA:
         total_duration_mae = 0.
         total_energy = 0.
         total_energy_error = 0.
-        state = self.state[orig_state]
+        if type(orig_state) is State:
+            state = orig_state
+        else:
+            state = self.state[orig_state]
         param_dict = dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
         for function in trace:
             if isinstance(function[0], Transition):
