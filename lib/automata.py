@@ -542,9 +542,14 @@ class PTA:
             pta.add_state(name, power=PTAAttribute.from_json_maybe(state, 'power', pta.parameters))
         for transition in json_input['transitions']:
             kwargs = dict()
-            for key in ['arguments', 'arg_to_param_map', 'argument_values', 'argument_combination', 'is_interrupt', 'set_param']:
+            for key in ['arguments', 'argument_values', 'argument_combination', 'is_interrupt', 'set_param']:
                 if key in transition:
                     kwargs[key] = transition[key]
+            # arg_to_param_map uses integer indices. This is not supported by JSON
+            if 'arg_to_param_map' in transition:
+                kwargs['arg_to_param_map'] = dict()
+                for arg_index, param_name in transition['arg_to_param_map'].items():
+                    kwargs['arg_to_param_map'][int(arg_index)] = param_name
             origins = transition['origin']
             if type(origins) != list:
                 origins = [origins]
