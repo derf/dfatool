@@ -142,7 +142,10 @@ class State:
         :param transition_name: transition name
         :returns: `Transition` object
         """
-        return self.outgoing_transitions[transition_name]
+        try:
+            return self.outgoing_transitions[transition_name]
+        except KeyError:
+            raise ValueError('State {} has no outgoing transition called {}'.format(self.name, transition_name)) from None
 
     def has_interrupt_transitions(self) -> bool:
         """Return whether this state has any outgoing interrupt transitions."""
