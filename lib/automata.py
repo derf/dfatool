@@ -14,7 +14,31 @@ def _dict_to_list(input_dict: dict) -> list:
 
 
 class SimulationResult:
+    """
+    Duration, Energy, and state/parameter results from PTA.simulate on a single run.
+
+    :param duration: run duration in s
+    :param duration_mae: Mean Absolute Error of duration, assuming cycle-perfect delay/sleep calls
+    :param duration_mape: Mean Absolute Percentage Error of duration, assuming cycle-perfect delay/sleep caals
+    :param energy: run energy in J
+    :param energy_mae: Mean Absolute Error of energy
+    :param energy_mape: Mean Absolute Percentage Error of energy
+    :param end_state: Final `State` of run
+    :param parameters: Final parameters of run
+    :param mean_power: mean power during run in W
+    """
+
     def __init__(self, duration: float, energy: float, end_state, parameters, duration_mae: float = None, energy_mae: float = None):
+        u"""
+        Create a new SimulationResult.
+
+        :param duration: run duration in µs
+        :param duration_mae: Mean Absolute Error of duration in µs, default None
+        :param energy: run energy in pJ
+        :param energy_mae: Mean Absolute Error of energy in pJ, default None
+        :param end_state: Final `State`  after simulation run
+        :param parameters: Parameter values after simulation run
+        """
         self.duration = duration * 1e-6
         self.duration_mae = duration_mae * 1e-6
         self.duration_mape = self.duration_mae * 100 / self.duration
@@ -968,7 +992,7 @@ class PTA:
             else:
                 function_name = function[0]
                 function_args = function[1:]
-            if function_name is None:
+            if function_name is None or function_name == '_':
                 duration = function_args[0]
                 total_energy += state.get_energy(duration, param_dict)
                 if state.power.value_error is not None:
