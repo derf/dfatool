@@ -102,7 +102,7 @@ class PTAAttribute:
 
     @classmethod
     def from_json_maybe(cls, json_wrapped: dict, attribute: str, parameters: dict):
-        if attribute in json_wrapped:
+        if type(json_wrapped) is dict and attribute in json_wrapped:
             return cls.from_json(json_wrapped[attribute], parameters)
         return cls()
 
@@ -652,6 +652,10 @@ class PTA:
             kwargs['parameter_normalization'] = yaml_input['parameter_normalization']
 
         pta = cls(**kwargs)
+
+        if 'state' in yaml_input:
+            for state_name, state in yaml_input['state'].items():
+                pta.add_state(state_name, power=PTAAttribute.from_json_maybe(state, 'power', pta.parameters))
 
         for trans_name in sorted(yaml_input['transition'].keys()):
             kwargs = dict()
