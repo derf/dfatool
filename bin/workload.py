@@ -22,9 +22,9 @@ prev_param = None
 for trace_part in timedword:
     print('Trace Part {}'.format(trace_part))
     if type(trace_part) is TimedWord:
-        result = pta.simulate(trace_part, orig_state=prev_state)
+        result = pta.simulate(trace_part, orig_state=prev_state, orig_param=prev_param)
     elif type(trace_part) is Workload:
-        result = pta.simulate(trace_part.word, orig_state=prev_state)
+        result = pta.simulate(trace_part.word, orig_state=prev_state, orig_param=prev_param)
         if prev_state != result.end_state:
             print('Warning: loop starts in state {}, but terminates in {}'.format(prev_state, result.end_state.name))
         if prev_param != result.parameters:

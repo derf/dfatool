@@ -965,7 +965,7 @@ class PTA:
         else:
             return generator
 
-    def simulate(self, trace: list, orig_state: str = 'UNINITIALIZED', accounting=None):
+    def simulate(self, trace: list, orig_state: str = 'UNINITIALIZED', orig_param=None, accounting=None):
         u"""
         Simulate a single run through the PTA and return total energy, duration, final state, and resulting parameters.
 
@@ -973,6 +973,8 @@ class PTA:
             or list of (Transition, argument tuple, parameter) tuples originating from dfs.
             The tuple (None, duration) represents a sleep time between states in us
         :param orig_state: origin state, default UNINITIALIZED
+        :param orig_param: initial parameters, default: `self.initial_param_values`
+        :param accounting: EnergyAccounting object, default empty
 
         :returns: SimulationResult with duration in s, total energy in J, end state, and final parameters
         """
@@ -984,7 +986,10 @@ class PTA:
             state = orig_state
         else:
             state = self.state[orig_state]
-        param_dict = dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
+        if orig_param:
+            param_dict = orig_param.copy()
+        else:
+            param_dict = dict([[self.parameters[i], self.initial_param_values[i]] for i in range(len(self.parameters))])
         for function in trace:
             if isinstance(function[0], Transition):
                 function_name = function[0].name
