@@ -40,14 +40,25 @@ class SimulationResult:
         :param parameters: Parameter values after simulation run
         """
         self.duration = duration * 1e-6
-        self.duration_mae = duration_mae * 1e-6
-        self.duration_mape = self.duration_mae * 100 / self.duration
+        if duration_mae is None or self.duration == 0:
+            self.duration_mae = None
+            self.duration_mape = None
+        else:
+            self.duration_mae = duration_mae * 1e-6
+            self.duration_mape = self.duration_mae * 100 / self.duration
         self.energy = energy * 1e-12
-        self.energy_mae = energy_mae * 1e-12
-        self.energy_mape = self.energy_mae * 100 / self.energy
+        if energy_mae is None or self.energy == 0:
+            self.energy_mae = None
+            self.energy_mape = None
+        else:
+            self.energy_mae = energy_mae * 1e-12
+            self.energy_mape = self.energy_mae * 100 / self.energy
         self.end_state = end_state
         self.parameters = parameters
-        self.mean_power = self.energy / self.duration
+        if self.duration > 0:
+            self.mean_power = self.energy / self.duration
+        else:
+            self.mean_power = 0
 
 
 class PTAAttribute:
