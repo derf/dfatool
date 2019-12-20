@@ -62,6 +62,21 @@ class SimulationResult:
 
 
 class PTAAttribute:
+    u"""
+    A single PTA attribute (e.g. power, duration).
+
+    A PTA attribute can be described by a static value and an analytic
+    function (depending on parameters and function arguments).
+
+    It is not specified how value_error and function_error are determined --
+    at the moment, they do not use cross validation.
+
+    :param value: static value, typically in µW/µs/pJ
+    :param value_error: mean absolute error of value (optional)
+    :param function: AnalyticFunction for parameter-aware prediction (optional)
+    :param function_error: mean absolute error of function (optional)
+    """
+
     def __init__(self, value: float = 0, function: AnalyticFunction = None, value_error=None, function_error=None):
         self.value = value
         self.function = function
@@ -74,12 +89,23 @@ class PTAAttribute:
         return 'PTAATtribute<{:.0f}, None>'.format(self.value)
 
     def eval(self, param_dict=dict(), args=list()):
+        """
+        Return attribute for given `param_dict` and `args` value.
+
+        Uses `function` if set and usable for the given `param_dict` and
+        `value` otherwise.
+        """
         param_list = _dict_to_list(param_dict)
         if self.function and self.function.is_predictable(param_list):
             return self.function.eval(param_list, args)
         return self.value
 
     def eval_mae(self, param_dict=dict(), args=list()):
+        """
+        Return attribute mean absolute error for given `param_dict` and `args` value.
+
+        Uses `function_error` if `function` is set and usable for the given `param_dict` and `value_error` otherwise.
+        """
         param_list = _dict_to_list(param_dict)
         if self.function and self.function.is_predictable(param_list):
             return self.function_error['mae']
