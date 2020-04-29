@@ -1,4 +1,4 @@
-from sly import Lexer, Parser
+from .sly import Lexer, Parser
 
 
 class TimedWordLexer(Lexer):

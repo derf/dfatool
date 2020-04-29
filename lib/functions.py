@@ -8,7 +8,7 @@ from itertools import chain, combinations
 import numpy as np
 import re
 from scipy import optimize
-from utils import is_numeric, vprint
+from .utils import is_numeric, vprint
 
 arg_support_enabled = True
 

@@ -7,8 +7,8 @@ import struct
 import sys
 import tarfile
 import matplotlib.pyplot as plt
-from dfatool import MIMOSA
-from utils import running_mean
+from dfatool.dfatool import MIMOSA
+from dfatool.utils import running_mean
 
 voltage = float(sys.argv[1])
 shunt = float(sys.argv[2])

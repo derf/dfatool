@@ -3,8 +3,9 @@ import numpy as np
 from collections import OrderedDict
 from copy import deepcopy
 from multiprocessing import Pool
-from utils import remove_index_from_tuple, is_numeric, is_power_of_two
-from utils import filter_aggregate_by_param, by_name_to_by_param
+from .utils import remove_index_from_tuple, is_numeric
+from .utils import filter_aggregate_by_param, by_name_to_by_param
+
 
 def distinct_param_values(by_name, state_or_tran):
     """

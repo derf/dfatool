@@ -12,11 +12,11 @@ import struct
 import tarfile
 import hashlib
 from multiprocessing import Pool
-from functions import analytic
-from functions import AnalyticFunction
-from parameters import ParamStats
-from utils import vprint, is_numeric, soft_cast_int, param_slice_eq, remove_index_from_tuple
-from utils import by_name_to_by_param, match_parameter_values, running_mean
+from .functions import analytic
+from .functions import AnalyticFunction
+from .parameters import ParamStats
+from .utils import vprint, is_numeric, soft_cast_int, param_slice_eq, remove_index_from_tuple
+from .utils import by_name_to_by_param, match_parameter_values, running_mean
 
 try:
     from pubcode import Code128

@@ -61,17 +61,17 @@ import getopt
 import json
 import os
 import re
-import runner
 import sys
 import tarfile
 import time
 import io
 import yaml
-from aspectc import Repo
-from automata import PTA
-from codegen import get_accountingmethod, MultipassDriver
-from harness import OnboardTimerHarness, TransitionHarness
-from utils import flatten
+from dfatool import runner
+from dfatool.aspectc import Repo
+from dfatool.automata import PTA
+from dfatool.codegen import get_accountingmethod, MultipassDriver
+from dfatool.harness import OnboardTimerHarness, TransitionHarness
+from dfatool.utils import flatten
 
 opt = dict()
 

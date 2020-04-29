@@ -2,7 +2,7 @@
 
 import sys
 import numpy as np
-from dfatool import PTAModel, RawData, regression_measures, pta_trace_to_aggregate
+from dfatool.dfatool import PTAModel, RawData, regression_measures, pta_trace_to_aggregate
 from gplearn.genetic import SymbolicRegressor
 from multiprocessing import Pool
 

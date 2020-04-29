@@ -1,7 +1,7 @@
 """Classes and helper functions for PTA and other automata."""
 
-from functions import AnalyticFunction, NormalizationFunction
-from utils import is_numeric
+from .functions import AnalyticFunction, NormalizationFunction
+from .utils import is_numeric
 import itertools
 import numpy as np
 import json

@@ -79,14 +79,14 @@ Options:
 
 import getopt
 import json
-import plotter
 import re
 import sys
-from dfatool import PTAModel, RawData, pta_trace_to_aggregate
-from dfatool import gplearn_to_function
-from dfatool import CrossValidator
-from utils import filter_aggregate_by_param
-from automata import PTA
+from dfatool import plotter
+from dfatool.dfatool import PTAModel, RawData, pta_trace_to_aggregate
+from dfatool.dfatool import gplearn_to_function
+from dfatool.dfatool import CrossValidator
+from dfatool.utils import filter_aggregate_by_param
+from dfatool.automata import PTA
 
 opts = {}
 

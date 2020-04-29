@@ -20,7 +20,7 @@ run_tests:
   - wget -qO test-data/20190815_103347_nRF24_no-rx.json https://lib.finalrewind.org/energy-models/20190815_103347_nRF24_no-rx.json
   - wget -qO test-data/20190815_111745_nRF24_no-rx.json https://lib.finalrewind.org/energy-models/20190815_111745_nRF24_no-rx.json
   - wget -qO test-data/20190815_122531_nRF24_no-rx.json https://lib.finalrewind.org/energy-models/20190815_122531_nRF24_no-rx.json
-  - PYTHONPATH=lib pytest-3 --cov=lib
+  - pytest-3 --cov=lib
   - python3-coverage html
   artifacts:
     paths:

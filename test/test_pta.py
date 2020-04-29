@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from automata import PTA
+from dfatool.automata import PTA
 import unittest
 import yaml
 

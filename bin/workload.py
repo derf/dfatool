@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from automata import PTA
 import sys
-from utils import human_readable
-from lex import TimedSequence, TimedWord, Workload
+from dfatool.automata import PTA
+from dfatool.utils import human_readable
+from dfatool.lex import TimedSequence, TimedWord, Workload
 
 args = sys.argv[1:]
 

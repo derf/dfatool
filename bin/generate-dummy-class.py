@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from aspectc import Repo
-from codegen import MultipassDriver
-from automata import PTA
+from dfatool.aspectc import Repo
+from dfatool.codegen import MultipassDriver
+from dfatool.automata import PTA
 import yaml
 
 with open('/home/derf/var/projects/multipass/model/driver/nrf24l01.dfa', 'r') as f:

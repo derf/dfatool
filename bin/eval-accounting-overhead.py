@@ -13,7 +13,7 @@ providing overhead per transition and getEnergy overhead
 
 """
 
-from dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
+from dfatool.dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
 import json
 import sys
 

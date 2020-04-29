@@ -3,8 +3,8 @@
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-from dfatool import MIMOSA, KeysightCSV
-from utils import running_mean
+from dfatool.dfatool import MIMOSA, KeysightCSV
+from dfatool.utils import running_mean
 
 voltage = float(sys.argv[1])
 shunt = float(sys.argv[2])

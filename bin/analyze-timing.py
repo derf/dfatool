@@ -75,14 +75,14 @@ Options:
 
 import getopt
 import json
-import plotter
 import re
 import sys
-from dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
-from dfatool import gplearn_to_function
-from dfatool import CrossValidator
-from utils import filter_aggregate_by_param
-from parameters import prune_dependent_parameters
+from dfatool import plotter
+from dfatool.dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
+from dfatool.dfatool import gplearn_to_function
+from dfatool.dfatool import CrossValidator
+from dfatool.utils import filter_aggregate_by_param
+from dfatool.parameters import prune_dependent_parameters
 
 opts = {}
 

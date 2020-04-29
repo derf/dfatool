@@ -5,8 +5,8 @@ Parameters include the amount of keys, length of strings (both keys and values),
 length of lists, ane more.
 """
 
-from protocol_benchmarks import codegen_for_lib
-import cycles_to_energy, size_to_radio_energy, utils
+from .protocol_benchmarks import codegen_for_lib
+from . import cycles_to_energy, size_to_radio_energy, utils
 import numpy as np
 import ubjson
 

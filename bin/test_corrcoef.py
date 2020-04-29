@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import getopt
-import plotter
 import re
 import sys
-from dfatool import PTAModel, RawData, pta_trace_to_aggregate
-from dfatool import soft_cast_int, is_numeric, gplearn_to_function
+from dfatool import plotter
+from dfatool.dfatool import PTAModel, RawData, pta_trace_to_aggregate
+from dfatool.dfatool import gplearn_to_function
 
 opts = {}
 

@@ -3,9 +3,9 @@ Harnesses for various types of benchmark logs.
 
 tbd
 """
-import subprocess
 import re
-from pubcode import Code128
+from .pubcode import Code128
+
 
 class TransitionHarness:
     """

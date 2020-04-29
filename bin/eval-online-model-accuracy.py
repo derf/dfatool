@@ -26,9 +26,9 @@ import re
 import sys
 import itertools
 import yaml
-from automata import PTA
-from codegen import get_simulated_accountingmethod
-from dfatool import regression_measures
+from dfatool.automata import PTA
+from dfatool.codegen import get_simulated_accountingmethod
+from dfatool.dfatool import regression_measures
 import numpy as np
 
 opt = dict()
