@@ -7,11 +7,6 @@ from lex import TimedSequence, TimedWord, Workload
 
 args = sys.argv[1:]
 
-# TODO loops im raw_word:
-# init(); repeat { foo(); sleep(5m); bar(); ... } o.ä.
-# - Zeitangaben mit Einheit in sleep
-# - Ausgabe in Gesamt, Init und Schleifeninhalt aufdröseln
-
 loops = dict()
 ptafiles = list()
 loop_names = set()

@@ -8,7 +8,8 @@ import numpy as np
 import os
 import re
 import sys
-from dfatool import aggregate_measures, running_mean, MIMOSA
+from dfatool import aggregate_measures, MIMOSA
+from utils import running_mean
 
 opt = dict()
 

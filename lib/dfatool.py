@@ -16,7 +16,7 @@ from functions import analytic
 from functions import AnalyticFunction
 from parameters import ParamStats
 from utils import vprint, is_numeric, soft_cast_int, param_slice_eq, remove_index_from_tuple
-from utils import by_name_to_by_param, match_parameter_values
+from utils import by_name_to_by_param, match_parameter_values, running_mean
 
 try:
     from pubcode import Code128
@@ -27,17 +27,6 @@ except ImportError:
 
 
 arg_support_enabled = True
-
-
-def running_mean(x: np.ndarray, N: int) -> np.ndarray:
-    """
-    Compute `N` elements wide running average over `x`.
-
-    :param x: 1-Dimensional NumPy array
-    :param N: how many items to average
-    """
-    cumsum = np.cumsum(np.insert(x, 0, 0))
-    return (cumsum[N:] - cumsum[:-N]) / N
 
 
 def gplearn_to_function(function_str: str):

@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
-import csv
 import numpy as np
-import os
-import struct
 import sys
-import tarfile
 import matplotlib.pyplot as plt
-from dfatool import running_mean, MIMOSA, KeysightCSV
+from dfatool import MIMOSA, KeysightCSV
+from utils import running_mean
 
 voltage = float(sys.argv[1])
 shunt = float(sys.argv[2])

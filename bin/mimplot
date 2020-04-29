@@ -9,7 +9,8 @@ import struct
 import sys
 import tarfile
 import matplotlib.pyplot as plt
-from dfatool import running_mean, MIMOSA
+from dfatool import MIMOSA
+from utils import running_mean
 
 opt = dict()
 

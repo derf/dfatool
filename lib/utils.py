@@ -14,6 +14,17 @@ def vprint(verbose, string):
         print(string)
 
 
+def running_mean(x: np.ndarray, N: int) -> np.ndarray:
+    """
+    Compute `N` elements wide running average over `x`.
+
+    :param x: 1-Dimensional NumPy array
+    :param N: how many items to average
+    """
+    cumsum = np.cumsum(np.insert(x, 0, 0))
+    return (cumsum[N:] - cumsum[:-N]) / N
+
+
 def human_readable(value, unit):
     for prefix, factor in (('p', 1e-12), ('n', 1e-9), (u'µ', 1e-6), ('m', 1e-3), ('', 1), ('k', 1e3)):
         if value < 1e3 * factor:
