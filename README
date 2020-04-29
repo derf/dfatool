@@ -1,5 +1,0 @@
-* apt install libcarp-assert-more-perl libclass-accessor-perl libdatetime-perl
-  libdevice-serialport-perl libfile-slurp-perl libipc-run-perl libjson-perl
-  liblist-moreutils-perl libmath-cartesian-product-perl
-  libparse-recdescent-perl libtime-progress-perl libxml-libxml-perl
-  python3-matplotlib python3-numpy python3-scipy
