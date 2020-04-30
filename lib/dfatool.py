@@ -19,7 +19,7 @@ from .utils import vprint, is_numeric, soft_cast_int, param_slice_eq, remove_ind
 from .utils import by_name_to_by_param, match_parameter_values, running_mean
 
 try:
-    from pubcode import Code128
+    from .pubcode import Code128
     import zbar
     zbar_available = True
 except ImportError:
