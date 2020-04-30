@@ -70,6 +70,10 @@ Perform timing measurements of nRF24L01+ function calls:
 
 ../dfatool/bin/generate-dfa-benchmark.py --timer-pin=GPIO::p1_0 --sleep=200 --repeat=3 --depth=10 --arch=msp430fr5994lp --timing --trace-filter='setup,setAutoAck,setDataRate,setPALevel,write,$' model/driver/nrf24l01.dfa src/app/aemr/main.cc
 
+Perform timing measurements of BME680 funtion calls:
+
+../dfatool/bin/generate-dfa-benchmark.py --timer-pin=GPIO::p1_0 --sleep=200 --repeat=3 --depth=10 --arch=msp430fr5994lp --timing --trace-filter='init,configure,setSensorSettings,setPowerMode,setSensorMode,getSensorData,$' --shrink model/driver/bme680.dfa src/app/aemr/main.cc
+
 """
 
 import getopt
