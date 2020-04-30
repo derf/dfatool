@@ -320,7 +320,7 @@ if __name__ == '__main__':
             opt[optname] = parameter
 
         if 'app' not in opt:
-            opt['app'] = 'test_benchmark'
+            opt['app'] = 'aemr'
 
         if 'depth' in opt:
             opt['depth'] = int(opt['depth'])
