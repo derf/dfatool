@@ -56,7 +56,7 @@ Options:
     Perform timing measurements using on-chip counters (no external hardware
     required)
 
---energytrace
+--energytrace=[k=v,k=v,...]
     Perform energy measurements using MSP430 EnergyTrace hardware. Includes --timing.
 
 --trace-filter=<transition,transition,transition,...>[ <transition,transition,transition,...> ...]
