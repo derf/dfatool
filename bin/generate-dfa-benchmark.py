@@ -3,13 +3,22 @@
 Generate a driver/library benchmark based on DFA/PTA traces.
 
 Usage:
-PYTHONPATH=lib bin/generate-dfa-benchmark.py [options] <pta/dfa definition> [output.cc]
+bin/generate-dfa-benchmark.py [options] <pta/dfa definition> [output.cc]
 
 generate-dfa-benchmarks reads in a DFA definition and generates runs
 (i.e., all words accepted by the DFA up to a configurable length). Each symbol
 corresponds to a function call. If arguments are specified in the DFA
 definition, each symbol corresponds to a function call with a specific set of
 arguments (so all argument combinations are present in the generated runs).
+
+It expects to be called from a multipass instance and writes data to ../data.
+Recommended setup:
+
+> mkdir data
+> git clone .../dfatool
+> git clone .../multipass
+> cd multipass
+> ../dfatool/bin/generate-dfa-benchmark.py ... src/app/aemr/main.cc
 
 Options:
 --accounting=static_state|static_state_immediate|static_statetransition|static_statetransition_immedate[,opt1=val1,opt2=val2,...]
@@ -54,6 +63,12 @@ Options:
     Only consider traces whose beginning matches one of the provided transition sequences.
     E.g. --trace-filter='init,foo init,bar' will only consider traces with init as first and foo or bar as second transition,
     and --trace-filter='init,foo,$ init,bar,$' will only consider the traces init -> foo and init -> bar.
+
+EXAMPLES
+
+Perform timing measurements of nRF24L01+ function calls:
+
+../dfatool/bin/generate-dfa-benchmark.py --timer-pin=GPIO::p1_0 --sleep=200 --repeat=3 --depth=10 --arch=msp430fr5994lp --timing --trace-filter='setup,setAutoAck,setDataRate,setPALevel,write,$' model/driver/nrf24l01.dfa src/app/aemr/main.cc
 
 """
 
@@ -363,6 +378,9 @@ if __name__ == '__main__':
             if opt['repeat'] == 0:
                 opt['repeat'] = 1
 
+        if 'data' not in opt:
+            opt['data'] = '../data'
+
         if 'dummy' in opt:
             if opt['dummy'] == '':
                 opt['dummy'] = dict()
@@ -472,9 +490,9 @@ if __name__ == '__main__':
         }
         extra_files = flatten(json_out['files'])
         if 'instance' in pta.codegen:
-            output_prefix = time.strftime('/home/derf/var/ess/aemr/data/%Y%m%d-%H%M%S-') + pta.codegen['instance']
+            output_prefix = opt['data'] + time.strftime('/%Y%m%d-%H%M%S-') + pta.codegen['instance']
         else:
-            output_prefix = time.strftime('/home/derf/var/ess/aemr/data/%Y%m%d-%H%M%S-ptalog')
+            output_prefix = opt['data'] + time.strftime('/%Y%m%d-%H%M%S-ptalog')
         if len(extra_files):
             with open('ptalog.json', 'w') as f:
                 json.dump(json_out, f)
