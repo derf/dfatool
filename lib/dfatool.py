@@ -332,7 +332,7 @@ class CrossValidator:
 
 def _preprocess_mimosa(measurement):
     setup = measurement['setup']
-    mim = MIMOSA(float(setup['mimosa_voltage']), int(setup['mimosa_shunt']))
+    mim = MIMOSA(float(setup['mimosa_voltage']), int(setup['mimosa_shunt']), with_traces=measurement['with_traces'])
     try:
         charges, triggers = mim.load_data(measurement['content'])
         trigidx = mim.trigger_edges(triggers)
@@ -489,14 +489,16 @@ class RawData:
 
     Expects a specific trace format and UART log output (as produced by the
     dfatool benchmark generator). Loads data, prunes bogus measurements, and
-    provides preprocessed data suitable for PTAModel.
+    provides preprocessed data suitable for PTAModel. Results are cached on the
+    file system, making subsequent loads near-instant.
     """
 
-    def __init__(self, filenames):
+    def __init__(self, filenames, with_traces=False):
         """
         Create a new RawData object.
 
-        Each filename element corresponds to a measurement run. It must be a tar archive with the following contents:
+        Each filename element corresponds to a measurement run.
+        It must be a tar archive with the following contents:
 
         Version 0:
 
@@ -540,8 +542,12 @@ class RawData:
           `.opt.configs`: ....
         * EnergyTrace log files (`*.etlog`) as specified in `.opt.files`
 
+        If a cached result for a file is available, it is loaded and the file
+        is not preprocessed, unless `with_traces` is set.
+
         tbd
         """
+        self.with_traces = with_traces
         self.filenames = filenames.copy()
         self.traces_by_fileno = []
         self.setup_by_fileno = []
@@ -562,7 +568,8 @@ class RawData:
                     break
 
         self.set_cache_file()
-        self.load_cache()
+        if not with_traces:
+            self.load_cache()
 
     def set_cache_file(self):
         cache_key = hashlib.sha256('!'.join(self.filenames).encode()).hexdigest()
@@ -580,6 +587,8 @@ class RawData:
                 self.preprocessed = True
 
     def save_cache(self):
+        if self.with_traces:
+            return
         try:
             os.mkdir(self.cache_dir)
         except FileExistsError:
@@ -920,6 +929,7 @@ class RawData:
     def get_preprocessed_data(self, verbose=True):
         """
         Return a list of DFA traces annotated with energy, timing, and parameter data.
+        The list is cached on disk, unless the constructor was called with `with_traces` set.
 
         Each DFA trace contains the following elements:
          * `id`: Numeric ID, starting with 1
@@ -1000,6 +1010,7 @@ class RawData:
                                 'fileno': i,
                                 'info': member,
                                 'setup': self.setup_by_fileno[i],
+                                'with_traces': self.with_traces,
                             })
 
             elif version == 1:
@@ -1049,6 +1060,7 @@ class RawData:
                                 'setup': self.setup_by_fileno[j],
                                 'repeat_id': repeat_id,
                                 'expected_trace': ptalog['traces'][j],
+                                'with_traces': self.with_traces,
                             })
                 self.filenames = new_filenames
 
@@ -2507,7 +2519,7 @@ class MIMOSA:
     Resulting data is a list of state/transition/state/transition/... measurements.
     """
 
-    def __init__(self, voltage: float, shunt: int, verbose=True):
+    def __init__(self, voltage: float, shunt: int, verbose=True, with_traces=False):
         """
         Initialize MIMOSA loader for a specific voltage and shunt setting.
 
@@ -2518,6 +2530,7 @@ class MIMOSA:
         self.voltage = voltage
         self.shunt = shunt
         self.verbose = verbose
+        self.with_traces = with_traces
         self.r1 = 984  # "1k"
         self.r2 = 99013  # "100k"
         self.errors = list()
@@ -2854,6 +2867,9 @@ class MIMOSA:
                 'uW_std': np.std(range_ua * self.voltage),
                 'us': (idx - previdx) * 10,
             }
+
+            if self.with_traces:
+                data['uW'] = range_ua * self.voltage
 
             if 'states' in substates:
                 data['substates'] = substates

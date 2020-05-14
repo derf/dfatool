@@ -21,6 +21,22 @@ Options:
     parameters. Also plots the corresponding measurements.
     If gplearn function is set, it is plotted using dashed lines.
 
+--export-traces=<directory>
+    Export power traces of all states and transitions to <directory>.
+    Creates a JSON file for each state and transition. Each JSON file
+    lists all occurences of the corresponding state/transition in the
+    benchmark's PTA trace. Each occurence contains the corresponding PTA
+    parameters (if any) in 'parameter' and measurement results in 'offline'.
+    As measurements are typically run repeatedly, 'offline' is in turn a list
+    of measurements: offline[0]['uW'] is the power trace of the first
+    measurement of this state/transition, offline[1]['uW'] corresponds t the
+    second measurement, etc. Values are provided in microwatts.
+    For example, TX.json[0].offline[0].uW corresponds to the first measurement
+    of the first TX state in the benchmark, and TX.json[5].offline[2].uW
+    corresponds to the third measurement of the sixth TX state in the benchmark.
+    WARNING: Several GB of RAM and disk space are required for complex measurements.
+             (JSON files may grow very large -- we trade efficiency for easy handling)
+
 --param-info
     Show parameter names and values
 
@@ -220,6 +236,7 @@ if __name__ == '__main__':
     show_quality = []
     pta = None
     energymodel_export_file = None
+    trace_export_dir = None
     xv_method = None
     xv_count = 10
 
@@ -227,6 +244,7 @@ if __name__ == '__main__':
         optspec = (
             'plot-unparam= plot-param= param-info show-models= show-quality= '
             'ignored-trace-indexes= discard-outliers= function-override= '
+            'export-traces= '
             'filter-param= '
             'cross-validate= '
             'with-safe-functions hwmodel= export-energymodel='
@@ -275,9 +293,25 @@ if __name__ == '__main__':
         print(err)
         sys.exit(2)
 
-    raw_data = RawData(args)
+    raw_data = RawData(args, with_traces=('export-traces' in opts))
 
     preprocessed_data = raw_data.get_preprocessed_data()
+
+    if 'export-traces' in opts:
+        uw_per_sot = dict()
+        for trace in preprocessed_data:
+            for state_or_transition in trace['trace']:
+                name = state_or_transition['name']
+                if name not in uw_per_sot:
+                    uw_per_sot[name] = list()
+                for elem in state_or_transition['offline']:
+                    elem['uW'] = list(elem['uW'])
+                uw_per_sot[name].append(state_or_transition)
+        for name, data in uw_per_sot.items():
+            target = f"{opts['export-traces']}/{name}.json"
+            print(f'exporting {target} ...')
+            with open(target, 'w') as f:
+                json.dump(data, f)
 
     if raw_data.preprocessing_stats['num_valid'] == 0:
         print('No valid data available. Abort.')
