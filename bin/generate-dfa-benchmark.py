@@ -14,7 +14,7 @@ arguments (so all argument combinations are present in the generated runs).
 It expects to be called from a multipass instance and writes data to ../data.
 Recommended setup:
 
-> mkdir data
+> mkdir -p data/cache
 > git clone .../dfatool
 > git clone .../multipass
 > cd multipass
@@ -24,6 +24,9 @@ Options:
 --accounting=static_state|static_state_immediate|static_statetransition|static_statetransition_immedate[,opt1=val1,opt2=val2,...]
     Select accounting method for dummy driver generation.
     May be followed by a list of key=value driver options, e.g. energy_type=uint64_t
+
+--data=<data path>
+    Directory in which the measurements will be stored. Default: ../data
 
 --dummy=<class name>
     Generate and use a dummy driver for online energy model overhead evaluation
@@ -319,6 +322,7 @@ if __name__ == '__main__':
             'accounting= '
             'arch= '
             'app= '
+            'data= '
             'depth= '
             'dummy= '
             'energytrace= '
@@ -424,7 +428,7 @@ if __name__ == '__main__':
 
         run_flags = ['drivers=dummy']
 
-        repo = Repo('/home/derf/var/projects/multipass/build/repo.acp')
+        repo = Repo('../multipass/build/repo.acp')
 
         if 'accounting' in opt and 'getEnergy' not in map(lambda x: x.name, pta.transitions):
             for state in pta.get_state_names():
@@ -443,9 +447,9 @@ if __name__ == '__main__':
         else:
             accounting_object = None
         drv = MultipassDriver(class_name, pta, repo.class_by_name[class_name], enum=enum, accounting=accounting_object)
-        with open('/home/derf/var/projects/multipass/src/driver/dummy.cc', 'w') as f:
+        with open('../multipass/src/driver/dummy.cc', 'w') as f:
             f.write(drv.impl)
-        with open('/home/derf/var/projects/multipass/include/driver/dummy.h', 'w') as f:
+        with open('../multipass/include/driver/dummy.h', 'w') as f:
             f.write(drv.header)
 
     if '.json' not in modelfile:
