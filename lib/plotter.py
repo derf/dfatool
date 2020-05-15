@@ -100,10 +100,13 @@ def plot_substate_thresholds_p(model, aggregate):
 
 
 def plot_y(Y, **kwargs):
-    plot_xy(np.arange(len(Y)), Y, **kwargs)
+    if 'family' in kwargs and kwargs['family']:
+        plot_xy(None, Y, **kwargs)
+    else:
+        plot_xy(np.arange(len(Y)), Y, **kwargs)
 
 
-def plot_xy(X, Y, xlabel=None, ylabel=None, title=None, output=None):
+def plot_xy(X, Y, xlabel=None, ylabel=None, title=None, output=None, family=False):
     fig, ax1 = plt.subplots(figsize=(10, 6))
     if title is not None:
         fig.canvas.set_window_title(title)
@@ -112,7 +115,12 @@ def plot_xy(X, Y, xlabel=None, ylabel=None, title=None, output=None):
     if ylabel is not None:
         ax1.set_ylabel(ylabel)
     plt.subplots_adjust(left=0.1, bottom=0.1, right=0.99, top=0.99)
-    plt.plot(X, Y, "bo", markersize=2)
+    if family:
+        cm = plt.get_cmap('brg', len(Y))
+        for i, YY in enumerate(Y):
+            plt.plot(np.arange(len(YY)), YY, "-", markersize=2, color=cm(i))
+    else:
+        plt.plot(X, Y, "bo", markersize=2)
     if output:
         plt.savefig(output)
         with open('{}.txt'.format(output), 'w') as f:

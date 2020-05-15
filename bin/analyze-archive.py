@@ -21,6 +21,9 @@ Options:
     parameters. Also plots the corresponding measurements.
     If gplearn function is set, it is plotted using dashed lines.
 
+--plot-traces=<name>
+    Plot power trace for state or transition <name>.
+
 --export-traces=<directory>
     Export power traces of all states and transitions to <directory>.
     Creates a JSON file for each state and transition. Each JSON file
@@ -242,7 +245,7 @@ if __name__ == '__main__':
 
     try:
         optspec = (
-            'plot-unparam= plot-param= param-info show-models= show-quality= '
+            'plot-unparam= plot-param= plot-traces= param-info show-models= show-quality= '
             'ignored-trace-indexes= discard-outliers= function-override= '
             'export-traces= '
             'filter-param= '
@@ -293,7 +296,7 @@ if __name__ == '__main__':
         print(err)
         sys.exit(2)
 
-    raw_data = RawData(args, with_traces=('export-traces' in opts))
+    raw_data = RawData(args, with_traces=('export-traces' in opts or 'plot-traces' in opts))
 
     preprocessed_data = raw_data.get_preprocessed_data()
 
@@ -312,6 +315,14 @@ if __name__ == '__main__':
             print(f'exporting {target} ...')
             with open(target, 'w') as f:
                 json.dump(data, f)
+
+    if 'plot-traces' in opts:
+        traces = list()
+        for trace in preprocessed_data:
+            for state_or_transition in trace['trace']:
+                if state_or_transition['name'] == opts['plot-traces']:
+                    traces.extend(map(lambda x: x['uW'], state_or_transition['offline']))
+        plotter.plot_y(traces, xlabel='t [1e-5 s]', ylabel='P [uW]', title=opts['plot-traces'], family=True)
 
     if raw_data.preprocessing_stats['num_valid'] == 0:
         print('No valid data available. Abort.')
