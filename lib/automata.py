@@ -452,12 +452,14 @@ class Transition:
         if self.param_update_function:
             return self.param_update_function(param_dict, args)
         ret = param_dict.copy()
-        if self.arg_to_param_map:
-            for k, v in self.arg_to_param_map.items():
-                ret[v] = args[k]
+        # set_param is for default values, arg_to_param_map may contain optional overrides.
+        # So arg_to_param_map must come last.
         if self.set_param:
             for k, v in self.set_param.items():
                 ret[k] = v
+        if self.arg_to_param_map:
+            for k, v in self.arg_to_param_map.items():
+                ret[v] = args[k]
         return ret
 
     def to_json(self) -> dict:
