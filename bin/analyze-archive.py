@@ -349,6 +349,10 @@ if __name__ == '__main__':
             print('{}:'.format(state))
             for param in model.parameters():
                 print('    {} = {}'.format(param, model.stats.distinct_values[state][param]))
+        for transition in model.transitions():
+            print('{}:'.format(transition))
+            for param in model.parameters():
+                print('    {} = {}'.format(param, model.stats.distinct_values[transition][param]))
 
     if 'plot-unparam' in opts:
         for kv in opts['plot-unparam'].split(';'):
