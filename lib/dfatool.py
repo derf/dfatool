@@ -405,6 +405,7 @@ def _preprocess_etlog(measurement):
         float(setup["voltage"]),
         int(setup["state_duration"]),
         measurement["transition_names"],
+        with_traces=measurement["with_traces"],
     )
     try:
         etlog.load_data(measurement["content"])
@@ -1261,6 +1262,7 @@ class RawData:
                                     "setup": self.setup_by_fileno[j],
                                     "repeat_id": repeat_id,
                                     "expected_trace": ptalog["traces"][j],
+                                    "with_traces": self.with_traces,
                                     "transition_names": list(
                                         map(
                                             lambda x: x["name"],
@@ -2592,7 +2594,13 @@ class EnergyTraceLog:
     at the moment.
     """
 
-    def __init__(self, voltage: float, state_duration: int, transition_names: list):
+    def __init__(
+        self,
+        voltage: float,
+        state_duration: int,
+        transition_names: list,
+        with_traces=False,
+    ):
         """
         Create a new EnergyTraceLog object.
 
@@ -2604,6 +2612,7 @@ class EnergyTraceLog:
         self.voltage = voltage
         self.state_duration = state_duration * 1e-3
         self.transition_names = transition_names
+        self.with_traces = with_traces
         self.verbose = False
         self.errors = list()
 
@@ -2807,44 +2816,43 @@ class EnergyTraceLog:
                 ),
             )
 
-            energy_trace.append(
-                {
-                    "isa": "transition",
-                    "W_mean": np.mean(
-                        self.interval_power[
-                            transition_start_index:transition_done_index
-                        ]
-                    ),
-                    "W_std": np.std(
-                        self.interval_power[
-                            transition_start_index:transition_done_index
-                        ]
-                    ),
-                    "s": duration,
-                    "s_coarse": self.interval_start_timestamp[transition_done_index]
-                    - self.interval_start_timestamp[transition_start_index],
-                }
-            )
+            transition_power_W = self.interval_power[
+                transition_start_index:transition_done_index
+            ]
+
+            transition = {
+                "isa": "transition",
+                "W_mean": np.mean(transition_power_W),
+                "W_std": np.std(transition_power_W),
+                "s": duration,
+                "s_coarse": self.interval_start_timestamp[transition_done_index]
+                - self.interval_start_timestamp[transition_start_index],
+            }
+
+            if self.with_traces:
+                transition["uW"] = transition_power_W * 1e6
+
+            energy_trace.append(transition)
 
             if len(energy_trace) > 1:
                 energy_trace[-1]["W_mean_delta_prev"] = (
                     energy_trace[-1]["W_mean"] - energy_trace[-2]["W_mean"]
                 )
 
-            energy_trace.append(
-                {
-                    "isa": "state",
-                    "W_mean": np.mean(
-                        self.interval_power[state_start_index:state_done_index]
-                    ),
-                    "W_std": np.std(
-                        self.interval_power[state_start_index:state_done_index]
-                    ),
-                    "s": self.state_duration,
-                    "s_coarse": self.interval_start_timestamp[state_done_index]
-                    - self.interval_start_timestamp[state_start_index],
-                }
-            )
+            state_power_W = self.interval_power[state_start_index:state_done_index]
+            state = {
+                "isa": "state",
+                "W_mean": np.mean(state_power_W),
+                "W_std": np.std(state_power_W),
+                "s": self.state_duration,
+                "s_coarse": self.interval_start_timestamp[state_done_index]
+                - self.interval_start_timestamp[state_start_index],
+            }
+
+            if self.with_traces:
+                state["uW"] = state_power_W * 1e6
+
+            energy_trace.append(state)
 
             energy_trace[-2]["W_mean_delta_next"] = (
                 energy_trace[-2]["W_mean"] - energy_trace[-1]["W_mean"]
