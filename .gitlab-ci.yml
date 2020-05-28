@@ -8,7 +8,7 @@ lint_python:
   script:
     - apt-get update -qy
     - apt-get install -y black
-    - black --check bin
+    - black --check --diff bin
 
 run_tests:
   stage: test
