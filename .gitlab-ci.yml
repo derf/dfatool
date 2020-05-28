@@ -3,6 +3,13 @@ image: debian:bullseye
 stages:
   - test
 
+lint_python:
+  stage: test
+  script:
+    - apt-get update -qy
+    - apt-get install black
+    - black --check bin
+
 run_tests:
   stage: test
   script:
