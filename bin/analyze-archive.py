@@ -107,7 +107,7 @@ from dfatool.dfatool import CrossValidator
 from dfatool.utils import filter_aggregate_by_param
 from dfatool.automata import PTA
 
-opts = {}
+opt = dict()
 
 
 def print_model_quality(results):
@@ -302,57 +302,57 @@ if __name__ == "__main__":
 
         for option, parameter in raw_opts:
             optname = re.sub(r"^--", "", option)
-            opts[optname] = parameter
+            opt[optname] = parameter
 
-        if "ignored-trace-indexes" in opts:
+        if "ignored-trace-indexes" in opt:
             ignored_trace_indexes = list(
-                map(int, opts["ignored-trace-indexes"].split(","))
+                map(int, opt["ignored-trace-indexes"].split(","))
             )
             if 0 in ignored_trace_indexes:
                 print("[E] arguments to --ignored-trace-indexes start from 1")
 
-        if "discard-outliers" in opts:
-            discard_outliers = float(opts["discard-outliers"])
+        if "discard-outliers" in opt:
+            discard_outliers = float(opt["discard-outliers"])
 
-        if "function-override" in opts:
-            for function_desc in opts["function-override"].split(";"):
+        if "function-override" in opt:
+            for function_desc in opt["function-override"].split(";"):
                 state_or_tran, attribute, *function_str = function_desc.split(" ")
                 function_override[(state_or_tran, attribute)] = " ".join(function_str)
 
-        if "show-models" in opts:
-            show_models = opts["show-models"].split(",")
+        if "show-models" in opt:
+            show_models = opt["show-models"].split(",")
 
-        if "show-quality" in opts:
-            show_quality = opts["show-quality"].split(",")
+        if "show-quality" in opt:
+            show_quality = opt["show-quality"].split(",")
 
-        if "cross-validate" in opts:
-            xv_method, xv_count = opts["cross-validate"].split(":")
+        if "cross-validate" in opt:
+            xv_method, xv_count = opt["cross-validate"].split(":")
             xv_count = int(xv_count)
 
-        if "filter-param" in opts:
-            opts["filter-param"] = list(
-                map(lambda x: x.split("="), opts["filter-param"].split(","))
+        if "filter-param" in opt:
+            opt["filter-param"] = list(
+                map(lambda x: x.split("="), opt["filter-param"].split(","))
             )
         else:
-            opts["filter-param"] = list()
+            opt["filter-param"] = list()
 
-        if "with-safe-functions" in opts:
+        if "with-safe-functions" in opt:
             safe_functions_enabled = True
 
-        if "hwmodel" in opts:
-            pta = PTA.from_file(opts["hwmodel"])
+        if "hwmodel" in opt:
+            pta = PTA.from_file(opt["hwmodel"])
 
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)
 
     raw_data = RawData(
-        args, with_traces=("export-traces" in opts or "plot-traces" in opts)
+        args, with_traces=("export-traces" in opt or "plot-traces" in opt)
     )
 
     preprocessed_data = raw_data.get_preprocessed_data()
 
-    if "export-traces" in opts:
+    if "export-traces" in opt:
         uw_per_sot = dict()
         for trace in preprocessed_data:
             for state_or_transition in trace["trace"]:
@@ -363,16 +363,16 @@ if __name__ == "__main__":
                     elem["uW"] = list(elem["uW"])
                 uw_per_sot[name].append(state_or_transition)
         for name, data in uw_per_sot.items():
-            target = f"{opts['export-traces']}/{name}.json"
+            target = f"{opt['export-traces']}/{name}.json"
             print(f"exporting {target} ...")
             with open(target, "w") as f:
                 json.dump(data, f)
 
-    if "plot-traces" in opts:
+    if "plot-traces" in opt:
         traces = list()
         for trace in preprocessed_data:
             for state_or_transition in trace["trace"]:
-                if state_or_transition["name"] == opts["plot-traces"]:
+                if state_or_transition["name"] == opt["plot-traces"]:
                     traces.extend(
                         map(lambda x: x["uW"], state_or_transition["offline"])
                     )
@@ -380,7 +380,7 @@ if __name__ == "__main__":
             traces,
             xlabel="t [1e-5 s]",
             ylabel="P [uW]",
-            title=opts["plot-traces"],
+            title=opt["plot-traces"],
             family=True,
         )
 
@@ -395,7 +395,7 @@ if __name__ == "__main__":
         preprocessed_data, ignored_trace_indexes
     )
 
-    filter_aggregate_by_param(by_name, parameters, opts["filter-param"])
+    filter_aggregate_by_param(by_name, parameters, opt["filter-param"])
 
     model = PTAModel(
         by_name,
@@ -410,7 +410,7 @@ if __name__ == "__main__":
     if xv_method:
         xv = CrossValidator(PTAModel, by_name, parameters, arg_count)
 
-    if "param-info" in opts:
+    if "param-info" in opt:
         for state in model.states():
             print("{}:".format(state))
             for param in model.parameters():
@@ -428,8 +428,8 @@ if __name__ == "__main__":
                     )
                 )
 
-    if "plot-unparam" in opts:
-        for kv in opts["plot-unparam"].split(";"):
+    if "plot-unparam" in opt:
+        for kv in opt["plot-unparam"].split(";"):
             state_or_trans, attribute, ylabel = kv.split(":")
             fname = "param_y_{}_{}.pdf".format(state_or_trans, attribute)
             plotter.plot_y(
@@ -677,8 +677,8 @@ if __name__ == "__main__":
             ]
         )
 
-    if "plot-param" in opts:
-        for kv in opts["plot-param"].split(";"):
+    if "plot-param" in opt:
+        for kv in opt["plot-param"].split(";"):
             state_or_trans, attribute, param_name, *function = kv.split(" ")
             if len(function):
                 function = gplearn_to_function(" ".join(function))
@@ -692,12 +692,12 @@ if __name__ == "__main__":
                 extra_function=function,
             )
 
-    if "export-energymodel" in opts:
+    if "export-energymodel" in opt:
         if not pta:
             print("[E] --export-energymodel requires --hwmodel to be set")
             sys.exit(1)
         json_model = model.to_json()
-        with open(opts["export-energymodel"], "w") as f:
+        with open(opt["export-energymodel"], "w") as f:
             json.dump(json_model, f, indent=2, sort_keys=True)
 
     sys.exit(0)

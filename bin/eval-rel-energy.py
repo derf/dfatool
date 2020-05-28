@@ -5,7 +5,7 @@ import re
 import sys
 from dfatool.dfatool import PTAModel, RawData, pta_trace_to_aggregate
 
-opts = {}
+opt = dict()
 
 
 def get_file_groups(args):
@@ -38,32 +38,32 @@ if __name__ == "__main__":
 
         for option, parameter in raw_opts:
             optname = re.sub(r"^--", "", option)
-            opts[optname] = parameter
+            opt[optname] = parameter
 
-            if "ignored-trace-indexes" in opts:
+            if "ignored-trace-indexes" in opt:
                 ignored_trace_indexes = list(
-                    map(int, opts["ignored-trace-indexes"].split(","))
+                    map(int, opt["ignored-trace-indexes"].split(","))
                 )
                 if 0 in ignored_trace_indexes:
                     print("[E] arguments to --ignored-trace-indexes start from 1")
 
-            if "discard-outliers" in opts:
-                discard_outliers = float(opts["discard-outliers"])
+            if "discard-outliers" in opt:
+                discard_outliers = float(opt["discard-outliers"])
 
-            if "function-override" in opts:
-                for function_desc in opts["function-override"].split(";"):
+            if "function-override" in opt:
+                for function_desc in opt["function-override"].split(";"):
                     state_or_tran, attribute, *function_str = function_desc.split(" ")
                     function_override[(state_or_tran, attribute)] = " ".join(
                         function_str
                     )
 
-            if "show-models" in opts:
-                show_models = opts["show-models"].split(",")
+            if "show-models" in opt:
+                show_models = opt["show-models"].split(",")
 
-            if "show-quality" in opts:
-                show_quality = opts["show-quality"].split(",")
+            if "show-quality" in opt:
+                show_quality = opt["show-quality"].split(",")
 
-            if "with-safe-functions" in opts:
+            if "with-safe-functions" in opt:
                 safe_functions_enabled = True
 
     except getopt.GetoptError as err:

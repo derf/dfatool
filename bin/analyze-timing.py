@@ -84,7 +84,7 @@ from dfatool.dfatool import CrossValidator
 from dfatool.utils import filter_aggregate_by_param
 from dfatool.parameters import prune_dependent_parameters
 
-opts = {}
+opt = dict()
 
 
 def print_model_quality(results):
@@ -193,49 +193,49 @@ if __name__ == "__main__":
 
         for option, parameter in raw_opts:
             optname = re.sub(r"^--", "", option)
-            opts[optname] = parameter
+            opt[optname] = parameter
 
-        if "ignored-trace-indexes" in opts:
+        if "ignored-trace-indexes" in opt:
             ignored_trace_indexes = list(
-                map(int, opts["ignored-trace-indexes"].split(","))
+                map(int, opt["ignored-trace-indexes"].split(","))
             )
             if 0 in ignored_trace_indexes:
                 print("[E] arguments to --ignored-trace-indexes start from 1")
 
-        if "discard-outliers" in opts:
-            discard_outliers = float(opts["discard-outliers"])
+        if "discard-outliers" in opt:
+            discard_outliers = float(opt["discard-outliers"])
 
-        if "function-override" in opts:
-            for function_desc in opts["function-override"].split(";"):
+        if "function-override" in opt:
+            for function_desc in opt["function-override"].split(";"):
                 state_or_tran, attribute, *function_str = function_desc.split(" ")
                 function_override[(state_or_tran, attribute)] = " ".join(function_str)
 
-        if "show-models" in opts:
-            show_models = opts["show-models"].split(",")
+        if "show-models" in opt:
+            show_models = opt["show-models"].split(",")
 
-        if "show-quality" in opts:
-            show_quality = opts["show-quality"].split(",")
+        if "show-quality" in opt:
+            show_quality = opt["show-quality"].split(",")
 
-        if "cross-validate" in opts:
-            xv_method, xv_count = opts["cross-validate"].split(":")
+        if "cross-validate" in opt:
+            xv_method, xv_count = opt["cross-validate"].split(":")
             xv_count = int(xv_count)
 
-        if "with-safe-functions" in opts:
+        if "with-safe-functions" in opt:
             safe_functions_enabled = True
 
-        if "hwmodel" in opts:
-            with open(opts["hwmodel"], "r") as f:
+        if "hwmodel" in opt:
+            with open(opt["hwmodel"], "r") as f:
                 hwmodel = json.load(f)
 
-        if "corrcoef" not in opts:
-            opts["corrcoef"] = False
+        if "corrcoef" not in opt:
+            opt["corrcoef"] = False
 
-        if "filter-param" in opts:
-            opts["filter-param"] = list(
-                map(lambda x: x.split("="), opts["filter-param"].split(","))
+        if "filter-param" in opt:
+            opt["filter-param"] = list(
+                map(lambda x: x.split("="), opt["filter-param"].split(","))
             )
         else:
-            opts["filter-param"] = list()
+            opt["filter-param"] = list()
 
     except getopt.GetoptError as err:
         print(err)
@@ -250,20 +250,20 @@ if __name__ == "__main__":
 
     prune_dependent_parameters(by_name, parameters)
 
-    filter_aggregate_by_param(by_name, parameters, opts["filter-param"])
+    filter_aggregate_by_param(by_name, parameters, opt["filter-param"])
 
     model = AnalyticModel(
         by_name,
         parameters,
         arg_count,
-        use_corrcoef=opts["corrcoef"],
+        use_corrcoef=opt["corrcoef"],
         function_override=function_override,
     )
 
     if xv_method:
         xv = CrossValidator(AnalyticModel, by_name, parameters, arg_count)
 
-    if "param-info" in opts:
+    if "param-info" in opt:
         for state in model.names:
             print("{}:".format(state))
             for param in model.parameters:
@@ -273,8 +273,8 @@ if __name__ == "__main__":
                     )
                 )
 
-    if "plot-unparam" in opts:
-        for kv in opts["plot-unparam"].split(";"):
+    if "plot-unparam" in opt:
+        for kv in opt["plot-unparam"].split(";"):
             state_or_trans, attribute, ylabel = kv.split(":")
             fname = "param_y_{}_{}.pdf".format(state_or_trans, attribute)
             plotter.plot_y(
@@ -456,8 +456,8 @@ if __name__ == "__main__":
             [static_quality, analytic_quality, lut_quality], [None, param_info, None]
         )
 
-    if "plot-param" in opts:
-        for kv in opts["plot-param"].split(";"):
+    if "plot-param" in opt:
+        for kv in opt["plot-param"].split(";"):
             state_or_trans, attribute, param_name, *function = kv.split(" ")
             if len(function):
                 function = gplearn_to_function(" ".join(function))

@@ -7,7 +7,7 @@ from dfatool import plotter
 from dfatool.dfatool import PTAModel, RawData, pta_trace_to_aggregate
 from dfatool.dfatool import gplearn_to_function
 
-opts = {}
+opt = dict()
 
 
 def print_model_quality(results):
@@ -126,32 +126,32 @@ if __name__ == "__main__":
 
         for option, parameter in raw_opts:
             optname = re.sub(r"^--", "", option)
-            opts[optname] = parameter
+            opt[optname] = parameter
 
-            if "ignored-trace-indexes" in opts:
+            if "ignored-trace-indexes" in opt:
                 ignored_trace_indexes = list(
-                    map(int, opts["ignored-trace-indexes"].split(","))
+                    map(int, opt["ignored-trace-indexes"].split(","))
                 )
                 if 0 in ignored_trace_indexes:
                     print("[E] arguments to --ignored-trace-indexes start from 1")
 
-            if "discard-outliers" in opts:
-                discard_outliers = float(opts["discard-outliers"])
+            if "discard-outliers" in opt:
+                discard_outliers = float(opt["discard-outliers"])
 
-            if "function-override" in opts:
-                for function_desc in opts["function-override"].split(";"):
+            if "function-override" in opt:
+                for function_desc in opt["function-override"].split(";"):
                     state_or_tran, attribute, *function_str = function_desc.split(" ")
                     function_override[(state_or_tran, attribute)] = " ".join(
                         function_str
                     )
 
-            if "show-models" in opts:
-                show_models = opts["show-models"].split(",")
+            if "show-models" in opt:
+                show_models = opt["show-models"].split(",")
 
-            if "show-quality" in opts:
-                show_quality = opts["show-quality"].split(",")
+            if "show-quality" in opt:
+                show_quality = opt["show-quality"].split(",")
 
-            if "with-safe-functions" in opts:
+            if "with-safe-functions" in opt:
                 safe_functions_enabled = True
 
     except getopt.GetoptError as err:
@@ -184,8 +184,8 @@ if __name__ == "__main__":
         use_corrcoef=True,
     )
 
-    if "plot-unparam" in opts:
-        for kv in opts["plot-unparam"].split(";"):
+    if "plot-unparam" in opt:
+        for kv in opt["plot-unparam"].split(";"):
             state_or_trans, attribute = kv.split(" ")
             plotter.plot_y(model.by_name[state_or_trans][attribute])
 
@@ -299,8 +299,8 @@ if __name__ == "__main__":
         print("heuristic:")
         model_summary_table([ref_static_quality, ref_analytic_quality, ref_lut_quality])
 
-    if "plot-param" in opts:
-        for kv in opts["plot-param"].split(";"):
+    if "plot-param" in opt:
+        for kv in opt["plot-param"].split(";"):
             state_or_trans, attribute, param_name, *function = kv.split(" ")
             if len(function):
                 function = gplearn_to_function(" ".join(function))

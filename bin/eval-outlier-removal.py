@@ -5,7 +5,7 @@ import re
 import sys
 from dfatool.dfatool import PTAModel, RawData, pta_trace_to_aggregate
 
-opts = {}
+opt = dict()
 
 
 def model_quality_table(result_lists, info_list):
@@ -63,17 +63,17 @@ if __name__ == "__main__":
 
         for option, parameter in raw_opts:
             optname = re.sub(r"^--", "", option)
-            opts[optname] = parameter
+            opt[optname] = parameter
 
-            if "ignored-trace-indexes" in opts:
+            if "ignored-trace-indexes" in opt:
                 ignored_trace_indexes = list(
-                    map(int, opts["ignored-trace-indexes"].split(","))
+                    map(int, opt["ignored-trace-indexes"].split(","))
                 )
                 if 0 in ignored_trace_indexes:
                     print("[E] arguments to --ignored-trace-indexes start from 1")
 
-            if "discard-outliers" in opts:
-                discard_outliers = float(opts["discard-outliers"])
+            if "discard-outliers" in opt:
+                discard_outliers = float(opt["discard-outliers"])
 
     except getopt.GetoptError as err:
         print(err)
