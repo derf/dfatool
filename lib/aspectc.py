@@ -1,5 +1,6 @@
 import xml.etree.ElementTree as ET
 
+
 class AspectCClass:
     """
     C++ class information provided by the AspectC++ repo.acp
@@ -18,6 +19,7 @@ class AspectCClass:
 
         for function in self.functions:
             self.function[function.name] = function
+
 
 class AspectCFunction:
     """
@@ -53,16 +55,23 @@ class AspectCFunction:
 
         :param function_node: `xml.etree.ElementTree.Element` node
         """
-        name = function_node.get('name')
-        kind = function_node.get('kind')
-        function_id = function_node.get('id')
+        name = function_node.get("name")
+        kind = function_node.get("kind")
+        function_id = function_node.get("id")
         return_type = None
         argument_types = list()
-        for type_node in function_node.findall('result_type/Type'):
-            return_type = type_node.get('signature')
-        for type_node in function_node.findall('arg_types/Type'):
-            argument_types.append(type_node.get('signature'))
-        return cls(name = name, kind = kind, function_id = function_id, argument_types = argument_types, return_type = return_type)
+        for type_node in function_node.findall("result_type/Type"):
+            return_type = type_node.get("signature")
+        for type_node in function_node.findall("arg_types/Type"):
+            argument_types.append(type_node.get("signature"))
+        return cls(
+            name=name,
+            kind=kind,
+            function_id=function_id,
+            argument_types=argument_types,
+            return_type=return_type,
+        )
+
 
 class Repo:
     """
@@ -85,11 +94,13 @@ class Repo:
 
     def _load_classes(self):
         self.classes = list()
-        for class_node in self.root.findall('root/Namespace[@name="::"]/children/Class'):
-            name = class_node.get('name')
-            class_id = class_node.get('id')
+        for class_node in self.root.findall(
+            'root/Namespace[@name="::"]/children/Class'
+        ):
+            name = class_node.get("name")
+            class_id = class_node.get("id")
             functions = list()
-            for function_node in class_node.findall('children/Function'):
+            for function_node in class_node.findall("children/Function"):
                 function = AspectCFunction.from_function_node(function_node)
                 functions.append(function)
             self.classes.append(AspectCClass(name, class_id, functions))

@@ -98,22 +98,29 @@ from dfatool.utils import flatten
 opt = dict()
 
 
-def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benchmark_id: int = 0, dummy=False, repeat=0) -> io.StringIO:
+def benchmark_from_runs(
+    pta: PTA,
+    runs: list,
+    harness: OnboardTimerHarness,
+    benchmark_id: int = 0,
+    dummy=False,
+    repeat=0,
+) -> io.StringIO:
     outbuf = io.StringIO()
 
     outbuf.write('#include "arch.h"\n')
     if dummy:
         outbuf.write('#include "driver/dummy.h"\n')
-    elif 'includes' in pta.codegen:
-        for include in pta.codegen['includes']:
+    elif "includes" in pta.codegen:
+        for include in pta.codegen["includes"]:
             outbuf.write('#include "{}"\n'.format(include))
     outbuf.write(harness.global_code())
 
-    outbuf.write('int main(void)\n')
-    outbuf.write('{\n')
+    outbuf.write("int main(void)\n")
+    outbuf.write("{\n")
 
-    for driver in ('arch', 'gpio', 'kout'):
-        outbuf.write('{}.setup();\n'.format(driver))
+    for driver in ("arch", "gpio", "kout"):
+        outbuf.write("{}.setup();\n".format(driver))
 
     # There is a race condition between flashing the code and starting the UART log.
     # When starting the log before flashing, output from a previous benchmark may cause bogus data to be added.
@@ -125,37 +132,37 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
     # For energytrace, the device is connected to VCC and set up before
     # the initialization delay to -- this puts it into a well-defined state and
     # decreases pre-sync power consumption
-    if 'energytrace' not in opt:
-        if 'mimosa' in opt:
-            outbuf.write('arch.delay_ms(12000);\n')
+    if "energytrace" not in opt:
+        if "mimosa" in opt:
+            outbuf.write("arch.delay_ms(12000);\n")
         else:
-            outbuf.write('arch.delay_ms(2000);\n')
+            outbuf.write("arch.delay_ms(2000);\n")
         # Output some newlines to ensure the parser can determine the start of the first real output line
-        outbuf.write('kout << endl << endl;\n')
+        outbuf.write("kout << endl << endl;\n")
 
-    if 'setup' in pta.codegen:
-        for call in pta.codegen['setup']:
+    if "setup" in pta.codegen:
+        for call in pta.codegen["setup"]:
             outbuf.write(call)
 
-    if 'energytrace' in opt:
-        outbuf.write('for (unsigned char i = 0; i < 10; i++) {\n')
-        outbuf.write('arch.sleep_ms(250);\n}\n')
+    if "energytrace" in opt:
+        outbuf.write("for (unsigned char i = 0; i < 10; i++) {\n")
+        outbuf.write("arch.sleep_ms(250);\n}\n")
         # Output some newlines to ensure the parser can determine the start of the first real output line
-        outbuf.write('kout << endl << endl;\n')
+        outbuf.write("kout << endl << endl;\n")
 
     if repeat:
-        outbuf.write('unsigned char i = 0;\n')
-        outbuf.write('while (i++ < {}) {{\n'.format(repeat))
+        outbuf.write("unsigned char i = 0;\n")
+        outbuf.write("while (i++ < {}) {{\n".format(repeat))
     else:
-        outbuf.write('while (1) {\n')
+        outbuf.write("while (1) {\n")
 
     outbuf.write(harness.start_benchmark())
 
-    class_prefix = ''
-    if 'instance' in opt:
-        class_prefix = '{}.'.format(opt['instance'])
-    elif 'instance' in pta.codegen:
-        class_prefix = '{}.'.format(pta.codegen['instance'])
+    class_prefix = ""
+    if "instance" in opt:
+        class_prefix = "{}.".format(opt["instance"])
+    elif "instance" in pta.codegen:
+        class_prefix = "{}.".format(pta.codegen["instance"])
 
     num_transitions = 0
     num_traces = 0
@@ -167,56 +174,105 @@ def benchmark_from_runs(pta: PTA, runs: list, harness: OnboardTimerHarness, benc
             num_transitions += 1
             harness.append_transition(transition.name, param, arguments)
             harness.append_state(transition.destination.name, parameter.copy())
-            outbuf.write('// {} -> {}\n'.format(transition.origin.name, transition.destination.name))
+            outbuf.write(
+                "// {} -> {}\n".format(
+                    transition.origin.name, transition.destination.name
+                )
+            )
             if transition.is_interrupt:
-                outbuf.write('// wait for {} interrupt\n'.format(transition.name))
-                transition_code = '// TODO add startTransition / stopTransition calls to interrupt routine'
+                outbuf.write("// wait for {} interrupt\n".format(transition.name))
+                transition_code = "// TODO add startTransition / stopTransition calls to interrupt routine"
             else:
-                transition_code = '{}{}({});'.format(class_prefix, transition.name, ', '.join(map(str, arguments)))
-            outbuf.write(harness.pass_transition(pta.get_transition_id(transition), transition_code, transition=transition))
+                transition_code = "{}{}({});".format(
+                    class_prefix, transition.name, ", ".join(map(str, arguments))
+                )
+            outbuf.write(
+                harness.pass_transition(
+                    pta.get_transition_id(transition),
+                    transition_code,
+                    transition=transition,
+                )
+            )
 
             param = parameter
 
-            outbuf.write('// current parameters: {}\n'.format(', '.join(map(lambda kv: '{}={}'.format(*kv), param.items()))))
+            outbuf.write(
+                "// current parameters: {}\n".format(
+                    ", ".join(map(lambda kv: "{}={}".format(*kv), param.items()))
+                )
+            )
 
-            if 'delay_after_ms' in transition.codegen:
-                if 'energytrace' in opt:
-                    outbuf.write('arch.sleep_ms({:d}); // {} -- delay mandated by codegen.delay_after_ms\n'.format(transition.codegen['delay_after_ms'], transition.destination.name))
+            if "delay_after_ms" in transition.codegen:
+                if "energytrace" in opt:
+                    outbuf.write(
+                        "arch.sleep_ms({:d}); // {} -- delay mandated by codegen.delay_after_ms\n".format(
+                            transition.codegen["delay_after_ms"],
+                            transition.destination.name,
+                        )
+                    )
                 else:
-                    outbuf.write('arch.delay_ms({:d}); // {} -- delay mandated by codegen.delay_after_ms\n'.format(transition.codegen['delay_after_ms'], transition.destination.name))
-            elif opt['sleep']:
-                if 'energytrace' in opt:
-                    outbuf.write('arch.sleep_ms({:d}); // {}\n'.format(opt['sleep'], transition.destination.name))
+                    outbuf.write(
+                        "arch.delay_ms({:d}); // {} -- delay mandated by codegen.delay_after_ms\n".format(
+                            transition.codegen["delay_after_ms"],
+                            transition.destination.name,
+                        )
+                    )
+            elif opt["sleep"]:
+                if "energytrace" in opt:
+                    outbuf.write(
+                        "arch.sleep_ms({:d}); // {}\n".format(
+                            opt["sleep"], transition.destination.name
+                        )
+                    )
                 else:
-                    outbuf.write('arch.delay_ms({:d}); // {}\n'.format(opt['sleep'], transition.destination.name))
+                    outbuf.write(
+                        "arch.delay_ms({:d}); // {}\n".format(
+                            opt["sleep"], transition.destination.name
+                        )
+                    )
 
         outbuf.write(harness.stop_run(num_traces))
         if dummy:
-            outbuf.write('kout << "[Energy] " << {}getEnergy() << endl;\n'.format(class_prefix))
-        outbuf.write('\n')
+            outbuf.write(
+                'kout << "[Energy] " << {}getEnergy() << endl;\n'.format(class_prefix)
+            )
+        outbuf.write("\n")
         num_traces += 1
 
     outbuf.write(harness.stop_benchmark())
-    outbuf.write('}\n')
+    outbuf.write("}\n")
 
     # Ensure logging can be terminated after the specified number of measurements
     outbuf.write(harness.start_benchmark())
 
-    outbuf.write('while(1) { }\n')
-    outbuf.write('return 0;\n')
-    outbuf.write('}\n')
+    outbuf.write("while(1) { }\n")
+    outbuf.write("return 0;\n")
+    outbuf.write("}\n")
 
     return outbuf
 
 
-def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: str, run_args: list, harness: object, sleep: int = 0, repeat: int = 0, run_offset: int = 0, runs_total: int = 0, dummy=False):
-    if 'mimosa' in opt or 'energytrace' in opt:
+def run_benchmark(
+    application_file: str,
+    pta: PTA,
+    runs: list,
+    arch: str,
+    app: str,
+    run_args: list,
+    harness: object,
+    sleep: int = 0,
+    repeat: int = 0,
+    run_offset: int = 0,
+    runs_total: int = 0,
+    dummy=False,
+):
+    if "mimosa" in opt or "energytrace" in opt:
         outbuf = benchmark_from_runs(pta, runs, harness, dummy=dummy, repeat=1)
     else:
         outbuf = benchmark_from_runs(pta, runs, harness, dummy=dummy, repeat=repeat)
-    with open(application_file, 'w') as f:
+    with open(application_file, "w") as f:
         f.write(outbuf.getvalue())
-        print('[MAKE] building benchmark with {:d} runs'.format(len(runs)))
+        print("[MAKE] building benchmark with {:d} runs".format(len(runs)))
 
     # assume an average of 10ms per transition. Mind the 10s start delay.
     run_timeout = 10 + num_transitions * (sleep + 10) / 1000
@@ -241,23 +297,55 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
     # This has been deliberately taken out of the except clause to avoid nested exception handlers
     # (they lead to pretty interesting tracebacks which are probably more confusing than helpful)
     if needs_split:
-        print('[MAKE] benchmark code is too large, splitting up')
+        print("[MAKE] benchmark code is too large, splitting up")
         mid = len(runs) // 2
         # Previously prepared trace data is useless
         harness.reset()
-        results = run_benchmark(application_file, pta, runs[:mid], arch, app, run_args, harness.copy(), sleep, repeat, run_offset=run_offset, runs_total=runs_total, dummy=dummy)
-        results.extend(run_benchmark(application_file, pta, runs[mid:], arch, app, run_args, harness.copy(), sleep, repeat, run_offset=run_offset + mid, runs_total=runs_total, dummy=dummy))
+        results = run_benchmark(
+            application_file,
+            pta,
+            runs[:mid],
+            arch,
+            app,
+            run_args,
+            harness.copy(),
+            sleep,
+            repeat,
+            run_offset=run_offset,
+            runs_total=runs_total,
+            dummy=dummy,
+        )
+        results.extend(
+            run_benchmark(
+                application_file,
+                pta,
+                runs[mid:],
+                arch,
+                app,
+                run_args,
+                harness.copy(),
+                sleep,
+                repeat,
+                run_offset=run_offset + mid,
+                runs_total=runs_total,
+                dummy=dummy,
+            )
+        )
         return results
 
-    if 'mimosa' in opt or 'energytrace' in opt:
+    if "mimosa" in opt or "energytrace" in opt:
         files = list()
         i = 0
-        while i < opt['repeat']:
+        while i < opt["repeat"]:
             runner.flash(arch, app, run_args)
-            if 'mimosa' in opt:
-                monitor = runner.get_monitor(arch, callback=harness.parser_cb, mimosa=opt['mimosa'])
-            elif 'energytrace' in opt:
-                monitor = runner.get_monitor(arch, callback=harness.parser_cb, energytrace=opt['energytrace'])
+            if "mimosa" in opt:
+                monitor = runner.get_monitor(
+                    arch, callback=harness.parser_cb, mimosa=opt["mimosa"]
+                )
+            elif "energytrace" in opt:
+                monitor = runner.get_monitor(
+                    arch, callback=harness.parser_cb, energytrace=opt["energytrace"]
+                )
 
             sync_error = False
             try:
@@ -266,17 +354,31 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
                     # possible race condition: if the benchmark completes at this
                     # exact point, it sets harness.done and unsets harness.synced.
                     #                                                   vvv
-                    if slept > 30 and slept < 40 and not harness.synced and not harness.done:
-                        print('[RUN] has been unsynced for more than 30 seconds, assuming error. Retrying.')
+                    if (
+                        slept > 30
+                        and slept < 40
+                        and not harness.synced
+                        and not harness.done
+                    ):
+                        print(
+                            "[RUN] has been unsynced for more than 30 seconds, assuming error. Retrying."
+                        )
                         sync_error = True
                         break
                     if harness.abort:
-                        print('[RUN] harness encountered an error. Retrying')
+                        print("[RUN] harness encountered an error. Retrying")
                         sync_error = True
                         break
                     time.sleep(5)
                     slept += 5
-                    print('[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%'.format(run_offset, runs_total, run_offset * 100 / runs_total, slept * 100 / run_timeout))
+                    print(
+                        "[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%".format(
+                            run_offset,
+                            runs_total,
+                            run_offset * 100 / runs_total,
+                            slept * 100 / run_timeout,
+                        )
+                    )
             except KeyboardInterrupt:
                 pass
 
@@ -297,8 +399,8 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         runner.flash(arch, app, run_args)
         monitor = runner.get_monitor(arch, callback=harness.parser_cb)
 
-        if arch == 'posix':
-            print('[RUN] Will run benchmark for {:.0f} seconds'.format(run_timeout))
+        if arch == "posix":
+            print("[RUN] Will run benchmark for {:.0f} seconds".format(run_timeout))
             lines = monitor.run(int(run_timeout))
             return [(runs, harness, lines, list())]
 
@@ -307,7 +409,14 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
             while not harness.done:
                 time.sleep(5)
                 slept += 5
-                print('[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%'.format(run_offset, runs_total, run_offset * 100 / runs_total, slept * 100 / run_timeout))
+                print(
+                    "[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%".format(
+                        run_offset,
+                        runs_total,
+                        run_offset * 100 / runs_total,
+                        slept * 100 / run_timeout,
+                    )
+                )
         except KeyboardInterrupt:
             pass
         monitor.close()
@@ -315,85 +424,91 @@ def run_benchmark(application_file: str, pta: PTA, runs: list, arch: str, app: s
         return [(runs, harness, monitor, list())]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     try:
         optspec = (
-            'accounting= '
-            'arch= '
-            'app= '
-            'data= '
-            'depth= '
-            'dummy= '
-            'energytrace= '
-            'instance= '
-            'mimosa= '
-            'repeat= '
-            'run= '
-            'sleep= '
-            'shrink '
-            'timing '
-            'timer-pin= '
-            'trace-filter= '
+            "accounting= "
+            "arch= "
+            "app= "
+            "data= "
+            "depth= "
+            "dummy= "
+            "energytrace= "
+            "instance= "
+            "mimosa= "
+            "repeat= "
+            "run= "
+            "sleep= "
+            "shrink "
+            "timing "
+            "timer-pin= "
+            "trace-filter= "
         )
-        raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
+        raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(" "))
 
         for option, parameter in raw_opts:
-            optname = re.sub(r'^--', '', option)
+            optname = re.sub(r"^--", "", option)
             opt[optname] = parameter
 
-        if 'app' not in opt:
-            opt['app'] = 'aemr'
+        if "app" not in opt:
+            opt["app"] = "aemr"
 
-        if 'depth' in opt:
-            opt['depth'] = int(opt['depth'])
+        if "depth" in opt:
+            opt["depth"] = int(opt["depth"])
         else:
-            opt['depth'] = 3
+            opt["depth"] = 3
 
-        if 'repeat' in opt:
-            opt['repeat'] = int(opt['repeat'])
+        if "repeat" in opt:
+            opt["repeat"] = int(opt["repeat"])
         else:
-            opt['repeat'] = 0
+            opt["repeat"] = 0
 
-        if 'sleep' in opt:
-            opt['sleep'] = int(opt['sleep'])
+        if "sleep" in opt:
+            opt["sleep"] = int(opt["sleep"])
         else:
-            opt['sleep'] = 0
+            opt["sleep"] = 0
 
-        if 'trace-filter' in opt:
+        if "trace-filter" in opt:
             trace_filter = list()
-            for trace in opt['trace-filter'].split():
-                trace_filter.append(trace.split(','))
-            opt['trace-filter'] = trace_filter
+            for trace in opt["trace-filter"].split():
+                trace_filter.append(trace.split(","))
+            opt["trace-filter"] = trace_filter
         else:
-            opt['trace-filter'] = None
+            opt["trace-filter"] = None
 
-        if 'mimosa' in opt:
-            if opt['mimosa'] == '':
-                opt['mimosa'] = dict()
+        if "mimosa" in opt:
+            if opt["mimosa"] == "":
+                opt["mimosa"] = dict()
             else:
-                opt['mimosa'] = dict(map(lambda x: x.split('='), opt['mimosa'].split(',')))
-            opt.pop('timing', None)
-            if opt['repeat'] == 0:
-                opt['repeat'] = 1
+                opt["mimosa"] = dict(
+                    map(lambda x: x.split("="), opt["mimosa"].split(","))
+                )
+            opt.pop("timing", None)
+            if opt["repeat"] == 0:
+                opt["repeat"] = 1
 
-        if 'energytrace' in opt:
-            if opt['energytrace'] == '':
-                opt['energytrace'] = dict()
+        if "energytrace" in opt:
+            if opt["energytrace"] == "":
+                opt["energytrace"] = dict()
             else:
-                opt['energytrace'] = dict(map(lambda x: x.split('='), opt['energytrace'].split(',')))
-            opt.pop('timing', None)
-            if opt['repeat'] == 0:
-                opt['repeat'] = 1
+                opt["energytrace"] = dict(
+                    map(lambda x: x.split("="), opt["energytrace"].split(","))
+                )
+            opt.pop("timing", None)
+            if opt["repeat"] == 0:
+                opt["repeat"] = 1
 
-        if 'data' not in opt:
-            opt['data'] = '../data'
+        if "data" not in opt:
+            opt["data"] = "../data"
 
-        if 'dummy' in opt:
-            if opt['dummy'] == '':
-                opt['dummy'] = dict()
+        if "dummy" in opt:
+            if opt["dummy"] == "":
+                opt["dummy"] = dict()
             else:
-                opt['dummy'] = dict(map(lambda x: x.split('='), opt['dummy'].split(',')))
+                opt["dummy"] = dict(
+                    map(lambda x: x.split("="), opt["dummy"].split(","))
+                )
 
     except getopt.GetoptError as err:
         print(err)
@@ -404,69 +519,96 @@ if __name__ == '__main__':
     pta = PTA.from_file(modelfile)
     run_flags = None
 
-    if 'shrink' in opt:
+    if "shrink" in opt:
         pta.shrink_argument_values()
 
-    if 'timer-pin' in opt:
-        timer_pin = opt['timer-pin']
+    if "timer-pin" in opt:
+        timer_pin = opt["timer-pin"]
     else:
         timer_pin = None
 
-    if 'dummy' in opt:
+    if "dummy" in opt:
 
         enum = dict()
-        if '.json' not in modelfile:
-            with open(modelfile, 'r') as f:
+        if ".json" not in modelfile:
+            with open(modelfile, "r") as f:
                 driver_definition = yaml.safe_load(f)
-            if 'dummygen' in driver_definition and 'enum' in driver_definition['dummygen']:
-                enum = driver_definition['dummygen']['enum']
+            if (
+                "dummygen" in driver_definition
+                and "enum" in driver_definition["dummygen"]
+            ):
+                enum = driver_definition["dummygen"]["enum"]
 
-        if 'class' in opt['dummy']:
-            class_name = opt['dummy']['class']
+        if "class" in opt["dummy"]:
+            class_name = opt["dummy"]["class"]
         else:
-            class_name = driver_definition['codegen']['class']
+            class_name = driver_definition["codegen"]["class"]
 
-        run_flags = ['drivers=dummy']
+        run_flags = ["drivers=dummy"]
 
-        repo = Repo('../multipass/build/repo.acp')
+        repo = Repo("../multipass/build/repo.acp")
 
-        if 'accounting' in opt and 'getEnergy' not in map(lambda x: x.name, pta.transitions):
+        if "accounting" in opt and "getEnergy" not in map(
+            lambda x: x.name, pta.transitions
+        ):
             for state in pta.get_state_names():
-                pta.add_transition(state, state, 'getEnergy')
+                pta.add_transition(state, state, "getEnergy")
 
         pta.set_random_energy_model()
 
-        if 'accounting' in opt:
-            if ',' in opt['accounting']:
-                accounting_settings = opt['accounting'].split(',')
+        if "accounting" in opt:
+            if "," in opt["accounting"]:
+                accounting_settings = opt["accounting"].split(",")
                 accounting_name = accounting_settings[0]
-                accounting_options = dict(map(lambda x: x.split('='), accounting_settings[1:]))
-                accounting_object = get_accountingmethod(accounting_name)(class_name, pta, **accounting_options)
+                accounting_options = dict(
+                    map(lambda x: x.split("="), accounting_settings[1:])
+                )
+                accounting_object = get_accountingmethod(accounting_name)(
+                    class_name, pta, **accounting_options
+                )
             else:
-                accounting_object = get_accountingmethod(opt['accounting'])(class_name, pta)
+                accounting_object = get_accountingmethod(opt["accounting"])(
+                    class_name, pta
+                )
         else:
             accounting_object = None
-        drv = MultipassDriver(class_name, pta, repo.class_by_name[class_name], enum=enum, accounting=accounting_object)
-        with open('../multipass/src/driver/dummy.cc', 'w') as f:
+        drv = MultipassDriver(
+            class_name,
+            pta,
+            repo.class_by_name[class_name],
+            enum=enum,
+            accounting=accounting_object,
+        )
+        with open("../multipass/src/driver/dummy.cc", "w") as f:
             f.write(drv.impl)
-        with open('../multipass/include/driver/dummy.h', 'w') as f:
+        with open("../multipass/include/driver/dummy.h", "w") as f:
             f.write(drv.header)
 
-    if '.json' not in modelfile:
-        with open(modelfile, 'r') as f:
+    if ".json" not in modelfile:
+        with open(modelfile, "r") as f:
             driver_definition = yaml.safe_load(f)
-        if 'codegen' in driver_definition and 'flags' in driver_definition['codegen']:
+        if "codegen" in driver_definition and "flags" in driver_definition["codegen"]:
             if run_flags is None:
-                run_flags = driver_definition['codegen']['flags']
+                run_flags = driver_definition["codegen"]["flags"]
     if run_flags is None:
-        run_flags = opt['run'].split()
+        run_flags = opt["run"].split()
 
-    runs = list(pta.dfs(opt['depth'], with_arguments=True, with_parameters=True, trace_filter=opt['trace-filter']))
+    runs = list(
+        pta.dfs(
+            opt["depth"],
+            with_arguments=True,
+            with_parameters=True,
+            trace_filter=opt["trace-filter"],
+        )
+    )
 
     num_transitions = len(runs)
 
     if len(runs) == 0:
-        print('DFS returned no traces -- perhaps your trace-filter is too restrictive?', file=sys.stderr)
+        print(
+            "DFS returned no traces -- perhaps your trace-filter is too restrictive?",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     need_return_values = False
@@ -479,45 +621,78 @@ if __name__ == '__main__':
     #    # getEnergy() returns energy data. Log it.
     #    need_return_values = True
 
-    if 'mimosa' in opt:
-        harness = TransitionHarness(gpio_pin=timer_pin, pta=pta, log_return_values=need_return_values, repeat=1, post_transition_delay_us=20)
-    elif 'energytrace' in opt:
-        harness = OnboardTimerHarness(gpio_pin=timer_pin, gpio_mode='bar', pta=pta, counter_limits=runner.get_counter_limits_us(opt['arch']), log_return_values=need_return_values, repeat=1)
-    elif 'timing' in opt:
-        harness = OnboardTimerHarness(gpio_pin=timer_pin, pta=pta, counter_limits=runner.get_counter_limits_us(opt['arch']), log_return_values=need_return_values, repeat=opt['repeat'])
+    if "mimosa" in opt:
+        harness = TransitionHarness(
+            gpio_pin=timer_pin,
+            pta=pta,
+            log_return_values=need_return_values,
+            repeat=1,
+            post_transition_delay_us=20,
+        )
+    elif "energytrace" in opt:
+        harness = OnboardTimerHarness(
+            gpio_pin=timer_pin,
+            gpio_mode="bar",
+            pta=pta,
+            counter_limits=runner.get_counter_limits_us(opt["arch"]),
+            log_return_values=need_return_values,
+            repeat=1,
+        )
+    elif "timing" in opt:
+        harness = OnboardTimerHarness(
+            gpio_pin=timer_pin,
+            pta=pta,
+            counter_limits=runner.get_counter_limits_us(opt["arch"]),
+            log_return_values=need_return_values,
+            repeat=opt["repeat"],
+        )
 
     if len(args) > 1:
-        results = run_benchmark(args[1], pta, runs, opt['arch'], opt['app'], run_flags, harness, opt['sleep'], opt['repeat'], runs_total=len(runs), dummy='dummy' in opt)
+        results = run_benchmark(
+            args[1],
+            pta,
+            runs,
+            opt["arch"],
+            opt["app"],
+            run_flags,
+            harness,
+            opt["sleep"],
+            opt["repeat"],
+            runs_total=len(runs),
+            dummy="dummy" in opt,
+        )
         json_out = {
-            'opt': opt,
-            'pta': pta.to_json(),
-            'traces': list(map(lambda x: x[1].traces, results)),
-            'raw_output': list(map(lambda x: x[2].get_lines(), results)),
-            'files': list(map(lambda x: x[3], results)),
-            'configs': list(map(lambda x: x[2].get_config(), results)),
+            "opt": opt,
+            "pta": pta.to_json(),
+            "traces": list(map(lambda x: x[1].traces, results)),
+            "raw_output": list(map(lambda x: x[2].get_lines(), results)),
+            "files": list(map(lambda x: x[3], results)),
+            "configs": list(map(lambda x: x[2].get_config(), results)),
         }
-        extra_files = flatten(json_out['files'])
-        if 'instance' in pta.codegen:
-            output_prefix = opt['data'] + time.strftime('/%Y%m%d-%H%M%S-') + pta.codegen['instance']
+        extra_files = flatten(json_out["files"])
+        if "instance" in pta.codegen:
+            output_prefix = (
+                opt["data"] + time.strftime("/%Y%m%d-%H%M%S-") + pta.codegen["instance"]
+            )
         else:
-            output_prefix = opt['data'] + time.strftime('/%Y%m%d-%H%M%S-ptalog')
+            output_prefix = opt["data"] + time.strftime("/%Y%m%d-%H%M%S-ptalog")
         if len(extra_files):
-            with open('ptalog.json', 'w') as f:
+            with open("ptalog.json", "w") as f:
                 json.dump(json_out, f)
-            with tarfile.open('{}.tar'.format(output_prefix), 'w') as tar:
-                tar.add('ptalog.json')
+            with tarfile.open("{}.tar".format(output_prefix), "w") as tar:
+                tar.add("ptalog.json")
                 for extra_file in extra_files:
                     tar.add(extra_file)
-            print(' --> {}.tar'.format(output_prefix))
-            os.remove('ptalog.json')
+            print(" --> {}.tar".format(output_prefix))
+            os.remove("ptalog.json")
             for extra_file in extra_files:
                 os.remove(extra_file)
         else:
-            with open('{}.json'.format(output_prefix), 'w') as f:
+            with open("{}.json".format(output_prefix), "w") as f:
                 json.dump(json_out, f)
-            print(' --> {}.json'.format(output_prefix))
+            print(" --> {}.json".format(output_prefix))
     else:
-        outbuf = benchmark_from_runs(pta, runs, harness, repeat=opt['repeat'])
+        outbuf = benchmark_from_runs(pta, runs, harness, repeat=opt["repeat"])
         print(outbuf.getvalue())
 
     sys.exit(0)

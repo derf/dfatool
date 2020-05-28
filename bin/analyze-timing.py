@@ -91,55 +91,83 @@ def print_model_quality(results):
     for state_or_tran in results.keys():
         print()
         for key, result in results[state_or_tran].items():
-            if 'smape' in result:
-                print('{:20s} {:15s} {:.2f}% / {:.0f}'.format(
-                    state_or_tran, key, result['smape'], result['mae']))
+            if "smape" in result:
+                print(
+                    "{:20s} {:15s} {:.2f}% / {:.0f}".format(
+                        state_or_tran, key, result["smape"], result["mae"]
+                    )
+                )
             else:
-                print('{:20s} {:15s} {:.0f}'.format(
-                    state_or_tran, key, result['mae']))
+                print("{:20s} {:15s} {:.0f}".format(state_or_tran, key, result["mae"]))
 
 
 def format_quality_measures(result):
-    if 'smape' in result:
-        return '{:6.2f}% / {:9.0f}'.format(result['smape'], result['mae'])
+    if "smape" in result:
+        return "{:6.2f}% / {:9.0f}".format(result["smape"], result["mae"])
     else:
-        return '{:6}    {:9.0f}'.format('', result['mae'])
+        return "{:6}    {:9.0f}".format("", result["mae"])
 
 
 def model_quality_table(result_lists, info_list):
-    for state_or_tran in result_lists[0]['by_name'].keys():
-        for key in result_lists[0]['by_name'][state_or_tran].keys():
-            buf = '{:20s} {:15s}'.format(state_or_tran, key)
+    for state_or_tran in result_lists[0]["by_name"].keys():
+        for key in result_lists[0]["by_name"][state_or_tran].keys():
+            buf = "{:20s} {:15s}".format(state_or_tran, key)
             for i, results in enumerate(result_lists):
                 info = info_list[i]
-                buf += '  |||  '
+                buf += "  |||  "
                 if info is None or info(state_or_tran, key):
-                    result = results['by_name'][state_or_tran][key]
+                    result = results["by_name"][state_or_tran][key]
                     buf += format_quality_measures(result)
                 else:
-                    buf += '{:6}----{:9}'.format('', '')
+                    buf += "{:6}----{:9}".format("", "")
             print(buf)
 
 
 def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
-    print('')
-    print(r'key attribute $1 - \frac{\sigma_X}{...}$')
+    print("")
+    print(r"key attribute $1 - \frac{\sigma_X}{...}$")
     for state_or_tran in model.by_name.keys():
         for attribute in model.attributes(state_or_tran):
-            print('{} {} {:.8f}'.format(state_or_tran, attribute, model.stats.generic_param_dependence_ratio(state_or_tran, attribute)))
+            print(
+                "{} {} {:.8f}".format(
+                    state_or_tran,
+                    attribute,
+                    model.stats.generic_param_dependence_ratio(
+                        state_or_tran, attribute
+                    ),
+                )
+            )
 
-    print('')
-    print(r'key attribute parameter $1 - \frac{...}{...}$')
+    print("")
+    print(r"key attribute parameter $1 - \frac{...}{...}$")
     for state_or_tran in model.by_name.keys():
         for attribute in model.attributes(state_or_tran):
             for param in model.parameters():
-                print('{} {} {} {:.8f}'.format(state_or_tran, attribute, param, model.stats.param_dependence_ratio(state_or_tran, attribute, param)))
+                print(
+                    "{} {} {} {:.8f}".format(
+                        state_or_tran,
+                        attribute,
+                        param,
+                        model.stats.param_dependence_ratio(
+                            state_or_tran, attribute, param
+                        ),
+                    )
+                )
             if state_or_tran in model._num_args:
                 for arg_index in range(model._num_args[state_or_tran]):
-                    print('{} {} {:d} {:.8f}'.format(state_or_tran, attribute, arg_index, model.stats.arg_dependence_ratio(state_or_tran, attribute, arg_index)))
+                    print(
+                        "{} {} {:d} {:.8f}".format(
+                            state_or_tran,
+                            attribute,
+                            arg_index,
+                            model.stats.arg_dependence_ratio(
+                                state_or_tran, attribute, arg_index
+                            ),
+                        )
+                    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     ignored_trace_indexes = []
     discard_outliers = None
@@ -154,56 +182,60 @@ if __name__ == '__main__':
 
     try:
         optspec = (
-            'plot-unparam= plot-param= show-models= show-quality= '
-            'ignored-trace-indexes= discard-outliers= function-override= '
-            'filter-param= '
-            'cross-validate= '
-            'corrcoef param-info '
-            'with-safe-functions hwmodel= export-energymodel='
+            "plot-unparam= plot-param= show-models= show-quality= "
+            "ignored-trace-indexes= discard-outliers= function-override= "
+            "filter-param= "
+            "cross-validate= "
+            "corrcoef param-info "
+            "with-safe-functions hwmodel= export-energymodel="
         )
-        raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
+        raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(" "))
 
         for option, parameter in raw_opts:
-            optname = re.sub(r'^--', '', option)
+            optname = re.sub(r"^--", "", option)
             opts[optname] = parameter
 
-        if 'ignored-trace-indexes' in opts:
-            ignored_trace_indexes = list(map(int, opts['ignored-trace-indexes'].split(',')))
+        if "ignored-trace-indexes" in opts:
+            ignored_trace_indexes = list(
+                map(int, opts["ignored-trace-indexes"].split(","))
+            )
             if 0 in ignored_trace_indexes:
-                print('[E] arguments to --ignored-trace-indexes start from 1')
+                print("[E] arguments to --ignored-trace-indexes start from 1")
 
-        if 'discard-outliers' in opts:
-            discard_outliers = float(opts['discard-outliers'])
+        if "discard-outliers" in opts:
+            discard_outliers = float(opts["discard-outliers"])
 
-        if 'function-override' in opts:
-            for function_desc in opts['function-override'].split(';'):
-                state_or_tran, attribute, *function_str = function_desc.split(' ')
-                function_override[(state_or_tran, attribute)] = ' '.join(function_str)
+        if "function-override" in opts:
+            for function_desc in opts["function-override"].split(";"):
+                state_or_tran, attribute, *function_str = function_desc.split(" ")
+                function_override[(state_or_tran, attribute)] = " ".join(function_str)
 
-        if 'show-models' in opts:
-            show_models = opts['show-models'].split(',')
+        if "show-models" in opts:
+            show_models = opts["show-models"].split(",")
 
-        if 'show-quality' in opts:
-            show_quality = opts['show-quality'].split(',')
+        if "show-quality" in opts:
+            show_quality = opts["show-quality"].split(",")
 
-        if 'cross-validate' in opts:
-            xv_method, xv_count = opts['cross-validate'].split(':')
+        if "cross-validate" in opts:
+            xv_method, xv_count = opts["cross-validate"].split(":")
             xv_count = int(xv_count)
 
-        if 'with-safe-functions' in opts:
+        if "with-safe-functions" in opts:
             safe_functions_enabled = True
 
-        if 'hwmodel' in opts:
-            with open(opts['hwmodel'], 'r') as f:
+        if "hwmodel" in opts:
+            with open(opts["hwmodel"], "r") as f:
                 hwmodel = json.load(f)
 
-        if 'corrcoef' not in opts:
-            opts['corrcoef'] = False
+        if "corrcoef" not in opts:
+            opts["corrcoef"] = False
 
-        if 'filter-param' in opts:
-            opts['filter-param'] = list(map(lambda x: x.split('='), opts['filter-param'].split(',')))
+        if "filter-param" in opts:
+            opts["filter-param"] = list(
+                map(lambda x: x.split("="), opts["filter-param"].split(","))
+            )
         else:
-            opts['filter-param'] = list()
+            opts["filter-param"] = list()
 
     except getopt.GetoptError as err:
         print(err)
@@ -212,44 +244,74 @@ if __name__ == '__main__':
     raw_data = TimingData(args)
 
     preprocessed_data = raw_data.get_preprocessed_data()
-    by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data, ignored_trace_indexes)
+    by_name, parameters, arg_count = pta_trace_to_aggregate(
+        preprocessed_data, ignored_trace_indexes
+    )
 
     prune_dependent_parameters(by_name, parameters)
 
-    filter_aggregate_by_param(by_name, parameters, opts['filter-param'])
+    filter_aggregate_by_param(by_name, parameters, opts["filter-param"])
 
-    model = AnalyticModel(by_name, parameters, arg_count, use_corrcoef=opts['corrcoef'], function_override=function_override)
+    model = AnalyticModel(
+        by_name,
+        parameters,
+        arg_count,
+        use_corrcoef=opts["corrcoef"],
+        function_override=function_override,
+    )
 
     if xv_method:
         xv = CrossValidator(AnalyticModel, by_name, parameters, arg_count)
 
-    if 'param-info' in opts:
+    if "param-info" in opts:
         for state in model.names:
-            print('{}:'.format(state))
+            print("{}:".format(state))
             for param in model.parameters:
-                print('    {} = {}'.format(param, model.stats.distinct_values[state][param]))
+                print(
+                    "    {} = {}".format(
+                        param, model.stats.distinct_values[state][param]
+                    )
+                )
 
-    if 'plot-unparam' in opts:
-        for kv in opts['plot-unparam'].split(';'):
-            state_or_trans, attribute, ylabel = kv.split(':')
-            fname = 'param_y_{}_{}.pdf'.format(state_or_trans, attribute)
-            plotter.plot_y(model.by_name[state_or_trans][attribute], xlabel='measurement #', ylabel=ylabel)
+    if "plot-unparam" in opts:
+        for kv in opts["plot-unparam"].split(";"):
+            state_or_trans, attribute, ylabel = kv.split(":")
+            fname = "param_y_{}_{}.pdf".format(state_or_trans, attribute)
+            plotter.plot_y(
+                model.by_name[state_or_trans][attribute],
+                xlabel="measurement #",
+                ylabel=ylabel,
+            )
 
     if len(show_models):
-        print('--- simple static model ---')
+        print("--- simple static model ---")
     static_model = model.get_static()
-    if 'static' in show_models or 'all' in show_models:
+    if "static" in show_models or "all" in show_models:
         for trans in model.names:
-            print('{:10s}: {:.0f} µs'.format(trans, static_model(trans, 'duration')))
+            print("{:10s}: {:.0f} µs".format(trans, static_model(trans, "duration")))
             for param in model.parameters:
-                print('{:10s}  dependence on {:15s}: {:.2f}'.format(
-                    '',
-                    param,
-                    model.stats.param_dependence_ratio(trans, 'duration', param)))
-                if model.stats.has_codependent_parameters(trans, 'duration', param):
-                    print('{:24s}  co-dependencies: {:s}'.format('', ', '.join(model.stats.codependent_parameters(trans, 'duration', param))))
-                    for param_dict in model.stats.codependent_parameter_value_dicts(trans, 'duration', param):
-                        print('{:24s}  parameter-aware for {}'.format('', param_dict))
+                print(
+                    "{:10s}  dependence on {:15s}: {:.2f}".format(
+                        "",
+                        param,
+                        model.stats.param_dependence_ratio(trans, "duration", param),
+                    )
+                )
+                if model.stats.has_codependent_parameters(trans, "duration", param):
+                    print(
+                        "{:24s}  co-dependencies: {:s}".format(
+                            "",
+                            ", ".join(
+                                model.stats.codependent_parameters(
+                                    trans, "duration", param
+                                )
+                            ),
+                        )
+                    )
+                    for param_dict in model.stats.codependent_parameter_value_dicts(
+                        trans, "duration", param
+                    ):
+                        print("{:24s}  parameter-aware for {}".format("", param_dict))
         # import numpy as np
         # safe_div = np.vectorize(lambda x,y: 0. if x == 0 else 1 - x/y)
         # ratio_by_value = safe_div(model.stats.stats['write']['duration']['lut_by_param_values']['max_retry_count'], model.stats.stats['write']['duration']['std_by_param_values']['max_retry_count'])
@@ -260,81 +322,153 @@ if __name__ == '__main__':
         # und warum ist da eine non-power-of-two Zahl von True-Einträgen in der Matrix? 3 stück ist komisch...
         # print(dep_by_value)
 
-    if xv_method == 'montecarlo':
+    if xv_method == "montecarlo":
         static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
     else:
         static_quality = model.assess(static_model)
 
     if len(show_models):
-        print('--- LUT ---')
+        print("--- LUT ---")
     lut_model = model.get_param_lut()
 
-    if xv_method == 'montecarlo':
+    if xv_method == "montecarlo":
         lut_quality = xv.montecarlo(lambda m: m.get_param_lut(fallback=True), xv_count)
     else:
         lut_quality = model.assess(lut_model)
 
     if len(show_models):
-        print('--- param model ---')
+        print("--- param model ---")
 
-    param_model, param_info = model.get_fitted(safe_functions_enabled=safe_functions_enabled)
+    param_model, param_info = model.get_fitted(
+        safe_functions_enabled=safe_functions_enabled
+    )
 
-    if 'paramdetection' in show_models or 'all' in show_models:
+    if "paramdetection" in show_models or "all" in show_models:
         for transition in model.names:
-            for attribute in ['duration']:
+            for attribute in ["duration"]:
                 info = param_info(transition, attribute)
-                print('{:10s} {:10s} non-param stddev {:f}'.format(
-                    transition, attribute, model.stats.stats[transition][attribute]['std_static']
-                ))
-                print('{:10s} {:10s} param-lut stddev {:f}'.format(
-                    transition, attribute, model.stats.stats[transition][attribute]['std_param_lut']
-                ))
-                for param in sorted(model.stats.stats[transition][attribute]['std_by_param'].keys()):
-                    print('{:10s} {:10s} {:10s} stddev {:f}'.format(
-                        transition, attribute, param, model.stats.stats[transition][attribute]['std_by_param'][param]
-                    ))
-                    print('{:10s} {:10s} dependence on {:15s}: {:.2f}'.format(
-                        transition, attribute, param, model.stats.param_dependence_ratio(transition, attribute, param)))
-                for i, arg_stddev in enumerate(model.stats.stats[transition][attribute]['std_by_arg']):
-                    print('{:10s} {:10s} arg{:d} stddev {:f}'.format(
-                        transition, attribute, i, arg_stddev
-                    ))
-                    print('{:10s} {:10s} dependence on arg{:d}: {:.2f}'.format(
-                        transition, attribute, i, model.stats.arg_dependence_ratio(transition, attribute, i)))
+                print(
+                    "{:10s} {:10s} non-param stddev {:f}".format(
+                        transition,
+                        attribute,
+                        model.stats.stats[transition][attribute]["std_static"],
+                    )
+                )
+                print(
+                    "{:10s} {:10s} param-lut stddev {:f}".format(
+                        transition,
+                        attribute,
+                        model.stats.stats[transition][attribute]["std_param_lut"],
+                    )
+                )
+                for param in sorted(
+                    model.stats.stats[transition][attribute]["std_by_param"].keys()
+                ):
+                    print(
+                        "{:10s} {:10s} {:10s} stddev {:f}".format(
+                            transition,
+                            attribute,
+                            param,
+                            model.stats.stats[transition][attribute]["std_by_param"][
+                                param
+                            ],
+                        )
+                    )
+                    print(
+                        "{:10s} {:10s} dependence on {:15s}: {:.2f}".format(
+                            transition,
+                            attribute,
+                            param,
+                            model.stats.param_dependence_ratio(
+                                transition, attribute, param
+                            ),
+                        )
+                    )
+                for i, arg_stddev in enumerate(
+                    model.stats.stats[transition][attribute]["std_by_arg"]
+                ):
+                    print(
+                        "{:10s} {:10s} arg{:d} stddev {:f}".format(
+                            transition, attribute, i, arg_stddev
+                        )
+                    )
+                    print(
+                        "{:10s} {:10s} dependence on arg{:d}: {:.2f}".format(
+                            transition,
+                            attribute,
+                            i,
+                            model.stats.arg_dependence_ratio(transition, attribute, i),
+                        )
+                    )
                 if info is not None:
-                    for param_name in sorted(info['fit_result'].keys(), key=str):
-                        param_fit = info['fit_result'][param_name]['results']
+                    for param_name in sorted(info["fit_result"].keys(), key=str):
+                        param_fit = info["fit_result"][param_name]["results"]
                         for function_type in sorted(param_fit.keys()):
-                            function_rmsd = param_fit[function_type]['rmsd']
-                            print('{:10s} {:10s} {:10s} mean {:10s} RMSD {:.0f}'.format(
-                                transition, attribute, str(param_name), function_type, function_rmsd
-                            ))
+                            function_rmsd = param_fit[function_type]["rmsd"]
+                            print(
+                                "{:10s} {:10s} {:10s} mean {:10s} RMSD {:.0f}".format(
+                                    transition,
+                                    attribute,
+                                    str(param_name),
+                                    function_type,
+                                    function_rmsd,
+                                )
+                            )
 
-    if 'param' in show_models or 'all' in show_models:
+    if "param" in show_models or "all" in show_models:
         for trans in model.names:
-            for attribute in ['duration']:
+            for attribute in ["duration"]:
                 if param_info(trans, attribute):
-                    print('{:10s}: {:10s}: {}'.format(trans, attribute, param_info(trans, attribute)['function']._model_str))
-                    print('{:10s}  {:10s}  {}'.format('', '', param_info(trans, attribute)['function']._regression_args))
+                    print(
+                        "{:10s}: {:10s}: {}".format(
+                            trans,
+                            attribute,
+                            param_info(trans, attribute)["function"]._model_str,
+                        )
+                    )
+                    print(
+                        "{:10s}  {:10s}  {}".format(
+                            "",
+                            "",
+                            param_info(trans, attribute)["function"]._regression_args,
+                        )
+                    )
 
-    if xv_method == 'montecarlo':
+    if xv_method == "montecarlo":
         analytic_quality = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
     else:
         analytic_quality = model.assess(param_model)
 
-    if 'tex' in show_models or 'tex' in show_quality:
-        print_text_model_data(model, static_model, static_quality, lut_model, lut_quality, param_model, param_info, analytic_quality)
+    if "tex" in show_models or "tex" in show_quality:
+        print_text_model_data(
+            model,
+            static_model,
+            static_quality,
+            lut_model,
+            lut_quality,
+            param_model,
+            param_info,
+            analytic_quality,
+        )
 
-    if 'table' in show_quality or 'all' in show_quality:
-        model_quality_table([static_quality, analytic_quality, lut_quality], [None, param_info, None])
+    if "table" in show_quality or "all" in show_quality:
+        model_quality_table(
+            [static_quality, analytic_quality, lut_quality], [None, param_info, None]
+        )
 
-    if 'plot-param' in opts:
-        for kv in opts['plot-param'].split(';'):
-            state_or_trans, attribute, param_name, *function = kv.split(' ')
+    if "plot-param" in opts:
+        for kv in opts["plot-param"].split(";"):
+            state_or_trans, attribute, param_name, *function = kv.split(" ")
             if len(function):
-                function = gplearn_to_function(' '.join(function))
+                function = gplearn_to_function(" ".join(function))
             else:
                 function = None
-            plotter.plot_param(model, state_or_trans, attribute, model.param_index(param_name), extra_function=function)
+            plotter.plot_param(
+                model,
+                state_or_trans,
+                attribute,
+                model.param_index(param_name),
+                extra_function=function,
+            )
 
     sys.exit(0)

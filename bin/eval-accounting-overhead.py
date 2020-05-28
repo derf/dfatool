@@ -18,17 +18,21 @@ import json
 import sys
 
 for filename in sys.argv[1:]:
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         measurement = json.load(f)
     raw_data = TimingData([filename])
     preprocessed_data = raw_data.get_preprocessed_data()
     by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
     model = AnalyticModel(by_name, parameters, arg_count)
     static_model = model.get_static()
-    if 'setup' in model.names:
-        transition_duration = static_model('setup', 'duration')
-    elif 'init' in model.names:
-        transition_duration = static_model('init', 'duration')
-    get_energy_duration = static_model('getEnergy', 'duration')
+    if "setup" in model.names:
+        transition_duration = static_model("setup", "duration")
+    elif "init" in model.names:
+        transition_duration = static_model("init", "duration")
+    get_energy_duration = static_model("getEnergy", "duration")
 
-    print('{:60s}: {:.0f} / {:.0f} µs'.format(measurement['opt']['accounting'], transition_duration, get_energy_duration))
+    print(
+        "{:60s}: {:.0f} / {:.0f} µs".format(
+            measurement["opt"]["accounting"], transition_duration, get_energy_duration
+        )
+    )
