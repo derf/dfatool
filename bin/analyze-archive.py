@@ -98,6 +98,7 @@ Options:
 
 import getopt
 import json
+import random
 import re
 import sys
 from dfatool import plotter
@@ -343,7 +344,7 @@ if __name__ == "__main__":
             pta = PTA.from_file(opt["hwmodel"])
 
     except getopt.GetoptError as err:
-        print(err)
+        print(err, file=sys.stderr)
         sys.exit(2)
 
     raw_data = RawData(
@@ -376,6 +377,17 @@ if __name__ == "__main__":
                     traces.extend(
                         map(lambda x: x["uW"], state_or_transition["offline"])
                     )
+        if len(traces) == 0:
+            print(
+                f"""Did not find traces for state or transition {opt["plot-traces"]}. Abort.""",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
+        if len(traces) > 20:
+            print(f"""Truncating plot to 40 of {len(traces)} traces (random sample)""")
+            traces = random.sample(traces, 40)
+
         plotter.plot_y(
             traces,
             xlabel="t [1e-5 s]",
@@ -385,7 +397,7 @@ if __name__ == "__main__":
         )
 
     if raw_data.preprocessing_stats["num_valid"] == 0:
-        print("No valid data available. Abort.")
+        print("No valid data available. Abort.", file=sys.stderr)
         sys.exit(2)
 
     if pta is None and raw_data.pta is not None:
@@ -694,7 +706,9 @@ if __name__ == "__main__":
 
     if "export-energymodel" in opt:
         if not pta:
-            print("[E] --export-energymodel requires --hwmodel to be set")
+            print(
+                "[E] --export-energymodel requires --hwmodel to be set", file=sys.stderr
+            )
             sys.exit(1)
         json_model = model.to_json()
         with open(opt["export-energymodel"], "w") as f:
