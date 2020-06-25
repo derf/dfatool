@@ -40,8 +40,8 @@ Options:
     WARNING: Several GB of RAM and disk space are required for complex measurements.
              (JSON files may grow very large -- we trade efficiency for easy handling)
 
---param-info
-    Show parameter names and values
+--info
+    Show state duration and (for each state and transition) number of measurements and parameter values
 
 --show-models=<static|paramdetection|param|all|tex|html>
     static: show static model values as well as parameter detection heuristic
@@ -292,7 +292,8 @@ if __name__ == "__main__":
 
     try:
         optspec = (
-            "plot-unparam= plot-param= plot-traces= param-info show-models= show-quality= "
+            "info "
+            "plot-unparam= plot-param= plot-traces= show-models= show-quality= "
             "ignored-trace-indexes= discard-outliers= function-override= "
             "export-traces= "
             "filter-param= "
@@ -351,7 +352,24 @@ if __name__ == "__main__":
         args, with_traces=("export-traces" in opt or "plot-traces" in opt)
     )
 
+    if "info" in opt:
+        print(" ".join(raw_data.filenames) + ":")
+        if raw_data.version <= 1:
+            data_source = "MIMOSA"
+        elif raw_data.version == 2:
+            data_sourec = "MSP430 EnergyTrace"
+        print(f"    Data source ID: {raw_data.version} ({data_source})")
+
     preprocessed_data = raw_data.get_preprocessed_data()
+
+    if "info" in opt:
+        print(
+            f"""    Valid Runs: {raw_data.preprocessing_stats["num_valid"]}/{raw_data.preprocessing_stats["num_runs"]}"""
+        )
+        state_durations = map(
+            lambda x: str(x["state_duration"]), raw_data.setup_by_fileno
+        )
+        print(f"""    State Duration: {" / ".join(state_durations)} ms""")
 
     if "export-traces" in opt:
         uw_per_sot = dict()
@@ -422,20 +440,24 @@ if __name__ == "__main__":
     if xv_method:
         xv = CrossValidator(PTAModel, by_name, parameters, arg_count)
 
-    if "param-info" in opt:
+    if "info" in opt:
         for state in model.states():
             print("{}:".format(state))
+            print(f"""    Number of Measurements: {len(by_name[state]["power"])}""")
             for param in model.parameters():
                 print(
-                    "    {} = {}".format(
+                    "    Parameter {} ∈ {}".format(
                         param, model.stats.distinct_values[state][param]
                     )
                 )
         for transition in model.transitions():
             print("{}:".format(transition))
+            print(
+                f"""    Number of Measurements: {len(by_name[transition]["duration"])}"""
+            )
             for param in model.parameters():
                 print(
-                    "    {} = {}".format(
+                    "    Parameter {} ∈ {}".format(
                         param, model.stats.distinct_values[transition][param]
                     )
                 )
@@ -691,7 +713,14 @@ if __name__ == "__main__":
 
     if "plot-param" in opt:
         for kv in opt["plot-param"].split(";"):
-            state_or_trans, attribute, param_name, *function = kv.split(" ")
+            try:
+                state_or_trans, attribute, param_name, *function = kv.split(" ")
+            except ValueError:
+                print(
+                    "Usage: --plot-param='state_or_trans attribute param_name [additional function spec]'",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
             if len(function):
                 function = gplearn_to_function(" ".join(function))
             else:

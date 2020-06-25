@@ -626,10 +626,12 @@ class RawData:
         if os.path.exists(self.cache_file):
             with open(self.cache_file, "r") as f:
                 cache_data = json.load(f)
+                self.filenames = cache_data["filenames"]
                 self.traces = cache_data["traces"]
                 self.preprocessing_stats = cache_data["preprocessing_stats"]
                 if "pta" in cache_data:
                     self.pta = cache_data["pta"]
+                self.setup_by_fileno = cache_data["setup_by_fileno"]
                 self.preprocessed = True
 
     def save_cache(self):
@@ -641,9 +643,11 @@ class RawData:
             pass
         with open(self.cache_file, "w") as f:
             cache_data = {
+                "filenames": self.filenames,
                 "traces": self.traces,
                 "preprocessing_stats": self.preprocessing_stats,
                 "pta": self.pta,
+                "setup_by_fileno": self.setup_by_fileno,
             }
             json.dump(cache_data, f)
 
@@ -2055,7 +2059,7 @@ class PTAModel:
     PTAModel.by_name and PTAModel.by_param.
 
     These provide measurements aggregated by state/transition name
-    and (in case of by_para) parameter values. Layout:
+    and (for by_param) parameter values. Layout:
     dictionary with one key per state/transition ('send', 'TX', ...) or
     one key per state/transition and parameter combination
     (('send', (1, 2)), ('send', (2, 3)), ('TX', (1, 2)), ('TX', (2, 3)), ...).
