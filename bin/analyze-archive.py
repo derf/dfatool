@@ -357,7 +357,9 @@ if __name__ == "__main__":
         if raw_data.version <= 1:
             data_source = "MIMOSA"
         elif raw_data.version == 2:
-            data_sourec = "MSP430 EnergyTrace"
+            data_source = "MSP430 EnergyTrace"
+        else:
+            data_source = "UNKNOWN"
         print(f"    Data source ID: {raw_data.version} ({data_source})")
 
     preprocessed_data = raw_data.get_preprocessed_data()
