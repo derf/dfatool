@@ -151,6 +151,89 @@ def calc_PELT(signal, model='l1', jump=5, min_dist=2, range_min=1, range_max=50,
         print('With the current thresh-hold S=' + str(S) + ' it is not possible to select a penalty value.')
 
 
+# very short benchmark yielded approx. 1/3 of speed compared to solution with sorting
+def needs_refinement_no_sort(signal, mean, thresh):
+    # linear search for the top 10%/ bottom 10%
+    # should be sufficient
+    length_of_signal = len(signal)
+    percentile_size = int()
+    percentile_size = length_of_signal // 100
+    upper_percentile = [None] * percentile_size
+    lower_percentile = [None] * percentile_size
+    fill_index_upper = percentile_size - 1
+    fill_index_lower = percentile_size - 1
+    index_smallest_val = fill_index_upper
+    index_largest_val = fill_index_lower
+
+    for x in signal:
+        if x > mean:
+            # will be in upper percentile
+            if fill_index_upper >= 0:
+                upper_percentile[fill_index_upper] = x
+                if x < upper_percentile[index_smallest_val]:
+                    index_smallest_val = fill_index_upper
+                fill_index_upper = fill_index_upper - 1
+                continue
+
+            if x > upper_percentile[index_smallest_val]:
+                # replace smallest val. Find next smallest val
+                upper_percentile[index_smallest_val] = x
+                index_smallest_val = 0
+                i = 0
+                for y in upper_percentile:
+                    if upper_percentile[i] < upper_percentile[index_smallest_val]:
+                        index_smallest_val = i
+                    i = i + 1
+
+        else:
+            if fill_index_lower >= 0:
+                lower_percentile[fill_index_lower] = x
+                if x > lower_percentile[index_largest_val]:
+                    index_largest_val = fill_index_upper
+                fill_index_lower = fill_index_lower - 1
+                continue
+            if x < lower_percentile[index_largest_val]:
+                # replace smallest val. Find next smallest val
+                lower_percentile[index_largest_val] = x
+                index_largest_val = 0
+                i = 0
+                for y in lower_percentile:
+                    if lower_percentile[i] > lower_percentile[index_largest_val]:
+                        index_largest_val = i
+                    i = i + 1
+
+    # should have the percentiles
+    lower_percentile_mean = np.mean(lower_percentile)
+    upper_percentile_mean = np.mean(upper_percentile)
+    dist = mean - lower_percentile_mean
+    if dist > thresh:
+        return True
+    dist = upper_percentile_mean - mean
+    if dist > thresh:
+        return True
+    return False
+
+
+# Very short benchmark yielded approx. 3 times the speed of solution not using sort
+def needs_refinement_sort(signal, thresh):
+    sorted_signal = sorted(signal)
+    length_of_signal = len(signal)
+    percentile_size = int()
+    percentile_size = length_of_signal // 100
+    lower_percentile = sorted_signal[0:percentile_size]
+    upper_percentile = sorted_signal[length_of_signal - percentile_size : length_of_signal]
+    lower_percentile_mean = np.mean(lower_percentile)
+    upper_percentile_mean = np.mean(upper_percentile)
+    median = np.median(sorted_signal)
+    dist = median - lower_percentile_mean
+    if dist > thresh:
+        return True
+    dist = upper_percentile_mean - median
+    if dist > thresh:
+        return True
+    return False
+
+
 if __name__ == '__main__':
     import numpy as np
     import json
@@ -160,6 +243,7 @@ if __name__ == '__main__':
     import getopt
     import re
     from dfatool.dfatool import RawData
+    # OPTION RECOGNITION
     opt = dict()
 
     optspec = (
@@ -176,6 +260,7 @@ if __name__ == '__main__':
         "S= "
         "pen_override= "
         "plotting= "
+        "refinement_thresh= "
     )
     opt_filename = None
     opt_verbose = False
@@ -190,6 +275,7 @@ if __name__ == '__main__':
     opt_S = None
     opt_pen_override = None
     opt_plotting = False
+    opt_refinement_thresh = None
     try:
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(" "))
 
@@ -261,14 +347,38 @@ if __name__ == '__main__':
             except ValueError as verr:
                 print(verr, file=sys.stderr)
                 sys.exit(2)
+        if 'refinement_thresh' in opt:
+            try:
+                opt_refinement_thresh = int(opt['refinement_thresh'])
+            except ValueError as verr:
+                print(verr, file=sys.stderr)
+                sys.exit(2)
     except getopt.GetoptError as err:
         print(err, file=sys.stderr)
         sys.exit(2)
 
+    #OPENING DATA
+    import time
     if ".json" in opt_filename:
         # open file with trace data from json
-        with open(opt['filename'], 'r') as f:
-            tx_data = json.load(f)
+        print("[INFO] Will only refine the state which is present in " + opt_filename + " if necessary.")
+        with open(opt_filename, 'r') as f:
+            states = json.load(f)
+        # loop through all traces check if refinement is necessary
+        print("Checking if refinement is necessary...")
+        res = False
+        for measurements_by_state in states:
+            # loop through all occurrences of the looked at state
+            print("Looking at state '" + measurements_by_state['name'] + "'")
+            for measurement in measurements_by_state['offline']:
+                # loop through measurements of particular state
+                # an check if state needs refinement
+                signal = measurement['uW']
+                # mean = measurement['uW_mean']
+                # TODO: Decide if median is really the better baseline than mean
+                if needs_refinement_sort(signal, opt_refinement_thresh):
+                    print("Refinement is necessary!")
+                    break
     elif ".tar" in opt_filename:
         # open with dfatool
         raw_data_args = list()
@@ -280,18 +390,19 @@ if __name__ == '__main__':
         preprocessed_data = raw_data.get_preprocessed_data()
         print("File fully preprocessed")
 
+        # TODO: Mal schauen, wie ich das mache. Erstmal nur mit json
     else:
         print("Unknown dataformat", file=sys.stderr)
         sys.exit(2)
 
-    print(tx_data[1]['parameter'])
-    # parse json to array for PELT
-    signal = np.array(tx_data[1]['offline'][0]['uW'])
-
-    for i in range(0, len(signal)):
-        signal[i] = signal[i]/1000
-    bkps = calc_PELT(signal, model=opt_model, range_max=opt_range_max, num_processes=opt_num_processes, jump=opt_jump, S=opt_S)
-    fig, ax = rpt.display(signal, bkps)
-    plt.xlabel('Time [us]')
-    plt.ylabel('Power [mW]')
-    plt.show()
+    # print(tx_data[1]['parameter'])
+    # # parse json to array for PELT
+    # signal = np.array(tx_data[1]['offline'][0]['uW'])
+    #
+    # for i in range(0, len(signal)):
+    #     signal[i] = signal[i]/1000
+    # bkps = calc_PELT(signal, model=opt_model, range_max=opt_range_max, num_processes=opt_num_processes, jump=opt_jump, S=opt_S)
+    # fig, ax = rpt.display(signal, bkps)
+    # plt.xlabel('Time [us]')
+    # plt.ylabel('Power [mW]')
+    # plt.show()
