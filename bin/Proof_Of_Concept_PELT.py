@@ -1,40 +1,47 @@
-def plot_data_from_json(filename, trace_num, xaxis, yaxis):
-    import matplotlib.pyplot as plt
-    import json
+import matplotlib.pyplot as plt
+import json
+from kneed import KneeLocator
+import ruptures as rpt
+import time
+from multiprocessing import Pool, Manager
+import numpy as np
+import sys
+import getopt
+import re
+from dfatool.dfatool import RawData
+
+
+def plot_data_from_json(filename, trace_num, x_axis, y_axis):
     with open(filename, 'r') as f:
         tx_data = json.load(f)
     print(tx_data[trace_num]['parameter'])
     plt.plot(tx_data[trace_num]['offline'][0]['uW'])
-    plt.xlabel(xaxis)
-    plt.ylabel(yaxis)
+    plt.xlabel(x_axis)
+    plt.ylabel(y_axis)
     plt.show()
 
 
-def plot_data_vs_mean(signal, xaxis, yaxis):
-    import matplotlib.pyplot as plt
-    from statistics import mean
+def plot_data_vs_mean(signal, x_axis, y_axis):
     plt.plot(signal)
-    average = mean(signal)
+    average = np.mean(signal)
     plt.hlines(average, 0, len(signal))
-    plt.xlabel(xaxis)
-    plt.ylabel(yaxis)
+    plt.xlabel(x_axis)
+    plt.ylabel(y_axis)
     plt.show()
 
 
-def plot_data_vs_data_vs_means(signal1, signal2, xaxis, yaxis):
-    import matplotlib.pyplot as plt
-    from statistics import mean
+def plot_data_vs_data_vs_means(signal1, signal2, x_axis, y_axis):
     plt.plot(signal1)
     lens = max(len(signal1), len(signal2))
-    average = mean(signal1)
+    average = np.mean(signal1)
     plt.hlines(average, 0, lens, color='red')
     plt.vlines(len(signal1), 0, 100000, color='red', linestyles='dashed')
     plt.plot(signal2)
-    average = mean(signal2)
+    average = np.mean(signal2)
     plt.hlines(average, 0, lens, color='green')
     plt.vlines(len(signal2), 0, 100000, color='green', linestyles='dashed')
-    plt.xlabel(xaxis)
-    plt.ylabel(yaxis)
+    plt.xlabel(x_axis)
+    plt.ylabel(y_axis)
     plt.show()
 
 
@@ -45,7 +52,6 @@ def get_bkps(algo, pen, q):
 
 
 def find_knee_point(data_x, data_y, S=1.0, curve='convex', direction='decreasing', plotting=False):
-    from kneed import KneeLocator
     kneedle = KneeLocator(data_x, data_y, S=S, curve=curve, direction=direction)
     if plotting:
         kneedle.plot_knee()
@@ -53,13 +59,8 @@ def find_knee_point(data_x, data_y, S=1.0, curve='convex', direction='decreasing
     return kneepoint
 
 
-def calc_PELT(signal, model='l1', jump=5, min_dist=2, range_min=1, range_max=50, num_processes=8, refresh_delay=1,
+def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=1, range_max=50, num_processes=8, refresh_delay=1,
               refresh_thresh=5, S=1.0, pen_override=None, plotting=False):
-    import ruptures as rpt
-    import time
-    import matplotlib.pylab as plt
-    from multiprocessing import Pool, Manager
-
     # default params in Function
     if model is None:
         model = 'l1'
@@ -104,7 +105,6 @@ def calc_PELT(signal, model='l1', jump=5, min_dist=2, range_min=1, range_max=50,
             # collect results from pool
             result = p.starmap_async(get_bkps, args)
             # monitor loop
-            last_percentage = -1
             percentage = -100  # Force display of 0%
             i = 0
             while True:
@@ -125,22 +125,21 @@ def calc_PELT(signal, model='l1', jump=5, min_dist=2, range_min=1, range_max=50,
         # DECIDE WHICH PENALTY VALUE TO CHOOSE ACCORDING TO ELBOW/KNEE APPROACH
         # split x and y coords to pass to kneedle
         pen_val = [x[0] for x in res]
-        fittet_bkps_val = [x[1] for x in res]
+        fitted_bkps_val = [x[1] for x in res]
         # # plot to look at res
 
-        knee = find_knee_point(pen_val, fittet_bkps_val, S=S, plotting=plotting)
+        knee = find_knee_point(pen_val, fitted_bkps_val, S=S, plotting=plotting)
         plt.xlabel('Penalty')
         plt.ylabel('Number of Changepoints')
-        plt.plot(pen_val, fittet_bkps_val)
-        plt.vlines(knee[0], 0, max(fittet_bkps_val), linestyles='dashed')
+        plt.plot(pen_val, fitted_bkps_val)
+        plt.vlines(knee[0], 0, max(fitted_bkps_val), linestyles='dashed')
         print("knee: " + str(knee[0]))
         plt.show()
     else:
         # use forced pen value for plotting
         knee = (pen_override, None)
 
-
-    #plt.plot(pen_val, fittet_bkps_val)
+    # plt.plot(pen_val, fittet_bkps_val)
     if knee[0] is not None:
         bkps = algo.predict(pen=knee[0])
         if plotting:
@@ -215,6 +214,7 @@ def needs_refinement_no_sort(signal, mean, thresh):
 
 
 # Very short benchmark yielded approx. 3 times the speed of solution not using sort
+# TODO: Decide whether median is really the better baseline than mean
 def needs_refinement(signal, thresh):
     sorted_signal = sorted(signal)
     length_of_signal = len(signal)
@@ -235,14 +235,6 @@ def needs_refinement(signal, thresh):
 
 
 if __name__ == '__main__':
-    import numpy as np
-    import json
-    import ruptures as rpt
-    import matplotlib.pylab as plt
-    import sys
-    import getopt
-    import re
-    from dfatool.dfatool import RawData
     # OPTION RECOGNITION
     opt = dict()
 
@@ -357,8 +349,7 @@ if __name__ == '__main__':
         print(err, file=sys.stderr)
         sys.exit(2)
 
-    #OPENING DATA
-    import time
+    # OPENING DATA
     if ".json" in opt_filename:
         # open file with trace data from json
         print("[INFO] Will only refine the state which is present in " + opt_filename + " if necessary.")
@@ -401,7 +392,7 @@ if __name__ == '__main__':
     #
     # for i in range(0, len(signal)):
     #     signal[i] = signal[i]/1000
-    # bkps = calc_PELT(signal, model=opt_model, range_max=opt_range_max, num_processes=opt_num_processes, jump=opt_jump, S=opt_S)
+    # bkps = calc_pelt(signal, model=opt_model, range_max=opt_range_max, num_processes=opt_num_processes, jump=opt_jump, S=opt_S)
     # fig, ax = rpt.display(signal, bkps)
     # plt.xlabel('Time [us]')
     # plt.ylabel('Power [mW]')
