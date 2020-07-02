@@ -215,7 +215,7 @@ def needs_refinement_no_sort(signal, mean, thresh):
 
 
 # Very short benchmark yielded approx. 3 times the speed of solution not using sort
-def needs_refinement_sort(signal, thresh):
+def needs_refinement(signal, thresh):
     sorted_signal = sorted(signal)
     length_of_signal = len(signal)
     percentile_size = int()
@@ -376,7 +376,7 @@ if __name__ == '__main__':
                 signal = measurement['uW']
                 # mean = measurement['uW_mean']
                 # TODO: Decide if median is really the better baseline than mean
-                if needs_refinement_sort(signal, opt_refinement_thresh):
+                if needs_refinement(signal, opt_refinement_thresh):
                     print("Refinement is necessary!")
                     break
     elif ".tar" in opt_filename:
