@@ -108,6 +108,7 @@ Options:
 
 import getopt
 import json
+import logging
 import random
 import re
 import sys
@@ -307,6 +308,7 @@ if __name__ == "__main__":
             "ignored-trace-indexes= discard-outliers= function-override= "
             "export-traces= "
             "filter-param= "
+            "log-level= "
             "cross-validate= "
             "with-safe-functions hwmodel= export-energymodel="
         )
@@ -353,6 +355,13 @@ if __name__ == "__main__":
 
         if "hwmodel" in opt:
             pta = PTA.from_file(opt["hwmodel"])
+
+        if "log-level" in opt:
+            numeric_level = getattr(logging, opt["log-level"].upper(), None)
+            if not isinstance(numeric_level, int):
+                print(f"Invalid log level: {loglevel}", file=sys.stderr)
+                sys.exit(1)
+            logging.basicConfig(level=numeric_level)
 
     except getopt.GetoptError as err:
         print(err, file=sys.stderr)

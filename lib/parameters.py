@@ -1,10 +1,13 @@
 import itertools
+import logging
 import numpy as np
 from collections import OrderedDict
 from copy import deepcopy
 from multiprocessing import Pool
 from .utils import remove_index_from_tuple, is_numeric
 from .utils import filter_aggregate_by_param, by_name_to_by_param
+
+logger = logging.getLogger(__name__)
 
 
 def distinct_param_values(by_name, state_or_tran):
@@ -94,9 +97,7 @@ def _codependent_parameters(param, lut_by_param_values, std_by_param_values):
     return influencer_parameters
 
 
-def _std_by_param(
-    by_param, all_param_values, state_or_tran, attribute, param_index, verbose=False
-):
+def _std_by_param(by_param, all_param_values, state_or_tran, attribute, param_index):
     u"""
     Calculate standard deviations for a static model where all parameters but `param_index` are constant.
 
@@ -229,7 +230,6 @@ def _compute_param_statistics(
     attribute,
     distinct_values,
     distinct_values_by_param_index,
-    verbose=False,
 ):
     """
     Compute standard deviation and correlation coefficient for various data partitions.
@@ -252,7 +252,6 @@ def _compute_param_statistics(
     :param arg_count: dict providing the number of functions args ("local parameters") for each function.
     :param state_or_trans: state or transition name, e.g. 'send' or 'TX'
     :param attribute: model attribute, e.g. 'power' or 'duration'
-    :param verbose: print warning if some parameter partitions are too small for fitting
 
     :returns: a dict with the following content:
     std_static -- static parameter-unaware model error: stddev of by_name[state_or_trans][attribute]
@@ -299,7 +298,6 @@ def _compute_param_statistics(
             state_or_trans,
             attribute,
             param_idx,
-            verbose,
         )
         ret["std_by_param"][param] = mean_std
         ret["std_by_param_values"][param] = std_matrix
@@ -351,7 +349,6 @@ def _compute_param_statistics(
                         state_or_trans,
                         attribute,
                         param_idx,
-                        verbose,
                     )
                     ret["param_data"][param]["depends_for_codependent_value"][
                         combi
@@ -365,7 +362,6 @@ def _compute_param_statistics(
                 state_or_trans,
                 attribute,
                 len(parameter_names) + arg_index,
-                verbose,
             )
             ret["std_by_arg"].append(mean_std)
             ret["std_by_arg_values"].append(std_matrix)
@@ -495,13 +491,7 @@ class ParamStats:
     """
 
     def __init__(
-        self,
-        by_name,
-        by_param,
-        parameter_names,
-        arg_count,
-        use_corrcoef=False,
-        verbose=False,
+        self, by_name, by_param, parameter_names, arg_count, use_corrcoef=False,
     ):
         """
         Compute standard deviation and correlation coefficient on parameterized data partitions.
@@ -556,7 +546,6 @@ class ParamStats:
                             attribute,
                             self.distinct_values[state_or_tran],
                             self.distinct_values_by_param_index[state_or_tran],
-                            verbose,
                         ],
                     }
                 )

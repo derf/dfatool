@@ -4,16 +4,6 @@ import re
 arg_support_enabled = True
 
 
-def vprint(verbose, string):
-    """
-    Print `string` if `verbose`.
-
-    Prints string if verbose is a True value
-    """
-    if verbose:
-        print(string)
-
-
 def running_mean(x: np.ndarray, N: int) -> np.ndarray:
     """
     Compute `N` elements wide running average over `x`.

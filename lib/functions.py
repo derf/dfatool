@@ -5,12 +5,14 @@ This module provides classes and helper functions useful for least-squares
 regression and general handling of model functions.
 """
 from itertools import chain, combinations
+import logging
 import numpy as np
 import re
 from scipy import optimize
-from .utils import is_numeric, vprint
+from .utils import is_numeric
 
 arg_support_enabled = True
+logger = logging.getLogger(__name__)
 
 
 def powerset(iterable):
@@ -118,9 +120,7 @@ class AnalyticFunction:
     packet length.
     """
 
-    def __init__(
-        self, function_str, parameters, num_args, verbose=True, regression_args=None
-    ):
+    def __init__(self, function_str, parameters, num_args, regression_args=None):
         """
         Create a new AnalyticFunction object from a function string.
 
@@ -135,7 +135,6 @@ class AnalyticFunction:
         :param num_args: number of local function arguments, if any. Set to 0 if
             the model attribute does not belong to a function or if function
             arguments are not included in the model.
-        :param verbose: complain about odd events
         :param regression_args: Initial regression variable values,
             both for function usage and least squares optimization.
             If unset, defaults to [1, 1, 1, ...]
@@ -146,7 +145,6 @@ class AnalyticFunction:
         rawfunction = function_str
         self._dependson = [False] * (len(parameters) + num_args)
         self.fit_success = False
-        self.verbose = verbose
 
         if type(function_str) == str:
             num_vars_re = re.compile(r"regression_arg\(([0-9]+)\)")
@@ -231,9 +229,8 @@ class AnalyticFunction:
                         else:
                             X[i].extend([np.nan] * len(val[model_attribute]))
             elif key[0] == state_or_tran and len(key[1]) != dimension:
-                vprint(
-                    self.verbose,
-                    "[W] Invalid parameter key length while gathering fit data for {}/{}. is {}, want {}.".format(
+                logging.warning(
+                    "Invalid parameter key length while gathering fit data for {}/{}. is {}, want {}.".format(
                         state_or_tran, model_attribute, len(key[1]), dimension
                     ),
                 )
@@ -266,9 +263,8 @@ class AnalyticFunction:
                     error_function, self._regression_args, args=(X, Y), xtol=2e-15
                 )
             except ValueError as err:
-                vprint(
-                    self.verbose,
-                    "[W] Fit failed for {}/{}: {} (function: {})".format(
+                logging.warning(
+                    "Fit failed for {}/{}: {} (function: {})".format(
                         state_or_tran, model_attribute, err, self._model_str
                     ),
                 )
@@ -277,16 +273,14 @@ class AnalyticFunction:
                 self._regression_args = res.x
                 self.fit_success = True
             else:
-                vprint(
-                    self.verbose,
-                    "[W] Fit failed for {}/{}: {} (function: {})".format(
+                logging.warning(
+                    "Fit failed for {}/{}: {} (function: {})".format(
                         state_or_tran, model_attribute, res.message, self._model_str
                     ),
                 )
         else:
-            vprint(
-                self.verbose,
-                "[W] Insufficient amount of valid parameter keys, cannot fit {}/{}".format(
+            logging.warning(
+                "Insufficient amount of valid parameter keys, cannot fit {}/{}".format(
                     state_or_tran, model_attribute
                 ),
             )
