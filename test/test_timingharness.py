@@ -35,14 +35,10 @@ class TestModels(unittest.TestCase):
         )
 
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[0],
-            1163,
-            places=0,
+            param_info("write", "duration")["function"].model_args[0], 1163, places=0,
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[1],
-            464,
-            places=0,
+            param_info("write", "duration")["function"].model_args[1], 464, places=0,
         )
         self.assertAlmostEqual(
             param_info("write", "duration")["function"].model_args[2], 1, places=0
@@ -85,14 +81,10 @@ class TestModels(unittest.TestCase):
         )
 
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[0],
-            1163,
-            places=0,
+            param_info("write", "duration")["function"].model_args[0], 1163, places=0,
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[1],
-            464,
-            places=0,
+            param_info("write", "duration")["function"].model_args[1], 464, places=0,
         )
         self.assertAlmostEqual(
             param_info("write", "duration")["function"].model_args[2], 1, places=0
@@ -144,14 +136,10 @@ class TestModels(unittest.TestCase):
         )
 
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[0],
-            1162,
-            places=0,
+            param_info("write", "duration")["function"].model_args[0], 1162, places=0,
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[1],
-            464,
-            places=0,
+            param_info("write", "duration")["function"].model_args[1], 464, places=0,
         )
         self.assertAlmostEqual(
             param_info("write", "duration")["function"].model_args[2], 1, places=0
@@ -160,9 +148,7 @@ class TestModels(unittest.TestCase):
             param_info("write", "duration")["function"].model_args[3], 1, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[4],
-            1086,
-            places=0,
+            param_info("write", "duration")["function"].model_args[4], 1086, places=0,
         )
 
 

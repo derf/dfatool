@@ -428,9 +428,7 @@ if __name__ == "__main__":
                     )
                     print(
                         "{:10s}  {:10s}  {}".format(
-                            "",
-                            "",
-                            param_info(trans, attribute)["function"].model_args,
+                            "", "", param_info(trans, attribute)["function"].model_args,
                         )
                     )
 

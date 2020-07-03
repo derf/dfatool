@@ -645,13 +645,13 @@ if __name__ == "__main__":
                 if param_info(state, attribute):
                     print(
                         "{:10s}: {}".format(
-                            state, param_info(state, attribute)["function"].model_function
+                            state,
+                            param_info(state, attribute)["function"].model_function,
                         )
                     )
                     print(
                         "{:10s}  {}".format(
-                            "",
-                            param_info(state, attribute)["function"].model_args,
+                            "", param_info(state, attribute)["function"].model_args,
                         )
                     )
         for trans in model.transitions():
@@ -666,9 +666,7 @@ if __name__ == "__main__":
                     )
                     print(
                         "{:10s}  {:10s}  {}".format(
-                            "",
-                            "",
-                            param_info(trans, attribute)["function"].model_args,
+                            "", "", param_info(trans, attribute)["function"].model_args,
                         )
                     )
 
