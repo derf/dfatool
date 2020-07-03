@@ -44,7 +44,7 @@ class TestModels(unittest.TestCase):
         paramfit.enqueue("TX", "power", 1, "p_linear")
         paramfit.fit()
 
-        fit_result = dt.get_fit_result(paramfit.results, "TX", "power")
+        fit_result = paramfit.get_result("TX", "power")
         self.assertEqual(fit_result["p_linear"]["best"], "linear")
 
 
