@@ -8,8 +8,8 @@ sudo apt install python3-numpy python3-scipy python3-sklearn
 Code Style
 ---
 
-Please do not commit code with significant PEP8 violations. It's best to check
-this with a pre-commit hook:
+Please only commit blackened code. It's best to check this with a pre-commit
+hook:
 
 ```
 #!/bin/sh
@@ -25,5 +25,5 @@ fi
 # Redirect output to stderr.
 exec 1>&2
 
-git diff --cached $against | flake8 --diff
+black --check $(git diff --cached --name-only --diff-filter=ACM $against | grep '\.py$')
 ```
