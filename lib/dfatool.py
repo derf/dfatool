@@ -75,7 +75,7 @@ def gplearn_to_function(function_str: str):
         arg_list.append("X{:d}".format(i))
 
     eval_str = "lambda {}, *whatever: {}".format(",".join(arg_list), function_str)
-    print(eval_str)
+    logger.debug(eval_str)
     return eval(eval_str, eval_globals)
 
 
@@ -1371,7 +1371,7 @@ class RawData:
         for measurement in measurements:
 
             if "energy_trace" not in measurement:
-                logging.warning(
+                logger.warning(
                     "Skipping {ar:s}/{m:s}: {e:s}".format(
                         ar=self.filenames[measurement["fileno"]],
                         m=measurement["info"].name,
@@ -1393,7 +1393,7 @@ class RawData:
                     self._merge_online_and_offline(measurement)
                     num_valid += 1
                 else:
-                    logging.warning(
+                    logger.warning(
                         "Skipping {ar:s}/{m:s}: {e:s}".format(
                             ar=self.filenames[measurement["fileno"]],
                             m=measurement["info"].name,
@@ -1405,14 +1405,14 @@ class RawData:
                     self._merge_online_and_etlog(measurement)
                     num_valid += 1
                 else:
-                    logging.warning(
+                    logger.warning(
                         "Skipping {ar:s}/{m:s}: {e:s}".format(
                             ar=self.filenames[measurement["fileno"]],
                             m=measurement["info"].name,
                             e=measurement["error"],
                         ),
                     )
-        logging.info(
+        logger.info(
             "{num_valid:d}/{num_total:d} measurements are valid".format(
                 num_valid=num_valid, num_total=len(measurements)
             ),
@@ -1834,9 +1834,9 @@ class AnalyticModel:
                 try:
                     model[name][key] = model_function(elem[key])
                 except RuntimeWarning:
-                    logging.warning("Got no data for {} {}".format(name, key))
+                    logger.warning("Got no data for {} {}".format(name, key))
                 except FloatingPointError as fpe:
-                    logging.warning("Got no data for {} {}: {}".format(name, key, fpe),)
+                    logger.warning("Got no data for {} {}: {}".format(name, key, fpe),)
         return model
 
     def param_index(self, param_name):
@@ -2230,9 +2230,9 @@ class PTAModel:
                 try:
                     model[name][key] = model_function(elem[key])
                 except RuntimeWarning:
-                    logging.warning("Got no data for {} {}".format(name, key))
+                    logger.warning("Got no data for {} {}".format(name, key))
                 except FloatingPointError as fpe:
-                    logging.warning("Got no data for {} {}: {}".format(name, key, fpe),)
+                    logger.warning("Got no data for {} {}: {}".format(name, key, fpe),)
         return model
 
     def get_static(self, use_mean=False):
@@ -2730,7 +2730,7 @@ class EnergyTraceLog:
 
         self.sample_rate = data_count / (m_duration_us * 1e-6)
 
-        logging.debug(
+        logger.debug(
             "got {} samples with {} seconds of log data ({} Hz)".format(
                 data_count, m_duration_us * 1e-6, self.sample_rate
             ),
@@ -2837,19 +2837,17 @@ class EnergyTraceLog:
         for name, duration in expected_transitions:
             bc, start, stop, end = self.find_barcode(next_barcode)
             if bc is None:
-                print('[!!!] did not find transition "{}"'.format(name))
+                logger.error('did not find transition "{}"'.format(name))
                 break
             next_barcode = end + self.state_duration + duration
-            logging.debug(
+            logger.debug(
                 '{} barcode "{}" area: {:0.2f} .. {:0.2f} / {:0.2f} seconds'.format(
                     offline_index, bc, start, stop, end
                 ),
             )
             if bc != name:
-                logging.debug(
-                    '[!!!] mismatch: expected "{}", got "{}"'.format(name, bc),
-                )
-            logging.debug(
+                logger.error('mismatch: expected "{}", got "{}"'.format(name, bc),)
+            logger.debug(
                 "{} estimated transition area: {:0.3f} .. {:0.3f} seconds".format(
                     offline_index, end, end + duration
                 ),
@@ -2862,7 +2860,7 @@ class EnergyTraceLog:
                 self.ts_to_index(end + duration + self.state_duration) + 1
             )
 
-            logging.debug(
+            logger.debug(
                 "{} estimated transitionindex: {:0.3f} .. {:0.3f} seconds".format(
                     offline_index,
                     transition_start_index / self.sample_rate,
@@ -2962,7 +2960,7 @@ class EnergyTraceLog:
             + self.led_power / 3
         )
 
-        logging.debug(
+        logger.debug(
             "looking for barcode starting at {:0.2f} s, threshold is {:0.1f} mW".format(
                 start_ts, sync_threshold_power * 1e3
             ),
@@ -2996,7 +2994,7 @@ class EnergyTraceLog:
 
         barcode_data = self.interval_power[sync_area_start:sync_area_end]
 
-        logging.debug(
+        logger.debug(
             "barcode search area: {:0.2f} .. {:0.2f} seconds ({} samples)".format(
                 sync_start_ts, sync_end_ts, len(barcode_data)
             ),
@@ -3074,7 +3072,7 @@ class EnergyTraceLog:
 
             return content, sym_start, sym_end, padding_bits
         else:
-            logging.warning("unable to find barcode")
+            logger.warning("unable to find barcode")
             return None, None, None, None
 
 
@@ -3300,7 +3298,7 @@ class MIMOSA:
         if cal_r2_mean > cal_0_mean:
             b_lower = (ua_r2 - 0) / (cal_r2_mean - cal_0_mean)
         else:
-            logging.warning("0 uA == %.f uA during calibration" % (ua_r2))
+            logger.warning("0 uA == %.f uA during calibration" % (ua_r2))
             b_lower = 0
 
         b_upper = (ua_r1 - ua_r2) / (cal_r1_mean - cal_r2_mean)
@@ -3472,7 +3470,7 @@ class MIMOSA:
                 data["substates"] = substates
                 ssum = np.sum(list(map(lambda x: x["duration"], substates["states"])))
                 if ssum != data["us"]:
-                    logging.warning("duration %d vs %d" % (data["us"], ssum))
+                    logger.warning("duration %d vs %d" % (data["us"], ssum))
 
             if isa == "transition":
                 # subtract average power of previous state

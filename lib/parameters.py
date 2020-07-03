@@ -1,6 +1,7 @@
 import itertools
 import logging
 import numpy as np
+import warnings
 from collections import OrderedDict
 from copy import deepcopy
 from multiprocessing import Pool
@@ -163,12 +164,11 @@ def _std_by_param(by_param, all_param_values, state_or_tran, attribute, param_in
         #    vprint(verbose, '[W] parameter value partition for {} is empty'.format(param_value))
 
     if np.all(np.isnan(stddev_matrix)):
-        print(
-            "[W] {}/{} parameter #{} has no data partitions -- how did this even happen?".format(
-                state_or_tran, attribute, param_index
+        warnings.warn(
+            "{}/{} parameter #{} has no data partitions. stddev_matrix = {}".format(
+                state_or_tran, attribute, param_index, stddev_matrix
             )
         )
-        print("stddev_matrix = {}".format(stddev_matrix))
         return stddev_matrix, 0.0
 
     return (
@@ -203,13 +203,13 @@ def _corr_by_param(by_name, state_or_trans, attribute, param_index):
             # -> assume no correlation
             return 0.0
         except ValueError:
-            print(
-                "[!] Exception in _corr_by_param(by_name, state_or_trans={}, attribute={}, param_index={})".format(
+            logger.error(
+                "ValueError in _corr_by_param(by_name, state_or_trans={}, attribute={}, param_index={})".format(
                     state_or_trans, attribute, param_index
                 )
             )
-            print(
-                "[!] while executing np.corrcoef(by_name[{}][{}]={}, {}))".format(
+            logger.error(
+                "while executing np.corrcoef(by_name[{}][{}]={}, {}))".format(
                     state_or_trans,
                     attribute,
                     by_name[state_or_trans][attribute],
@@ -443,8 +443,8 @@ def prune_dependent_parameters(by_name, parameter_names, correlation_threshold=0
                     correlation != np.nan
                     and np.abs(correlation) > correlation_threshold
                 ):
-                    print(
-                        "[!] Parameters {} <-> {} are correlated with coefficcient {}".format(
+                    logger.debug(
+                        "Parameters {} <-> {} are correlated with coefficcient {}".format(
                             parameter_names[index_1],
                             parameter_names[index_2],
                             correlation,
@@ -454,7 +454,7 @@ def prune_dependent_parameters(by_name, parameter_names, correlation_threshold=0
                         index_to_remove = index_1
                     else:
                         index_to_remove = index_2
-                    print(
+                    logger.debug(
                         "    Removing parameter {}".format(
                             parameter_names[index_to_remove]
                         )
@@ -581,15 +581,17 @@ class ParamStats:
                     )
                     > 2
                 ):
-                    print(
-                        key,
-                        param,
-                        list(
-                            filter(
-                                lambda n: is_numeric(n),
-                                self.distinct_values[key][param],
-                            )
-                        ),
+                    logger.debug(
+                        "{} can be fitted for param {} on {}".format(
+                            key,
+                            param,
+                            list(
+                                filter(
+                                    lambda n: is_numeric(n),
+                                    self.distinct_values[key][param],
+                                )
+                            ),
+                        )
                     )
                     return True
         return False
@@ -646,13 +648,15 @@ class ParamStats:
         depends_on_a_parameter = False
         for param in self._parameter_names:
             if self.stats[state_or_tran][attribute]["depends_on_param"][param]:
-                print("{}/{} depends on {}".format(state_or_tran, attribute, param))
+                logger.debug(
+                    "{}/{} depends on {}".format(state_or_tran, attribute, param)
+                )
                 depends_on_a_parameter = True
                 if (
                     len(self.codependent_parameters(state_or_tran, attribute, param))
                     == 0
                 ):
-                    print("has no codependent parameters")
+                    logger.debug("... and has no codependent parameters")
                     # Always depends on this parameter, regardless of other parameters' values
                     return False
         return depends_on_a_parameter

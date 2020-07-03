@@ -3,10 +3,13 @@
 from .functions import AnalyticFunction, NormalizationFunction
 from .utils import is_numeric
 import itertools
+import logging
 import numpy as np
 import json
 import queue
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 def _dict_to_list(input_dict: dict) -> list:
@@ -1305,8 +1308,8 @@ class PTA:
                                 "power"
                             ]
                 except KeyError:
-                    print(
-                        "[W] skipping model update of state {} due to missing data".format(
+                    logger.warning(
+                        "skipping model update of state {} due to missing data".format(
                             state.name
                         )
                     )
@@ -1353,8 +1356,8 @@ class PTA:
                         "timeout"
                     ]
             except KeyError:
-                print(
-                    "[W] skipping model update of transition {} due to missing data".format(
+                logger.warning(
+                    "skipping model update of transition {} due to missing data".format(
                         transition.name
                     )
                 )

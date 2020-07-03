@@ -7,8 +7,11 @@ length of lists, ane more.
 
 from .protocol_benchmarks import codegen_for_lib
 from . import cycles_to_energy, size_to_radio_energy, utils
+import logging
 import numpy as np
 import ubjson
+
+logger = logging.getLogger(__name__)
 
 
 def _string_value_length(json):
@@ -224,7 +227,7 @@ class Protolog:
                         except KeyError:
                             pass
                         except TypeError as e:
-                            print(
+                            logger.error(
                                 "TypeError in {} {} {} {}: {} -> {}".format(
                                     arch_lib,
                                     benchmark,
@@ -395,7 +398,7 @@ class Protolog:
                         except KeyError:
                             pass
                         except ValueError:
-                            print(
+                            logger.warning(
                                 "cycles_enc is NaN for {} -> {} -> {}".format(
                                     arch, lib, key
                                 )
@@ -410,7 +413,7 @@ class Protolog:
                         except KeyError:
                             pass
                         except ValueError:
-                            print(
+                            logger.warning(
                                 "cycles_ser is NaN for {} -> {} -> {}".format(
                                     arch, lib, key
                                 )
@@ -425,7 +428,7 @@ class Protolog:
                         except KeyError:
                             pass
                         except ValueError:
-                            print(
+                            logger.warning(
                                 "cycles_encser is NaN for {} -> {} -> {}".format(
                                     arch, lib, key
                                 )
@@ -440,7 +443,7 @@ class Protolog:
                         except KeyError:
                             pass
                         except ValueError:
-                            print(
+                            logger.warning(
                                 "cycles_des is NaN for {} -> {} -> {}".format(
                                     arch, lib, key
                                 )
@@ -455,7 +458,7 @@ class Protolog:
                         except KeyError:
                             pass
                         except ValueError:
-                            print(
+                            logger.warning(
                                 "cycles_dec is NaN for {} -> {} -> {}".format(
                                     arch, lib, key
                                 )
@@ -470,7 +473,7 @@ class Protolog:
                         except KeyError:
                             pass
                         except ValueError:
-                            print(
+                            logger.warning(
                                 "cycles_desdec is NaN for {} -> {} -> {}".format(
                                     arch, lib, key
                                 )

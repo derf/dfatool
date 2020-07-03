@@ -1,7 +1,9 @@
 import numpy as np
 import re
+import logging
 
 arg_support_enabled = True
+logger = logging.getLogger(__name__)
 
 
 def running_mean(x: np.ndarray, N: int) -> np.ndarray:
@@ -212,7 +214,7 @@ def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
                 )
             )
             if len(indices_to_keep) == 0:
-                print("??? {}->{}".format(parameter_filter, name))
+                logger.debug("??? {}->{}".format(parameter_filter, name))
                 names_to_remove.add(name)
             else:
                 for attribute in aggregate[name]["attributes"]:

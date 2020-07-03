@@ -1,4 +1,7 @@
 from .sly import Lexer, Parser
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TimedWordLexer(Lexer):
@@ -38,7 +41,7 @@ class TimedSequenceLexer(Lexer):
     FUNCTIONSEP = r";"
 
     def error(self, t):
-        print("Illegal character '%s'" % t.value[0])
+        logger.error("Illegal character '%s'" % t.value[0])
         if t.value[0] == "{" and t.value.find("}"):
             self.index += 1 + t.value.find("}")
         else:
@@ -153,11 +156,11 @@ class TimedSequenceParser(Parser):
 
     def error(self, p):
         if p:
-            print("Syntax error at token", p.type)
+            logger.error("Syntax error at token", p.type)
             # Just discard the token and tell the parser it's okay.
             self.errok()
         else:
-            print("Syntax error at EOF")
+            logger.error("Syntax error at EOF")
 
 
 class TimedWord:

@@ -16,7 +16,10 @@ import io
 import os
 import re
 import time
+import logging
 from filelock import FileLock
+
+logger = logging.getLogger(__name__)
 
 
 class DummyProtocol:
@@ -1838,14 +1841,14 @@ class Benchmark:
             this_result["data"] = data
         if value != None:
             this_result[key] = {"v": value, "ts": int(time.time())}
-            print(
+            logger.debug(
                 "{} {} {} ({}) :: {} -> {}".format(
                     libkey, bench_name, bench_index, data, key, value
                 )
             )
         else:
             this_result[key] = {"e": error, "ts": int(time.time())}
-            print(
+            logger.debug(
                 "{} {} {} ({}) :: {} -> [E] {}".format(
                     libkey, bench_name, bench_index, data, key, error[:500]
                 )

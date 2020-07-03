@@ -229,7 +229,7 @@ class AnalyticFunction:
                         else:
                             X[i].extend([np.nan] * len(val[model_attribute]))
             elif key[0] == state_or_tran and len(key[1]) != dimension:
-                logging.warning(
+                logger.warning(
                     "Invalid parameter key length while gathering fit data for {}/{}. is {}, want {}.".format(
                         state_or_tran, model_attribute, len(key[1]), dimension
                     ),
@@ -263,7 +263,7 @@ class AnalyticFunction:
                     error_function, self._regression_args, args=(X, Y), xtol=2e-15
                 )
             except ValueError as err:
-                logging.warning(
+                logger.warning(
                     "Fit failed for {}/{}: {} (function: {})".format(
                         state_or_tran, model_attribute, err, self._model_str
                     ),
@@ -273,13 +273,13 @@ class AnalyticFunction:
                 self._regression_args = res.x
                 self.fit_success = True
             else:
-                logging.warning(
+                logger.warning(
                     "Fit failed for {}/{}: {} (function: {})".format(
                         state_or_tran, model_attribute, res.message, self._model_str
                     ),
                 )
         else:
-            logging.warning(
+            logger.warning(
                 "Insufficient amount of valid parameter keys, cannot fit {}/{}".format(
                     state_or_tran, model_attribute
                 ),
