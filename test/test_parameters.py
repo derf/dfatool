@@ -100,12 +100,14 @@ class TestModels(unittest.TestCase):
             lambda x: 42 + 7 * x[0] + 10 * np.log(x[1]) - 0.5 * x[2] * x[2],
             signature="(n)->()",
         )
-        f_ll = np.vectorize(lambda x: 23 + 5 * x[0] - 3 * x[1], signature="(n)->()")
+        f_ll = np.vectorize(
+            lambda x: 23 + 5 * x[0] - 3 * x[0] / x[1], signature="(n)->()"
+        )
 
         Y_lls = f_lls(X) + rng.normal(size=X.shape[0])
         Y_ll = f_ll(X) + rng.normal(size=X.shape[0])
 
-        parameter_names = ["lin_lin", "log_lin", "square_none"]
+        parameter_names = ["lin_lin", "log_inv", "square_none"]
 
         by_name = {
             "someKey": {
@@ -119,24 +121,24 @@ class TestModels(unittest.TestCase):
         stats = parameters.ParamStats(by_name, by_param, parameter_names, dict())
 
         self.assertEqual(stats.depends_on_param("someKey", "lls", "lin_lin"), True)
-        self.assertEqual(stats.depends_on_param("someKey", "lls", "log_lin"), True)
+        self.assertEqual(stats.depends_on_param("someKey", "lls", "log_inv"), True)
         self.assertEqual(stats.depends_on_param("someKey", "lls", "square_none"), True)
 
         self.assertEqual(stats.depends_on_param("someKey", "ll", "lin_lin"), True)
-        self.assertEqual(stats.depends_on_param("someKey", "ll", "log_lin"), True)
+        self.assertEqual(stats.depends_on_param("someKey", "ll", "log_inv"), True)
         self.assertEqual(stats.depends_on_param("someKey", "ll", "square_none"), False)
 
         paramfit = dt.ParallelParamFit(by_param)
         paramfit.enqueue("someKey", "lls", 0, "lin_lin")
-        paramfit.enqueue("someKey", "lls", 1, "log_lin")
+        paramfit.enqueue("someKey", "lls", 1, "log_inv")
         paramfit.enqueue("someKey", "lls", 2, "square_none")
         paramfit.enqueue("someKey", "ll", 0, "lin_lin")
-        paramfit.enqueue("someKey", "ll", 1, "log_lin")
+        paramfit.enqueue("someKey", "ll", 1, "log_inv")
         paramfit.fit()
 
         fit_lls = paramfit.get_result("someKey", "lls")
         self.assertEqual(fit_lls["lin_lin"]["best"], "linear")
-        self.assertEqual(fit_lls["log_lin"]["best"], "logarithmic")
+        self.assertEqual(fit_lls["log_inv"]["best"], "logarithmic")
         self.assertEqual(fit_lls["square_none"]["best"], "square")
 
         combined_fit_lls = analytic.function_powerset(fit_lls, parameter_names, 0)
@@ -144,12 +146,12 @@ class TestModels(unittest.TestCase):
         self.assertEqual(
             combined_fit_lls.model_function,
             "0 + regression_arg(0) + regression_arg(1) * parameter(lin_lin)"
-            " + regression_arg(2) * np.log(parameter(log_lin))"
+            " + regression_arg(2) * np.log(parameter(log_inv))"
             " + regression_arg(3) * (parameter(square_none))**2"
-            " + regression_arg(4) * parameter(lin_lin) * np.log(parameter(log_lin))"
+            " + regression_arg(4) * parameter(lin_lin) * np.log(parameter(log_inv))"
             " + regression_arg(5) * parameter(lin_lin) * (parameter(square_none))**2"
-            " + regression_arg(6) * np.log(parameter(log_lin)) * (parameter(square_none))**2"
-            " + regression_arg(7) * parameter(lin_lin) * np.log(parameter(log_lin)) * (parameter(square_none))**2",
+            " + regression_arg(6) * np.log(parameter(log_inv)) * (parameter(square_none))**2"
+            " + regression_arg(7) * parameter(lin_lin) * np.log(parameter(log_inv)) * (parameter(square_none))**2",
         )
 
         combined_fit_lls.fit(by_param, "someKey", "lls")
@@ -181,7 +183,7 @@ class TestModels(unittest.TestCase):
 
         fit_ll = paramfit.get_result("someKey", "ll")
         self.assertEqual(fit_ll["lin_lin"]["best"], "linear")
-        self.assertEqual(fit_ll["log_lin"]["best"], "linear")
+        self.assertEqual(fit_ll["log_inv"]["best"], "inverse")
         self.assertEqual("quare_none" not in fit_ll, True)
 
         combined_fit_ll = analytic.function_powerset(fit_ll, parameter_names, 0)
@@ -189,8 +191,8 @@ class TestModels(unittest.TestCase):
         self.assertEqual(
             combined_fit_ll.model_function,
             "0 + regression_arg(0) + regression_arg(1) * parameter(lin_lin)"
-            " + regression_arg(2) * parameter(log_lin)"
-            " + regression_arg(3) * parameter(lin_lin) * parameter(log_lin)",
+            " + regression_arg(2) * 1/(parameter(log_inv))"
+            " + regression_arg(3) * parameter(lin_lin) * 1/(parameter(log_inv))",
         )
 
         combined_fit_ll.fit(by_param, "someKey", "ll")
@@ -200,8 +202,8 @@ class TestModels(unittest.TestCase):
         # Verify that f_ll parameters have been found
         self.assertAlmostEqual(combined_fit_ll.model_args[0], 23, places=0)
         self.assertAlmostEqual(combined_fit_ll.model_args[1], 5, places=0)
-        self.assertAlmostEqual(combined_fit_ll.model_args[2], -3, places=0)
-        self.assertAlmostEqual(combined_fit_ll.model_args[3], 0, places=2)
+        self.assertAlmostEqual(combined_fit_ll.model_args[2], 0, places=1)
+        self.assertAlmostEqual(combined_fit_ll.model_args[3], -3, places=0)
 
         self.assertEqual(combined_fit_ll.is_predictable([None, None, None]), False)
         self.assertEqual(combined_fit_ll.is_predictable([None, None, 11]), False)
