@@ -103,7 +103,7 @@ class PTAAttribute:
     def __repr__(self):
         if self.function is not None:
             return "PTAATtribute<{:.0f}, {}>".format(
-                self.value, self.function._model_str
+                self.value, self.function.model_function
             )
         return "PTAATtribute<{:.0f}, None>".format(self.value)
 
@@ -137,8 +137,8 @@ class PTAAttribute:
         }
         if self.function:
             ret["function"] = {
-                "raw": self.function._model_str,
-                "regression_args": list(self.function._regression_args),
+                "raw": self.function.model_function,
+                "regression_args": list(self.function.model_args),
             }
             ret["function_error"] = self.function_error
         return ret

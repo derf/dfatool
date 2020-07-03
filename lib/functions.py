@@ -141,7 +141,7 @@ class AnalyticFunction:
         """
         self._parameter_names = parameters
         self._num_args = num_args
-        self._model_str = function_str
+        self.model_function = function_str
         rawfunction = function_str
         self._dependson = [False] * (len(parameters) + num_args)
         self.fit_success = False
@@ -174,12 +174,12 @@ class AnalyticFunction:
             self._function = function_str
 
         if regression_args:
-            self._regression_args = regression_args.copy()
+            self.model_args = regression_args.copy()
             self._fit_success = True
         elif type(function_str) == str:
-            self._regression_args = list(np.ones((num_vars)))
+            self.model_args = list(np.ones((num_vars)))
         else:
-            self._regression_args = []
+            self.model_args = []
 
     def get_fit_data(self, by_param, state_or_tran, model_attribute):
         """
@@ -260,22 +260,22 @@ class AnalyticFunction:
             error_function = lambda P, X, y: self._function(P, X) - y
             try:
                 res = optimize.least_squares(
-                    error_function, self._regression_args, args=(X, Y), xtol=2e-15
+                    error_function, self.model_args, args=(X, Y), xtol=2e-15
                 )
             except ValueError as err:
                 logger.warning(
                     "Fit failed for {}/{}: {} (function: {})".format(
-                        state_or_tran, model_attribute, err, self._model_str
+                        state_or_tran, model_attribute, err, self.model_function
                     ),
                 )
                 return
             if res.status > 0:
-                self._regression_args = res.x
+                self.model_args = res.x
                 self.fit_success = True
             else:
                 logger.warning(
                     "Fit failed for {}/{}: {} (function: {})".format(
-                        state_or_tran, model_attribute, res.message, self._model_str
+                        state_or_tran, model_attribute, res.message, self.model_function
                     ),
                 )
         else:
@@ -308,9 +308,9 @@ class AnalyticFunction:
             corresponds to lexically first parameter, etc.
         :param arg_list: argument values (list of float), if arguments are used.
         """
-        if len(self._regression_args) == 0:
+        if len(self.model_args) == 0:
             return self._function(param_list, arg_list)
-        return self._function(self._regression_args, param_list)
+        return self._function(self.model_args, param_list)
 
 
 class analytic:

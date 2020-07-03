@@ -63,7 +63,7 @@ class TestModels(unittest.TestCase):
         combined_fit = analytic.function_powerset(fit_result, parameter_names, 0)
 
         self.assertEqual(
-            combined_fit._model_str,
+            combined_fit.model_function,
             "0 + regression_arg(0) + regression_arg(1) * parameter(p_linear)",
         )
         self.assertEqual(
