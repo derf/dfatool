@@ -59,7 +59,7 @@ def find_knee_point(data_x, data_y, S=1.0, curve='convex', direction='decreasing
     return kneepoint
 
 
-def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=1, range_max=50, num_processes=8, refresh_delay=1,
+def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50, num_processes=8, refresh_delay=1,
               refresh_thresh=5, S=1.0, pen_override=None, plotting=False):
     # default params in Function
     if model is None:
@@ -69,7 +69,7 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=1, range_max=50,
     if min_dist is None:
         min_dist = 2
     if range_min is None:
-        range_min = 1
+        range_min = 0
     if range_max is None:
         range_max = 50
     if num_processes is None:
@@ -82,24 +82,23 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=1, range_max=50,
         S = 1.0
     if plotting is None:
         plotting = False
-
     # change point detection. best fit seemingly with l1. rbf prods. RuntimeErr for pen > 30
     # https://ctruong.perso.math.cnrs.fr/ruptures-docs/build/html/costs/index.html
     # model = "l1"   #"l1"  # "l2", "rbf"
     algo = rpt.Pelt(model=model, jump=jump, min_size=min_dist).fit(signal)
 
     ### CALC BKPS WITH DIFF PENALTYS
-    if pen_override is None:
+    if pen_override is None and range_max != range_min:
         # building args array for parallelizing
         args = []
         # for displaying progression
         m = Manager()
         q = m.Queue()
 
-        for i in range(range_min, range_max):
+        for i in range(range_min, range_max + 1):
             args.append((algo, i, q))
 
-        print('starting kneepoint calculation')
+        print('[INFO]starting kneepoint calculation.')
         # init Pool with num_proesses
         with Pool(num_processes) as p:
             # collect results from pool
@@ -115,30 +114,32 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=1, range_max=50,
                     last_percentage = percentage
                     percentage = round(size / (range_max - range_min) * 100, 2)
                     if percentage >= last_percentage + 2 or i >= refresh_thresh:
-                        print('Current progress: ' + str(percentage) + '%')
+                        print('[INFO]Current progress: ' + str(percentage) + '%')
                         i = 0
                     else:
                         i += 1
                     time.sleep(refresh_delay)
             res = result.get()
-
+        print_info("Finished kneepoint calculation.")
         # DECIDE WHICH PENALTY VALUE TO CHOOSE ACCORDING TO ELBOW/KNEE APPROACH
         # split x and y coords to pass to kneedle
         pen_val = [x[0] for x in res]
         fitted_bkps_val = [x[1] for x in res]
         # # plot to look at res
-
         knee = find_knee_point(pen_val, fitted_bkps_val, S=S, plotting=plotting)
-        plt.xlabel('Penalty')
-        plt.ylabel('Number of Changepoints')
-        plt.plot(pen_val, fitted_bkps_val)
-        plt.vlines(knee[0], 0, max(fitted_bkps_val), linestyles='dashed')
-        print("knee: " + str(knee[0]))
-        plt.show()
+        # plt.xlabel('Penalty')
+        # plt.ylabel('Number of Changepoints')
+        # plt.plot(pen_val, fitted_bkps_val)
+        # plt.vlines(knee[0], 0, max(fitted_bkps_val), linestyles='dashed')
+        # print("knee: " + str(knee[0]))
+        # plt.show()
     else:
-        # use forced pen value for plotting
-        knee = (pen_override, None)
-
+        # use forced pen value for plotting if specified. Else use only pen in range
+        if pen_override is not None:
+            knee = (pen_override, None)
+        else:
+            knee = (range_min, None)
+    print_info("" + str(knee[0]) + " has been selected as kneepoint.")
     # plt.plot(pen_val, fittet_bkps_val)
     if knee[0] is not None:
         bkps = algo.predict(pen=knee[0])
@@ -147,7 +148,8 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=1, range_max=50,
             plt.show()
         return bkps
     else:
-        print('With the current thresh-hold S=' + str(S) + ' it is not possible to select a penalty value.')
+        print_error('With the current thresh-hold S=' + str(S) + ' it is not possible to select a penalty value.')
+        exit()
 
 
 # very short benchmark yielded approx. 1/3 of speed compared to solution with sorting
@@ -221,7 +223,7 @@ def needs_refinement(signal, thresh):
     percentile_size = int()
     percentile_size = length_of_signal // 100
     lower_percentile = sorted_signal[0:percentile_size]
-    upper_percentile = sorted_signal[length_of_signal - percentile_size : length_of_signal]
+    upper_percentile = sorted_signal[length_of_signal - percentile_size: length_of_signal]
     lower_percentile_mean = np.mean(lower_percentile)
     upper_percentile_mean = np.mean(upper_percentile)
     median = np.median(sorted_signal)
@@ -232,6 +234,18 @@ def needs_refinement(signal, thresh):
     if dist > thresh:
         return True
     return False
+
+
+def print_info(str):
+    print("[INFO]" + str)
+
+
+def print_warning(str):
+    print("[WARNING]" + str)
+
+
+def print_error(str):
+    print("ERROR" + str, file=sys.stderr)
 
 
 if __name__ == '__main__':
@@ -276,7 +290,7 @@ if __name__ == '__main__':
             opt[optname] = parameter
 
         if 'filename' not in opt:
-            print("No file specified!", file=sys.stderr)
+            print_error("No file specified!")
             sys.exit(2)
         else:
             opt_filename = opt['filename']
@@ -352,15 +366,16 @@ if __name__ == '__main__':
     # OPENING DATA
     if ".json" in opt_filename:
         # open file with trace data from json
-        print("[INFO] Will only refine the state which is present in " + opt_filename + " if necessary.")
+        print_info(" Will only refine the state which is present in " + opt_filename + " if necessary.")
         with open(opt_filename, 'r') as f:
             states = json.load(f)
         # loop through all traces check if refinement is necessary
-        print("Checking if refinement is necessary...")
-        res = False
+        print_info("Checking if refinement is necessary...")
         for measurements_by_state in states:
             # loop through all occurrences of the looked at state
-            print("Looking at state '" + measurements_by_state['name'] + "'")
+            print_info("Looking at state '" + measurements_by_state['name'] + "' with params: "
+                       + str(measurements_by_state['parameter']))
+            refine = False
             for measurement in measurements_by_state['offline']:
                 # loop through measurements of particular state
                 # an check if state needs refinement
@@ -368,8 +383,65 @@ if __name__ == '__main__':
                 # mean = measurement['uW_mean']
                 # TODO: Decide if median is really the better baseline than mean
                 if needs_refinement(signal, opt_refinement_thresh):
-                    print("Refinement is necessary!")
+                    print_info("Refinement is necessary!")
+                    refine = True
                     break
+            if not refine:
+                print_info("No refinement necessary for state '" + measurements_by_state['name'] + "'")
+            else:
+                # calc and save all bkpts for the given state and param config
+                state_list = list()
+                for measurement in measurements_by_state['offline']:
+                    signal = np.array(measurement['uW'])
+                    normed_signal = np.zeros(shape=len(signal))
+                    for i in range(0, len(signal)):
+                        normed_signal[i] = signal[i] / 1000
+                    bkpts = calc_pelt(normed_signal, model=opt_model, range_min=opt_range_min, range_max=opt_range_max,
+                                      num_processes=opt_num_processes, jump=opt_jump, S=opt_S,
+                                      pen_override=opt_pen_override)
+                    calced_states = list()
+                    start_time = 0
+                    end_time = 0
+                    for bkpt in bkpts:
+                        # start_time of state is end_time of previous one(Transitions are instantaneous)
+                        start_time = end_time
+                        end_time = bkpt
+                        power_vals = signal[start_time: end_time]
+                        mean_power = np.mean(power_vals)
+                        std_dev = np.std(power_vals)
+                        calced_state = (start_time, end_time, mean_power, std_dev)
+                        calced_states.append(calced_state)
+                    num = 0
+                    new_avg_std = 0
+                    for s in calced_states:
+                        print_info("State " + str(num) + " starts at t=" + str(s[0]) + " and ends at t=" + str(s[1])
+                                   + " while using " + str(s[2]) + "uW with  sigma=" + str(s[3]))
+                        num = num + 1
+                        new_avg_std = new_avg_std + s[3]
+                    new_avg_std = new_avg_std / len(calced_states)
+                    change_avg_std = measurement['uW_std'] - new_avg_std
+                    print_info("The average standard deviation for the newly found states is " + str(new_avg_std)
+                               + ".\n[INFO]That is a reduction of " + str(change_avg_std))
+                    state_list.append(calced_states)
+                num_states_array = np.zeros(shape=len(measurements_by_state['offline']))
+                i = 0
+                for x in state_list:
+                    num_states_array[i] = len(x)
+                    i = i + 1
+                avg_num_states = np.mean(num_states_array)
+                num_states_dev = np.std(num_states_array)
+                print_info("On average " + str(avg_num_states) + " States have been found. The standard deviation"
+                           + " is " + str(num_states_dev))
+                # TODO: MAGIC NUMBER
+                if num_states_dev > 1:
+                    print_warning("The number of states varies strongly across measurements. Consider choosing a "
+                                  "larger value for S.")
+                    time.sleep(5)
+                # TODO: Wie bekomme ich da jetzt raus, was die Wahrheit ist?
+                # Einfach Durchschnitt nehmen?
+                # TODO: TESTING PURPOSES
+                exit()
+
     elif ".tar" in opt_filename:
         # open with dfatool
         raw_data_args = list()
@@ -377,13 +449,13 @@ if __name__ == '__main__':
         raw_data = RawData(
             raw_data_args, with_traces=True
         )
-        print("Preprocessing file. Depending on its size, this could take a while.")
+        print_info("Preprocessing file. Depending on its size, this could take a while.")
         preprocessed_data = raw_data.get_preprocessed_data()
-        print("File fully preprocessed")
+        print_info("File fully preprocessed")
 
         # TODO: Mal schauen, wie ich das mache. Erstmal nur mit json
     else:
-        print("Unknown dataformat", file=sys.stderr)
+        print_error("Unknown dataformat")
         sys.exit(2)
 
     # print(tx_data[1]['parameter'])
