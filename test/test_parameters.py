@@ -25,9 +25,11 @@ class TestModels(unittest.TestCase):
         )
 
     def test_parameter_detection_linear(self):
-        rng = np.random.default_rng(seed=1312)
+        # rng = np.random.default_rng(seed=1312) # requiresy NumPy >= 1.17
+        np.random.seed(1312)
         X = np.arange(200) % 50
-        Y = X + rng.normal(size=X.size)
+        # Y = X + rng.normal(size=X.size) # requiry NumPy >= 1.17
+        Y = X + np.random.normal(size=X.size)
         parameter_names = ["p_mod5", "p_linear"]
 
         # Test input data:
@@ -90,7 +92,8 @@ class TestModels(unittest.TestCase):
             self.assertAlmostEqual(combined_fit.eval([None, i]), i, places=0)
 
     def test_parameter_detection_multi_dimensional(self):
-        rng = np.random.default_rng(seed=1312)
+        # rng = np.random.default_rng(seed=1312) # requires NumPy >= 1.17
+        np.random.seed(1312)
         # vary each parameter from 1 to 10
         Xi = (np.arange(50) % 10) + 1
         # Three parameters -> Build input array [[1, 1, 1], [1, 1, 2], ..., [10, 10, 10]]
@@ -104,8 +107,10 @@ class TestModels(unittest.TestCase):
             lambda x: 23 + 5 * x[0] - 3 * x[0] / x[1], signature="(n)->()"
         )
 
-        Y_lls = f_lls(X) + rng.normal(size=X.shape[0])
-        Y_ll = f_ll(X) + rng.normal(size=X.shape[0])
+        # Y_lls = f_lls(X) + rng.normal(size=X.shape[0]) # requires NumPy >= 1.17
+        # Y_ll = f_ll(X) + rng.normal(size=X.shape[0]) # requires NumPy >= 1.17
+        Y_lls = f_lls(X) + np.random.normal(size=X.shape[0])
+        Y_ll = f_ll(X) + np.random.normal(size=X.shape[0])
 
         parameter_names = ["lin_lin", "log_inv", "square_none"]
 
