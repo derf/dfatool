@@ -7,18 +7,11 @@ import logging
 import numpy as np
 import os
 import re
-from scipy import optimize
-from sklearn.metrics import r2_score
 import struct
 import tarfile
 import hashlib
 from multiprocessing import Pool
-from .functions import analytic
-from .functions import AnalyticFunction
-from .parameters import ParamStats
-from .utils import is_numeric, soft_cast_int, param_slice_eq, remove_index_from_tuple
-from .utils import by_name_to_by_param, match_parameter_values, running_mean
-from .validation import CrossValidator
+from .utils import running_mean, soft_cast_int
 
 logger = logging.getLogger(__name__)
 
