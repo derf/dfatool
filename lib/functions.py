@@ -25,6 +25,47 @@ def powerset(iterable):
     return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
 
 
+def gplearn_to_function(function_str: str):
+    """
+    Convert gplearn-style function string to Python function.
+
+    Takes a function string like "mul(add(X0, X1), X2)" and returns
+    a Python function implementing the specified behaviour,
+    e.g. "lambda x, y, z: (x + y) * z".
+
+    Supported functions:
+    add  --  x + y
+    sub  --  x - y
+    mul  --  x * y
+    div  --  x / y if |y| > 0.001, otherwise 1
+    sqrt --  sqrt(|x|)
+    log  --  log(|x|) if |x| > 0.001, otherwise 0
+    inv  --  1 / x if |x| > 0.001, otherwise 0
+    """
+    eval_globals = {
+        "add": lambda x, y: x + y,
+        "sub": lambda x, y: x - y,
+        "mul": lambda x, y: x * y,
+        "div": lambda x, y: np.divide(x, y) if np.abs(y) > 0.001 else 1.0,
+        "sqrt": lambda x: np.sqrt(np.abs(x)),
+        "log": lambda x: np.log(np.abs(x)) if np.abs(x) > 0.001 else 0.0,
+        "inv": lambda x: 1.0 / x if np.abs(x) > 0.001 else 0.0,
+    }
+
+    last_arg_index = 0
+    for i in range(0, 100):
+        if function_str.find("X{:d}".format(i)) >= 0:
+            last_arg_index = i
+
+    arg_list = []
+    for i in range(0, last_arg_index + 1):
+        arg_list.append("X{:d}".format(i))
+
+    eval_str = "lambda {}, *whatever: {}".format(",".join(arg_list), function_str)
+    logger.debug(eval_str)
+    return eval(eval_str, eval_globals)
+
+
 class ParamFunction:
     """
     A one-dimensional model function, ready for least squares optimization and similar.
