@@ -27,17 +27,6 @@ except ImportError:
 arg_support_enabled = True
 
 
-def mean_or_none(arr):
-    """
-    Compute mean of NumPy array `arr`, return -1 if empty.
-
-    :param arr: 1-Dimensional NumPy array
-    """
-    if len(arr):
-        return np.mean(arr)
-    return -1
-
-
 class KeysightCSV:
     """Simple loader for Keysight CSV data, as exported by the windows software."""
 
