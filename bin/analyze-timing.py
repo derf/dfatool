@@ -80,7 +80,7 @@ import sys
 from dfatool import plotter
 from dfatool.dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
 from dfatool.dfatool import gplearn_to_function
-from dfatool.dfatool import CrossValidator
+from dfatool.validation import CrossValidator
 from dfatool.utils import filter_aggregate_by_param
 from dfatool.parameters import prune_dependent_parameters
 
@@ -428,7 +428,7 @@ if __name__ == "__main__":
                     )
                     print(
                         "{:10s}  {:10s}  {}".format(
-                            "", "", param_info(trans, attribute)["function"].model_args,
+                            "", "", param_info(trans, attribute)["function"].model_args
                         )
                     )
 

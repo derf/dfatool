@@ -16,13 +16,9 @@ from multiprocessing import Pool
 from .functions import analytic
 from .functions import AnalyticFunction
 from .parameters import ParamStats
-from .utils import (
-    is_numeric,
-    soft_cast_int,
-    param_slice_eq,
-    remove_index_from_tuple,
-)
+from .utils import is_numeric, soft_cast_int, param_slice_eq, remove_index_from_tuple
 from .utils import by_name_to_by_param, match_parameter_values, running_mean
+from .validation import CrossValidator
 
 logger = logging.getLogger(__name__)
 
@@ -196,241 +192,6 @@ class KeysightCSV:
         return timestamps, currents
 
 
-def _xv_partitions_kfold(length, k=10):
-    """
-    Return k pairs of training and validation sets for k-fold cross-validation on `length` items.
-
-    In k-fold cross-validation, every k-th item is used for validation and the remainder is used for training.
-    As there are k ways to do this (items 0, k, 2k, ... vs. items 1, k+1, 2k+1, ... etc), this function returns k pairs of training and validation set.
-
-    Note that this function operates on indices, not data.
-    """
-    pairs = []
-    num_slices = k
-    indexes = np.arange(length)
-    for i in range(num_slices):
-        training = np.delete(indexes, slice(i, None, num_slices))
-        validation = indexes[i::num_slices]
-        pairs.append((training, validation))
-    return pairs
-
-
-def _xv_partition_montecarlo(length):
-    """
-    Return training and validation set for Monte Carlo cross-validation on `length` items.
-
-    This function operates on indices, not data. It randomly partitions range(length) into a list of training indices and a list of validation indices.
-
-    The training set contains 2/3 of all indices; the validation set consits of the remaining 1/3.
-
-    Example: 9 items -> training = [7, 3, 8, 0, 4, 2], validation = [ 1, 6, 5]
-    """
-    shuffled = np.random.permutation(np.arange(length))
-    border = int(length * float(2) / 3)
-    training = shuffled[:border]
-    validation = shuffled[border:]
-    return (training, validation)
-
-
-class CrossValidator:
-    """
-    Cross-Validation helper for model generation.
-
-    Given a set of measurements and a model class, it will partition the
-    data into training and validation sets, train the model on the training
-    set, and assess its quality on the validation set. This is repeated
-    several times depending on cross-validation algorithm and configuration.
-    Reports the mean model error over all cross-validation runs.
-    """
-
-    def __init__(self, model_class, by_name, parameters, arg_count):
-        """
-        Create a new CrossValidator object.
-
-        Does not perform cross-validation yet.
-
-        arguments:
-        model_class -- model class/type used for model synthesis,
-            e.g. PTAModel or AnalyticModel. model_class must have a
-            constructor accepting (by_name, parameters, arg_count)
-            and provide an `assess` method.
-        by_name -- measurements aggregated by state/transition/function/... name.
-            Layout: by_name[name][attribute] = list of data. Additionally,
-            by_name[name]['attributes'] must be set to the list of attributes,
-            e.g. ['power'] or ['duration', 'energy'].
-        """
-        self.model_class = model_class
-        self.by_name = by_name
-        self.names = sorted(by_name.keys())
-        self.parameters = sorted(parameters)
-        self.arg_count = arg_count
-
-    def kfold(self, model_getter, k=10):
-        """
-        Perform k-fold cross-validation and return average model quality.
-
-        The by_name data is divided into 1-1/k training and 1/k validation in a deterministic manner.
-        After creating a model for the training set, the
-        model type returned by model_getter is evaluated on the validation set.
-        This is repeated k times; the average of all measures is returned to the user.
-
-        arguments:
-        model_getter -- function with signature (model_object) -> model,
-            e.g. lambda m: m.get_fitted()[0] to evaluate the parameter-aware
-            model with automatic parameter detection.
-        k -- step size for k-fold cross-validation. The validation set contains 100/k % of data.
-
-        return value:
-        dict of model quality measures.
-        {
-            'by_name' : {
-                for each name: {
-                    for each attribute: {
-                        'mae' : mean of all mean absolute errors
-                        'mae_list' : list of the individual MAE values encountered during cross-validation
-                        'smape' : mean of all symmetric mean absolute percentage errors
-                        'smape_list' : list of the individual SMAPE values encountered during cross-validation
-                    }
-                }
-            }
-        }
-        """
-
-        # training / validation subsets for each state and transition
-        subsets_by_name = dict()
-        training_and_validation_sets = list()
-
-        for name in self.names:
-            sample_count = len(self.by_name[name]["param"])
-            subsets_by_name[name] = list()
-            subsets_by_name[name] = _xv_partitions_kfold(sample_count, k)
-
-        for i in range(k):
-            training_and_validation_sets.append(dict())
-            for name in self.names:
-                training_and_validation_sets[i][name] = subsets_by_name[name][i]
-
-        return self._generic_xv(model_getter, training_and_validation_sets)
-
-    def montecarlo(self, model_getter, count=200):
-        """
-        Perform Monte Carlo cross-validation and return average model quality.
-
-        The by_name data is randomly divided into 2/3 training and 1/3
-        validation. After creating a model for the training set, the
-        model type returned by model_getter is evaluated on the validation set.
-        This is repeated count times (defaulting to 200); the average of all
-        measures is returned to the user.
-
-        arguments:
-        model_getter -- function with signature (model_object) -> model,
-            e.g. lambda m: m.get_fitted()[0] to evaluate the parameter-aware
-            model with automatic parameter detection.
-        count -- number of validation runs to perform, defaults to 200
-
-        return value:
-        dict of model quality measures.
-        {
-            'by_name' : {
-                for each name: {
-                    for each attribute: {
-                        'mae' : mean of all mean absolute errors
-                        'mae_list' : list of the individual MAE values encountered during cross-validation
-                        'smape' : mean of all symmetric mean absolute percentage errors
-                        'smape_list' : list of the individual SMAPE values encountered during cross-validation
-                    }
-                }
-            }
-        }
-        """
-
-        # training / validation subsets for each state and transition
-        subsets_by_name = dict()
-        training_and_validation_sets = list()
-
-        for name in self.names:
-            sample_count = len(self.by_name[name]["param"])
-            subsets_by_name[name] = list()
-            for _ in range(count):
-                subsets_by_name[name].append(_xv_partition_montecarlo(sample_count))
-
-        for i in range(count):
-            training_and_validation_sets.append(dict())
-            for name in self.names:
-                training_and_validation_sets[i][name] = subsets_by_name[name][i]
-
-        return self._generic_xv(model_getter, training_and_validation_sets)
-
-    def _generic_xv(self, model_getter, training_and_validation_sets):
-        ret = {"by_name": dict()}
-
-        for name in self.names:
-            ret["by_name"][name] = dict()
-            for attribute in self.by_name[name]["attributes"]:
-                ret["by_name"][name][attribute] = {
-                    "mae_list": list(),
-                    "smape_list": list(),
-                }
-
-        for training_and_validation_by_name in training_and_validation_sets:
-            res = self._single_xv(model_getter, training_and_validation_by_name)
-            for name in self.names:
-                for attribute in self.by_name[name]["attributes"]:
-                    ret["by_name"][name][attribute]["mae_list"].append(
-                        res["by_name"][name][attribute]["mae"]
-                    )
-                    ret["by_name"][name][attribute]["smape_list"].append(
-                        res["by_name"][name][attribute]["smape"]
-                    )
-
-        for name in self.names:
-            for attribute in self.by_name[name]["attributes"]:
-                ret["by_name"][name][attribute]["mae"] = np.mean(
-                    ret["by_name"][name][attribute]["mae_list"]
-                )
-                ret["by_name"][name][attribute]["smape"] = np.mean(
-                    ret["by_name"][name][attribute]["smape_list"]
-                )
-
-        return ret
-
-    def _single_xv(self, model_getter, tv_set_dict):
-        training = dict()
-        validation = dict()
-        for name in self.names:
-            training[name] = {"attributes": self.by_name[name]["attributes"]}
-            validation[name] = {"attributes": self.by_name[name]["attributes"]}
-
-            if "isa" in self.by_name[name]:
-                training[name]["isa"] = self.by_name[name]["isa"]
-                validation[name]["isa"] = self.by_name[name]["isa"]
-
-            training_subset, validation_subset = tv_set_dict[name]
-
-            for attribute in self.by_name[name]["attributes"]:
-                self.by_name[name][attribute] = np.array(self.by_name[name][attribute])
-                training[name][attribute] = self.by_name[name][attribute][
-                    training_subset
-                ]
-                validation[name][attribute] = self.by_name[name][attribute][
-                    validation_subset
-                ]
-
-            # We can't use slice syntax for 'param', which may contain strings and other odd values
-            training[name]["param"] = list()
-            validation[name]["param"] = list()
-            for idx in training_subset:
-                training[name]["param"].append(self.by_name[name]["param"][idx])
-            for idx in validation_subset:
-                validation[name]["param"].append(self.by_name[name]["param"][idx])
-
-        training_data = self.model_class(training, self.parameters, self.arg_count)
-        training_model = model_getter(training_data)
-        validation_data = self.model_class(validation, self.parameters, self.arg_count)
-
-        return validation_data.assess(training_model)
-
-
 def _preprocess_mimosa(measurement):
     setup = measurement["setup"]
     mim = MIMOSA(
@@ -538,9 +299,7 @@ class TimingData:
                 transitions = list(
                     filter(lambda x: x["isa"] == "transition", trace["trace"])
                 )
-                self.traces.append(
-                    {"id": trace["id"], "trace": transitions,}
-                )
+                self.traces.append({"id": trace["id"], "trace": transitions})
         for i, trace in enumerate(self.traces):
             trace["orig_id"] = trace["id"]
             trace["id"] = i
@@ -1376,7 +1135,7 @@ class RawData:
                         ar=self.filenames[measurement["fileno"]],
                         m=measurement["info"].name,
                         e="; ".join(measurement["datasource_errors"]),
-                    ),
+                    )
                 )
                 continue
 
@@ -1398,7 +1157,7 @@ class RawData:
                             ar=self.filenames[measurement["fileno"]],
                             m=measurement["info"].name,
                             e=measurement["error"],
-                        ),
+                        )
                     )
             elif version == 2:
                 if self._measurement_is_valid_2(measurement):
@@ -1410,12 +1169,12 @@ class RawData:
                             ar=self.filenames[measurement["fileno"]],
                             m=measurement["info"].name,
                             e=measurement["error"],
-                        ),
+                        )
                     )
         logger.info(
             "{num_valid:d}/{num_total:d} measurements are valid".format(
                 num_valid=num_valid, num_total=len(measurements)
-            ),
+            )
         )
         if version == 0:
             self.traces = self._concatenate_traces(self.traces_by_fileno)
@@ -1834,7 +1593,7 @@ class AnalyticModel:
                 except RuntimeWarning:
                     logger.warning("Got no data for {} {}".format(name, key))
                 except FloatingPointError as fpe:
-                    logger.warning("Got no data for {} {}: {}".format(name, key, fpe),)
+                    logger.warning("Got no data for {} {}: {}".format(name, key, fpe))
         return model
 
     def param_index(self, param_name):
@@ -2000,9 +1759,7 @@ class AnalyticModel:
                 measures = regression_measures(predicted_data, elem[attribute])
                 detailed_results[name][attribute] = measures
 
-        return {
-            "by_name": detailed_results,
-        }
+        return {"by_name": detailed_results}
 
     def to_json(self):
         # TODO
@@ -2230,7 +1987,7 @@ class PTAModel:
                 except RuntimeWarning:
                     logger.warning("Got no data for {} {}".format(name, key))
                 except FloatingPointError as fpe:
-                    logger.warning("Got no data for {} {}: {}".format(name, key, fpe),)
+                    logger.warning("Got no data for {} {}: {}".format(name, key, fpe))
         return model
 
     def get_static(self, use_mean=False):
@@ -2729,7 +2486,7 @@ class EnergyTraceLog:
         logger.debug(
             "got {} samples with {} seconds of log data ({} Hz)".format(
                 data_count, m_duration_us * 1e-6, self.sample_rate
-            ),
+            )
         )
 
         return (
@@ -2839,14 +2596,14 @@ class EnergyTraceLog:
             logger.debug(
                 '{} barcode "{}" area: {:0.2f} .. {:0.2f} / {:0.2f} seconds'.format(
                     offline_index, bc, start, stop, end
-                ),
+                )
             )
             if bc != name:
-                logger.error('mismatch: expected "{}", got "{}"'.format(name, bc),)
+                logger.error('mismatch: expected "{}", got "{}"'.format(name, bc))
             logger.debug(
                 "{} estimated transition area: {:0.3f} .. {:0.3f} seconds".format(
                     offline_index, end, end + duration
-                ),
+                )
             )
 
             transition_start_index = self.ts_to_index(end)
@@ -2861,7 +2618,7 @@ class EnergyTraceLog:
                     offline_index,
                     transition_start_index / self.sample_rate,
                     transition_done_index / self.sample_rate,
-                ),
+                )
             )
 
             transition_power_W = self.interval_power[
@@ -2959,7 +2716,7 @@ class EnergyTraceLog:
         logger.debug(
             "looking for barcode starting at {:0.2f} s, threshold is {:0.1f} mW".format(
                 start_ts, sync_threshold_power * 1e3
-            ),
+            )
         )
 
         sync_area_start = None
@@ -2993,7 +2750,7 @@ class EnergyTraceLog:
         logger.debug(
             "barcode search area: {:0.2f} .. {:0.2f} seconds ({} samples)".format(
                 sync_start_ts, sync_end_ts, len(barcode_data)
-            ),
+            )
         )
 
         bc, start, stop, padding_bits = self.find_barcode_in_power_data(barcode_data)
@@ -3440,10 +3197,7 @@ class MIMOSA:
                             }
                         )
                         prevsubidx = subidx
-                    substates = {
-                        "threshold": thr,
-                        "states": statelist,
-                    }
+                    substates = {"threshold": thr, "states": statelist}
 
             isa = "state"
             if not is_state:
