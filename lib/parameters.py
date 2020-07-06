@@ -82,22 +82,6 @@ def _reduce_param_matrix(matrix: np.ndarray, parameter_names: list) -> list:
     return list()
 
 
-def _codependent_parameters(param, lut_by_param_values, std_by_param_values):
-    """
-    Return list of parameters which affect whether a parameter affects a model attribute or not.
-    """
-    return list()
-    safe_div = np.vectorize(lambda x, y: 0.0 if x == 0 else 1 - x / y)
-    ratio_by_value = safe_div(lut_by_param_values, std_by_param_values)
-    err_mode = np.seterr("ignore")
-    dep_by_value = ratio_by_value > 0.5
-    np.seterr(**err_mode)
-
-    other_param_list = list(filter(lambda x: x != param, self._parameter_names))
-    influencer_parameters = _reduce_param_matrix(dep_by_value, other_param_list)
-    return influencer_parameters
-
-
 def _std_by_param(by_param, all_param_values, state_or_tran, attribute, param_index):
     u"""
     Calculate standard deviations for a static model where all parameters but `param_index` are constant.
@@ -311,48 +295,6 @@ def _compute_param_statistics(
             ret["std_by_param"][param],
             ret["std_param_lut"],
         )
-
-        if ret["depends_on_param"][param]:
-            ret["param_data"][param] = {
-                "codependent_parameters": _codependent_parameters(
-                    param, lut_matrix, std_matrix
-                ),
-                "depends_for_codependent_value": dict(),
-            }
-
-            # calculate parameter dependence for individual values of codependent parameters
-            codependent_param_values = list()
-            for codependent_param in ret["param_data"][param]["codependent_parameters"]:
-                codependent_param_values.append(distinct_values[codependent_param])
-            for combi in itertools.product(*codependent_param_values):
-                by_name_part = deepcopy(by_name)
-                filter_list = list(
-                    zip(ret["param_data"][param]["codependent_parameters"], combi)
-                )
-                filter_aggregate_by_param(by_name_part, parameter_names, filter_list)
-                by_param_part = by_name_to_by_param(by_name_part)
-                # there may be no data for this specific parameter value combination
-                if state_or_trans in by_name_part:
-                    part_corr = _corr_by_param(
-                        by_name_part, state_or_trans, attribute, param_idx
-                    )
-                    part_std_lut = np.mean(
-                        [
-                            np.std(by_param_part[x][attribute])
-                            for x in by_param_part.keys()
-                            if x[0] == state_or_trans
-                        ]
-                    )
-                    _, part_std_param, _ = _std_by_param(
-                        by_param_part,
-                        distinct_values_by_param_index,
-                        state_or_trans,
-                        attribute,
-                        param_idx,
-                    )
-                    ret["param_data"][param]["depends_for_codependent_value"][
-                        combi
-                    ] = _depends_on_param(part_corr, part_std_param, part_std_lut)
 
     if state_or_trans in arg_count:
         for arg_index in range(arg_count[state_or_trans]):
@@ -595,136 +537,6 @@ class ParamStats:
                     )
                     return True
         return False
-
-    def static_submodel_params(self, state_or_tran, attribute):
-        """
-        Return the union of all parameter values which decide whether another parameter influences the model or not.
-
-        I.e., the returned list of dicts contains one entry for each parameter value combination which (probably) does not have any parameter influencing the model.
-        If the current parameters matches one of these, a static sub-model built based on this subset of parameters can likely be used.
-        """
-        # TODO
-        pass
-
-    def has_codependent_parameters(
-        self, state_or_tran: str, attribute: str, param: str
-    ) -> bool:
-        """
-        Return whether there are parameters which determine whether `param` influences `state_or_tran` `attribute` or not.
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        :param param: parameter name
-        """
-        if len(self.codependent_parameters(state_or_tran, attribute, param)):
-            return True
-        return False
-
-    def codependent_parameters(
-        self, state_or_tran: str, attribute: str, param: str
-    ) -> list:
-        """
-        Return list of parameters which determine whether `param` influences `state_or_tran` `attribute` or not.
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        :param param: parameter name
-        """
-        if self.stats[state_or_tran][attribute]["depends_on_param"][param]:
-            return self.stats[state_or_tran][attribute]["param_data"][param][
-                "codependent_parameters"
-            ]
-        return list()
-
-    def has_codependent_parameters_union(
-        self, state_or_tran: str, attribute: str
-    ) -> bool:
-        """
-        Return whether there is a subset of parameters which decides whether `state_or_tran` `attribute` is static or parameter-dependent
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        """
-        depends_on_a_parameter = False
-        for param in self._parameter_names:
-            if self.stats[state_or_tran][attribute]["depends_on_param"][param]:
-                logger.debug(
-                    "{}/{} depends on {}".format(state_or_tran, attribute, param)
-                )
-                depends_on_a_parameter = True
-                if (
-                    len(self.codependent_parameters(state_or_tran, attribute, param))
-                    == 0
-                ):
-                    logger.debug("... and has no codependent parameters")
-                    # Always depends on this parameter, regardless of other parameters' values
-                    return False
-        return depends_on_a_parameter
-
-    def codependent_parameters_union(self, state_or_tran: str, attribute: str) -> list:
-        """
-        Return list of parameters which determine whether any parameter influences `state_or_tran` `attribute`.
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        """
-        codependent_parameters = set()
-        for param in self._parameter_names:
-            if self.stats[state_or_tran][attribute]["depends_on_param"][param]:
-                if (
-                    len(self.codependent_parameters(state_or_tran, attribute, param))
-                    == 0
-                ):
-                    return list(self._parameter_names)
-                for codependent_param in self.codependent_parameters(
-                    state_or_tran, attribute, param
-                ):
-                    codependent_parameters.add(codependent_param)
-        return sorted(codependent_parameters)
-
-    def codependence_by_codependent_param_values(
-        self, state_or_tran: str, attribute: str, param: str
-    ) -> dict:
-        """
-        Return dict mapping codependent parameter values to a boolean indicating whether `param` influences `state_or_tran` `attribute`.
-
-        If a dict value is true, `attribute` depends on `param` for the corresponding codependent parameter values, otherwise it does not.
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        :param param: parameter name
-        """
-        if self.stats[state_or_tran][attribute]["depends_on_param"][param]:
-            return self.stats[state_or_tran][attribute]["param_data"][param][
-                "depends_for_codependent_value"
-            ]
-        return dict()
-
-    def codependent_parameter_value_dicts(
-        self, state_or_tran: str, attribute: str, param: str, kind="dynamic"
-    ):
-        """
-        Return dicts of codependent parameter key-value mappings for which `param` influences (or does not influence) `state_or_tran` `attribute`.
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        :param param: parameter name:
-        :param kind: 'static' or 'dynamic'. If 'dynamic' (the default), returns codependent parameter values for which `param` influences `attribute`. If 'static', returns codependent parameter values for which `param` does not influence `attribute`
-        """
-        codependent_parameters = self.stats[state_or_tran][attribute]["param_data"][
-            param
-        ]["codependent_parameters"]
-        codependence_info = self.stats[state_or_tran][attribute]["param_data"][param][
-            "depends_for_codependent_value"
-        ]
-        if len(codependent_parameters) == 0:
-            return
-        else:
-            for param_values, is_dynamic in codependence_info.items():
-                if (is_dynamic and kind == "dynamic") or (
-                    not is_dynamic and kind == "static"
-                ):
-                    yield dict(zip(codependent_parameters, param_values))
 
     def _generic_param_independence_ratio(self, state_or_trans, attribute):
         """

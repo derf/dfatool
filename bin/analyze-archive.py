@@ -513,21 +513,6 @@ if __name__ == "__main__":
                         model.stats.param_dependence_ratio(state, "power", param),
                     )
                 )
-                if model.stats.has_codependent_parameters(state, "power", param):
-                    print(
-                        "{:24s}  co-dependencies: {:s}".format(
-                            "",
-                            ", ".join(
-                                model.stats.codependent_parameters(
-                                    state, "power", param
-                                )
-                            ),
-                        )
-                    )
-                    for param_dict in model.stats.codependent_parameter_value_dicts(
-                        state, "power", param
-                    ):
-                        print("{:24s}  parameter-aware for {}".format("", param_dict))
 
         for trans in model.transitions():
             # Mean power is not a typical transition attribute, but may be present for debugging or analysis purposes

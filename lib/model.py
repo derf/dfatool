@@ -866,19 +866,6 @@ class PTAModel:
                             parameter_name,
                             safe_functions_enabled,
                         )
-                        for (
-                            codependent_param_dict
-                        ) in self.stats.codependent_parameter_value_dicts(
-                            state_or_tran, model_attribute, parameter_name
-                        ):
-                            paramfit.enqueue(
-                                state_or_tran,
-                                model_attribute,
-                                parameter_index,
-                                parameter_name,
-                                safe_functions_enabled,
-                                codependent_param_dict,
-                            )
                 if (
                     arg_support_enabled
                     and self.by_name[state_or_tran]["isa"] == "transition"
@@ -905,18 +892,6 @@ class PTAModel:
                 num_args = self._num_args[state_or_tran]
             for model_attribute in self.by_name[state_or_tran]["attributes"]:
                 fit_results = paramfit.get_result(state_or_tran, model_attribute)
-
-                for parameter_name in self._parameter_names:
-                    if self.depends_on_param(
-                        state_or_tran, model_attribute, parameter_name
-                    ):
-                        for (
-                            codependent_param_dict
-                        ) in self.stats.codependent_parameter_value_dicts(
-                            state_or_tran, model_attribute, parameter_name
-                        ):
-                            pass
-                            # FIXME paramfit.get_result hat ja gar keinen Parameter als Argument...
 
                 if (state_or_tran, model_attribute) in self.function_override:
                     function_str = self.function_override[

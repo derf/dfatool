@@ -307,30 +307,6 @@ if __name__ == "__main__":
                         model.stats.param_dependence_ratio(trans, "duration", param),
                     )
                 )
-                if model.stats.has_codependent_parameters(trans, "duration", param):
-                    print(
-                        "{:24s}  co-dependencies: {:s}".format(
-                            "",
-                            ", ".join(
-                                model.stats.codependent_parameters(
-                                    trans, "duration", param
-                                )
-                            ),
-                        )
-                    )
-                    for param_dict in model.stats.codependent_parameter_value_dicts(
-                        trans, "duration", param
-                    ):
-                        print("{:24s}  parameter-aware for {}".format("", param_dict))
-        # import numpy as np
-        # safe_div = np.vectorize(lambda x,y: 0. if x == 0 else 1 - x/y)
-        # ratio_by_value = safe_div(model.stats.stats['write']['duration']['lut_by_param_values']['max_retry_count'], model.stats.stats['write']['duration']['std_by_param_values']['max_retry_count'])
-        # err_mode = np.seterr('warn')
-        # dep_by_value = ratio_by_value > 0.5
-        # np.seterr(**err_mode)
-        # Eigentlich sollte hier ein paar mal True stehen, ist aber nicht so...
-        # und warum ist da eine non-power-of-two Zahl von True-Einträgen in der Matrix? 3 stück ist komisch...
-        # print(dep_by_value)
 
     if xv_method == "montecarlo":
         static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
