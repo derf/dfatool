@@ -1864,50 +1864,6 @@ class MIMOSA:
 
         return calfunc, caldata
 
-    """
-    def calcgrad(self, currents, threshold):
-        grad = np.gradient(running_mean(currents * self.voltage, 10))
-        # len(grad) == len(currents) - 9
-        subst = []
-        lastgrad = 0
-        for i in range(len(grad)):
-            # minimum substate duration: 10ms
-            if np.abs(grad[i]) > threshold and i - lastgrad > 50:
-                # account for skew introduced by running_mean and current
-                # ramp slope (parasitic capacitors etc.)
-                subst.append(i+10)
-                lastgrad = i
-        if lastgrad != i:
-            subst.append(i+10)
-        return subst
-
-    # TODO konfigurierbare min/max threshold und len(gradidx) > X, binaere
-    # Sache nach noetiger threshold. postprocessing mit
-    # "zwei benachbarte substates haben sehr aehnliche werte / niedrige stddev" -> mergen
-    # ... min/max muessen nicht vorgegeben werden, sind ja bekannt (0 / np.max(grad))
-    # TODO bei substates / index foo den offset durch running_mean beachten
-    # TODO ggf. clustering der 'abs(grad) > threshold' und bestimmung interessanter
-    # uebergaenge dadurch?
-    def gradfoo(self, currents):
-        gradients = np.abs(np.gradient(running_mean(currents * self.voltage, 10)))
-        gradmin = np.min(gradients)
-        gradmax = np.max(gradients)
-        threshold = np.mean([gradmin, gradmax])
-        gradidx = self.calcgrad(currents, threshold)
-        num_substates = 2
-        while len(gradidx) != num_substates:
-            if gradmax - gradmin < 0.1:
-                # We did our best
-                return threshold, gradidx
-            if len(gradidx) > num_substates:
-                gradmin = threshold
-            else:
-                gradmax = threshold
-            threshold = np.mean([gradmin, gradmax])
-            gradidx = self.calcgrad(currents, threshold)
-        return threshold, gradidx
-    """
-
     def analyze_states(self, charges, trigidx, ua_func):
         u"""
         Split log data into states and transitions and return duration, energy, and mean power for each element.
@@ -1942,27 +1898,6 @@ class MIMOSA:
         for idx in trigger_indices:
             range_raw = charges[previdx:idx]
             range_ua = ua_func(range_raw)
-            substates = {}
-
-            if previdx != 0 and idx - previdx > 200:
-                thr, subst = 0, []  # self.gradfoo(range_ua)
-                if len(subst):
-                    statelist = []
-                    prevsubidx = 0
-                    for subidx in subst:
-                        statelist.append(
-                            {
-                                "duration": (subidx - prevsubidx) * 10,
-                                "uW_mean": np.mean(
-                                    range_ua[prevsubidx:subidx] * self.voltage
-                                ),
-                                "uW_std": np.std(
-                                    range_ua[prevsubidx:subidx] * self.voltage
-                                ),
-                            }
-                        )
-                        prevsubidx = subidx
-                    substates = {"threshold": thr, "states": statelist}
 
             isa = "state"
             if not is_state:
@@ -1980,12 +1915,6 @@ class MIMOSA:
 
             if self.with_traces:
                 data["uW"] = range_ua * self.voltage
-
-            if "states" in substates:
-                data["substates"] = substates
-                ssum = np.sum(list(map(lambda x: x["duration"], substates["states"])))
-                if ssum != data["us"]:
-                    logger.warning("duration %d vs %d" % (data["us"], ssum))
 
             if isa == "transition":
                 # subtract average power of previous state
