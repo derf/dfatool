@@ -2,7 +2,7 @@
 
 import sys
 import numpy as np
-from dfatool.dfatool import (
+from dfatool.loader import (
     RawData,
     pta_trace_to_aggregate,
 )

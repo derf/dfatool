@@ -79,7 +79,7 @@ import logging
 import re
 import sys
 from dfatool import plotter
-from dfatool.dfatool import TimingData, pta_trace_to_aggregate
+from dfatool.loader import TimingData, pta_trace_to_aggregate
 from dfatool.functions import gplearn_to_function
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator

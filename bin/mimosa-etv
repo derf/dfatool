@@ -8,7 +8,7 @@ import numpy as np
 import os
 import re
 import sys
-from dfatool.dfatool import MIMOSA
+from dfatool.loader import MIMOSA
 from dfatool.model import aggregate_measures
 from dfatool.utils import running_mean
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from dfatool.dfatool import RawData, pta_trace_to_aggregate
+from dfatool.loader import RawData, pta_trace_to_aggregate
 from dfatool.model import PTAModel
 import os
 import unittest

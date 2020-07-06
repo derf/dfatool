@@ -4,7 +4,7 @@ import getopt
 import re
 import sys
 from dfatool import plotter
-from dfatool.dfatool import RawData, pta_trace_to_aggregate
+from dfatool.loader import RawData, pta_trace_to_aggregate
 from dfatool.functions import gplearn_to_function
 from dfatool.model import PTAModel
 

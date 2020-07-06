@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from dfatool.dfatool import TimingData, pta_trace_to_aggregate
+from dfatool.loader import TimingData, pta_trace_to_aggregate
 from dfatool.model import AnalyticModel
 from dfatool.parameters import prune_dependent_parameters
 import unittest
