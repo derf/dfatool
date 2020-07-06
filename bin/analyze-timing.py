@@ -75,6 +75,7 @@ Options:
 
 import getopt
 import json
+import logging
 import re
 import sys
 from dfatool import plotter
@@ -186,6 +187,7 @@ if __name__ == "__main__":
             "plot-unparam= plot-param= show-models= show-quality= "
             "ignored-trace-indexes= discard-outliers= function-override= "
             "filter-param= "
+            "log-level= "
             "cross-validate= "
             "corrcoef param-info "
             "with-safe-functions hwmodel= export-energymodel="
@@ -237,6 +239,13 @@ if __name__ == "__main__":
             )
         else:
             opt["filter-param"] = list()
+
+        if "log-level" in opt:
+            numeric_level = getattr(logging, opt["log-level"].upper(), None)
+            if not isinstance(numeric_level, int):
+                print(f"Invalid log level: {loglevel}", file=sys.stderr)
+                sys.exit(1)
+            logging.basicConfig(level=numeric_level)
 
     except getopt.GetoptError as err:
         print(err)
