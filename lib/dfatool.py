@@ -1273,6 +1273,7 @@ class EnergyTraceLog:
         """
 
         if not zbar_available:
+            logger.error("zbar module is not available")
             self.errors.append(
                 'zbar module is not available. Try "apt install python3-zbar"'
             )
