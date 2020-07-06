@@ -17,17 +17,17 @@ mimfile = sys.argv[3]
 mim = MIMOSA(voltage, shunt)
 
 charges, triggers = mim.load_file(mimfile)
-#charges = charges[2000000:3000000]
+# charges = charges[2000000:3000000]
 
 currents = running_mean(mim.charge_to_current_nocal(charges), 10) * 1e-6
 xr = np.arange(len(currents)) * 1e-5
 threshold = 1e-5
 grad = np.gradient(currents, 2)
 tp = np.abs(grad) > threshold
-plt.plot( xr, currents, "r-")
-plt.plot( xr, grad, "y-")
-plt.plot( xr[tp], grad[tp], "bo")
-plt.xlabel('Zeit [s]')
-plt.ylabel('Strom [A]')
+plt.plot(xr, currents, "r-")
+plt.plot(xr, grad, "y-")
+plt.plot(xr[tp], grad[tp], "bo")
+plt.xlabel("Zeit [s]")
+plt.ylabel("Strom [A]")
 plt.grid(True)
 plt.show()
