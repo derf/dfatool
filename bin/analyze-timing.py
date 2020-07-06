@@ -78,8 +78,9 @@ import json
 import re
 import sys
 from dfatool import plotter
-from dfatool.dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
+from dfatool.dfatool import TimingData, pta_trace_to_aggregate
 from dfatool.dfatool import gplearn_to_function
+from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 from dfatool.utils import filter_aggregate_by_param
 from dfatool.parameters import prune_dependent_parameters

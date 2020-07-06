@@ -113,8 +113,9 @@ import random
 import re
 import sys
 from dfatool import plotter
-from dfatool.dfatool import PTAModel, RawData, pta_trace_to_aggregate
+from dfatool.dfatool import RawData, pta_trace_to_aggregate
 from dfatool.dfatool import gplearn_to_function
+from dfatool.model import PTAModel
 from dfatool.validation import CrossValidator
 from dfatool.utils import filter_aggregate_by_param
 from dfatool.automata import PTA

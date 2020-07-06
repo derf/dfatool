@@ -3,11 +3,10 @@
 import sys
 import numpy as np
 from dfatool.dfatool import (
-    PTAModel,
     RawData,
-    regression_measures,
     pta_trace_to_aggregate,
 )
+from dfatool.model import PTAModel, regression_measures
 from gplearn.genetic import SymbolicRegressor
 from multiprocessing import Pool
 

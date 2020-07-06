@@ -3,7 +3,8 @@
 import getopt
 import re
 import sys
-from dfatool.dfatool import PTAModel, RawData, pta_trace_to_aggregate
+from dfatool.dfatool import RawData, pta_trace_to_aggregate
+from dfatool.model import PTAModel
 
 opt = dict()
 
