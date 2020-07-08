@@ -61,6 +61,10 @@ Options:
 
 --energytrace=[k=v,k=v,...]
     Perform energy measurements using MSP430 EnergyTrace hardware. Includes --timing.
+    Additional configuration settings:
+    sync = bar (Barcode mode (default): synchronize measurements via barcodes embedded in the energy trace)
+    sync = la (Logic Analyzer mode (WIP): An external logic analyzer captures transition timing)
+    sync = timing (Timing mode (WIP): The on-board cycle counter captures transition timing)
 
 --trace-filter=<transition,transition,transition,...>[ <transition,transition,transition,...> ...]
     Only consider traces whose beginning matches one of the provided transition sequences.
@@ -630,9 +634,13 @@ if __name__ == "__main__":
             post_transition_delay_us=20,
         )
     elif "energytrace" in opt:
+        # Use barcode sync by default
+        gpio_mode = "bar"
+        if "sync" in opt["energytrace"] and opt["energytrace"]["sync"] != "bar":
+            gpio_mode = "around"
         harness = OnboardTimerHarness(
             gpio_pin=timer_pin,
-            gpio_mode="bar",
+            gpio_mode=gpio_mode,
             pta=pta,
             counter_limits=runner.get_counter_limits_us(opt["arch"]),
             log_return_values=need_return_values,

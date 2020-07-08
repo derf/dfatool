@@ -178,6 +178,12 @@ class EnergyTraceMonitor(SerialMonitor):
             "voltage": self._voltage,
         }
 
+class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
+    """EnergyTraceLogicAnalyzerMonitor captures EnergyTrace energy data and LogicAnalyzer timing output."""
+
+    def __init__(self, port: str, baud: int, callback=None, voltage=3.3):
+        super().__init__(port=port, baud=baud, callback=callback, voltage=voltage)
+
 
 class MIMOSAMonitor(SerialMonitor):
     """MIMOSAMonitor captures serial output and MIMOSA energy data for a specific amount of time."""
@@ -372,8 +378,14 @@ def get_monitor(arch: str, **kwargs) -> object:
                 mimosa_kwargs = kwargs.pop("mimosa")
                 return MIMOSAMonitor(port, arg, **mimosa_kwargs, **kwargs)
             elif "energytrace" in kwargs and kwargs["energytrace"] is not None:
-                energytrace_kwargs = kwargs.pop("energytrace")
-                return EnergyTraceMonitor(port, arg, **energytrace_kwargs, **kwargs)
+                energytrace_kwargs = kwargs.pop("energytrace").copy()
+                sync_mode = energytrace_kwargs.pop("sync")
+                if sync_mode == "la":
+                    return EnergyTraceLogicAnalyzerMonitor(
+                        port, arg, **energytrace_kwargs, **kwargs
+                    )
+                else:
+                    return EnergyTraceMonitor(port, arg, **energytrace_kwargs, **kwargs)
             else:
                 kwargs.pop("energytrace", None)
                 kwargs.pop("mimosa", None)

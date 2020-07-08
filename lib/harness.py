@@ -229,6 +229,7 @@ class TransitionHarness:
             log_data_target["parameter"][parameter_name] = list()
         log_data_target["parameter"][parameter_name].append(parameter_value)
 
+    # Here Be Dragons
     def parser_cb(self, line):
         # print('[HARNESS] got line {}'.format(line))
         if re.match(r"\[PTA\] benchmark stop", line):
@@ -440,6 +441,7 @@ class OnboardTimerHarness(TransitionHarness):
             log_data_target["parameter"][parameter_name] = list()
         log_data_target["parameter"][parameter_name].append(parameter_value)
 
+    # Here Be Dragons
     def parser_cb(self, line):
         # print('[HARNESS] got line {}'.format(line))
         res = re.match(r"\[PTA\] nop=(\S+)/(\S+)", line)
