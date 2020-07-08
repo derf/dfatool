@@ -172,11 +172,14 @@ class EnergyTraceMonitor(SerialMonitor):
     def get_files(self) -> list:
         return [self._output]
 
-    #
+    # Benchmark-Konfiguration. Hier: Die (konstante) Spannung.
+    # MSP430FR5969: 3,6V (wird aktuell nicht unterstützt)
+    # MSP430FR5994: 3,3V (default)
     def get_config(self) -> dict:
         return {
             "voltage": self._voltage,
         }
+
 
 class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
     """EnergyTraceLogicAnalyzerMonitor captures EnergyTrace energy data and LogicAnalyzer timing output."""

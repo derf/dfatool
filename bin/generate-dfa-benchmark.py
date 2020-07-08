@@ -636,8 +636,10 @@ if __name__ == "__main__":
     elif "energytrace" in opt:
         # Use barcode sync by default
         gpio_mode = "bar"
+        energytrace_sync = None
         if "sync" in opt["energytrace"] and opt["energytrace"]["sync"] != "bar":
             gpio_mode = "around"
+            energytrace_sync = "led"
         harness = OnboardTimerHarness(
             gpio_pin=timer_pin,
             gpio_mode=gpio_mode,
@@ -645,6 +647,7 @@ if __name__ == "__main__":
             counter_limits=runner.get_counter_limits_us(opt["arch"]),
             log_return_values=need_return_values,
             repeat=1,
+            energytrace_sync=energytrace_sync,
         )
     elif "timing" in opt:
         harness = OnboardTimerHarness(

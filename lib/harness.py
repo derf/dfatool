@@ -33,6 +33,7 @@ class TransitionHarness:
         log_return_values=False,
         repeat=0,
         post_transition_delay_us=0,
+        energytrace_sync=None,
     ):
         """
         Create a new TransitionHarness
@@ -53,6 +54,7 @@ class TransitionHarness:
         self.log_return_values = log_return_values
         self.repeat = repeat
         self.post_transition_delay_us = post_transition_delay_us
+        self.energytrace_sync = energytrace_sync
         self.reset()
 
     def copy(self):
@@ -63,6 +65,7 @@ class TransitionHarness:
             log_return_values=self.log_return_values,
             repeat=self.repeat,
             post_transition_delay_us=self.post_transition_delay_us,
+            energytrace_sync=self.energytrace_sync,
         )
         new_object.traces = self.traces.copy()
         new_object.trace_id = self.trace_id
@@ -373,6 +376,7 @@ class OnboardTimerHarness(TransitionHarness):
             pta=self.pta,
             log_return_values=self.log_return_values,
             repeat=self.repeat,
+            energytrace_sync=self.energytrace_sync,
         )
         new_harness.traces = self.traces.copy()
         new_harness.trace_id = self.trace_id
