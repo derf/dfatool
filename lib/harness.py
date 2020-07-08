@@ -21,7 +21,7 @@ class TransitionHarness:
         * `name`: state or transition name
         * `parameter`: currently valid parameter values. If normalization is used, they are already normalized. Each parameter value is either a primitive
           int/float/str value (-> constant for each iteration) or a list of
-          primitive values (-> set by the return value of the current run, not necessarily constan)
+          primitive values (-> set by the return value of the current run, not necessarily constant)
         * `args`: function arguments, if isa == 'transition'
     """
 

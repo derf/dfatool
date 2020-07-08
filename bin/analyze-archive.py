@@ -623,8 +623,8 @@ if __name__ == "__main__":
 
     if "param" in show_models or "all" in show_models:
         if not model.stats.can_be_fitted():
-            print(
-                "[!] measurements have insufficient distinct numeric parameters for fitting. A parameter-aware model is not available."
+            logging.warning(
+                "measurements have insufficient distinct numeric parameters for fitting. A parameter-aware model is not available."
             )
         for state in model.states():
             for attribute in model.attributes(state):

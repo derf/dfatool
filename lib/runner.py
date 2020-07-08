@@ -31,7 +31,8 @@ class SerialReader(serial.threaded.Protocol):
         """Create a new SerialReader object."""
         self.callback = callback
         self.recv_buf = ""
-        self.lines = []
+        self.lines = list()
+        self.all_lines = list()
 
     def __call__(self):
         return self
@@ -47,7 +48,9 @@ class SerialReader(serial.threaded.Protocol):
             # Note: Do not call str.strip on lines[-1]! Otherwise, lines may be mangled
             lines = self.recv_buf.split("\n")
             if len(lines) > 1:
-                self.lines.extend(map(str.strip, lines[:-1]))
+                new_lines = list(map(str.strip, lines[:-1]))
+                self.lines.extend(new_lines)
+                self.all_lines.extend(new_lines)
                 self.recv_buf = lines[-1]
                 if self.callback:
                     for line in lines[:-1]:
@@ -120,7 +123,7 @@ class SerialMonitor:
         return self.reader.get_lines()
 
     def get_lines(self) -> list:
-        return self.reader.get_lines()
+        return self.reader.all_lines
 
     def get_files(self) -> list:
         return list()
@@ -143,6 +146,9 @@ class SerialMonitor:
 class EnergyTraceMonitor(SerialMonitor):
     """EnergyTraceMonitor captures serial timing output and EnergyTrace energy data."""
 
+    # Zusätzliche key-value-Argumente von generate-dfa-benchmark.py --energytrace=... landen hier
+    # (z.B. --energytrace=var1=bar,somecount=2 => EnerygTraceMonitor(..., var1="bar", somecount="2")).
+    # Soald das EnergyTraceMonitor-Objekt erzeugt wird, beginnt die Messung (d.h. hier: msp430-etv wird gestartet)
     def __init__(self, port: str, baud: int, callback=None, voltage=3.3):
         super().__init__(port=port, baud=baud, callback=callback)
         self._voltage = voltage
@@ -155,14 +161,18 @@ class EnergyTraceMonitor(SerialMonitor):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
         )
 
+    # Benchmark fertig -> externe Hilfsprogramme beenden
     def close(self):
         super().close()
         self._logger.send_signal(subprocess.signal.SIGINT)
         stdout, stderr = self._logger.communicate(timeout=15)
 
+    # Zusätzliche Dateien, die mit dem Benchmark-Log und -Plan abgespeichert werden sollen
+    # (hier: Die von msp430-etv generierten Logfiles)
     def get_files(self) -> list:
         return [self._output]
 
+    #
     def get_config(self) -> dict:
         return {
             "voltage": self._voltage,
