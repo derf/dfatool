@@ -11,7 +11,9 @@ import re
 from dfatool.dfatool import RawData
 
 from sklearn.cluster import AgglomerativeClustering
-from scipy.cluster.hierarchy import dendrogram, linkage
+
+
+# from scipy.cluster.hierarchy import dendrogram, linkage # for graphical display
 
 # py bin\Proof_Of_Concept_PELT.py --filename="..\data\TX.json" --jump=1 --pen_override=10 --refinement_thresh=100
 
@@ -56,16 +58,15 @@ def get_bkps(algo, pen, q):
     return res
 
 
-def find_knee_point(data_x, data_y, S=1.0, curve='convex', direction='decreasing', plotting=False):
+def find_knee_point(data_x, data_y, S=1.0, curve='convex', direction='decreasing'):
     kneedle = KneeLocator(data_x, data_y, S=S, curve=curve, direction=direction)
-    if plotting:
-        kneedle.plot_knee()
     kneepoint = (kneedle.knee, kneedle.knee_y)
     return kneepoint
 
 
-def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50, num_processes=8, refresh_delay=1,
-              refresh_thresh=5, S=1.0, pen_override=None, pen_modifier=None, plotting=False):
+def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50, num_processes=8,
+              refresh_delay=1, refresh_thresh=5, S=1.0, pen_override=None, pen_modifier=None,
+              plotting=False):
     # default params in Function
     if model is None:
         model = 'l1'
@@ -116,16 +117,16 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50,
             while True:
                 if result.ready():
                     break
+
+                size = q.qsize()
+                last_percentage = percentage
+                percentage = round(size / (range_max - range_min) * 100, 2)
+                if percentage >= last_percentage + 2 or i >= refresh_thresh:
+                    print_info('Current progress: ' + str(percentage) + '%')
+                    i = 0
                 else:
-                    size = q.qsize()
-                    last_percentage = percentage
-                    percentage = round(size / (range_max - range_min) * 100, 2)
-                    if percentage >= last_percentage + 2 or i >= refresh_thresh:
-                        print_info('Current progress: ' + str(percentage) + '%')
-                        i = 0
-                    else:
-                        i += 1
-                    time.sleep(refresh_delay)
+                    i += 1
+                time.sleep(refresh_delay)
             res = result.get()
         print_info("Finished kneepoint calculation.")
         # DECIDE WHICH PENALTY VALUE TO CHOOSE ACCORDING TO ELBOW/KNEE APPROACH
@@ -133,7 +134,7 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50,
         pen_val = [x[0] for x in res]
         fitted_bkps_val = [x[1] for x in res]
         # # plot to look at res
-        knee = find_knee_point(pen_val, fitted_bkps_val, S=S, plotting=plotting)
+        knee = find_knee_point(pen_val, fitted_bkps_val, S=S)
         # plt.xlabel('Penalty')
         # plt.ylabel('Number of Changepoints')
         # plt.plot(pen_val, fitted_bkps_val)
@@ -156,72 +157,73 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50,
             fig, ax = rpt.display(signal, bkps)
             plt.show()
         return bkps
-    else:
-        print_error('With the current thresh-hold S=' + str(S) + ' it is not possible to select a penalty value.')
-        exit()
+
+    print_error('With the current thresh-hold S=' + str(S)
+                + ' it is not possible to select a penalty value.')
+    sys.exit()
 
 
 # very short benchmark yielded approx. 1/3 of speed compared to solution with sorting
-def needs_refinement_no_sort(signal, mean, thresh):
-    # linear search for the top 10%/ bottom 10%
-    # should be sufficient
-    length_of_signal = len(signal)
-    percentile_size = int()
-    percentile_size = length_of_signal // 100
-    upper_percentile = [None] * percentile_size
-    lower_percentile = [None] * percentile_size
-    fill_index_upper = percentile_size - 1
-    fill_index_lower = percentile_size - 1
-    index_smallest_val = fill_index_upper
-    index_largest_val = fill_index_lower
-
-    for x in signal:
-        if x > mean:
-            # will be in upper percentile
-            if fill_index_upper >= 0:
-                upper_percentile[fill_index_upper] = x
-                if x < upper_percentile[index_smallest_val]:
-                    index_smallest_val = fill_index_upper
-                fill_index_upper = fill_index_upper - 1
-                continue
-
-            if x > upper_percentile[index_smallest_val]:
-                # replace smallest val. Find next smallest val
-                upper_percentile[index_smallest_val] = x
-                index_smallest_val = 0
-                i = 0
-                for y in upper_percentile:
-                    if upper_percentile[i] < upper_percentile[index_smallest_val]:
-                        index_smallest_val = i
-                    i = i + 1
-
-        else:
-            if fill_index_lower >= 0:
-                lower_percentile[fill_index_lower] = x
-                if x > lower_percentile[index_largest_val]:
-                    index_largest_val = fill_index_upper
-                fill_index_lower = fill_index_lower - 1
-                continue
-            if x < lower_percentile[index_largest_val]:
-                # replace smallest val. Find next smallest val
-                lower_percentile[index_largest_val] = x
-                index_largest_val = 0
-                i = 0
-                for y in lower_percentile:
-                    if lower_percentile[i] > lower_percentile[index_largest_val]:
-                        index_largest_val = i
-                    i = i + 1
-
-    # should have the percentiles
-    lower_percentile_mean = np.mean(lower_percentile)
-    upper_percentile_mean = np.mean(upper_percentile)
-    dist = mean - lower_percentile_mean
-    if dist > thresh:
-        return True
-    dist = upper_percentile_mean - mean
-    if dist > thresh:
-        return True
-    return False
+# def needs_refinement_no_sort(signal, mean, thresh):
+#     # linear search for the top 10%/ bottom 10%
+#     # should be sufficient
+#     length_of_signal = len(signal)
+#     percentile_size = int()
+#     percentile_size = length_of_signal // 100
+#     upper_percentile = [None] * percentile_size
+#     lower_percentile = [None] * percentile_size
+#     fill_index_upper = percentile_size - 1
+#     fill_index_lower = percentile_size - 1
+#     index_smallest_val = fill_index_upper
+#     index_largest_val = fill_index_lower
+#
+#     for x in signal:
+#         if x > mean:
+#             # will be in upper percentile
+#             if fill_index_upper >= 0:
+#                 upper_percentile[fill_index_upper] = x
+#                 if x < upper_percentile[index_smallest_val]:
+#                     index_smallest_val = fill_index_upper
+#                 fill_index_upper = fill_index_upper - 1
+#                 continue
+#
+#             if x > upper_percentile[index_smallest_val]:
+#                 # replace smallest val. Find next smallest val
+#                 upper_percentile[index_smallest_val] = x
+#                 index_smallest_val = 0
+#                 i = 0
+#                 for y in upper_percentile:
+#                     if upper_percentile[i] < upper_percentile[index_smallest_val]:
+#                         index_smallest_val = i
+#                     i = i + 1
+#
+#         else:
+#             if fill_index_lower >= 0:
+#                 lower_percentile[fill_index_lower] = x
+#                 if x > lower_percentile[index_largest_val]:
+#                     index_largest_val = fill_index_upper
+#                 fill_index_lower = fill_index_lower - 1
+#                 continue
+#             if x < lower_percentile[index_largest_val]:
+#                 # replace smallest val. Find next smallest val
+#                 lower_percentile[index_largest_val] = x
+#                 index_largest_val = 0
+#                 i = 0
+#                 for y in lower_percentile:
+#                     if lower_percentile[i] > lower_percentile[index_largest_val]:
+#                         index_largest_val = i
+#                     i = i + 1
+#
+#     # should have the percentiles
+#     lower_percentile_mean = np.mean(lower_percentile)
+#     upper_percentile_mean = np.mean(upper_percentile)
+#     dist = mean - lower_percentile_mean
+#     if dist > thresh:
+#         return True
+#     dist = upper_percentile_mean - mean
+#     if dist > thresh:
+#         return True
+#     return False
 
 
 # Very short benchmark yielded approx. 3 times the speed of solution not using sort
@@ -245,22 +247,22 @@ def needs_refinement(signal, thresh):
     return False
 
 
-def print_info(str):
-    str_lst = str.split(sep='\n')
-    for str in str_lst:
-        print("[INFO]" + str)
+def print_info(str_to_prt):
+    str_lst = str_to_prt.split(sep='\n')
+    for str_prt in str_lst:
+        print("[INFO]" + str_prt)
 
 
-def print_warning(str):
-    str_lst = str.split(sep='\n')
-    for str in str_lst:
-        print("[WARNING]" + str)
+def print_warning(str_to_prt):
+    str_lst = str_to_prt.split(sep='\n')
+    for str_prt in str_lst:
+        print("[WARNING]" + str_prt)
 
 
-def print_error(str):
-    str_lst = str.split(sep='\n')
-    for str in str_lst:
-        print("[ERROR]" + str, file=sys.stderr)
+def print_error(str_to_prt):
+    str_lst = str_to_prt.split(sep='\n')
+    for str_prt in str_lst:
+        print("[ERROR]" + str_prt, file=sys.stderr)
 
 
 if __name__ == '__main__':
@@ -389,7 +391,8 @@ if __name__ == '__main__':
     # OPENING DATA
     if ".json" in opt_filename:
         # open file with trace data from json
-        print_info(" Will only refine the state which is present in " + opt_filename + " if necessary.")
+        print_info(
+            " Will only refine the state which is present in " + opt_filename + " if necessary.")
         with open(opt_filename, 'r') as f:
             states = json.load(f)
         # loop through all traces check if refinement is necessary
@@ -410,7 +413,8 @@ if __name__ == '__main__':
                     refine = True
                     break
             if not refine:
-                print_info("No refinement necessary for state '" + measurements_by_state['name'] + "'")
+                print_info("No refinement necessary for state '" + measurements_by_state['name']
+                           + "'")
             else:
                 # calc and save all bkpts for the given state and param config
                 raw_states_list = list()
@@ -419,14 +423,16 @@ if __name__ == '__main__':
                     normed_signal = np.zeros(shape=len(signal))
                     for i in range(0, len(signal)):
                         normed_signal[i] = signal[i] / 1000
-                    bkpts = calc_pelt(normed_signal, model=opt_model, range_min=opt_range_min, range_max=opt_range_max,
-                                      num_processes=opt_num_processes, jump=opt_jump, S=opt_S,
-                                      pen_override=opt_pen_override, pen_modifier=opt_pen_modifier)
+                    bkpts = calc_pelt(normed_signal, model=opt_model, range_min=opt_range_min,
+                                      range_max=opt_range_max, num_processes=opt_num_processes,
+                                      jump=opt_jump, S=opt_S, pen_override=opt_pen_override,
+                                      pen_modifier=opt_pen_modifier)
                     calced_states = list()
                     start_time = 0
                     end_time = 0
                     for bkpt in bkpts:
-                        # start_time of state is end_time of previous one(Transitions are instantaneous)
+                        # start_time of state is end_time of previous one
+                        # (Transitions are instantaneous)
                         start_time = end_time
                         end_time = bkpt
                         power_vals = signal[start_time: end_time]
@@ -437,13 +443,16 @@ if __name__ == '__main__':
                     num = 0
                     new_avg_std = 0
                     for s in calced_states:
-                        print_info("State " + str(num) + " starts at t=" + str(s[0]) + " and ends at t=" + str(s[1])
-                                   + " while using " + str(s[2]) + "uW with  sigma=" + str(s[3]))
+                        print_info("State " + str(num) + " starts at t=" + str(s[0])
+                                   + " and ends at t=" + str(s[1])
+                                   + " while using " + str(s[2])
+                                   + "uW with  sigma=" + str(s[3]))
                         num = num + 1
                         new_avg_std = new_avg_std + s[3]
                     new_avg_std = new_avg_std / len(calced_states)
                     change_avg_std = measurement['uW_std'] - new_avg_std
-                    print_info("The average standard deviation for the newly found states is " + str(new_avg_std))
+                    print_info("The average standard deviation for the newly found states is "
+                               + str(new_avg_std))
                     print_info("That is a reduction of " + str(change_avg_std))
                     raw_states_list.append(calced_states)
                 num_states_array = [int()] * len(raw_states_list)
@@ -453,12 +462,14 @@ if __name__ == '__main__':
                     i = i + 1
                 avg_num_states = np.mean(num_states_array)
                 num_states_dev = np.std(num_states_array)
-                print_info("On average " + str(avg_num_states) + " States have been found. The standard deviation"
+                print_info("On average " + str(avg_num_states)
+                           + " States have been found. The standard deviation"
                            + " is " + str(num_states_dev))
                 # TODO: MAGIC NUMBER
                 if num_states_dev > 1:
-                    print_warning("The number of states varies strongly across measurements. Consider choosing a "
-                                  "larger value for S or using the pen_modifier option.")
+                    print_warning("The number of states varies strongly across measurements."
+                                  " Consider choosing a larger value for S or using the pen_modifier"
+                                  " option.")
                     time.sleep(5)
                 # TODO: Wie bekomme ich da jetzt raus, was die Wahrheit ist?
                 # Einfach Durchschnitt nehmen?
@@ -492,7 +503,8 @@ if __name__ == '__main__':
                         # TODO: Automatic detection of number of clusters. Aktuell noch MAGIC NUMBER
                         # cluster = AgglomerativeClustering(n_clusters=None, compute_full_tree=True, affinity='euclidean',
                         #                                  linkage='ward', distance_threshold=opt_refinement_thresh)
-                        cluster = AgglomerativeClustering(n_clusters=5, affinity='euclidean', linkage='ward')
+                        cluster = AgglomerativeClustering(n_clusters=5, affinity='euclidean',
+                                                          linkage='ward')
                         cluster.fit_predict(value_to_cluster)
                         print_info("Cluster labels:\n" + str(cluster.labels_))
                         # plt.scatter(value_to_cluster[:, 0], value_to_cluster[:, 1], c=cluster.labels_, cmap='rainbow')
@@ -523,7 +535,7 @@ if __name__ == '__main__':
                 print(resulting_sequence)
 
                 # TODO: TESTING PURPOSES
-                exit()
+                sys.exit()
 
     elif ".tar" in opt_filename:
         # open with dfatool
