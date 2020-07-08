@@ -1,16 +1,16 @@
-import matplotlib.pyplot as plt
 import json
-from kneed import KneeLocator
-import ruptures as rpt
 import time
-from multiprocessing import Pool, Manager
-import numpy as np
 import sys
 import getopt
 import re
-from dfatool.dfatool import RawData
-
+from multiprocessing import Pool, Manager
+from kneed import KneeLocator
 from sklearn.cluster import AgglomerativeClustering
+from scipy.signal import find_peaks
+import matplotlib.pyplot as plt
+import ruptures as rpt
+import numpy as np
+from dfatool.dfatool import RawData
 
 
 # from scipy.cluster.hierarchy import dendrogram, linkage # for graphical display
@@ -19,8 +19,8 @@ from sklearn.cluster import AgglomerativeClustering
 
 
 def plot_data_from_json(filename, trace_num, x_axis, y_axis):
-    with open(filename, 'r') as f:
-        tx_data = json.load(f)
+    with open(filename, 'r') as file:
+        tx_data = json.load(file)
     print(tx_data[trace_num]['parameter'])
     plt.plot(tx_data[trace_num]['offline'][0]['uW'])
     plt.xlabel(x_axis)
@@ -64,12 +64,38 @@ def find_knee_point(data_x, data_y, S=1.0, curve='convex', direction='decreasing
     return kneepoint
 
 
-def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50, num_processes=8,
-              refresh_delay=1, refresh_thresh=5, S=1.0, pen_override=None, pen_modifier=None,
-              plotting=False):
+def calc_pelt(signal, penalty, model="l1", jump=5, min_dist=2, plotting=False):
     # default params in Function
     if model is None:
-        model = 'l1'
+        model = "l1"
+    if jump is None:
+        jump = 5
+    if min_dist is None:
+        min_dist = 2
+    if plotting is None:
+        plotting = False
+    # change point detection. best fit seemingly with l1. rbf prods. RuntimeErr for pen > 30
+    # https://ctruong.perso.math.cnrs.fr/ruptures-docs/build/html/costs/index.html
+    # model = "l1"   #"l1"  # "l2", "rbf"
+    algo = rpt.Pelt(model=model, jump=jump, min_size=min_dist).fit(signal)
+
+    if penalty is not None:
+        bkps = algo.predict(pen=penalty)
+        if plotting:
+            fig, ax = rpt.display(signal, bkps)
+            plt.show()
+        return bkps
+
+    print_error("No Penalty specified.")
+    sys.exit()
+
+
+def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0, range_max=50,
+                            num_processes=8, refresh_delay=1, refresh_thresh=5, S=1.0,
+                            pen_modifier=None):
+    # default params in Function
+    if model is None:
+        model = "l1"
     if jump is None:
         jump = 5
     if min_dist is None:
@@ -86,8 +112,6 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50,
         refresh_thresh = 5
     if S is None:
         S = 1.0
-    if plotting is None:
-        plotting = False
     if pen_modifier is None:
         pen_modifier = 1
     # change point detection. best fit seemingly with l1. rbf prods. RuntimeErr for pen > 30
@@ -96,7 +120,7 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50,
     algo = rpt.Pelt(model=model, jump=jump, min_size=min_dist).fit(signal)
 
     ### CALC BKPS WITH DIFF PENALTYS
-    if pen_override is None and range_max != range_min:
+    if range_max != range_min:
         # building args array for parallelizing
         args = []
         # for displaying progression
@@ -106,7 +130,7 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50,
         for i in range(range_min, range_max + 1):
             args.append((algo, i, q))
 
-        print_info('starting kneepoint calculation.')
+        print_info("starting kneepoint calculation.")
         # init Pool with num_proesses
         with Pool(num_processes) as p:
             # collect results from pool
@@ -122,7 +146,7 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50,
                 last_percentage = percentage
                 percentage = round(size / (range_max - range_min) * 100, 2)
                 if percentage >= last_percentage + 2 or i >= refresh_thresh:
-                    print_info('Current progress: ' + str(percentage) + '%')
+                    print_info("Current progress: " + str(percentage) + "%")
                     i = 0
                 else:
                     i += 1
@@ -135,31 +159,68 @@ def calc_pelt(signal, model='l1', jump=5, min_dist=2, range_min=0, range_max=50,
         fitted_bkps_val = [x[1] for x in res]
         # # plot to look at res
         knee = find_knee_point(pen_val, fitted_bkps_val, S=S)
+
+        # TODO: Find plateau on pen_val vs fitted_bkps_val
+        # scipy.find_peaks() does not find plateaus if they extend through the end of the data.
+        # to counter that, add one extremely large value to the right side of the data
+        # after negating it is extremely small -> Almost certainly smaller than the
+        # found plateau therefore the plateau does not extend through the border -> scipy.find_peaks
+        # finds it. Choose value from within that plateau.
+        # fitted_bkps_val.append(100000000)
+        # TODO: Approaching over find_peaks might not work if the initial decrease step to the
+        #   "correct" number of changepoints and additional decrease steps e.g. underfitting
+        #   take place within the given penalty interval. find_peak only finds plateaus
+        #   of peaks. If the number of chpts decreases after the wanted plateau the condition
+        #   for local peaks is not satisfied anymore. Therefore this approach will only work
+        #   if the plateau extends over the right border of the penalty interval.
+        # peaks, peak_plateaus = find_peaks(- np.array(fitted_bkps_val), plateau_size=1)
+        # Since the data is monotonously decreasing only one plateau can be found.
+
+        # assuming the plateau is constant
+        start_index = -1
+        end_index = -1
+        longest_start = -1
+        longest_end = -1
+        prev_val = -1
+        for i, num_bkpts in enumerate(fitted_bkps_val[knee[0]:]):
+            if num_bkpts != prev_val:
+                end_index = i - 1
+                if end_index - start_index > longest_end - longest_start:
+                    # currently found sequence is the longest found yet
+                    longest_start = start_index
+                    longest_end = end_index
+                start_index = i
+            if i == len(fitted_bkps_val[knee[0]:]) - 1:
+                # end sequence with last value
+                end_index = i
+                if end_index - start_index > longest_end - longest_start:
+                    # last found sequence is the longest found yet
+                    longest_start = start_index
+                    longest_end = end_index
+                start_index = i
+            prev_val = num_bkpts
         # plt.xlabel('Penalty')
         # plt.ylabel('Number of Changepoints')
         # plt.plot(pen_val, fitted_bkps_val)
-        # plt.vlines(knee[0], 0, max(fitted_bkps_val), linestyles='dashed')
-        # print("knee: " + str(knee[0]))
+        # plt.vlines(longest_start + knee[0], 0, max(fitted_bkps_val), linestyles='dashed')
+        # plt.vlines(longest_end + knee[0], 0, max(fitted_bkps_val), linestyles='dashed')
         # plt.show()
+        # choosing pen from plateau
+        mid_of_plat = longest_start + (longest_end - longest_start) // 2
+        knee = (mid_of_plat + knee[0], fitted_bkps_val[mid_of_plat + knee[0]])
+
         # modify knee according to options. Defaults to 1 * knee
         knee = (knee[0] * pen_modifier, knee[1])
-    else:
-        # use forced pen value for plotting if specified. Else use only pen in range
-        if pen_override is not None:
-            knee = (pen_override, None)
-        else:
-            knee = (range_min, None)
-    print_info("" + str(knee[0]) + " has been selected as kneepoint.")
-    # plt.plot(pen_val, fittet_bkps_val)
-    if knee[0] is not None:
-        bkps = algo.predict(pen=knee[0])
-        if plotting:
-            fig, ax = rpt.display(signal, bkps)
-            plt.show()
-        return bkps
 
-    print_error('With the current thresh-hold S=' + str(S)
-                + ' it is not possible to select a penalty value.')
+    else:
+        # range_min == range_max. has the same effect as pen_override
+        knee = (range_min, None)
+    print_info(str(knee[0]) + " has been selected as kneepoint.")
+    if knee[0] is not None:
+        return knee
+
+    print_error("With the current thresh-hold S=" + str(S)
+                + " it is not possible to select a penalty value.")
     sys.exit()
 
 
@@ -263,6 +324,14 @@ def print_error(str_to_prt):
     str_lst = str_to_prt.split(sep='\n')
     for str_prt in str_lst:
         print("[ERROR]" + str_prt, file=sys.stderr)
+
+
+def norm_signal(signal):
+    # TODO: maybe refine normalisation of signal
+    normed_signal = np.zeros(shape=len(signal))
+    for i, signal_i in enumerate(signal):
+        normed_signal[i] = signal_i / 1000
+    return normed_signal
 
 
 if __name__ == '__main__':
@@ -414,19 +483,28 @@ if __name__ == '__main__':
                     break
             if not refine:
                 print_info("No refinement necessary for state '" + measurements_by_state['name']
-                           + "'")
+                           + "' with params: " + str(measurements_by_state['parameter']))
             else:
+                # assume that all measurements of the same param configuration are fundamentally
+                # similar -> calculate penalty for first measurement, use it for all
+                if opt_pen_override is None:
+                    signal = np.array(measurements_by_state['offline'][0]['uW'])
+                    normed_signal = norm_signal(signal)
+                    penalty = calculate_penalty_value(normed_signal, model=opt_model,
+                                                      range_min=opt_range_min,
+                                                      range_max=opt_range_max,
+                                                      num_processes=opt_num_processes,
+                                                      jump=opt_jump, S=opt_S,
+                                                      pen_modifier=opt_pen_modifier)
+                    penalty = penalty[0]
+                else:
+                    penalty = opt_pen_override
                 # calc and save all bkpts for the given state and param config
                 raw_states_list = list()
                 for measurement in measurements_by_state['offline']:
                     signal = np.array(measurement['uW'])
-                    normed_signal = np.zeros(shape=len(signal))
-                    for i in range(0, len(signal)):
-                        normed_signal[i] = signal[i] / 1000
-                    bkpts = calc_pelt(normed_signal, model=opt_model, range_min=opt_range_min,
-                                      range_max=opt_range_max, num_processes=opt_num_processes,
-                                      jump=opt_jump, S=opt_S, pen_override=opt_pen_override,
-                                      pen_modifier=opt_pen_modifier)
+                    normed_signal = norm_signal(signal)
+                    bkpts = calc_pelt(normed_signal, penalty, model=opt_model, jump=opt_jump)
                     calced_states = list()
                     start_time = 0
                     end_time = 0
@@ -468,8 +546,8 @@ if __name__ == '__main__':
                 # TODO: MAGIC NUMBER
                 if num_states_dev > 1:
                     print_warning("The number of states varies strongly across measurements."
-                                  " Consider choosing a larger value for S or using the pen_modifier"
-                                  " option.")
+                                  " Consider choosing a larger value for S or using the "
+                                  "pen_modifier option.")
                     time.sleep(5)
                 # TODO: Wie bekomme ich da jetzt raus, was die Wahrheit ist?
                 # Einfach Durchschnitt nehmen?
@@ -501,10 +579,10 @@ if __name__ == '__main__':
                         #            show_leaf_counts=True)
                         # plt.show()
                         # TODO: Automatic detection of number of clusters. Aktuell noch MAGIC NUMBER
-                        # cluster = AgglomerativeClustering(n_clusters=None, compute_full_tree=True, affinity='euclidean',
-                        #                                  linkage='ward', distance_threshold=opt_refinement_thresh)
-                        cluster = AgglomerativeClustering(n_clusters=5, affinity='euclidean',
-                                                          linkage='ward')
+                        cluster = AgglomerativeClustering(n_clusters=None, compute_full_tree=True, affinity='euclidean',
+                                                         linkage='ward', distance_threshold=opt_refinement_thresh*100)
+                        # cluster = AgglomerativeClustering(n_clusters=5, affinity='euclidean',
+                        #                                   linkage='ward')
                         cluster.fit_predict(value_to_cluster)
                         print_info("Cluster labels:\n" + str(cluster.labels_))
                         # plt.scatter(value_to_cluster[:, 0], value_to_cluster[:, 1], c=cluster.labels_, cmap='rainbow')
@@ -515,9 +593,19 @@ if __name__ == '__main__':
                         num_cluster_list.append(cluster.n_clusters_)
                         i = i + 1
                 if i != len(raw_states_list):
-                    print_info("Used " + str(i) + "/" + str(len(raw_states_list))
-                               + " Measurements for state clustering. "
-                                 "Others did not recognize number of states correctly.")
+                    if i / len(raw_states_list) <= 0.5:
+                        print_warning("Only used " + str(i) + "/" + str(len(raw_states_list))
+                                      + " Measurements for refinement. "
+                                        "Others did not recognize number of states correctly."
+                                        "\nYou should verify the integrity of the measurements.")
+                    else:
+                        print_info("Used " + str(i) + "/" + str(len(raw_states_list))
+                                   + " Measurements for refinement. "
+                                     "Others did not recognize number of states correctly.")
+                    sys.exit()
+                else:
+                    print_info("Used all available measurements.")
+
                 num_states = np.argmax(np.bincount(num_cluster_list))
                 resulting_sequence = [None] * num_raw_states
                 i = 0
@@ -533,9 +621,6 @@ if __name__ == '__main__':
                     resulting_sequence[i] = np.argmax(np.bincount(test_list))
                     i = i + 1
                 print(resulting_sequence)
-
-                # TODO: TESTING PURPOSES
-                sys.exit()
 
     elif ".tar" in opt_filename:
         # open with dfatool
