@@ -337,6 +337,7 @@ def run_benchmark(
         files = list()
         i = 0
         while i < opt["repeat"]:
+            print(f"""[RUN] flashing benchmark {i+1}/{opt["repeat"]}""")
             runner.flash(arch, app, run_args)
             if "mimosa" in opt:
                 monitor = runner.get_monitor(
@@ -353,7 +354,6 @@ def run_benchmark(
                 while not harness.done:
                     # possible race condition: if the benchmark completes at this
                     # exact point, it sets harness.done and unsets harness.synced.
-                    #                                                   vvv
                     if (
                         slept > 30
                         and slept < 40
@@ -372,11 +372,11 @@ def run_benchmark(
                     time.sleep(5)
                     slept += 5
                     print(
-                        "[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%".format(
+                        "[RUN] {:d}/{:d} ({:.0f}%) at trace {:d}".format(
                             run_offset,
                             runs_total,
                             run_offset * 100 / runs_total,
-                            slept * 100 / run_timeout,
+                            harness.trace_id,
                         )
                     )
             except KeyboardInterrupt:
