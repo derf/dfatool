@@ -377,9 +377,12 @@ if __name__ == "__main__":
         if raw_data.version <= 1:
             data_source = "MIMOSA"
         elif raw_data.version == 2:
-            data_source = "MSP430 EnergyTrace, sync={}".format(
-                raw_data.ptalog["opt"]["energytrace"]["sync"]
-            )
+            if raw_data.ptalog and "sync" in raw_data.ptalog["opt"]["energytrace"]:
+                data_source = "MSP430 EnergyTrace, sync={}".format(
+                    raw_data.ptalog["opt"]["energytrace"]["sync"]
+                )
+            else:
+                data_source = "MSP430 EnergyTrace"
         print(f"    Data source ID: {raw_data.version} ({data_source})")
 
     preprocessed_data = raw_data.get_preprocessed_data()

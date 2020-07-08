@@ -305,6 +305,7 @@ class RawData:
         self._parameter_names = None
         self.ignore_clipping = False
         self.pta = None
+        self.ptalog = None
 
         with tarfile.open(filenames[0]) as tf:
             for member in tf.getmembers():
@@ -315,6 +316,9 @@ class RawData:
                 elif ".etlog" in member.name:
                     self.version = 2
                     break
+            if self.version >= 1:
+                self.ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
+                self.pta = self.ptalog["pta"]
 
         self.set_cache_file()
         if not with_traces:
@@ -334,6 +338,8 @@ class RawData:
                 self.preprocessing_stats = cache_data["preprocessing_stats"]
                 if "pta" in cache_data:
                     self.pta = cache_data["pta"]
+                if "ptalog" in cache_data:
+                    self.ptalog = cache_data["ptalog"]
                 self.setup_by_fileno = cache_data["setup_by_fileno"]
                 self.preprocessed = True
 
@@ -350,6 +356,7 @@ class RawData:
                 "traces": self.traces,
                 "preprocessing_stats": self.preprocessing_stats,
                 "pta": self.pta,
+                "ptalog": self.ptalog,
                 "setup_by_fileno": self.setup_by_fileno,
             }
             json.dump(cache_data, f)
@@ -847,8 +854,7 @@ class RawData:
 
                 new_filenames = list()
                 with tarfile.open(filename) as tf:
-                    ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
-                    self.pta = ptalog["pta"]
+                    ptalog = self.ptalog
 
                     # Benchmark code may be too large to be executed in a single
                     # run, so benchmarks (a benchmark is basically a list of DFA runs)
@@ -902,8 +908,7 @@ class RawData:
 
                 new_filenames = list()
                 with tarfile.open(filename) as tf:
-                    ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
-                    self.pta = ptalog["pta"]
+                    ptalog = self.ptalog
 
                     # Benchmark code may be too large to be executed in a single
                     # run, so benchmarks (a benchmark is basically a list of DFA runs)
