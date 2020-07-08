@@ -107,7 +107,14 @@ def _preprocess_mimosa(measurement):
 
 def _preprocess_etlog(measurement):
     setup = measurement["setup"]
-    etlog = EnergyTraceLog(
+
+    energytrace_class = EnergyTraceWithBarcode
+    if measurement["sync_mode"] == "la":
+        energytrace_class = EnergyTraceWithLogicAnalyzer
+    elif measurement["sync_mode"] == "timer":
+        energytrace_class = EnergyTraceWithTimer
+
+    etlog = energytrace_class(
         float(setup["voltage"]),
         int(setup["state_duration"]),
         measurement["transition_names"],
@@ -406,7 +413,7 @@ class RawData:
             processed_data["error"] = "; ".join(processed_data["datasource_errors"])
             return False
 
-        # Note that the low-level parser (EnergyTraceLog) already checks
+        # Note that the low-level parser (EnergyTraceWithBarcode) already checks
         # whether the transition count is correct
 
         return True
@@ -909,6 +916,10 @@ class RawData:
                 new_filenames = list()
                 with tarfile.open(filename) as tf:
                     ptalog = self.ptalog
+                    if "sync" in ptalog["opt"]["energytrace"]:
+                        sync_mode = ptalog["opt"]["energytrace"]["sync"]
+                    else:
+                        sync_mode = "bar"
 
                     # Benchmark code may be too large to be executed in a single
                     # run, so benchmarks (a benchmark is basically a list of DFA runs)
@@ -968,6 +979,7 @@ class RawData:
                             offline_data.append(
                                 {
                                     "content": tf.extractfile(member).read(),
+                                    "sync_mode": sync_mode,
                                     "fileno": j,
                                     "info": member,
                                     "setup": self.setup_by_fileno[j],
@@ -1161,7 +1173,7 @@ def pta_trace_to_aggregate(traces, ignore_trace_indexes=[]):
     return by_name, parameter_names, arg_count
 
 
-class EnergyTraceLog:
+class EnergyTraceWithBarcode:
     """
     EnergyTrace log loader for DFA traces.
 
@@ -1184,7 +1196,7 @@ class EnergyTraceLog:
         with_traces=False,
     ):
         """
-        Create a new EnergyTraceLog object.
+        Create a new EnergyTraceWithBarcode object.
 
         :param voltage: supply voltage [V], usually 3.3 V
         :param state_duration: state duration [ms]
@@ -1597,6 +1609,123 @@ class EnergyTraceLog:
         else:
             logger.warning("unable to find barcode")
             return None, None, None, None
+
+
+class EnergyTraceWithLogicAnalyzer:
+    def __init__(
+        self,
+        voltage: float,
+        state_duration: int,
+        transition_names: list,
+        with_traces=False,
+    ):
+        """
+        Create a new EnergyTraceWithLogicAnalyzer object.
+
+        :param voltage: supply voltage [V], usually 3.3 V
+        :param state_duration: state duration [ms]
+        :param transition_names: list of transition names in PTA transition order.
+            Needed to map barcode synchronization numbers to transitions.
+        """
+        self.voltage = voltage
+        self.state_duration = state_duration * 1e-3
+        self.transition_names = transition_names
+        self.with_traces = with_traces
+        self.errors = list()
+
+    def load_data(self, log_data):
+        # TODO Daten laden
+        pass
+
+    def analyze_states(self, traces, offline_index: int):
+        u"""
+        Split log data into states and transitions and return duration, energy, and mean power for each element.
+
+        :param traces: expected traces, needed to synchronize with the measurement.
+            traces is a list of runs, traces[*]['trace'] is a single run
+            (i.e. a list of states and transitions, starting with a transition
+            and ending with a state).
+        :param offline_index: This function uses traces[*]['trace'][*]['online_aggregates']['duration'][offline_index] to find sync codes
+
+        :param charges: raw charges (each element describes the charge in pJ transferred during 10 µs)
+        :param trigidx: "charges" indexes corresponding to a trigger edge, see `trigger_edges`
+        :param ua_func: charge(pJ) -> current(µA) function as returned by `calibration_function`
+
+        :returns: returns list of states and transitions, starting with a transition and ending with astate
+            Each element is a dict containing:
+            * `isa`: 'state' or 'transition'
+            * `W_mean`: Mittelwert der Leistungsaufnahme
+            * `W_std`: Standardabweichung der Leistungsaufnahme
+            * `s`: Dauer
+            if isa == 'transition, it also contains:
+            * `W_mean_delta_prev`: Differenz zwischen W_mean und W_mean des vorherigen Zustands
+            * `W_mean_delta_next`: Differenz zwischen W_mean und W_mean des Folgezustands
+        """
+
+        # TODO Tatsächlich Daten auswerten
+
+        energy_trace = list()
+
+        expected_transitions = list()
+        for trace_number, trace in enumerate(traces):
+            for state_or_transition_number, state_or_transition in enumerate(
+                trace["trace"]
+            ):
+                if state_or_transition["isa"] == "transition":
+                    try:
+                        expected_transitions.append(
+                            (
+                                state_or_transition["name"],
+                                state_or_transition["online_aggregates"]["duration"][
+                                    offline_index
+                                ]
+                                * 1e-6,
+                            )
+                        )
+                    except IndexError:
+                        self.errors.append(
+                            'Entry #{} ("{}") in trace #{} has no duration entry for offline_index/repeat_id {}'.format(
+                                state_or_transition_number,
+                                state_or_transition["name"],
+                                trace_number,
+                                offline_index,
+                            )
+                        )
+                        return energy_trace
+
+        for name, duration in expected_transitions:
+            transition = {
+                "isa": "transition",
+                "W_mean": max(np.random.normal(0.023, 0.002), 0),
+                "W_std": 0.0001,
+                "s": duration,
+            }
+
+            energy_trace.append(transition)
+
+            if len(energy_trace) > 1:
+                energy_trace[-1]["W_mean_delta_prev"] = (
+                    energy_trace[-1]["W_mean"] - energy_trace[-2]["W_mean"]
+                )
+
+            state = {
+                "isa": "state",
+                "W_mean": max(np.random.normal(0.023, 0.002), 0),
+                "W_std": 0.0001,
+                "s": self.state_duration,
+            }
+
+            energy_trace.append(state)
+
+            energy_trace[-2]["W_mean_delta_next"] = (
+                energy_trace[-2]["W_mean"] - energy_trace[-1]["W_mean"]
+            )
+
+        return energy_trace
+
+
+class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
+    pass
 
 
 class MIMOSA:
