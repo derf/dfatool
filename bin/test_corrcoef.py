@@ -111,7 +111,6 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
 if __name__ == "__main__":
 
     ignored_trace_indexes = None
-    discard_outliers = None
     safe_functions_enabled = False
     function_override = {}
     show_models = []
@@ -120,7 +119,7 @@ if __name__ == "__main__":
     try:
         optspec = (
             "plot-unparam= plot-param= show-models= show-quality= "
-            "ignored-trace-indexes= discard-outliers= function-override= "
+            "ignored-trace-indexes= function-override= "
             "with-safe-functions"
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(" "))
@@ -135,9 +134,6 @@ if __name__ == "__main__":
                 )
                 if 0 in ignored_trace_indexes:
                     print("[E] arguments to --ignored-trace-indexes start from 1")
-
-            if "discard-outliers" in opt:
-                discard_outliers = float(opt["discard-outliers"])
 
             if "function-override" in opt:
                 for function_desc in opt["function-override"].split(";"):
@@ -170,7 +166,6 @@ if __name__ == "__main__":
         arg_count,
         traces=preprocessed_data,
         ignore_trace_indexes=ignored_trace_indexes,
-        discard_outliers=discard_outliers,
         function_override=function_override,
         use_corrcoef=False,
     )
@@ -180,7 +175,6 @@ if __name__ == "__main__":
         arg_count,
         traces=preprocessed_data,
         ignore_trace_indexes=ignored_trace_indexes,
-        discard_outliers=discard_outliers,
         function_override=function_override,
         use_corrcoef=True,
     )

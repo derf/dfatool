@@ -61,9 +61,6 @@ Options:
     Specify traces which should be ignored due to bogus data. 1 is the first
     trace, 2 the second, and so on.
 
---discard-outliers=
-    not supported at the moment
-
 --cross-validate=<method>:<count>
     Perform cross validation when computing model quality.
     Only works with --show-quality=table at the moment.
@@ -291,7 +288,6 @@ def print_html_model_data(model, pm, pq, lm, lq, am, ai, aq):
 if __name__ == "__main__":
 
     ignored_trace_indexes = []
-    discard_outliers = None
     safe_functions_enabled = False
     function_override = {}
     show_models = []
@@ -306,7 +302,7 @@ if __name__ == "__main__":
         optspec = (
             "info "
             "plot-unparam= plot-param= plot-traces= show-models= show-quality= "
-            "ignored-trace-indexes= discard-outliers= function-override= "
+            "ignored-trace-indexes= function-override= "
             "export-traces= "
             "filter-param= "
             "log-level= "
@@ -325,9 +321,6 @@ if __name__ == "__main__":
             )
             if 0 in ignored_trace_indexes:
                 print("[E] arguments to --ignored-trace-indexes start from 1")
-
-        if "discard-outliers" in opt:
-            discard_outliers = float(opt["discard-outliers"])
 
         if "function-override" in opt:
             for function_desc in opt["function-override"].split(";"):
@@ -457,7 +450,6 @@ if __name__ == "__main__":
         parameters,
         arg_count,
         traces=preprocessed_data,
-        discard_outliers=discard_outliers,
         function_override=function_override,
         pta=pta,
     )

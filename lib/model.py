@@ -700,7 +700,6 @@ class PTAModel:
         arg_count,
         traces=[],
         ignore_trace_indexes=[],
-        discard_outliers=None,
         function_override={},
         use_corrcoef=False,
         pta=None,
@@ -716,13 +715,6 @@ class PTAModel:
         arg_count -- function arguments, as returned by pta_trace_to_aggregate
         traces -- list of preprocessed DFA traces, as returned by RawData.get_preprocessed_data()
         ignore_trace_indexes -- list of trace indexes. The corresponding traces will be ignored.
-        discard_outliers -- currently not supported: threshold for outlier detection and removel (float).
-            Outlier detection is performed individually for each state/transition in each trace,
-            so it only works if the benchmark ran several times.
-            Given "data" (a set of measurements of the same thing, e.g. TX duration in the third benchmark trace),
-            "m" (the median of all attribute measurements with the same parameters, which may include data from other traces),
-            a data point X is considered an outlier if
-            | 0.6745 * (X - m) / median(|data - m|) | > discard_outliers .
         function_override -- dict of overrides for automatic parameter function generation.
             If (state or transition name, model attribute) is present in function_override,
             the corresponding text string is the function used for analytic (parameter-aware/fitted)
@@ -749,7 +741,6 @@ class PTAModel:
         )
         self.cache = {}
         np.seterr("raise")
-        self._outlier_threshold = discard_outliers
         self.function_override = function_override.copy()
         self.pta = pta
         self.ignore_trace_indexes = ignore_trace_indexes
