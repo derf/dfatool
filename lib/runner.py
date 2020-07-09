@@ -178,6 +178,7 @@ class EnergyTraceMonitor(SerialMonitor):
             "voltage": self._voltage,
         }
 
+
 class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
     """EnergyTraceLogicAnalyzerMonitor captures EnergyTrace energy data and LogicAnalyzer timing output."""
 
