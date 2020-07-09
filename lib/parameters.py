@@ -250,6 +250,8 @@ def _compute_param_statistics(
     corr_by_param -- correlation coefficient
     corr_by_arg -- same, but ignoring a single function argument
         Only set if state_or_trans appears in arg_count, empty dict otherwise.
+    depends_on_param -- dict(parameter_name -> Bool). True if /attribute/ behaviour probably depends on /parameter_name/
+    depends_on_arg -- list(bool). Same, but for function arguments, if any.
     """
     ret = {
         "std_static": np.std(by_name[state_or_trans][attribute]),
@@ -270,7 +272,6 @@ def _compute_param_statistics(
         "corr_by_arg": [],
         "depends_on_param": {},
         "depends_on_arg": [],
-        "param_data": {},
     }
 
     np.seterr("raise")
