@@ -3,7 +3,7 @@ import time
 import sys
 import getopt
 import re
-from multiprocessing import Pool, Manager
+from multiprocessing import Pool, Manager, cpu_count
 from kneed import KneeLocator
 from sklearn.cluster import AgglomerativeClustering
 import matplotlib.pyplot as plt
@@ -86,7 +86,7 @@ def calc_pelt(signal, penalty, model="l1", jump=5, min_dist=2, plotting=False):
         return bkps
 
     print_error("No Penalty specified.")
-    sys.exit()
+    sys.exit(-1)
 
 
 def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0, range_max=50,
@@ -220,7 +220,7 @@ def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0,
 
     print_error("With the current thresh-hold S=" + str(S)
                 + " it is not possible to select a penalty value.")
-    sys.exit()
+    sys.exit(-1)
 
 
 # very short benchmark yielded approx. 1/3 of speed compared to solution with sorting
@@ -405,7 +405,7 @@ if __name__ == '__main__':
     opt_min_dist = None
     opt_range_min = None
     opt_range_max = None
-    opt_num_processes = None
+    opt_num_processes = cpu_count()
     opt_refresh_delay = None
     opt_refresh_thresh = None
     opt_S = None
@@ -422,7 +422,7 @@ if __name__ == '__main__':
 
         if 'filename' not in opt:
             print_error("No file specified!")
-            sys.exit(2)
+            sys.exit(-1)
         else:
             opt_filename = opt['filename']
         if 'v' in opt:
@@ -435,70 +435,70 @@ if __name__ == '__main__':
                 opt_jump = int(opt['jump'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
         if 'min_dist' in opt:
             try:
                 opt_min_dist = int(opt['min_dist'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
         if 'range_min' in opt:
             try:
                 opt_range_min = int(opt['range_min'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
         if 'range_max' in opt:
             try:
                 opt_range_max = int(opt['range_max'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
         if 'num_processes' in opt:
             try:
                 opt_num_processes = int(opt['num_processes'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
         if 'refresh_delay' in opt:
             try:
                 opt_refresh_delay = int(opt['refresh_delay'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
         if 'refresh_thresh' in opt:
             try:
                 opt_refresh_thresh = int(opt['refresh_thresh'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
         if 'S' in opt:
             try:
                 opt_S = float(opt['S'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
         if 'pen_override' in opt:
             try:
                 opt_pen_override = int(opt['pen_override'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
         if 'pen_modifier' in opt:
             try:
                 opt_pen_modifier = float(opt['pen_modifier'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
         if 'refinement_thresh' in opt:
             try:
                 opt_refinement_thresh = int(opt['refinement_thresh'])
             except ValueError as verr:
                 print(verr, file=sys.stderr)
-                sys.exit(2)
+                sys.exit(-1)
     except getopt.GetoptError as err:
         print(err, file=sys.stderr)
-        sys.exit(2)
+        sys.exit(-1)
 
     # OPENING DATA
     if ".json" in opt_filename:
@@ -623,8 +623,8 @@ if __name__ == '__main__':
                         # plt.show()
                         # TODO: Problem: Der Algorithmus nummeriert die Zustände nicht immer gleich... also bspw.:
                         # mal ist das tatsächliche Transmit mit 1 belabelt und mal mit 3
-                        cluster_labels_list.append(cluster.labels_)
-                        num_cluster_list.append(cluster.n_clusters_)
+                        cluster_labels_list.append((num_trace, cluster.labels_))
+                        num_cluster_list.append((num_trace, cluster.n_clusters_))
                         i = i + 1
                     else:
                         print_info("Discarding measurement No. " + str(num_trace) + " because it "
@@ -640,18 +640,55 @@ if __name__ == '__main__':
                                    + " Measurements for refinement. "
                                      "Others did not recognize number of states correctly.")
                     # TODO: DEBUG Kram
-                    sys.exit()
+                    sys.exit(0)
                 else:
                     print_info("Used all available measurements.")
 
-                num_states = np.argmax(np.bincount(num_cluster_list))
+                num_states = np.argmax(np.bincount([elem[1] for elem in num_cluster_list]))
+                avg_per_state_list = [None] * len(cluster_labels_list)
+                used_clusters = 0
+                for number, (num_trace, labels) in enumerate(cluster_labels_list):
+                    if num_cluster_list[number][1] == num_states:
+                        avg_per_state = [0] * num_states
+                        count_per_state = [0] * num_states
+                        raw_states = raw_states_list[num_trace]
+                        for num_label, label in enumerate(labels):
+                            count_per_state[label] = count_per_state[label] + 1
+                            avg_per_state[label] = avg_per_state[label] + raw_states[num_label][2]
+                        for i,_ in enumerate(avg_per_state):
+                            avg_per_state[i] = avg_per_state[i] / count_per_state[i]
+                        avg_per_state_list[number] = avg_per_state
+                        used_clusters = used_clusters + 1
+
+                # flattend version for clustering:
+                values_to_cluster = np.zeros((num_states * used_clusters, 2))
+                index = 0
+                for avg_per_state in avg_per_state_list:
+                    if None not in avg_per_state:
+                        for avg in avg_per_state:
+                            values_to_cluster[index][0] = avg
+                            values_to_cluster[index][1] = 0
+                            index = index + 1
+                # plt.scatter(values_to_cluster[:, 0], values_to_cluster[:, 1])
+                # plt.show()
+                cluster = AgglomerativeClustering(n_clusters=num_states)
+                cluster.fit_predict(values_to_cluster)
+                # HIER WEITER:
+                # Aktuell hast du hier ein plattes Array mit labels. Jetzt also das wieder auf die
+                # ursprünglichen Labels abbilden, die dann verändern mit den hier gefundenen Labels.
+                # Alle identischen Zustände haben identische Labels. Dann vllt bei resulting
+                # sequence ausgeben, wie groß die übereinstimmung bei der Stateabfolge ist.
+
                 resulting_sequence = [None] * num_raw_states
                 i = 0
                 for x in resulting_sequence:
                     j = 0
                     test_list = []
-                    for arr in cluster_labels_list:
-                        if num_cluster_list[j] != num_states:
+                    for arr in [elem[1] for elem in cluster_labels_list]:
+                        if num_cluster_list[j][1] != num_states:
+                            # hopefully this does not happen regularly
+                            print_info("Discarding measurement " + str(j)
+                                       + " because the clustering yielded not matching results.")
                             j = j + 1
                         else:
                             test_list.append(arr[i])
@@ -659,6 +696,7 @@ if __name__ == '__main__':
                     resulting_sequence[i] = np.argmax(np.bincount(test_list))
                     i = i + 1
                 print(resulting_sequence)
+                sys.exit()
 
     elif ".tar" in opt_filename:
         # open with dfatool
@@ -670,11 +708,12 @@ if __name__ == '__main__':
         print_info("Preprocessing file. Depending on its size, this could take a while.")
         preprocessed_data = raw_data.get_preprocessed_data()
         print_info("File fully preprocessed")
-
         # TODO: Mal schauen, wie ich das mache. Erstmal nur mit json
+        print_error("Not implemented yet. Please generate .json files first with dfatool and use"
+                    " those.")
     else:
         print_error("Unknown dataformat")
-        sys.exit(2)
+        sys.exit(-1)
 
     # print(tx_data[1]['parameter'])
     # # parse json to array for PELT
