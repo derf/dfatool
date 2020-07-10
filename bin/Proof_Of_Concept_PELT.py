@@ -579,6 +579,7 @@ if __name__ == '__main__':
                         #            show_leaf_counts=True)
                         # plt.show()
                         # TODO: Automatic detection of number of clusters. Aktuell noch MAGIC NUMBER
+                        #   im distance_threshold
                         cluster = AgglomerativeClustering(n_clusters=None, compute_full_tree=True, affinity='euclidean',
                                                          linkage='ward', distance_threshold=opt_refinement_thresh*100)
                         # cluster = AgglomerativeClustering(n_clusters=5, affinity='euclidean',
