@@ -504,17 +504,18 @@ if __name__ == '__main__':
     if ".json" in opt_filename:
         # open file with trace data from json
         print_info(
-            " Will only refine the state which is present in " + opt_filename + " if necessary.")
+            "Will only refine the state which is present in " + opt_filename + " if necessary.")
         with open(opt_filename, 'r') as f:
-            states = json.load(f)
+            configurations = json.load(f)
         # loop through all traces check if refinement is necessary
-        print_info("Checking if refinement is necessary...")
-        for measurements_by_state in states:
+        resulting_sequence_list = []
+        for num_config, measurements_by_configuration in enumerate(configurations):
             # loop through all occurrences of the looked at state
-            print_info("Looking at state '" + measurements_by_state['name'] + "' with params: "
-                       + str(measurements_by_state['parameter']))
+            print_info("Looking at state '" + measurements_by_configuration['name'] + "' with params: "
+                       + str(measurements_by_configuration['parameter']))
             refine = False
-            for measurement in measurements_by_state['offline']:
+            print_info("Checking if refinement is necessary...")
+            for measurement in measurements_by_configuration['offline']:
                 # loop through measurements of particular state
                 # an check if state needs refinement
                 signal = measurement['uW']
@@ -524,13 +525,13 @@ if __name__ == '__main__':
                     print_info("Refinement is necessary!")
                     refine = True
             if not refine:
-                print_info("No refinement necessary for state '" + measurements_by_state['name']
-                           + "' with params: " + str(measurements_by_state['parameter']))
+                print_info("No refinement necessary for state '" + measurements_by_configuration['name']
+                           + "' with params: " + str(measurements_by_configuration['parameter']))
             else:
                 # assume that all measurements of the same param configuration are fundamentally
                 # similar -> calculate penalty for first measurement, use it for all
                 if opt_pen_override is None:
-                    signal = np.array(measurements_by_state['offline'][0]['uW'])
+                    signal = np.array(measurements_by_configuration['offline'][0]['uW'])
                     normed_signal = norm_signal(signal)
                     penalty = calculate_penalty_value(normed_signal, model=opt_model,
                                                       range_min=opt_range_min,
@@ -544,11 +545,11 @@ if __name__ == '__main__':
                 # build arguments for parallel excecution
                 print_info("Starting raw_states calculation.")
                 raw_states_calc_args = []
-                for num_measurement, measurement in enumerate(measurements_by_state['offline']):
+                for num_measurement, measurement in enumerate(measurements_by_configuration['offline']):
                     raw_states_calc_args.append((num_measurement, measurement, penalty,
                                                  opt_model, opt_jump))
 
-                raw_states_list = [None] * len(measurements_by_state['offline'])
+                raw_states_list = [None] * len(measurements_by_configuration['offline'])
                 raw_states_res = calc_raw_states(raw_states_calc_args, opt_num_processes)
                 # extracting result and putting it in correct order -> index of raw_states_list
                 # entry still corresponds with index of measurement in measurements_by_states
@@ -629,6 +630,7 @@ if __name__ == '__main__':
                     else:
                         print_info("Discarding measurement No. " + str(num_trace) + " because it "
                                    + "did not recognize the number of raw_states correctly.")
+                num_used_measurements = len(raw_states_list)
                 if i != len(raw_states_list):
                     if i / len(raw_states_list) <= 0.5:
                         print_warning("Only used " + str(i) + "/" + str(len(raw_states_list))
@@ -639,6 +641,7 @@ if __name__ == '__main__':
                         print_info("Used " + str(i) + "/" + str(len(raw_states_list))
                                    + " Measurements for refinement. "
                                      "Others did not recognize number of states correctly.")
+                    num_used_measurements = i
                     # TODO: DEBUG Kram
                     sys.exit(0)
                 else:
@@ -655,16 +658,24 @@ if __name__ == '__main__':
                         for num_label, label in enumerate(labels):
                             count_per_state[label] = count_per_state[label] + 1
                             avg_per_state[label] = avg_per_state[label] + raw_states[num_label][2]
-                        for i,_ in enumerate(avg_per_state):
+                        for i, _ in enumerate(avg_per_state):
                             avg_per_state[i] = avg_per_state[i] / count_per_state[i]
                         avg_per_state_list[number] = avg_per_state
                         used_clusters = used_clusters + 1
-
+                    else:
+                        # hopefully this does not happen regularly
+                        print_info("Discarding measurement " + str(number)
+                                   + " because the clustering yielded not matching results.")
+                        num_used_measurements = num_used_measurements - 1
+                if num_used_measurements == 0:
+                    print_error("Something went terribly wrong. Discarded all measurements.")
+                    # continue
+                    sys.exit(-1)
                 # flattend version for clustering:
                 values_to_cluster = np.zeros((num_states * used_clusters, 2))
                 index = 0
                 for avg_per_state in avg_per_state_list:
-                    if None not in avg_per_state:
+                    if avg_per_state is not None:
                         for avg in avg_per_state:
                             values_to_cluster[index][0] = avg
                             values_to_cluster[index][1] = 0
@@ -673,30 +684,73 @@ if __name__ == '__main__':
                 # plt.show()
                 cluster = AgglomerativeClustering(n_clusters=num_states)
                 cluster.fit_predict(values_to_cluster)
-                # HIER WEITER:
                 # Aktuell hast du hier ein plattes Array mit labels. Jetzt also das wieder auf die
                 # ursprünglichen Labels abbilden, die dann verändern mit den hier gefundenen Labels.
                 # Alle identischen Zustände haben identische Labels. Dann vllt bei resulting
                 # sequence ausgeben, wie groß die übereinstimmung bei der Stateabfolge ist.
-
+                new_labels_list = []
+                new_labels = []
+                i = 0
+                for label in cluster.labels_:
+                    new_labels.append(label)
+                    i = i + 1
+                    if i == num_states:
+                        new_labels_list.append(new_labels)
+                        new_labels = []
+                        i = 0
+                # only the selected measurements are present in new_labels.
+                # new_labels_index should not be incremented, if not selected_measurement is skipped
+                new_labels_index = 0
+                # cluster_labels_list contains all measurements -> if measurement is skipped
+                # still increment the index
+                index = 0
+                for elem in avg_per_state_list:
+                    if elem is not None:
+                        for number, label in enumerate(cluster_labels_list[index][1]):
+                            cluster_labels_list[index][1][number] = \
+                                new_labels_list[new_labels_index][label]
+                        new_labels_index = new_labels_index + 1
+                    else:
+                        # override not selected measurement labels to avoid choosing the wrong ones.
+                        for number, label in enumerate(cluster_labels_list[index][1]):
+                            cluster_labels_list[index][1][number] = -1
+                    index = index + 1
                 resulting_sequence = [None] * num_raw_states
                 i = 0
+                confidence = 0
                 for x in resulting_sequence:
                     j = 0
                     test_list = []
                     for arr in [elem[1] for elem in cluster_labels_list]:
                         if num_cluster_list[j][1] != num_states:
-                            # hopefully this does not happen regularly
-                            print_info("Discarding measurement " + str(j)
-                                       + " because the clustering yielded not matching results.")
                             j = j + 1
                         else:
+                            if -1 in arr:
+                                print_error("Bei Janis beschweren! Fehler beim Umbenennen der"
+                                            " Zustände wahrscheinlich.")
+                                sys.exit(-1)
                             test_list.append(arr[i])
                             j = j + 1
-                    resulting_sequence[i] = np.argmax(np.bincount(test_list))
+                    bincount = np.bincount(test_list)
+                    resulting_sequence[i] = np.argmax(bincount)
+                    confidence = confidence + bincount[resulting_sequence[i]] / np.sum(bincount)
                     i = i + 1
+                confidence = confidence / len(resulting_sequence)
+                print_info("Confidence of resulting sequence is " + str(confidence)
+                           + " while using " + str(num_used_measurements) + "/"
+                           + str(len(raw_states_list)) + " measurements.")
                 print(resulting_sequence)
-                sys.exit()
+                resulting_sequence_list.append((num_config, resulting_sequence))
+        # TODO: Was jetzt? Hier habe ich jetzt pro Konfiguration eine Zustandsfolge. Daraus Automat
+        #   erzeugen. Aber wie? Oder erst parametrisieren? Eigentlich brauche ich vorher die
+        #   Loops. Wie erkenne ich die? Es können beliebig viele Loops an beliebigen Stellen
+        #   auftreten.
+        # TODO: Die Zustandsfolgen werden sich nicht einfach in isomorphe(-einzelne wegfallende bzw.
+        #   hinzukommende Zustände) Automaten übersetzten lassen. Basiert alles auf dem Problem:
+        #   wie erkenne ich, dass zwei Zustände die selben sind und nicht nur einfach eine ähnliche
+        #   Leistungsaufnahme haben?! Vllt Zustände 2D clustern? 1Dim = Leistungsaufnahme,
+        #   2Dim=Dauer? Zumindest innerhalb einer Paramkonfiguration sollte sich die Dauer eines
+        #   Zustands ja nicht mehr ändern.
 
     elif ".tar" in opt_filename:
         # open with dfatool
