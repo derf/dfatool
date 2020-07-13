@@ -223,17 +223,11 @@ def benchmark_from_runs(
                     )
             elif opt["sleep"]:
                 if "energytrace" in opt:
-                    outbuf.write(
-                        "arch.sleep_ms({:d}); // {}\n".format(
-                            opt["sleep"], transition.destination.name
-                        )
-                    )
+                    outbuf.write(f"// -> {transition.destination.name}\n")
+                    outbuf.write(runner.sleep_ms(opt["sleep"], opt["arch"]))
                 else:
-                    outbuf.write(
-                        "arch.delay_ms({:d}); // {}\n".format(
-                            opt["sleep"], transition.destination.name
-                        )
-                    )
+                    outbuf.write(f"// -> {transition.destination.name}\n")
+                    outbuf.write("arch.delay_ms({:d});\n".format(opt["sleep"]))
 
         outbuf.write(harness.stop_run(num_traces))
         if dummy:
@@ -596,6 +590,9 @@ if __name__ == "__main__":
                 run_flags = driver_definition["codegen"]["flags"]
     if run_flags is None:
         run_flags = opt["run"].split()
+
+    if "msp430fr" in opt["arch"]:
+        run_flags.append("cpu_freq=8000000")
 
     runs = list(
         pta.dfs(

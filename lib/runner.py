@@ -405,6 +405,23 @@ def get_counter_limits(arch: str) -> tuple:
     raise RuntimeError("Did not find Counter Overflow limits")
 
 
+def sleep_ms(duration: int, arch: str, cpu_freq: int = None) -> str:
+    max_sleep = None
+    if "msp430fr" in arch:
+        if cpu_freq is not None and cpu_freq > 8000000:
+            max_sleep = 250
+        else:
+            max_sleep = 500
+    if max_sleep is not None and duration > max_sleep:
+        sub_sleep_count = duration // max_sleep
+        tail_sleep = duration % max_sleep
+        ret = f"for (unsigned char i = 0; i < {sub_sleep_count}; i++) {{ arch.sleep_ms({max_sleep}); }}\n"
+        if tail_sleep > 0:
+            ret += f"arch.sleep_ms({tail_sleep});\n"
+        return ret
+    return "arch.sleep_ms({duration});\n"
+
+
 def get_counter_limits_us(arch: str) -> tuple:
     """Return duration of one counter step and one counter overflow in us."""
     cpu_freq = 0
