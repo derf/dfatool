@@ -9,7 +9,7 @@ Functions:
     get_monitor -- return Monitor class suitable for the selected multipass arch
     get_counter_limits -- return arch-specific multipass counter limits (max value, max overflow)
 """
-
+import json
 import os
 import re
 import serial
@@ -17,6 +17,7 @@ import serial.threaded
 import subprocess
 import sys
 import time
+from data.timing.SigrokCLIInterface import SigrokCLIInterface
 
 
 class SerialReader(serial.threaded.Protocol):
@@ -156,6 +157,7 @@ class EnergyTraceMonitor(SerialMonitor):
         self._start_energytrace()
 
     def _start_energytrace(self):
+        print("EnergyTrace Start")
         cmd = ["msp430-etv", "--save", self._output, "0"]
         self._logger = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
@@ -186,6 +188,33 @@ class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
 
     def __init__(self, port: str, baud: int, callback=None, voltage=3.3):
         super().__init__(port=port, baud=baud, callback=callback, voltage=voltage)
+
+        #TODO get length
+        options = {'length': 90, 'fake': False, 'sample_rate': 1_000_000}
+        self.log_file = 'logic_output_log_%s.json' % (time.strftime("%Y%m%d-%H%M%S"))
+
+        # Initialization of Interfaces
+        self.sig = SigrokCLIInterface(sample_rate=options['sample_rate'],
+                                 sample_count=options['length'] * options['sample_rate'], fake=options['fake'])
+
+        # Start Measurements
+        print("[ET LA] START MEASURE")
+        self.sig.runMeasureAsynchronous()
+
+    def close(self):
+        super().close()
+        # Read measured data
+        print("[ET LA] Wait MEASURE")
+        self.sig.waitForAsynchronousMeasure()
+        print("[ET LA] WRITE MEASURE")
+        sync_data = self.sig.getData()
+        print("[ET LA] MEASURE LEN", len(sync_data.timestamps))
+        with open(self.log_file, 'w') as fp:
+            json.dump(sync_data.getDict(), fp)
+
+    def get_files(self) -> list:
+        print("[ET LA] FILE REQUEST")
+        return [self.log_file]
 
 
 class MIMOSAMonitor(SerialMonitor):

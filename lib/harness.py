@@ -405,13 +405,44 @@ class OnboardTimerHarness(TransitionHarness):
         ret = '#include "driver/counter.h"\n'
         ret += "#define PTALOG_TIMING\n"
         ret += super().global_code()
+        if self.energytrace_sync == "led":
+            #TODO Make nicer
+            ret += """\nvoid runLASync(){
+    // ======================= LED SYNC ================================
+    ptalog.passTransition(0);
+    ptalog.startTransition();
+    gpio.led_toggle(0);
+    gpio.led_toggle(1);
+    ptalog.stopTransition(counter);
+
+    for (unsigned char i = 0; i < 4; i++) {
+        arch.sleep_ms(250);
+    }
+
+    ptalog.passTransition(0);
+    ptalog.startTransition();
+    gpio.led_toggle(0);
+    gpio.led_toggle(1);
+    ptalog.stopTransition(counter);
+    // ======================= LED SYNC ================================
+    arch.sleep_ms(250);
+}\n\n"""
         return ret
 
     def start_benchmark(self, benchmark_id=0):
-        ret = "counter.start();\n"
+        ret = ""
+        if self.energytrace_sync == "led":
+            ret += "runLASync();\n"
+        ret += "counter.start();\n"
         ret += "counter.stop();\n"
         ret += "ptalog.passNop(counter);\n"
         ret += super().start_benchmark(benchmark_id)
+        return ret
+
+    def stop_benchmark(self):
+        ret = super().stop_benchmark()
+        if self.energytrace_sync == "led":
+            ret += "runLASync();\n"
         return ret
 
     def pass_transition(
