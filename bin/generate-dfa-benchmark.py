@@ -393,7 +393,7 @@ def run_benchmark(
                     os.remove(filename)
                 harness.undo(i)
             else:
-                files.extend(monitor.get_files())
+                files.append(monitor.get_files())
                 i += 1
 
             harness.restart()
@@ -680,7 +680,7 @@ if __name__ == "__main__":
             "files": list(map(lambda x: x[3], results)),
             "configs": list(map(lambda x: x[2].get_config(), results)),
         }
-        extra_files = flatten(json_out["files"])
+        extra_files = flatten(map(flatten, json_out["files"]))
         if "instance" in pta.codegen:
             output_prefix = (
                 opt["data"] + time.strftime("/%Y%m%d-%H%M%S-") + pta.codegen["instance"]

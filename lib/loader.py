@@ -974,14 +974,16 @@ class RawData:
                                 "state_duration": ptalog["opt"]["sleep"],
                             }
                         )
-                        for repeat_id, etlog_file in enumerate(ptalog["files"][j]):
-                            member = tf.getmember(etlog_file)
+                        for repeat_id, etlog_files in enumerate(ptalog["files"][j]):
+                            members = list(map(tf.getmember, etlog_files))
                             offline_data.append(
                                 {
-                                    "content": tf.extractfile(member).read(),
+                                    "content": list(
+                                        map(lambda f: tf.extractfile(f).read(), members)
+                                    ),
                                     "sync_mode": sync_mode,
                                     "fileno": j,
-                                    "info": member,
+                                    "info": members[0],
                                     "setup": self.setup_by_fileno[j],
                                     "repeat_id": repeat_id,
                                     "expected_trace": ptalog["traces"][j],
@@ -1238,7 +1240,7 @@ class EnergyTraceWithBarcode:
             )
             return list()
 
-        lines = log_data.decode("ascii").split("\n")
+        lines = log_data[0].decode("ascii").split("\n")
         data_count = sum(map(lambda x: len(x) > 0 and x[0] != "#", lines))
         data_lines = filter(lambda x: len(x) > 0 and x[0] != "#", lines)
 
