@@ -249,7 +249,7 @@ class RawData:
     file system, making subsequent loads near-instant.
     """
 
-    def __init__(self, filenames, with_traces=False):
+    def __init__(self, filenames, with_traces=False, skip_cache=False):
         """
         Create a new RawData object.
 
@@ -328,7 +328,7 @@ class RawData:
                 self.pta = self.ptalog["pta"]
 
         self.set_cache_file()
-        if not with_traces:
+        if not with_traces and not skip_cache:
             self.load_cache()
 
     def set_cache_file(self):

@@ -104,6 +104,9 @@ Options:
 
 --export-energymodel=<model.json>
     Export energy model. Works out of the box for v1 and v2 logfiles. Requires --hwmodel for v0 logfiles.
+
+--no-cache
+    Do not load cached measurement results
 """
 
 import getopt
@@ -304,7 +307,7 @@ if __name__ == "__main__":
 
     try:
         optspec = (
-            "info "
+            "info no-cache "
             "plot-unparam= plot-param= plot-traces= show-models= show-quality= "
             "ignored-trace-indexes= discard-outliers= function-override= "
             "export-traces= "
@@ -369,7 +372,9 @@ if __name__ == "__main__":
         sys.exit(2)
 
     raw_data = RawData(
-        args, with_traces=("export-traces" in opt or "plot-traces" in opt)
+        args,
+        with_traces=("export-traces" in opt or "plot-traces" in opt),
+        skip_cache=("no-cache" in opt),
     )
 
     if "info" in opt:
