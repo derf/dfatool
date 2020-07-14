@@ -165,6 +165,7 @@ class EnergyTraceMonitor(SerialMonitor):
 
     # Benchmark fertig -> externe Hilfsprogramme beenden
     def close(self):
+        print("EnergyTrace Close")
         super().close()
         self._logger.send_signal(subprocess.signal.SIGINT)
         stdout, stderr = self._logger.communicate(timeout=15)
@@ -172,6 +173,7 @@ class EnergyTraceMonitor(SerialMonitor):
     # Zusätzliche Dateien, die mit dem Benchmark-Log und -Plan abgespeichert werden sollen
     # (hier: Die von msp430-etv generierten Logfiles)
     def get_files(self) -> list:
+        print("EnergyTrace Get Files")
         return [self._output]
 
     # Benchmark-Konfiguration. Hier: Die (konstante) Spannung.
@@ -189,7 +191,7 @@ class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
     def __init__(self, port: str, baud: int, callback=None, voltage=3.3):
         super().__init__(port=port, baud=baud, callback=callback, voltage=voltage)
 
-        #TODO get length
+        #TODO Max length
         options = {'length': 90, 'fake': False, 'sample_rate': 1_000_000}
         self.log_file = 'logic_output_log_%s.json' % (time.strftime("%Y%m%d-%H%M%S"))
 
@@ -198,23 +200,22 @@ class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
                                  sample_count=options['length'] * options['sample_rate'], fake=options['fake'])
 
         # Start Measurements
-        print("[ET LA] START MEASURE")
         self.sig.runMeasureAsynchronous()
 
     def close(self):
         super().close()
         # Read measured data
-        print("[ET LA] Wait MEASURE")
-        self.sig.waitForAsynchronousMeasure()
-        print("[ET LA] WRITE MEASURE")
+        #self.sig.waitForAsynchronousMeasure()
+        self.sig.forceStopMeasure()
+        time.sleep(0.2)
         sync_data = self.sig.getData()
-        print("[ET LA] MEASURE LEN", len(sync_data.timestamps))
         with open(self.log_file, 'w') as fp:
             json.dump(sync_data.getDict(), fp)
 
     def get_files(self) -> list:
-        print("[ET LA] FILE REQUEST")
-        return [self.log_file]
+        files = [self.log_file]
+        files.extend(super().get_files())
+        return files
 
 
 class MIMOSAMonitor(SerialMonitor):

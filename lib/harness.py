@@ -440,9 +440,10 @@ class OnboardTimerHarness(TransitionHarness):
         return ret
 
     def stop_benchmark(self):
-        ret = super().stop_benchmark()
+        ret = ""
         if self.energytrace_sync == "led":
             ret += "runLASync();\n"
+        ret += super().stop_benchmark()
         return ret
 
     def pass_transition(
