@@ -1637,6 +1637,8 @@ class EnergyTraceWithLogicAnalyzer:
 
     def load_data(self, log_data):
         # TODO Daten laden
+        print("########################")
+        print(log_data[0].split("\n")[0])
         pass
 
     def analyze_states(self, traces, offline_index: int):
