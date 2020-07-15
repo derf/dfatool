@@ -2,13 +2,464 @@
 
 from dfatool.loader import RawData, pta_trace_to_aggregate
 from dfatool.model import PTAModel
+from dfatool.utils import by_name_to_by_param
+from dfatool.validation import CrossValidator
 import os
 import unittest
 import pytest
 
+import numpy as np
 
-class TestModels(unittest.TestCase):
-    def test_model_singlefile_rf24(self):
+
+class TestSynthetic(unittest.TestCase):
+    def test_model_validation(self):
+        # rng = np.random.default_rng(seed=1312) # requiresy NumPy >= 1.17
+        np.random.seed(1312)
+        X = np.arange(500) % 50
+        parameter_names = ["p_mod5", "p_linear"]
+
+        s1_duration_base = 70
+        s1_duration_scale = 2
+        s1_power_base = 50
+        s1_power_scale = 7
+        s2_duration_base = 700
+        s2_duration_scale = 1
+        s2_power_base = 1500
+        s2_power_scale = 10
+
+        by_name = {
+            "raw_state_1": {
+                "isa": "state",
+                "param": [(x % 5, x) for x in X],
+                "duration": s1_duration_base
+                + np.random.normal(size=X.size, scale=s1_duration_scale),
+                "power": s1_power_base
+                + X
+                + np.random.normal(size=X.size, scale=s1_power_scale),
+                "attributes": ["duration", "power"],
+            },
+            "raw_state_2": {
+                "isa": "state",
+                "param": [(x % 5, x) for x in X],
+                "duration": s2_duration_base
+                - 2 * X
+                + np.random.normal(size=X.size, scale=s2_duration_scale),
+                "power": s2_power_base
+                + X
+                + np.random.normal(size=X.size, scale=s2_power_scale),
+                "attributes": ["duration", "power"],
+            },
+        }
+        by_param = by_name_to_by_param(by_name)
+        model = PTAModel(by_name, parameter_names, dict())
+        static_model = model.get_static()
+
+        # x ∈ [0, 50] -> mean(X) is 25
+        self.assertAlmostEqual(
+            static_model("raw_state_1", "duration"), s1_duration_base, places=0
+        )
+        self.assertAlmostEqual(
+            static_model("raw_state_1", "power"), s1_power_base + 25, delta=7
+        )
+        self.assertAlmostEqual(
+            static_model("raw_state_2", "duration"), s2_duration_base - 2 * 25, delta=2
+        )
+        self.assertAlmostEqual(
+            static_model("raw_state_2", "power"), s2_power_base + 25, delta=7
+        )
+
+        param_model, param_info = model.get_fitted()
+
+        self.assertAlmostEqual(
+            param_model("raw_state_1", "duration", param=[0, 10]),
+            s1_duration_base,
+            places=0,
+        )
+        self.assertAlmostEqual(
+            param_model("raw_state_1", "duration", param=[0, 50]),
+            s1_duration_base,
+            places=0,
+        )
+        self.assertAlmostEqual(
+            param_model("raw_state_1", "duration", param=[0, 70]),
+            s1_duration_base,
+            places=0,
+        )
+
+        self.assertAlmostEqual(
+            param_model("raw_state_1", "power", param=[0, 10]),
+            s1_power_base + 10,
+            places=0,
+        )
+        self.assertAlmostEqual(
+            param_model("raw_state_1", "power", param=[0, 50]),
+            s1_power_base + 50,
+            places=0,
+        )
+        self.assertAlmostEqual(
+            param_model("raw_state_1", "power", param=[0, 70]),
+            s1_power_base + 70,
+            places=0,
+        )
+
+        self.assertAlmostEqual(
+            param_model("raw_state_2", "duration", param=[0, 10]),
+            s2_duration_base - 2 * 10,
+            places=0,
+        )
+        self.assertAlmostEqual(
+            param_model("raw_state_2", "duration", param=[0, 50]),
+            s2_duration_base - 2 * 50,
+            places=0,
+        )
+        self.assertAlmostEqual(
+            param_model("raw_state_2", "duration", param=[0, 70]),
+            s2_duration_base - 2 * 70,
+            places=0,
+        )
+
+        self.assertAlmostEqual(
+            param_model("raw_state_2", "power", param=[0, 10]),
+            s2_power_base + 10,
+            delta=50,
+        )
+        self.assertAlmostEqual(
+            param_model("raw_state_2", "power", param=[0, 50]),
+            s2_power_base + 50,
+            delta=50,
+        )
+        self.assertAlmostEqual(
+            param_model("raw_state_2", "power", param=[0, 70]),
+            s2_power_base + 70,
+            delta=50,
+        )
+
+        static_quality = model.assess(static_model)
+        param_quality = model.assess(param_model)
+
+        # static quality reflects normal distribution scale for non-parameterized data
+
+        # the Root Mean Square Deviation must not be greater the scale (i.e., standard deviation) of the normal distribution
+        # Low Mean Absolute Error (< 2)
+        self.assertTrue(static_quality["by_name"]["raw_state_1"]["duration"]["mae"] < 2)
+        # Low Root Mean Square Deviation (< scale == 2)
+        self.assertTrue(
+            static_quality["by_name"]["raw_state_1"]["duration"]["rmsd"] < 2
+        )
+        # Relatively low error percentage (~~ MAE * 100% / s1_duration_base)
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_1"]["duration"]["mape"],
+            static_quality["by_name"]["raw_state_1"]["duration"]["mae"]
+            * 100
+            / s1_duration_base,
+            places=1,
+        )
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_1"]["duration"]["smape"],
+            static_quality["by_name"]["raw_state_1"]["duration"]["mae"]
+            * 100
+            / s1_duration_base,
+            places=1,
+        )
+
+        # static error is high for parameterized data
+
+        # MAE == mean(abs(actual value - model value))
+        # parameter range is [0, 50) -> mean 25, deviation range is [0, 25) -> mean deviation is 12.5 ± gauss scale
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_1"]["power"]["mae"], 12.5, delta=1
+        )
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_1"]["power"]["rmsd"], 16, delta=2
+        )
+        # high percentage error due to low s1_power_base
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_1"]["power"]["mape"], 19, delta=2
+        )
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_1"]["power"]["smape"], 19, delta=2
+        )
+
+        # parameter range is [0, 100) -> mean deviation is 25 ± gauss scale
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["duration"]["mae"], 25, delta=2
+        )
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["duration"]["rmsd"], 30, delta=2
+        )
+
+        # low percentage error due to high s2_duration_base (~~ 3.5 %)
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["duration"]["mape"],
+            25 * 100 / s2_duration_base,
+            delta=1,
+        )
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["duration"]["smape"],
+            25 * 100 / s2_duration_base,
+            delta=1,
+        )
+
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["power"]["mae"], 12.5, delta=2
+        )
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["power"]["rmsd"], 17, delta=2
+        )
+
+        # low percentage error due to high s2_power_base (~~ 1.7 %)
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["power"]["mape"],
+            25 * 100 / s2_power_base,
+            delta=1,
+        )
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["power"]["smape"],
+            25 * 100 / s2_power_base,
+            delta=1,
+        )
+
+        # raw_state_1/duration does not depend on parameters and delegates to the static model
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_1"]["duration"]["mae"],
+            static_quality["by_name"]["raw_state_1"]["duration"]["mae"],
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_1"]["duration"]["rmsd"],
+            static_quality["by_name"]["raw_state_1"]["duration"]["rmsd"],
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_1"]["duration"]["mape"],
+            static_quality["by_name"]["raw_state_1"]["duration"]["mape"],
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_1"]["duration"]["smape"],
+            static_quality["by_name"]["raw_state_1"]["duration"]["smape"],
+        )
+
+        # fitted param-model quality reflects normal distribution scale for all data
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["power"]["mape"], 0.9, places=1
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["power"]["smape"], 0.9, places=1
+        )
+
+        self.assertTrue(
+            param_quality["by_name"]["raw_state_1"]["power"]["mae"] < s1_power_scale
+        )
+        self.assertTrue(
+            param_quality["by_name"]["raw_state_1"]["power"]["rmsd"] < s1_power_scale
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_1"]["power"]["mape"], 7.5, delta=1
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_1"]["power"]["smape"], 7.5, delta=1
+        )
+
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["duration"]["mae"],
+            s2_duration_scale,
+            delta=0.2,
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["duration"]["rmsd"],
+            s2_duration_scale,
+            delta=0.2,
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["duration"]["mape"],
+            0.12,
+            delta=0.01,
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["duration"]["smape"],
+            0.12,
+            delta=0.01,
+        )
+
+        # ... unless the signal-to-noise ratio (parameter range = [0 .. 50] vs. scale = 10) is bad, leading to
+        # increased regression errors
+        self.assertTrue(param_quality["by_name"]["raw_state_2"]["power"]["mae"] < 15)
+        self.assertTrue(param_quality["by_name"]["raw_state_2"]["power"]["rmsd"] < 18)
+
+        # still: low percentage error due to high s2_power_base
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["power"]["mape"], 0.9, places=1
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["power"]["smape"], 0.9, places=1
+        )
+
+    def test_model_crossvalidation_10fold(self):
+        # rng = np.random.default_rng(seed=1312) # requiresy NumPy >= 1.17
+        np.random.seed(1312)
+        X = np.arange(500) % 50
+        parameter_names = ["p_mod5", "p_linear"]
+
+        s1_duration_base = 70
+        s1_duration_scale = 2
+        s1_power_base = 50
+        s1_power_scale = 7
+        s2_duration_base = 700
+        s2_duration_scale = 1
+        s2_power_base = 1500
+        s2_power_scale = 10
+
+        by_name = {
+            "raw_state_1": {
+                "isa": "state",
+                "param": [(x % 5, x) for x in X],
+                "duration": s1_duration_base
+                + np.random.normal(size=X.size, scale=s1_duration_scale),
+                "power": s1_power_base
+                + X
+                + np.random.normal(size=X.size, scale=s1_power_scale),
+                "attributes": ["duration", "power"],
+            },
+            "raw_state_2": {
+                "isa": "state",
+                "param": [(x % 5, x) for x in X],
+                "duration": s2_duration_base
+                - 2 * X
+                + np.random.normal(size=X.size, scale=s2_duration_scale),
+                "power": s2_power_base
+                + X
+                + np.random.normal(size=X.size, scale=s2_power_scale),
+                "attributes": ["duration", "power"],
+            },
+        }
+        by_param = by_name_to_by_param(by_name)
+        arg_count = dict()
+        model = PTAModel(by_name, parameter_names, arg_count)
+        validator = CrossValidator(PTAModel, by_name, parameter_names, arg_count)
+
+        static_quality = validator.kfold(lambda m: m.get_static(), 10)
+        param_quality = validator.kfold(lambda m: m.get_fitted()[0], 10)
+
+        print(static_quality)
+
+        # static quality reflects normal distribution scale for non-parameterized data
+
+        # the Root Mean Square Deviation must not be greater the scale (i.e., standard deviation) of the normal distribution
+        # Low Mean Absolute Error (< 2)
+        self.assertTrue(static_quality["by_name"]["raw_state_1"]["duration"]["mae"] < 2)
+        # Low Root Mean Square Deviation (< scale == 2)
+        self.assertTrue(
+            static_quality["by_name"]["raw_state_1"]["duration"]["rmsd"] < 2
+        )
+        # Relatively low error percentage (~~ MAE * 100% / s1_duration_base)
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_1"]["duration"]["smape"],
+            static_quality["by_name"]["raw_state_1"]["duration"]["mae"]
+            * 100
+            / s1_duration_base,
+            places=1,
+        )
+
+        # static error is high for parameterized data
+
+        # MAE == mean(abs(actual value - model value))
+        # parameter range is [0, 50) -> mean 25, deviation range is [0, 25) -> mean deviation is 12.5 ± gauss scale
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_1"]["power"]["mae"], 12.5, delta=1
+        )
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_1"]["power"]["rmsd"], 16, delta=2
+        )
+        # high percentage error due to low s1_power_base
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_1"]["power"]["smape"], 19, delta=2
+        )
+
+        # parameter range is [0, 100) -> mean deviation is 25 ± gauss scale
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["duration"]["mae"], 25, delta=2
+        )
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["duration"]["rmsd"], 30, delta=2
+        )
+
+        # low percentage error due to high s2_duration_base (~~ 3.5 %)
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["duration"]["smape"],
+            25 * 100 / s2_duration_base,
+            delta=1,
+        )
+
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["power"]["mae"], 12.5, delta=2
+        )
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["power"]["rmsd"], 17, delta=2
+        )
+
+        # low percentage error due to high s2_power_base (~~ 1.7 %)
+        self.assertAlmostEqual(
+            static_quality["by_name"]["raw_state_2"]["power"]["smape"],
+            25 * 100 / s2_power_base,
+            delta=1,
+        )
+
+        # raw_state_1/duration does not depend on parameters and delegates to the static model
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_1"]["duration"]["mae"],
+            static_quality["by_name"]["raw_state_1"]["duration"]["mae"],
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_1"]["duration"]["rmsd"],
+            static_quality["by_name"]["raw_state_1"]["duration"]["rmsd"],
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_1"]["duration"]["smape"],
+            static_quality["by_name"]["raw_state_1"]["duration"]["smape"],
+        )
+
+        # fitted param-model quality reflects normal distribution scale for all data
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["power"]["smape"], 0.9, places=1
+        )
+
+        self.assertTrue(
+            param_quality["by_name"]["raw_state_1"]["power"]["mae"] < s1_power_scale
+        )
+        self.assertTrue(
+            param_quality["by_name"]["raw_state_1"]["power"]["rmsd"] < s1_power_scale
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_1"]["power"]["smape"], 7.5, delta=1
+        )
+
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["duration"]["mae"],
+            s2_duration_scale,
+            delta=0.2,
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["duration"]["rmsd"],
+            s2_duration_scale,
+            delta=0.2,
+        )
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["duration"]["smape"],
+            0.12,
+            delta=0.01,
+        )
+
+        # ... unless the signal-to-noise ratio (parameter range = [0 .. 50] vs. scale = 10) is bad, leading to
+        # increased regression errors
+        self.assertTrue(param_quality["by_name"]["raw_state_2"]["power"]["mae"] < 15)
+        self.assertTrue(param_quality["by_name"]["raw_state_2"]["power"]["rmsd"] < 18)
+
+        # still: low percentage error due to high s2_power_base
+        self.assertAlmostEqual(
+            param_quality["by_name"]["raw_state_2"]["power"]["smape"], 0.9, places=1
+        )
+
+
+class TestFromFile(unittest.TestCase):
+    def test_singlefile_rf24(self):
         raw_data = RawData(["test-data/20170220_164723_RF24_int_A.tar"])
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
@@ -162,7 +613,7 @@ class TestModels(unittest.TestCase):
             param_model("RX", "power", param=[1, None, None]), 48647, places=-1
         )
 
-    def test_model_singlefile_mmparam(self):
+    def test_singlefile_mmparam(self):
         raw_data = RawData(["test-data/20161221_123347_mmparam.tar"])
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
@@ -201,7 +652,7 @@ class TestModels(unittest.TestCase):
             param_lut_model("ON", "power", param=[None, None]), 17866, places=0
         )
 
-    def test_model_multifile_lm75x(self):
+    def test_multifile_lm75x(self):
         testfiles = [
             "test-data/20170116_124500_LM75x.tar",
             "test-data/20170116_131306_LM75x.tar",
@@ -243,7 +694,7 @@ class TestModels(unittest.TestCase):
         self.assertAlmostEqual(static_model("shutdown", "duration"), 6980, places=0)
         self.assertAlmostEqual(static_model("start", "duration"), 6980, places=0)
 
-    def test_model_multifile_sharp(self):
+    def test_multifile_sharp(self):
         testfiles = [
             "test-data/20170116_145420_sharpLS013B4DN.tar",
             "test-data/20170116_151348_sharpLS013B4DN.tar",
@@ -285,7 +736,7 @@ class TestModels(unittest.TestCase):
         self.assertAlmostEqual(static_model("sendLine", "duration"), 180, places=0)
         self.assertAlmostEqual(static_model("toggleVCOM", "duration"), 30, places=0)
 
-    def test_model_multifile_mmstatic(self):
+    def test_multifile_mmstatic(self):
         testfiles = [
             "test-data/20170116_143516_mmstatic.tar",
             "test-data/20170116_142654_mmstatic.tar",
@@ -325,7 +776,7 @@ class TestModels(unittest.TestCase):
     @pytest.mark.skipif(
         "TEST_SLOW" not in os.environ, reason="slow test, set TEST_SLOW=1 to run"
     )
-    def test_model_multifile_cc1200(self):
+    def test_multifile_cc1200(self):
         testfiles = [
             "test-data/20170125_125433_cc1200.tar",
             "test-data/20170125_142420_cc1200.tar",
