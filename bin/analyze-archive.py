@@ -145,6 +145,15 @@ def format_quality_measures(result):
 
 
 def model_quality_table(result_lists, info_list):
+    print(
+        "{:20s} {:15s}       {:19s}       {:19s}       {:19s}".format(
+            "key",
+            "attribute",
+            "static".center(19),
+            "LUT".center(19),
+            "parameterized".center(19),
+        )
+    )
     for state_or_tran in result_lists[0]["by_name"].keys():
         for key in result_lists[0]["by_name"][state_or_tran].keys():
             buf = "{:20s} {:15s}".format(state_or_tran, key)
@@ -155,7 +164,7 @@ def model_quality_table(result_lists, info_list):
                     result = results["by_name"][state_or_tran][key]
                     buf += format_quality_measures(result)
                 else:
-                    buf += "{:6}----{:9}".format("", "")
+                    buf += "{:7}----{:8}".format("", "")
             print(buf)
 
 
