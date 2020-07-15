@@ -5,6 +5,7 @@ import numpy as np
 from scipy import optimize
 from sklearn.metrics import r2_score
 from multiprocessing import Pool
+from .automata import PTA
 from .functions import analytic
 from .functions import AnalyticFunction
 from .parameters import ParamStats
@@ -931,13 +932,16 @@ class PTAModel:
         static_quality = self.assess(static_model)
         param_model, param_info = self.get_fitted()
         analytic_quality = self.assess(param_model)
-        self.pta.update(
+        pta = self.pta
+        if pta is None:
+            pta = PTA(self.states(), parameters=self._parameter_names)
+        pta.update(
             static_model,
             param_info,
             static_error=static_quality["by_name"],
             analytic_error=analytic_quality["by_name"],
         )
-        return self.pta.to_json()
+        return pta.to_json()
 
     def states(self):
         """Return sorted list of state names."""
