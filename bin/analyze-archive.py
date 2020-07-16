@@ -704,7 +704,7 @@ if __name__ == "__main__":
         )
 
     if "overall" in show_quality or "all" in show_quality:
-        print("overall static/param/lut MAE assuming equal state distribution:")
+        print("overall state static/param/lut MAE assuming equal state distribution:")
         print(
             "    {:6.1f}  /  {:6.1f}  /  {:6.1f}  µW".format(
                 model.assess_states(static_model),
@@ -712,15 +712,30 @@ if __name__ == "__main__":
                 model.assess_states(lut_model),
             )
         )
-        print("overall static/param/lut MAE assuming 95% STANDBY1:")
-        distrib = {"STANDBY1": 0.95, "POWERDOWN": 0.03, "TX": 0.01, "RX": 0.01}
-        print(
-            "    {:6.1f}  /  {:6.1f}  /  {:6.1f}  µW".format(
-                model.assess_states(static_model, distribution=distrib),
-                model.assess_states(param_model, distribution=distrib),
-                model.assess_states(lut_model, distribution=distrib),
+        distrib = dict()
+        num_states = len(model.states())
+        p95_state = None
+        for state in model.states():
+            distrib[state] = 1.0 / num_states
+
+        if "STANDBY1" in model.states():
+            p95_state = "STANDBY1"
+        elif "SLEEP" in model.states():
+            p95_state = "SLEEP"
+
+        if p95_state is not None:
+            for state in distrib.keys():
+                distrib[state] = 0.05 / (num_states - 1)
+            distrib[p95_state] = 0.95
+
+            print(f"overall state static/param/lut MAE assuming 95% {p95_state}:")
+            print(
+                "    {:6.1f}  /  {:6.1f}  /  {:6.1f}  µW".format(
+                    model.assess_states(static_model, distribution=distrib),
+                    model.assess_states(param_model, distribution=distrib),
+                    model.assess_states(lut_model, distribution=distrib),
+                )
             )
-        )
 
     if "summary" in show_quality or "all" in show_quality:
         model_summary_table(
