@@ -1,10 +1,14 @@
 import itertools
+import logging
 import numpy as np
+import warnings
 from collections import OrderedDict
 from copy import deepcopy
 from multiprocessing import Pool
 from .utils import remove_index_from_tuple, is_numeric
 from .utils import filter_aggregate_by_param, by_name_to_by_param
+
+logger = logging.getLogger(__name__)
 
 
 def distinct_param_values(by_name, state_or_tran):
@@ -78,25 +82,7 @@ def _reduce_param_matrix(matrix: np.ndarray, parameter_names: list) -> list:
     return list()
 
 
-def _codependent_parameters(param, lut_by_param_values, std_by_param_values):
-    """
-    Return list of parameters which affect whether a parameter affects a model attribute or not.
-    """
-    return list()
-    safe_div = np.vectorize(lambda x, y: 0.0 if x == 0 else 1 - x / y)
-    ratio_by_value = safe_div(lut_by_param_values, std_by_param_values)
-    err_mode = np.seterr("ignore")
-    dep_by_value = ratio_by_value > 0.5
-    np.seterr(**err_mode)
-
-    other_param_list = list(filter(lambda x: x != param, self._parameter_names))
-    influencer_parameters = _reduce_param_matrix(dep_by_value, other_param_list)
-    return influencer_parameters
-
-
-def _std_by_param(
-    by_param, all_param_values, state_or_tran, attribute, param_index, verbose=False
-):
+def _std_by_param(by_param, all_param_values, state_or_tran, attribute, param_index):
     u"""
     Calculate standard deviations for a static model where all parameters but `param_index` are constant.
 
@@ -162,12 +148,11 @@ def _std_by_param(
         #    vprint(verbose, '[W] parameter value partition for {} is empty'.format(param_value))
 
     if np.all(np.isnan(stddev_matrix)):
-        print(
-            "[W] {}/{} parameter #{} has no data partitions -- how did this even happen?".format(
-                state_or_tran, attribute, param_index
+        warnings.warn(
+            "{}/{} parameter #{} has no data partitions. stddev_matrix = {}".format(
+                state_or_tran, attribute, param_index, stddev_matrix
             )
         )
-        print("stddev_matrix = {}".format(stddev_matrix))
         return stddev_matrix, 0.0
 
     return (
@@ -202,13 +187,13 @@ def _corr_by_param(by_name, state_or_trans, attribute, param_index):
             # -> assume no correlation
             return 0.0
         except ValueError:
-            print(
-                "[!] Exception in _corr_by_param(by_name, state_or_trans={}, attribute={}, param_index={})".format(
+            logger.error(
+                "ValueError in _corr_by_param(by_name, state_or_trans={}, attribute={}, param_index={})".format(
                     state_or_trans, attribute, param_index
                 )
             )
-            print(
-                "[!] while executing np.corrcoef(by_name[{}][{}]={}, {}))".format(
+            logger.error(
+                "while executing np.corrcoef(by_name[{}][{}]={}, {}))".format(
                     state_or_trans,
                     attribute,
                     by_name[state_or_trans][attribute],
@@ -229,7 +214,6 @@ def _compute_param_statistics(
     attribute,
     distinct_values,
     distinct_values_by_param_index,
-    verbose=False,
 ):
     """
     Compute standard deviation and correlation coefficient for various data partitions.
@@ -252,7 +236,6 @@ def _compute_param_statistics(
     :param arg_count: dict providing the number of functions args ("local parameters") for each function.
     :param state_or_trans: state or transition name, e.g. 'send' or 'TX'
     :param attribute: model attribute, e.g. 'power' or 'duration'
-    :param verbose: print warning if some parameter partitions are too small for fitting
 
     :returns: a dict with the following content:
     std_static -- static parameter-unaware model error: stddev of by_name[state_or_trans][attribute]
@@ -267,6 +250,8 @@ def _compute_param_statistics(
     corr_by_param -- correlation coefficient
     corr_by_arg -- same, but ignoring a single function argument
         Only set if state_or_trans appears in arg_count, empty dict otherwise.
+    depends_on_param -- dict(parameter_name -> Bool). True if /attribute/ behaviour probably depends on /parameter_name/
+    depends_on_arg -- list(bool). Same, but for function arguments, if any.
     """
     ret = {
         "std_static": np.std(by_name[state_or_trans][attribute]),
@@ -287,7 +272,6 @@ def _compute_param_statistics(
         "corr_by_arg": [],
         "depends_on_param": {},
         "depends_on_arg": [],
-        "param_data": {},
     }
 
     np.seterr("raise")
@@ -299,7 +283,6 @@ def _compute_param_statistics(
             state_or_trans,
             attribute,
             param_idx,
-            verbose,
         )
         ret["std_by_param"][param] = mean_std
         ret["std_by_param_values"][param] = std_matrix
@@ -314,49 +297,6 @@ def _compute_param_statistics(
             ret["std_param_lut"],
         )
 
-        if ret["depends_on_param"][param]:
-            ret["param_data"][param] = {
-                "codependent_parameters": _codependent_parameters(
-                    param, lut_matrix, std_matrix
-                ),
-                "depends_for_codependent_value": dict(),
-            }
-
-            # calculate parameter dependence for individual values of codependent parameters
-            codependent_param_values = list()
-            for codependent_param in ret["param_data"][param]["codependent_parameters"]:
-                codependent_param_values.append(distinct_values[codependent_param])
-            for combi in itertools.product(*codependent_param_values):
-                by_name_part = deepcopy(by_name)
-                filter_list = list(
-                    zip(ret["param_data"][param]["codependent_parameters"], combi)
-                )
-                filter_aggregate_by_param(by_name_part, parameter_names, filter_list)
-                by_param_part = by_name_to_by_param(by_name_part)
-                # there may be no data for this specific parameter value combination
-                if state_or_trans in by_name_part:
-                    part_corr = _corr_by_param(
-                        by_name_part, state_or_trans, attribute, param_idx
-                    )
-                    part_std_lut = np.mean(
-                        [
-                            np.std(by_param_part[x][attribute])
-                            for x in by_param_part.keys()
-                            if x[0] == state_or_trans
-                        ]
-                    )
-                    _, part_std_param, _ = _std_by_param(
-                        by_param_part,
-                        distinct_values_by_param_index,
-                        state_or_trans,
-                        attribute,
-                        param_idx,
-                        verbose,
-                    )
-                    ret["param_data"][param]["depends_for_codependent_value"][
-                        combi
-                    ] = _depends_on_param(part_corr, part_std_param, part_std_lut)
-
     if state_or_trans in arg_count:
         for arg_index in range(arg_count[state_or_trans]):
             std_matrix, mean_std, lut_matrix = _std_by_param(
@@ -365,7 +305,6 @@ def _compute_param_statistics(
                 state_or_trans,
                 attribute,
                 len(parameter_names) + arg_index,
-                verbose,
             )
             ret["std_by_arg"].append(mean_std)
             ret["std_by_arg_values"].append(std_matrix)
@@ -447,8 +386,8 @@ def prune_dependent_parameters(by_name, parameter_names, correlation_threshold=0
                     correlation != np.nan
                     and np.abs(correlation) > correlation_threshold
                 ):
-                    print(
-                        "[!] Parameters {} <-> {} are correlated with coefficcient {}".format(
+                    logger.debug(
+                        "Parameters {} <-> {} are correlated with coefficcient {}".format(
                             parameter_names[index_1],
                             parameter_names[index_2],
                             correlation,
@@ -458,7 +397,7 @@ def prune_dependent_parameters(by_name, parameter_names, correlation_threshold=0
                         index_to_remove = index_1
                     else:
                         index_to_remove = index_2
-                    print(
+                    logger.debug(
                         "    Removing parameter {}".format(
                             parameter_names[index_to_remove]
                         )
@@ -495,13 +434,7 @@ class ParamStats:
     """
 
     def __init__(
-        self,
-        by_name,
-        by_param,
-        parameter_names,
-        arg_count,
-        use_corrcoef=False,
-        verbose=False,
+        self, by_name, by_param, parameter_names, arg_count, use_corrcoef=False,
     ):
         """
         Compute standard deviation and correlation coefficient on parameterized data partitions.
@@ -556,7 +489,6 @@ class ParamStats:
                             attribute,
                             self.distinct_values[state_or_tran],
                             self.distinct_values_by_param_index[state_or_tran],
-                            verbose,
                         ],
                     }
                 )
@@ -592,146 +524,20 @@ class ParamStats:
                     )
                     > 2
                 ):
-                    print(
-                        key,
-                        param,
-                        list(
-                            filter(
-                                lambda n: is_numeric(n),
-                                self.distinct_values[key][param],
-                            )
-                        ),
+                    logger.debug(
+                        "{} can be fitted for param {} on {}".format(
+                            key,
+                            param,
+                            list(
+                                filter(
+                                    lambda n: is_numeric(n),
+                                    self.distinct_values[key][param],
+                                )
+                            ),
+                        )
                     )
                     return True
         return False
-
-    def static_submodel_params(self, state_or_tran, attribute):
-        """
-        Return the union of all parameter values which decide whether another parameter influences the model or not.
-
-        I.e., the returned list of dicts contains one entry for each parameter value combination which (probably) does not have any parameter influencing the model.
-        If the current parameters matches one of these, a static sub-model built based on this subset of parameters can likely be used.
-        """
-        # TODO
-        pass
-
-    def has_codependent_parameters(
-        self, state_or_tran: str, attribute: str, param: str
-    ) -> bool:
-        """
-        Return whether there are parameters which determine whether `param` influences `state_or_tran` `attribute` or not.
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        :param param: parameter name
-        """
-        if len(self.codependent_parameters(state_or_tran, attribute, param)):
-            return True
-        return False
-
-    def codependent_parameters(
-        self, state_or_tran: str, attribute: str, param: str
-    ) -> list:
-        """
-        Return list of parameters which determine whether `param` influences `state_or_tran` `attribute` or not.
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        :param param: parameter name
-        """
-        if self.stats[state_or_tran][attribute]["depends_on_param"][param]:
-            return self.stats[state_or_tran][attribute]["param_data"][param][
-                "codependent_parameters"
-            ]
-        return list()
-
-    def has_codependent_parameters_union(
-        self, state_or_tran: str, attribute: str
-    ) -> bool:
-        """
-        Return whether there is a subset of parameters which decides whether `state_or_tran` `attribute` is static or parameter-dependent
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        """
-        depends_on_a_parameter = False
-        for param in self._parameter_names:
-            if self.stats[state_or_tran][attribute]["depends_on_param"][param]:
-                print("{}/{} depends on {}".format(state_or_tran, attribute, param))
-                depends_on_a_parameter = True
-                if (
-                    len(self.codependent_parameters(state_or_tran, attribute, param))
-                    == 0
-                ):
-                    print("has no codependent parameters")
-                    # Always depends on this parameter, regardless of other parameters' values
-                    return False
-        return depends_on_a_parameter
-
-    def codependent_parameters_union(self, state_or_tran: str, attribute: str) -> list:
-        """
-        Return list of parameters which determine whether any parameter influences `state_or_tran` `attribute`.
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        """
-        codependent_parameters = set()
-        for param in self._parameter_names:
-            if self.stats[state_or_tran][attribute]["depends_on_param"][param]:
-                if (
-                    len(self.codependent_parameters(state_or_tran, attribute, param))
-                    == 0
-                ):
-                    return list(self._parameter_names)
-                for codependent_param in self.codependent_parameters(
-                    state_or_tran, attribute, param
-                ):
-                    codependent_parameters.add(codependent_param)
-        return sorted(codependent_parameters)
-
-    def codependence_by_codependent_param_values(
-        self, state_or_tran: str, attribute: str, param: str
-    ) -> dict:
-        """
-        Return dict mapping codependent parameter values to a boolean indicating whether `param` influences `state_or_tran` `attribute`.
-
-        If a dict value is true, `attribute` depends on `param` for the corresponding codependent parameter values, otherwise it does not.
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        :param param: parameter name
-        """
-        if self.stats[state_or_tran][attribute]["depends_on_param"][param]:
-            return self.stats[state_or_tran][attribute]["param_data"][param][
-                "depends_for_codependent_value"
-            ]
-        return dict()
-
-    def codependent_parameter_value_dicts(
-        self, state_or_tran: str, attribute: str, param: str, kind="dynamic"
-    ):
-        """
-        Return dicts of codependent parameter key-value mappings for which `param` influences (or does not influence) `state_or_tran` `attribute`.
-
-        :param state_or_tran: model state or transition
-        :param attribute: model attribute
-        :param param: parameter name:
-        :param kind: 'static' or 'dynamic'. If 'dynamic' (the default), returns codependent parameter values for which `param` influences `attribute`. If 'static', returns codependent parameter values for which `param` does not influence `attribute`
-        """
-        codependent_parameters = self.stats[state_or_tran][attribute]["param_data"][
-            param
-        ]["codependent_parameters"]
-        codependence_info = self.stats[state_or_tran][attribute]["param_data"][param][
-            "depends_for_codependent_value"
-        ]
-        if len(codependent_parameters) == 0:
-            return
-        else:
-            for param_values, is_dynamic in codependence_info.items():
-                if (is_dynamic and kind == "dynamic") or (
-                    not is_dynamic and kind == "static"
-                ):
-                    yield dict(zip(codependent_parameters, param_values))
 
     def _generic_param_independence_ratio(self, state_or_trans, attribute):
         """

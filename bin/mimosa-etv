@@ -8,13 +8,16 @@ import numpy as np
 import os
 import re
 import sys
-from dfatool.dfatool import aggregate_measures, MIMOSA
+from dfatool.loader import MIMOSA
+from dfatool.model import aggregate_measures
 from dfatool.utils import running_mean
 
 opt = dict()
 
+
 def show_help():
-    print('''mimosa-etv - MIMOSA Analyzer and Visualizer
+    print(
+        """mimosa-etv - MIMOSA Analyzer and Visualizer
 
 USAGE
 
@@ -41,7 +44,9 @@ OPTIONS
     Show power/time plot
   --stat
     Show mean voltage, current, and power as well as total energy consumption.
-    ''')
+    """
+    )
+
 
 def peak_search(data, lower, upper, direction_function):
     while upper - lower > 1e-6:
@@ -58,6 +63,7 @@ def peak_search(data, lower, upper, direction_function):
             upper = bs_test
     return None
 
+
 def peak_search2(data, lower, upper, check_function):
     for power in np.arange(lower, upper, 1e-6):
         peakcount = itertools.groupby(data, lambda x: x >= power)
@@ -67,38 +73,39 @@ def peak_search2(data, lower, upper, check_function):
             return power
     return None
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     try:
-        optspec = ('help skip= threshold= threshold-peakcount= plot stat')
-        raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(' '))
+        optspec = "help skip= threshold= threshold-peakcount= plot stat"
+        raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(" "))
 
         for option, parameter in raw_opts:
-            optname = re.sub(r'^--', '', option)
+            optname = re.sub(r"^--", "", option)
             opt[optname] = parameter
 
-        if 'help' in opt:
+        if "help" in opt:
             show_help()
             sys.exit(0)
 
-        if 'skip' in opt:
-            opt['skip'] = int(opt['skip'])
+        if "skip" in opt:
+            opt["skip"] = int(opt["skip"])
         else:
-            opt['skip'] = 0
+            opt["skip"] = 0
 
-        if 'threshold' in opt and opt['threshold'] != 'mean':
-            opt['threshold'] = float(opt['threshold'])
+        if "threshold" in opt and opt["threshold"] != "mean":
+            opt["threshold"] = float(opt["threshold"])
 
-        if 'threshold-peakcount' in opt:
-            opt['threshold-peakcount'] = int(opt['threshold-peakcount'])
+        if "threshold-peakcount" in opt:
+            opt["threshold-peakcount"] = int(opt["threshold-peakcount"])
 
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)
     except IndexError:
-        print('Usage: mimosa-etv <duration>')
+        print("Usage: mimosa-etv <duration>")
         sys.exit(2)
     except ValueError:
-        print('Error: duration or skip is not a number')
+        print("Error: duration or skip is not a number")
         sys.exit(2)
 
     voltage, shunt, inputfile = args
@@ -110,7 +117,7 @@ if __name__ == '__main__':
     currents = mim.charge_to_current_nocal(charges) * 1e-6
     powers = currents * voltage
 
-    if 'threshold-peakcount' in opt:
+    if "threshold-peakcount" in opt:
         bs_mean = np.mean(powers)
 
         # Finding the correct threshold is tricky. If #peaks < peakcont, our
@@ -126,42 +133,59 @@ if __name__ == '__main__':
         # #peaks != peakcount and threshold >= mean, we go down.
         # If that doesn't work, we fall back to a linear search in 1 µW steps
         def direction_function(peakcount, power):
-            if peakcount == opt['threshold-peakcount']:
+            if peakcount == opt["threshold-peakcount"]:
                 return 0
             if power < bs_mean:
                 return 1
             return -1
+
         threshold = peak_search(power, np.min(power), np.max(power), direction_function)
         if threshold == None:
-            threshold = peak_search2(power, np.min(power), np.max(power), direction_function)
+            threshold = peak_search2(
+                power, np.min(power), np.max(power), direction_function
+            )
 
         if threshold != None:
-            print('Threshold set to {:.0f} µW         : {:.9f}'.format(threshold * 1e6, threshold))
-            opt['threshold'] = threshold
+            print(
+                "Threshold set to {:.0f} µW         : {:.9f}".format(
+                    threshold * 1e6, threshold
+                )
+            )
+            opt["threshold"] = threshold
         else:
-            print('Found no working threshold')
+            print("Found no working threshold")
 
-    if 'threshold' in opt:
-        if opt['threshold'] == 'mean':
-            opt['threshold'] = np.mean(powers)
-            print('Threshold set to {:.0f} µW         : {:.9f}'.format(opt['threshold'] * 1e6, opt['threshold']))
+    if "threshold" in opt:
+        if opt["threshold"] == "mean":
+            opt["threshold"] = np.mean(powers)
+            print(
+                "Threshold set to {:.0f} µW         : {:.9f}".format(
+                    opt["threshold"] * 1e6, opt["threshold"]
+                )
+            )
 
         baseline_mean = 0
-        if np.any(powers < opt['threshold']):
-            baseline_mean = np.mean(powers[powers < opt['threshold']])
-            print('Baseline mean: {:.0f} µW           : {:.9f}'.format(
-                baseline_mean * 1e6, baseline_mean))
-        if np.any(powers >= opt['threshold']):
-            print('Peak mean: {:.0f} µW               : {:.9f}'.format(
-                np.mean(powers[powers >= opt['threshold']]) * 1e6,
-                np.mean(powers[powers >= opt['threshold']])))
+        if np.any(powers < opt["threshold"]):
+            baseline_mean = np.mean(powers[powers < opt["threshold"]])
+            print(
+                "Baseline mean: {:.0f} µW           : {:.9f}".format(
+                    baseline_mean * 1e6, baseline_mean
+                )
+            )
+        if np.any(powers >= opt["threshold"]):
+            print(
+                "Peak mean: {:.0f} µW               : {:.9f}".format(
+                    np.mean(powers[powers >= opt["threshold"]]) * 1e6,
+                    np.mean(powers[powers >= opt["threshold"]]),
+                )
+            )
 
         peaks = []
         peak_start = -1
         for i, dp in enumerate(powers):
-            if dp >= opt['threshold'] and peak_start == -1:
+            if dp >= opt["threshold"] and peak_start == -1:
                 peak_start = i
-            elif dp < opt['threshold'] and peak_start != -1:
+            elif dp < opt["threshold"] and peak_start != -1:
                 peaks.append((peak_start, i))
                 peak_start = -1
 
@@ -170,32 +194,55 @@ if __name__ == '__main__':
         for peak in peaks:
             duration = (peak[1] - peak[0]) * 1e-5
             total_energy += np.mean(powers[peak[0] : peak[1]]) * duration
-            delta_energy += (np.mean(powers[peak[0] : peak[1]]) - baseline_mean) * duration
+            delta_energy += (
+                np.mean(powers[peak[0] : peak[1]]) - baseline_mean
+            ) * duration
             delta_powers = powers[peak[0] : peak[1]] - baseline_mean
-            print('{:.2f}ms peak ({:f} -> {:f})'.format(duration * 1000,
-                peak[0], peak[1]))
-            print('    {:f} µJ / mean {:f} µW'.format(
-                np.mean(powers[peak[0] : peak[1]]) * duration * 1e6,
-                np.mean(powers[peak[0] : peak[1]]) * 1e6 ))
+            print(
+                "{:.2f}ms peak ({:f} -> {:f})".format(duration * 1000, peak[0], peak[1])
+            )
+            print(
+                "    {:f} µJ / mean {:f} µW".format(
+                    np.mean(powers[peak[0] : peak[1]]) * duration * 1e6,
+                    np.mean(powers[peak[0] : peak[1]]) * 1e6,
+                )
+            )
             measures = aggregate_measures(np.mean(delta_powers), delta_powers)
-            print('    {:f} µW delta mean = {:0.1f}% / {:f} µW error'.format(np.mean(delta_powers) * 1e6, measures['smape'], measures['rmsd'] * 1e6 ))
-        print('Peak energy mean: {:.0f} µJ         : {:.9f}'.format(
-            total_energy * 1e6 / len(peaks), total_energy / len(peaks)))
-        print('Average per-peak energy (delta over baseline): {:.0f} µJ         : {:.9f}'.format(
-            delta_energy * 1e6 / len(peaks), delta_energy / len(peaks)))
+            print(
+                "    {:f} µW delta mean = {:0.1f}% / {:f} µW error".format(
+                    np.mean(delta_powers) * 1e6,
+                    measures["smape"],
+                    measures["rmsd"] * 1e6,
+                )
+            )
+        print(
+            "Peak energy mean: {:.0f} µJ         : {:.9f}".format(
+                total_energy * 1e6 / len(peaks), total_energy / len(peaks)
+            )
+        )
+        print(
+            "Average per-peak energy (delta over baseline): {:.0f} µJ         : {:.9f}".format(
+                delta_energy * 1e6 / len(peaks), delta_energy / len(peaks)
+            )
+        )
 
-
-    if 'stat' in opt:
+    if "stat" in opt:
         mean_current = np.mean(currents)
         mean_power = np.mean(powers)
-        print('Mean current: {:.0f} µA       : {:.9f}'.format(mean_current * 1e6, mean_current))
-        print('Mean power: {:.0f} µW       : {:.9f}'.format(mean_power * 1e6, mean_power))
+        print(
+            "Mean current: {:.0f} µA       : {:.9f}".format(
+                mean_current * 1e6, mean_current
+            )
+        )
+        print(
+            "Mean power: {:.0f} µW       : {:.9f}".format(mean_power * 1e6, mean_power)
+        )
 
-    if 'plot' in opt:
+    if "plot" in opt:
         timestamps = np.arange(len(powers)) * 1e-5
-        pwrhandle, = plt.plot(timestamps, powers, 'b-', label='U*I', markersize=1)
+        (pwrhandle,) = plt.plot(timestamps, powers, "b-", label="U*I", markersize=1)
         plt.legend(handles=[pwrhandle])
-        plt.xlabel('Time [s]')
-        plt.ylabel('Power [W]')
+        plt.xlabel("Time [s]")
+        plt.ylabel("Power [W]")
         plt.grid(True)
         plt.show()

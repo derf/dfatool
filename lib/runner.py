@@ -31,7 +31,8 @@ class SerialReader(serial.threaded.Protocol):
         """Create a new SerialReader object."""
         self.callback = callback
         self.recv_buf = ""
-        self.lines = []
+        self.lines = list()
+        self.all_lines = list()
 
     def __call__(self):
         return self
@@ -47,7 +48,9 @@ class SerialReader(serial.threaded.Protocol):
             # Note: Do not call str.strip on lines[-1]! Otherwise, lines may be mangled
             lines = self.recv_buf.split("\n")
             if len(lines) > 1:
-                self.lines.extend(map(str.strip, lines[:-1]))
+                new_lines = list(map(str.strip, lines[:-1]))
+                self.lines.extend(new_lines)
+                self.all_lines.extend(new_lines)
                 self.recv_buf = lines[-1]
                 if self.callback:
                     for line in lines[:-1]:
@@ -120,7 +123,7 @@ class SerialMonitor:
         return self.reader.get_lines()
 
     def get_lines(self) -> list:
-        return self.reader.get_lines()
+        return self.reader.all_lines
 
     def get_files(self) -> list:
         return list()
@@ -143,6 +146,9 @@ class SerialMonitor:
 class EnergyTraceMonitor(SerialMonitor):
     """EnergyTraceMonitor captures serial timing output and EnergyTrace energy data."""
 
+    # Zusätzliche key-value-Argumente von generate-dfa-benchmark.py --energytrace=... landen hier
+    # (z.B. --energytrace=var1=bar,somecount=2 => EnerygTraceMonitor(..., var1="bar", somecount="2")).
+    # Soald das EnergyTraceMonitor-Objekt erzeugt wird, beginnt die Messung (d.h. hier: msp430-etv wird gestartet)
     def __init__(self, port: str, baud: int, callback=None, voltage=3.3):
         super().__init__(port=port, baud=baud, callback=callback)
         self._voltage = voltage
@@ -155,18 +161,29 @@ class EnergyTraceMonitor(SerialMonitor):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
         )
 
+    # Benchmark fertig -> externe Hilfsprogramme beenden
     def close(self):
         super().close()
         self._logger.send_signal(subprocess.signal.SIGINT)
         stdout, stderr = self._logger.communicate(timeout=15)
 
+    # Zusätzliche Dateien, die mit dem Benchmark-Log und -Plan abgespeichert werden sollen
+    # (hier: Die von msp430-etv generierten Logfiles)
     def get_files(self) -> list:
         return [self._output]
 
+    #
     def get_config(self) -> dict:
         return {
             "voltage": self._voltage,
         }
+
+
+class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
+    """EnergyTraceLogicAnalyzerMonitor captures EnergyTrace energy data and LogicAnalyzer timing output."""
+
+    def __init__(self, port: str, baud: int, callback=None, voltage=3.3):
+        super().__init__(port=port, baud=baud, callback=callback, voltage=voltage)
 
 
 class MIMOSAMonitor(SerialMonitor):
@@ -362,8 +379,14 @@ def get_monitor(arch: str, **kwargs) -> object:
                 mimosa_kwargs = kwargs.pop("mimosa")
                 return MIMOSAMonitor(port, arg, **mimosa_kwargs, **kwargs)
             elif "energytrace" in kwargs and kwargs["energytrace"] is not None:
-                energytrace_kwargs = kwargs.pop("energytrace")
-                return EnergyTraceMonitor(port, arg, **energytrace_kwargs, **kwargs)
+                energytrace_kwargs = kwargs.pop("energytrace").copy()
+                sync_mode = energytrace_kwargs.pop("sync")
+                if sync_mode == "la":
+                    return EnergyTraceLogicAnalyzerMonitor(
+                        port, arg, **energytrace_kwargs, **kwargs
+                    )
+                else:
+                    return EnergyTraceMonitor(port, arg, **energytrace_kwargs, **kwargs)
             else:
                 kwargs.pop("energytrace", None)
                 kwargs.pop("mimosa", None)
@@ -380,6 +403,23 @@ def get_counter_limits(arch: str) -> tuple:
             max_overflow = int(match.group(2))
             return overflow_value, max_overflow
     raise RuntimeError("Did not find Counter Overflow limits")
+
+
+def sleep_ms(duration: int, arch: str, cpu_freq: int = None) -> str:
+    max_sleep = None
+    if "msp430fr" in arch:
+        if cpu_freq is not None and cpu_freq > 8000000:
+            max_sleep = 250
+        else:
+            max_sleep = 500
+    if max_sleep is not None and duration > max_sleep:
+        sub_sleep_count = duration // max_sleep
+        tail_sleep = duration % max_sleep
+        ret = f"for (unsigned char i = 0; i < {sub_sleep_count}; i++) {{ arch.sleep_ms({max_sleep}); }}\n"
+        if tail_sleep > 0:
+            ret += f"arch.sleep_ms({tail_sleep});\n"
+        return ret
+    return "arch.sleep_ms({duration});\n"
 
 
 def get_counter_limits_us(arch: str) -> tuple:

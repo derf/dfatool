@@ -61,13 +61,20 @@ Options:
     Specify traces which should be ignored due to bogus data. 1 is the first
     trace, 2 the second, and so on.
 
---discard-outliers=
-    not supported at the moment
-
 --cross-validate=<method>:<count>
     Perform cross validation when computing model quality.
     Only works with --show-quality=table at the moment.
+
     If <method> is "montecarlo": Randomly divide data into 2/3 training and 1/3
+    validation, <count> times. Reported model quality is the average of all
+    validation runs. Data is partitioned without regard for parameter values,
+    so a specific parameter combination may be present in both training and
+    validation sets or just one of them.
+
+    If <method> is "kfold": Perform k-fold cross validation with k=<count>.
+    Divide data into 1-1/k training and 1/k validation, <count> times.
+    In the first set, items 0, k, 2k, ... ard used for validation, in the
+    second set, items 1, k+1, 2k+1, ... and so on.
     validation, <count> times. Reported model quality is the average of all
     validation runs. Data is partitioned without regard for parameter values,
     so a specific parameter combination may be present in both training and
@@ -94,17 +101,22 @@ Options:
 
 --export-energymodel=<model.json>
     Export energy model. Works out of the box for v1 and v2 logfiles. Requires --hwmodel for v0 logfiles.
+
+--no-cache
+    Do not load cached measurement results
 """
 
 import getopt
 import json
+import logging
 import random
 import re
 import sys
 from dfatool import plotter
-from dfatool.dfatool import PTAModel, RawData, pta_trace_to_aggregate
-from dfatool.dfatool import gplearn_to_function
-from dfatool.dfatool import CrossValidator
+from dfatool.loader import RawData, pta_trace_to_aggregate
+from dfatool.functions import gplearn_to_function
+from dfatool.model import PTAModel
+from dfatool.validation import CrossValidator
 from dfatool.utils import filter_aggregate_by_param
 from dfatool.automata import PTA
 
@@ -133,6 +145,15 @@ def format_quality_measures(result):
 
 
 def model_quality_table(result_lists, info_list):
+    print(
+        "{:20s} {:15s}       {:19s}       {:19s}       {:19s}".format(
+            "key",
+            "attribute",
+            "static".center(19),
+            "LUT".center(19),
+            "parameterized".center(19),
+        )
+    )
     for state_or_tran in result_lists[0]["by_name"].keys():
         for key in result_lists[0]["by_name"][state_or_tran].keys():
             buf = "{:20s} {:15s}".format(state_or_tran, key)
@@ -143,7 +164,7 @@ def model_quality_table(result_lists, info_list):
                     result = results["by_name"][state_or_tran][key]
                     buf += format_quality_measures(result)
                 else:
-                    buf += "{:6}----{:9}".format("", "")
+                    buf += "{:7}----{:8}".format("", "")
             print(buf)
 
 
@@ -279,7 +300,6 @@ def print_html_model_data(model, pm, pq, lm, lq, am, ai, aq):
 if __name__ == "__main__":
 
     ignored_trace_indexes = []
-    discard_outliers = None
     safe_functions_enabled = False
     function_override = {}
     show_models = []
@@ -292,11 +312,12 @@ if __name__ == "__main__":
 
     try:
         optspec = (
-            "info "
+            "info no-cache "
             "plot-unparam= plot-param= plot-traces= show-models= show-quality= "
-            "ignored-trace-indexes= discard-outliers= function-override= "
+            "ignored-trace-indexes= function-override= "
             "export-traces= "
             "filter-param= "
+            "log-level= "
             "cross-validate= "
             "with-safe-functions hwmodel= export-energymodel="
         )
@@ -312,9 +333,6 @@ if __name__ == "__main__":
             )
             if 0 in ignored_trace_indexes:
                 print("[E] arguments to --ignored-trace-indexes start from 1")
-
-        if "discard-outliers" in opt:
-            discard_outliers = float(opt["discard-outliers"])
 
         if "function-override" in opt:
             for function_desc in opt["function-override"].split(";"):
@@ -344,12 +362,21 @@ if __name__ == "__main__":
         if "hwmodel" in opt:
             pta = PTA.from_file(opt["hwmodel"])
 
+        if "log-level" in opt:
+            numeric_level = getattr(logging, opt["log-level"].upper(), None)
+            if not isinstance(numeric_level, int):
+                print(f"Invalid log level: {loglevel}", file=sys.stderr)
+                sys.exit(1)
+            logging.basicConfig(level=numeric_level)
+
     except getopt.GetoptError as err:
         print(err, file=sys.stderr)
         sys.exit(2)
 
     raw_data = RawData(
-        args, with_traces=("export-traces" in opt or "plot-traces" in opt)
+        args,
+        with_traces=("export-traces" in opt or "plot-traces" in opt),
+        skip_cache=("no-cache" in opt),
     )
 
     if "info" in opt:
@@ -357,9 +384,12 @@ if __name__ == "__main__":
         if raw_data.version <= 1:
             data_source = "MIMOSA"
         elif raw_data.version == 2:
-            data_source = "MSP430 EnergyTrace"
-        else:
-            data_source = "UNKNOWN"
+            if raw_data.ptalog and "sync" in raw_data.ptalog["opt"]["energytrace"]:
+                data_source = "MSP430 EnergyTrace, sync={}".format(
+                    raw_data.ptalog["opt"]["energytrace"]["sync"]
+                )
+            else:
+                data_source = "MSP430 EnergyTrace"
         print(f"    Data source ID: {raw_data.version} ({data_source})")
 
     preprocessed_data = raw_data.get_preprocessed_data()
@@ -434,7 +464,6 @@ if __name__ == "__main__":
         parameters,
         arg_count,
         traces=preprocessed_data,
-        discard_outliers=discard_outliers,
         function_override=function_override,
         pta=pta,
     )
@@ -495,21 +524,6 @@ if __name__ == "__main__":
                         model.stats.param_dependence_ratio(state, "power", param),
                     )
                 )
-                if model.stats.has_codependent_parameters(state, "power", param):
-                    print(
-                        "{:24s}  co-dependencies: {:s}".format(
-                            "",
-                            ", ".join(
-                                model.stats.codependent_parameters(
-                                    state, "power", param
-                                )
-                            ),
-                        )
-                    )
-                    for param_dict in model.stats.codependent_parameter_value_dicts(
-                        state, "power", param
-                    ):
-                        print("{:24s}  parameter-aware for {}".format("", param_dict))
 
         for trans in model.transitions():
             # Mean power is not a typical transition attribute, but may be present for debugging or analysis purposes
@@ -551,6 +565,8 @@ if __name__ == "__main__":
 
     if xv_method == "montecarlo":
         static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
+    elif xv_method == "kfold":
+        static_quality = xv.kfold(lambda m: m.get_static(), xv_count)
     else:
         static_quality = model.assess(static_model)
 
@@ -560,6 +576,8 @@ if __name__ == "__main__":
 
     if xv_method == "montecarlo":
         lut_quality = xv.montecarlo(lambda m: m.get_param_lut(fallback=True), xv_count)
+    elif xv_method == "kfold":
+        lut_quality = xv.kfold(lambda m: m.get_param_lut(fallback=True), xv_count)
     else:
         lut_quality = model.assess(lut_model)
 
@@ -616,21 +634,21 @@ if __name__ == "__main__":
 
     if "param" in show_models or "all" in show_models:
         if not model.stats.can_be_fitted():
-            print(
-                "[!] measurements have insufficient distinct numeric parameters for fitting. A parameter-aware model is not available."
+            logging.warning(
+                "measurements have insufficient distinct numeric parameters for fitting. A parameter-aware model is not available."
             )
         for state in model.states():
             for attribute in model.attributes(state):
                 if param_info(state, attribute):
                     print(
                         "{:10s}: {}".format(
-                            state, param_info(state, attribute)["function"]._model_str
+                            state,
+                            param_info(state, attribute)["function"].model_function,
                         )
                     )
                     print(
                         "{:10s}  {}".format(
-                            "",
-                            param_info(state, attribute)["function"]._regression_args,
+                            "", param_info(state, attribute)["function"].model_args
                         )
                     )
         for trans in model.transitions():
@@ -640,19 +658,19 @@ if __name__ == "__main__":
                         "{:10s}: {:10s}: {}".format(
                             trans,
                             attribute,
-                            param_info(trans, attribute)["function"]._model_str,
+                            param_info(trans, attribute)["function"].model_function,
                         )
                     )
                     print(
                         "{:10s}  {:10s}  {}".format(
-                            "",
-                            "",
-                            param_info(trans, attribute)["function"]._regression_args,
+                            "", "", param_info(trans, attribute)["function"].model_args
                         )
                     )
 
     if xv_method == "montecarlo":
         analytic_quality = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
+    elif xv_method == "kfold":
+        analytic_quality = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
     else:
         analytic_quality = model.assess(param_model)
 
@@ -686,7 +704,7 @@ if __name__ == "__main__":
         )
 
     if "overall" in show_quality or "all" in show_quality:
-        print("overall static/param/lut MAE assuming equal state distribution:")
+        print("overall state static/param/lut MAE assuming equal state distribution:")
         print(
             "    {:6.1f}  /  {:6.1f}  /  {:6.1f}  µW".format(
                 model.assess_states(static_model),
@@ -694,15 +712,30 @@ if __name__ == "__main__":
                 model.assess_states(lut_model),
             )
         )
-        print("overall static/param/lut MAE assuming 95% STANDBY1:")
-        distrib = {"STANDBY1": 0.95, "POWERDOWN": 0.03, "TX": 0.01, "RX": 0.01}
-        print(
-            "    {:6.1f}  /  {:6.1f}  /  {:6.1f}  µW".format(
-                model.assess_states(static_model, distribution=distrib),
-                model.assess_states(param_model, distribution=distrib),
-                model.assess_states(lut_model, distribution=distrib),
+        distrib = dict()
+        num_states = len(model.states())
+        p95_state = None
+        for state in model.states():
+            distrib[state] = 1.0 / num_states
+
+        if "STANDBY1" in model.states():
+            p95_state = "STANDBY1"
+        elif "SLEEP" in model.states():
+            p95_state = "SLEEP"
+
+        if p95_state is not None:
+            for state in distrib.keys():
+                distrib[state] = 0.05 / (num_states - 1)
+            distrib[p95_state] = 0.95
+
+            print(f"overall state static/param/lut MAE assuming 95% {p95_state}:")
+            print(
+                "    {:6.1f}  /  {:6.1f}  /  {:6.1f}  µW".format(
+                    model.assess_states(static_model, distribution=distrib),
+                    model.assess_states(param_model, distribution=distrib),
+                    model.assess_states(lut_model, distribution=distrib),
+                )
             )
-        )
 
     if "summary" in show_quality or "all" in show_quality:
         model_summary_table(

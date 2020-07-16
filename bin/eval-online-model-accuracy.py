@@ -28,7 +28,7 @@ import itertools
 import yaml
 from dfatool.automata import PTA
 from dfatool.codegen import get_simulated_accountingmethod
-from dfatool.dfatool import regression_measures
+from dfatool.model import regression_measures
 import numpy as np
 
 opt = dict()

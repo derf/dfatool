@@ -75,12 +75,14 @@ Options:
 
 import getopt
 import json
+import logging
 import re
 import sys
 from dfatool import plotter
-from dfatool.dfatool import AnalyticModel, TimingData, pta_trace_to_aggregate
-from dfatool.dfatool import gplearn_to_function
-from dfatool.dfatool import CrossValidator
+from dfatool.loader import TimingData, pta_trace_to_aggregate
+from dfatool.functions import gplearn_to_function
+from dfatool.model import AnalyticModel
+from dfatool.validation import CrossValidator
 from dfatool.utils import filter_aggregate_by_param
 from dfatool.parameters import prune_dependent_parameters
 
@@ -170,7 +172,6 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
 if __name__ == "__main__":
 
     ignored_trace_indexes = []
-    discard_outliers = None
     safe_functions_enabled = False
     function_override = {}
     show_models = []
@@ -183,8 +184,9 @@ if __name__ == "__main__":
     try:
         optspec = (
             "plot-unparam= plot-param= show-models= show-quality= "
-            "ignored-trace-indexes= discard-outliers= function-override= "
+            "ignored-trace-indexes= function-override= "
             "filter-param= "
+            "log-level= "
             "cross-validate= "
             "corrcoef param-info "
             "with-safe-functions hwmodel= export-energymodel="
@@ -201,9 +203,6 @@ if __name__ == "__main__":
             )
             if 0 in ignored_trace_indexes:
                 print("[E] arguments to --ignored-trace-indexes start from 1")
-
-        if "discard-outliers" in opt:
-            discard_outliers = float(opt["discard-outliers"])
 
         if "function-override" in opt:
             for function_desc in opt["function-override"].split(";"):
@@ -236,6 +235,13 @@ if __name__ == "__main__":
             )
         else:
             opt["filter-param"] = list()
+
+        if "log-level" in opt:
+            numeric_level = getattr(logging, opt["log-level"].upper(), None)
+            if not isinstance(numeric_level, int):
+                print(f"Invalid log level: {loglevel}", file=sys.stderr)
+                sys.exit(1)
+            logging.basicConfig(level=numeric_level)
 
     except getopt.GetoptError as err:
         print(err)
@@ -297,30 +303,6 @@ if __name__ == "__main__":
                         model.stats.param_dependence_ratio(trans, "duration", param),
                     )
                 )
-                if model.stats.has_codependent_parameters(trans, "duration", param):
-                    print(
-                        "{:24s}  co-dependencies: {:s}".format(
-                            "",
-                            ", ".join(
-                                model.stats.codependent_parameters(
-                                    trans, "duration", param
-                                )
-                            ),
-                        )
-                    )
-                    for param_dict in model.stats.codependent_parameter_value_dicts(
-                        trans, "duration", param
-                    ):
-                        print("{:24s}  parameter-aware for {}".format("", param_dict))
-        # import numpy as np
-        # safe_div = np.vectorize(lambda x,y: 0. if x == 0 else 1 - x/y)
-        # ratio_by_value = safe_div(model.stats.stats['write']['duration']['lut_by_param_values']['max_retry_count'], model.stats.stats['write']['duration']['std_by_param_values']['max_retry_count'])
-        # err_mode = np.seterr('warn')
-        # dep_by_value = ratio_by_value > 0.5
-        # np.seterr(**err_mode)
-        # Eigentlich sollte hier ein paar mal True stehen, ist aber nicht so...
-        # und warum ist da eine non-power-of-two Zahl von True-Einträgen in der Matrix? 3 stück ist komisch...
-        # print(dep_by_value)
 
     if xv_method == "montecarlo":
         static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
@@ -423,14 +405,12 @@ if __name__ == "__main__":
                         "{:10s}: {:10s}: {}".format(
                             trans,
                             attribute,
-                            param_info(trans, attribute)["function"]._model_str,
+                            param_info(trans, attribute)["function"].model_function,
                         )
                     )
                     print(
                         "{:10s}  {:10s}  {}".format(
-                            "",
-                            "",
-                            param_info(trans, attribute)["function"]._regression_args,
+                            "", "", param_info(trans, attribute)["function"].model_args
                         )
                     )
 

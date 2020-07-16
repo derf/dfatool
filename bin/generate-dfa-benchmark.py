@@ -61,6 +61,10 @@ Options:
 
 --energytrace=[k=v,k=v,...]
     Perform energy measurements using MSP430 EnergyTrace hardware. Includes --timing.
+    Additional configuration settings:
+    sync = bar (Barcode mode (default): synchronize measurements via barcodes embedded in the energy trace)
+    sync = la (Logic Analyzer mode (WIP): An external logic analyzer captures transition timing)
+    sync = timing (Timing mode (WIP): The on-board cycle counter captures transition timing)
 
 --trace-filter=<transition,transition,transition,...>[ <transition,transition,transition,...> ...]
     Only consider traces whose beginning matches one of the provided transition sequences.
@@ -219,17 +223,11 @@ def benchmark_from_runs(
                     )
             elif opt["sleep"]:
                 if "energytrace" in opt:
-                    outbuf.write(
-                        "arch.sleep_ms({:d}); // {}\n".format(
-                            opt["sleep"], transition.destination.name
-                        )
-                    )
+                    outbuf.write(f"// -> {transition.destination.name}\n")
+                    outbuf.write(runner.sleep_ms(opt["sleep"], opt["arch"]))
                 else:
-                    outbuf.write(
-                        "arch.delay_ms({:d}); // {}\n".format(
-                            opt["sleep"], transition.destination.name
-                        )
-                    )
+                    outbuf.write(f"// -> {transition.destination.name}\n")
+                    outbuf.write("arch.delay_ms({:d});\n".format(opt["sleep"]))
 
         outbuf.write(harness.stop_run(num_traces))
         if dummy:
@@ -337,6 +335,7 @@ def run_benchmark(
         files = list()
         i = 0
         while i < opt["repeat"]:
+            print(f"""[RUN] flashing benchmark {i+1}/{opt["repeat"]}""")
             runner.flash(arch, app, run_args)
             if "mimosa" in opt:
                 monitor = runner.get_monitor(
@@ -353,7 +352,6 @@ def run_benchmark(
                 while not harness.done:
                     # possible race condition: if the benchmark completes at this
                     # exact point, it sets harness.done and unsets harness.synced.
-                    #                                                   vvv
                     if (
                         slept > 30
                         and slept < 40
@@ -372,11 +370,11 @@ def run_benchmark(
                     time.sleep(5)
                     slept += 5
                     print(
-                        "[RUN] {:d}/{:d} ({:.0f}%), current benchmark at {:.0f}%".format(
+                        "[RUN] {:d}/{:d} ({:.0f}%) at trace {:d}".format(
                             run_offset,
                             runs_total,
                             run_offset * 100 / runs_total,
-                            slept * 100 / run_timeout,
+                            harness.trace_id,
                         )
                     )
             except KeyboardInterrupt:
@@ -593,6 +591,9 @@ if __name__ == "__main__":
     if run_flags is None:
         run_flags = opt["run"].split()
 
+    if "msp430fr" in opt["arch"]:
+        run_flags.append("cpu_freq=8000000")
+
     runs = list(
         pta.dfs(
             opt["depth"],
@@ -630,9 +631,13 @@ if __name__ == "__main__":
             post_transition_delay_us=20,
         )
     elif "energytrace" in opt:
+        # Use barcode sync by default
+        gpio_mode = "bar"
+        if "sync" in opt["energytrace"] and opt["energytrace"]["sync"] != "bar":
+            gpio_mode = "around"
         harness = OnboardTimerHarness(
             gpio_pin=timer_pin,
-            gpio_mode="bar",
+            gpio_mode=gpio_mode,
             pta=pta,
             counter_limits=runner.get_counter_limits_us(opt["arch"]),
             log_return_values=need_return_values,

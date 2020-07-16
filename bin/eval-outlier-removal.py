@@ -3,7 +3,8 @@
 import getopt
 import re
 import sys
-from dfatool.dfatool import PTAModel, RawData, pta_trace_to_aggregate
+from dfatool.loader import RawData, pta_trace_to_aggregate
+from dfatool.model import PTAModel
 
 opt = dict()
 
@@ -141,12 +142,12 @@ if __name__ == "__main__":
             if param_i1(state, attribute):
                 print(
                     "{:10s}: {}".format(
-                        state, param_i1(state, attribute)["function"]._model_str
+                        state, param_i1(state, attribute)["function"].model_function
                     )
                 )
                 print(
                     "{:10s}  {}".format(
-                        "", param_i1(state, attribute)["function"]._regression_args
+                        "", param_i1(state, attribute)["function"].model_args
                     )
                 )
     for trans in m1.transitions():
@@ -162,12 +163,12 @@ if __name__ == "__main__":
                     "{:10s}: {:10s}: {}".format(
                         trans,
                         attribute,
-                        param_i1(trans, attribute)["function"]._model_str,
+                        param_i1(trans, attribute)["function"].model_function,
                     )
                 )
                 print(
                     "{:10s}  {:10s}  {}".format(
-                        "", "", param_i1(trans, attribute)["function"]._regression_args
+                        "", "", param_i1(trans, attribute)["function"].model_args
                     )
                 )
     param_m2, param_i2 = m2.get_fitted()
@@ -176,12 +177,12 @@ if __name__ == "__main__":
             if param_i2(state, attribute):
                 print(
                     "{:10s}: {}".format(
-                        state, param_i2(state, attribute)["function"]._model_str
+                        state, param_i2(state, attribute)["function"].model_function
                     )
                 )
                 print(
                     "{:10s}  {}".format(
-                        "", param_i2(state, attribute)["function"]._regression_args
+                        "", param_i2(state, attribute)["function"].model_args
                     )
                 )
     for trans in m2.transitions():
@@ -197,12 +198,12 @@ if __name__ == "__main__":
                     "{:10s}: {:10s}: {}".format(
                         trans,
                         attribute,
-                        param_i2(trans, attribute)["function"]._model_str,
+                        param_i2(trans, attribute)["function"].model_function,
                     )
                 )
                 print(
                     "{:10s}  {:10s}  {}".format(
-                        "", "", param_i2(trans, attribute)["function"]._regression_args
+                        "", "", param_i2(trans, attribute)["function"].model_args
                     )
                 )
 

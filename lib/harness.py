@@ -21,7 +21,7 @@ class TransitionHarness:
         * `name`: state or transition name
         * `parameter`: currently valid parameter values. If normalization is used, they are already normalized. Each parameter value is either a primitive
           int/float/str value (-> constant for each iteration) or a list of
-          primitive values (-> set by the return value of the current run, not necessarily constan)
+          primitive values (-> set by the return value of the current run, not necessarily constant)
         * `args`: function arguments, if isa == 'transition'
     """
 
@@ -229,6 +229,7 @@ class TransitionHarness:
             log_data_target["parameter"][parameter_name] = list()
         log_data_target["parameter"][parameter_name].append(parameter_value)
 
+    # Here Be Dragons
     def parser_cb(self, line):
         # print('[HARNESS] got line {}'.format(line))
         if re.match(r"\[PTA\] benchmark stop", line):
@@ -440,6 +441,7 @@ class OnboardTimerHarness(TransitionHarness):
             log_data_target["parameter"][parameter_name] = list()
         log_data_target["parameter"][parameter_name].append(parameter_value)
 
+    # Here Be Dragons
     def parser_cb(self, line):
         # print('[HARNESS] got line {}'.format(line))
         res = re.match(r"\[PTA\] nop=(\S+)/(\S+)", line)

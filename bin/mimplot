@@ -9,54 +9,52 @@ import struct
 import sys
 import tarfile
 import matplotlib.pyplot as plt
-from dfatool.dfatool import MIMOSA
+from dfatool.loader import MIMOSA
 from dfatool.utils import running_mean
 
 opt = dict()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-	try:
-		optspec = (
-			'export= '
-		)
+    try:
+        optspec = "export= "
 
-		raw_opts, args = getopt.getopt(sys.argv[1:], '', optspec.split())
+        raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split())
 
-		for option, parameter in raw_opts:
-			optname = re.sub(r'^--', '', option)
-			opt[optname] = parameter
+        for option, parameter in raw_opts:
+            optname = re.sub(r"^--", "", option)
+            opt[optname] = parameter
 
-		if 'export' in opt:
-			opt['export'] = list(map(int, opt['export'].split(':')))
+        if "export" in opt:
+            opt["export"] = list(map(int, opt["export"].split(":")))
 
-	except getopt.GetoptError as err:
-		print(err)
-		sys.exit(2)
+    except getopt.GetoptError as err:
+        print(err)
+        sys.exit(2)
 
-	voltage = float(args[0])
-	shunt = float(args[1])
-	mimfile = args[2]
+    voltage = float(args[0])
+    shunt = float(args[1])
+    mimfile = args[2]
 
-	mim = MIMOSA(voltage, shunt)
+    mim = MIMOSA(voltage, shunt)
 
-	charges, triggers = mim.load_file(mimfile)
-	charges = charges[:3000000]
+    charges, triggers = mim.load_file(mimfile)
+    charges = charges[:3000000]
 
-	currents = running_mean(mim.charge_to_current_nocal(charges), 10) * 1e-6
-	powers = currents * voltage
-	xr = np.arange(len(currents)) * 1e-5
+    currents = running_mean(mim.charge_to_current_nocal(charges), 10) * 1e-6
+    powers = currents * voltage
+    xr = np.arange(len(currents)) * 1e-5
 
-	if 'export' in opt:
-		xr = xr[opt['export'][0] : opt['export'][1]]
-		currents = currents[opt['export'][0] : opt['export'][1]]
-		powers = powers[opt['export'][0] : opt['export'][1]]
+    if "export" in opt:
+        xr = xr[opt["export"][0] : opt["export"][1]]
+        currents = currents[opt["export"][0] : opt["export"][1]]
+        powers = powers[opt["export"][0] : opt["export"][1]]
 
-		for pair in zip(xr, powers):
-			print('{} {}'.format(*pair))
+        for pair in zip(xr, powers):
+            print("{} {}".format(*pair))
 
-	plt.plot( xr, powers, "r-")
-	plt.xlabel('Time [s]')
-	plt.ylabel('Power [W]')
-	plt.grid(True)
-	plt.show()
+    plt.plot(xr, powers, "r-")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Power [W]")
+    plt.grid(True)
+    plt.show()

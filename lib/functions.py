@@ -5,12 +5,14 @@ This module provides classes and helper functions useful for least-squares
 regression and general handling of model functions.
 """
 from itertools import chain, combinations
+import logging
 import numpy as np
 import re
 from scipy import optimize
-from .utils import is_numeric, vprint
+from .utils import is_numeric
 
 arg_support_enabled = True
+logger = logging.getLogger(__name__)
 
 
 def powerset(iterable):
@@ -21,6 +23,47 @@ def powerset(iterable):
     """
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
+
+
+def gplearn_to_function(function_str: str):
+    """
+    Convert gplearn-style function string to Python function.
+
+    Takes a function string like "mul(add(X0, X1), X2)" and returns
+    a Python function implementing the specified behaviour,
+    e.g. "lambda x, y, z: (x + y) * z".
+
+    Supported functions:
+    add  --  x + y
+    sub  --  x - y
+    mul  --  x * y
+    div  --  x / y if |y| > 0.001, otherwise 1
+    sqrt --  sqrt(|x|)
+    log  --  log(|x|) if |x| > 0.001, otherwise 0
+    inv  --  1 / x if |x| > 0.001, otherwise 0
+    """
+    eval_globals = {
+        "add": lambda x, y: x + y,
+        "sub": lambda x, y: x - y,
+        "mul": lambda x, y: x * y,
+        "div": lambda x, y: np.divide(x, y) if np.abs(y) > 0.001 else 1.0,
+        "sqrt": lambda x: np.sqrt(np.abs(x)),
+        "log": lambda x: np.log(np.abs(x)) if np.abs(x) > 0.001 else 0.0,
+        "inv": lambda x: 1.0 / x if np.abs(x) > 0.001 else 0.0,
+    }
+
+    last_arg_index = 0
+    for i in range(0, 100):
+        if function_str.find("X{:d}".format(i)) >= 0:
+            last_arg_index = i
+
+    arg_list = []
+    for i in range(0, last_arg_index + 1):
+        arg_list.append("X{:d}".format(i))
+
+    eval_str = "lambda {}, *whatever: {}".format(",".join(arg_list), function_str)
+    logger.debug(eval_str)
+    return eval(eval_str, eval_globals)
 
 
 class ParamFunction:
@@ -118,9 +161,7 @@ class AnalyticFunction:
     packet length.
     """
 
-    def __init__(
-        self, function_str, parameters, num_args, verbose=True, regression_args=None
-    ):
+    def __init__(self, function_str, parameters, num_args, regression_args=None):
         """
         Create a new AnalyticFunction object from a function string.
 
@@ -135,18 +176,16 @@ class AnalyticFunction:
         :param num_args: number of local function arguments, if any. Set to 0 if
             the model attribute does not belong to a function or if function
             arguments are not included in the model.
-        :param verbose: complain about odd events
         :param regression_args: Initial regression variable values,
             both for function usage and least squares optimization.
             If unset, defaults to [1, 1, 1, ...]
         """
         self._parameter_names = parameters
         self._num_args = num_args
-        self._model_str = function_str
+        self.model_function = function_str
         rawfunction = function_str
         self._dependson = [False] * (len(parameters) + num_args)
         self.fit_success = False
-        self.verbose = verbose
 
         if type(function_str) == str:
             num_vars_re = re.compile(r"regression_arg\(([0-9]+)\)")
@@ -176,12 +215,12 @@ class AnalyticFunction:
             self._function = function_str
 
         if regression_args:
-            self._regression_args = regression_args.copy()
+            self.model_args = regression_args.copy()
             self._fit_success = True
         elif type(function_str) == str:
-            self._regression_args = list(np.ones((num_vars)))
+            self.model_args = list(np.ones((num_vars)))
         else:
-            self._regression_args = []
+            self.model_args = []
 
     def get_fit_data(self, by_param, state_or_tran, model_attribute):
         """
@@ -231,9 +270,8 @@ class AnalyticFunction:
                         else:
                             X[i].extend([np.nan] * len(val[model_attribute]))
             elif key[0] == state_or_tran and len(key[1]) != dimension:
-                vprint(
-                    self.verbose,
-                    "[W] Invalid parameter key length while gathering fit data for {}/{}. is {}, want {}.".format(
+                logger.warning(
+                    "Invalid parameter key length while gathering fit data for {}/{}. is {}, want {}.".format(
                         state_or_tran, model_attribute, len(key[1]), dimension
                     ),
                 )
@@ -263,30 +301,27 @@ class AnalyticFunction:
             error_function = lambda P, X, y: self._function(P, X) - y
             try:
                 res = optimize.least_squares(
-                    error_function, self._regression_args, args=(X, Y), xtol=2e-15
+                    error_function, self.model_args, args=(X, Y), xtol=2e-15
                 )
             except ValueError as err:
-                vprint(
-                    self.verbose,
-                    "[W] Fit failed for {}/{}: {} (function: {})".format(
-                        state_or_tran, model_attribute, err, self._model_str
+                logger.warning(
+                    "Fit failed for {}/{}: {} (function: {})".format(
+                        state_or_tran, model_attribute, err, self.model_function
                     ),
                 )
                 return
             if res.status > 0:
-                self._regression_args = res.x
+                self.model_args = res.x
                 self.fit_success = True
             else:
-                vprint(
-                    self.verbose,
-                    "[W] Fit failed for {}/{}: {} (function: {})".format(
-                        state_or_tran, model_attribute, res.message, self._model_str
+                logger.warning(
+                    "Fit failed for {}/{}: {} (function: {})".format(
+                        state_or_tran, model_attribute, res.message, self.model_function
                     ),
                 )
         else:
-            vprint(
-                self.verbose,
-                "[W] Insufficient amount of valid parameter keys, cannot fit {}/{}".format(
+            logger.warning(
+                "Insufficient amount of valid parameter keys, cannot fit {}/{}".format(
                     state_or_tran, model_attribute
                 ),
             )
@@ -314,9 +349,9 @@ class AnalyticFunction:
             corresponds to lexically first parameter, etc.
         :param arg_list: argument values (list of float), if arguments are used.
         """
-        if len(self._regression_args) == 0:
+        if len(self.model_args) == 0:
             return self._function(param_list, arg_list)
-        return self._function(self._regression_args, param_list)
+        return self._function(self.model_args, param_list)
 
 
 class analytic:
