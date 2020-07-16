@@ -9,7 +9,7 @@ from sklearn.cluster import AgglomerativeClustering
 import matplotlib.pyplot as plt
 import ruptures as rpt
 import numpy as np
-from dfatool.dfatool import RawData
+from dfatool.loader import RawData
 
 
 # from scipy.cluster.hierarchy import dendrogram, linkage # for graphical display
