@@ -160,11 +160,11 @@ def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0,
         knee = find_knee_point(pen_val, fitted_bkps_val, S=S)
 
         # TODO: Find plateau on pen_val vs fitted_bkps_val
-        # scipy.find_peaks() does not find plateaus if they extend through the end of the data.
-        # to counter that, add one extremely large value to the right side of the data
-        # after negating it is extremely small -> Almost certainly smaller than the
-        # found plateau therefore the plateau does not extend through the border -> scipy.find_peaks
-        # finds it. Choose value from within that plateau.
+        #   scipy.find_peaks() does not find plateaus if they extend through the end of the data.
+        #   to counter that, add one extremely large value to the right side of the data
+        #   after negating it is extremely small -> Almost certainly smaller than the
+        #   found plateau therefore the plateau does not extend through the border
+        #   -> scipy.find_peaks finds it. Choose value from within that plateau.
         # fitted_bkps_val.append(100000000)
         # TODO: Approaching over find_peaks might not work if the initial decrease step to the
         #   "correct" number of changepoints and additional decrease steps e.g. underfitting
@@ -331,7 +331,6 @@ def calc_raw_states(arg_list, num_processes=8):
 
 
 # Very short benchmark yielded approx. 3 times the speed of solution not using sort
-# TODO: Decide whether median is really the better baseline than mean
 def needs_refinement(signal, thresh):
     sorted_signal = sorted(signal)
     length_of_signal = len(signal)
@@ -509,29 +508,28 @@ if __name__ == '__main__':
             configurations = json.load(f)
         # loop through all traces check if refinement is necessary
         resulting_sequence_list = []
-        for num_config, measurements_by_configuration in enumerate(configurations):
+        for num_config, measurements_by_config in enumerate(configurations):
             # loop through all occurrences of the looked at state
-            print_info("Looking at state '" + measurements_by_configuration['name'] + "' with params: "
-                       + str(measurements_by_configuration['parameter']))
+            print_info("Looking at state '" + measurements_by_config['name'] + "' with params: "
+                       + str(measurements_by_config['parameter']))
             refine = False
             print_info("Checking if refinement is necessary...")
-            for measurement in measurements_by_configuration['offline']:
+            for measurement in measurements_by_config['offline']:
                 # loop through measurements of particular state
                 # an check if state needs refinement
                 signal = measurement['uW']
                 # mean = measurement['uW_mean']
-                # TODO: Decide if median is really the better baseline than mean
                 if needs_refinement(signal, opt_refinement_thresh) and not refine:
                     print_info("Refinement is necessary!")
                     refine = True
             if not refine:
-                print_info("No refinement necessary for state '" + measurements_by_configuration['name']
-                           + "' with params: " + str(measurements_by_configuration['parameter']))
+                print_info("No refinement necessary for state '" + measurements_by_config['name']
+                           + "' with params: " + str(measurements_by_config['parameter']))
             else:
                 # assume that all measurements of the same param configuration are fundamentally
                 # similar -> calculate penalty for first measurement, use it for all
                 if opt_pen_override is None:
-                    signal = np.array(measurements_by_configuration['offline'][0]['uW'])
+                    signal = np.array(measurements_by_config['offline'][0]['uW'])
                     normed_signal = norm_signal(signal)
                     penalty = calculate_penalty_value(normed_signal, model=opt_model,
                                                       range_min=opt_range_min,
@@ -545,11 +543,11 @@ if __name__ == '__main__':
                 # build arguments for parallel excecution
                 print_info("Starting raw_states calculation.")
                 raw_states_calc_args = []
-                for num_measurement, measurement in enumerate(measurements_by_configuration['offline']):
+                for num_measurement, measurement in enumerate(measurements_by_config['offline']):
                     raw_states_calc_args.append((num_measurement, measurement, penalty,
                                                  opt_model, opt_jump))
 
-                raw_states_list = [None] * len(measurements_by_configuration['offline'])
+                raw_states_list = [None] * len(measurements_by_config['offline'])
                 raw_states_res = calc_raw_states(raw_states_calc_args, opt_num_processes)
                 # extracting result and putting it in correct order -> index of raw_states_list
                 # entry still corresponds with index of measurement in measurements_by_states
@@ -622,8 +620,6 @@ if __name__ == '__main__':
                         # print_info("Cluster labels:\n" + str(cluster.labels_))
                         # plt.scatter(value_to_cluster[:, 0], value_to_cluster[:, 1], c=cluster.labels_, cmap='rainbow')
                         # plt.show()
-                        # TODO: Problem: Der Algorithmus nummeriert die Zustände nicht immer gleich... also bspw.:
-                        # mal ist das tatsächliche Transmit mit 1 belabelt und mal mit 3
                         cluster_labels_list.append((num_trace, cluster.labels_))
                         num_cluster_list.append((num_trace, cluster.n_clusters_))
                         i = i + 1
@@ -739,7 +735,7 @@ if __name__ == '__main__':
                 print_info("Confidence of resulting sequence is " + str(confidence)
                            + " while using " + str(num_used_measurements) + "/"
                            + str(len(raw_states_list)) + " measurements.")
-                print(resulting_sequence)
+                #print(resulting_sequence)
                 resulting_sequence_list.append((num_config, resulting_sequence))
         # TODO: Was jetzt? Hier habe ich jetzt pro Konfiguration eine Zustandsfolge. Daraus Automat
         #   erzeugen. Aber wie? Oder erst parametrisieren? Eigentlich brauche ich vorher die
@@ -750,7 +746,10 @@ if __name__ == '__main__':
         #   wie erkenne ich, dass zwei Zustände die selben sind und nicht nur einfach eine ähnliche
         #   Leistungsaufnahme haben?! Vllt Zustände 2D clustern? 1Dim = Leistungsaufnahme,
         #   2Dim=Dauer? Zumindest innerhalb einer Paramkonfiguration sollte sich die Dauer eines
-        #   Zustands ja nicht mehr ändern.
+        #   Zustands ja nicht mehr ändern. Kann sicherlich immernoch Falschclustering erzeugen...
+        for num_config, sequence in resulting_sequence_list:
+            print_info("NO. config:" + str(num_config))
+            print_info(sequence)
 
     elif ".tar" in opt_filename:
         # open with dfatool
