@@ -1735,7 +1735,7 @@ class EnergyTraceWithLogicAnalyzer:
             modified_timestamps_with_drift.append(((x - start_timestamp) * endFactor) + start_timestamp)
 
         self.start_offset = 0
-        def getPowerBetween(start, end):
+        def getPowerBetween(start, end, base_power=0.001469):
             first_index = 0
             all_power = 0
             all_power_count = 0
@@ -1750,7 +1750,7 @@ class EnergyTraceWithLogicAnalyzer:
                 if plot_data_x[ind] > end:
                     self.start_offset = ind - 1
                     break
-            return all_power / all_power_count
+            return (all_power / all_power_count) - base_power
 
         # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1828,9 +1828,9 @@ class EnergyTraceWithLogicAnalyzer:
 
             if (end_transition_ts - start_transition_ts) * 10 ** 6 > 2_000_000:
                 # TODO Last data set corrupted? HOT FIX!!!!!!!!!!!! REMOVE LATER
-                for x in range(4):
-                    del energy_trace_new[-1]
-                break
+                #for x in range(4):
+                #    del energy_trace_new[-1]
+                #break
                 pass
 
             energy_trace_new.append(transition)
@@ -1841,6 +1841,8 @@ class EnergyTraceWithLogicAnalyzer:
 
         energy_trace_new = energy_trace_new[4:]
 
+
+
         for number, item in enumerate(expected_transitions):
             name, duration = item
             transition = {
@@ -1848,6 +1850,7 @@ class EnergyTraceWithLogicAnalyzer:
                 "W_mean": max(np.random.normal(0.023, 0.002), 0),
                 "W_std": 0.0001,
                 "s": duration,
+                "name": name,
             }
 
             energy_trace.append(transition)
@@ -1862,6 +1865,7 @@ class EnergyTraceWithLogicAnalyzer:
                 "W_mean": max(np.random.normal(0.023, 0.002), 0),
                 "W_std": 0.0001,
                 "s": self.state_duration,
+                "name": "state",
             }
 
             energy_trace.append(state)
@@ -1870,7 +1874,14 @@ class EnergyTraceWithLogicAnalyzer:
                 energy_trace[-2]["W_mean"] - energy_trace[-1]["W_mean"]
             )
 
-        #print(len(energy_trace_new), " - ", len(energy_trace), " - ", ",".join([str(x["s"]) for x in energy_trace_new[-6:]]), " - ", ",".join([str(x["s"]) for x in energy_trace[-6:]]))
+        st = ""
+        for i, x in enumerate(energy_trace_new[-10:]):
+            st += "(%s|%s|%s)" % (energy_trace[i-10]["name"],x['W_mean'],x['s'])
+
+        #print(st)
+        print(len(self.sync_data.timestamps), " - ", len(energy_trace_new), " - ", len(energy_trace), " - ", ",".join([str(x["s"]) for x in energy_trace_new[-6:]]), " - ", ",".join([str(x["s"]) for x in energy_trace[-6:]]))
+        if len(energy_trace_new) < len(energy_trace):
+            return None
         return energy_trace_new
 
 

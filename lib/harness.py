@@ -178,21 +178,16 @@ class TransitionHarness:
         """Return C++ code used to start a new run/trace."""
         return "ptalog.reset();\n"
 
-    def _pass_transition_call(self, transition_id):
-        if self.gpio_mode == "bar":
-            barcode_bits = Code128("T{}".format(transition_id), charset="B").modules
-            if len(barcode_bits) % 8 != 0:
-                barcode_bits.extend([1] * (8 - (len(barcode_bits) % 8)))
-            barcode_bytes = [
-                255 - int("".join(map(str, reversed(barcode_bits[i : i + 8]))), 2)
-                for i in range(0, len(barcode_bits), 8)
-            ]
-            inline_array = "".join(map(lambda s: "\\x{:02x}".format(s), barcode_bytes))
-            return 'ptalog.startTransition("{}", {});\n'.format(
-                inline_array, len(barcode_bytes)
-            )
-        else:
-            return "ptalog.startTransition();\n"
+    def _get_barcode(self, transition_id):
+        barcode_bits = Code128("T{}".format(transition_id), charset="B").modules
+        if len(barcode_bits) % 8 != 0:
+            barcode_bits.extend([1] * (8 - (len(barcode_bits) % 8)))
+        barcode_bytes = [
+            255 - int("".join(map(str, reversed(barcode_bits[i : i + 8]))), 2)
+            for i in range(0, len(barcode_bits), 8)
+        ]
+        inline_array = "".join(map(lambda s: "\\x{:02x}".format(s), barcode_bytes))
+        return inline_array, len(barcode_bytes)
 
     def pass_transition(
         self, transition_id, transition_code, transition: object = None
@@ -204,7 +199,12 @@ class TransitionHarness:
         `post_transition_delay_us` is set.
         """
         ret = "ptalog.passTransition({:d});\n".format(transition_id)
-        ret += self._pass_transition_call(transition_id)
+        if self.gpio_mode == "bar":
+            ret += """ptalog.startTransition("{}", {});\n""".format(
+                *self._get_barcode(transition_id)
+            )
+        else:
+            ret += "ptalog.startTransition();\n"
         if (
             self.log_return_values
             and transition
@@ -402,8 +402,7 @@ class OnboardTimerHarness(TransitionHarness):
                     ]
 
     def global_code(self):
-        ret = '#include "driver/counter.h"\n'
-        ret += "#define PTALOG_TIMING\n"
+        ret = "#define PTALOG_TIMING\n"
         ret += super().global_code()
         if self.energytrace_sync == "led":
             #TODO Make nicer
@@ -413,7 +412,7 @@ class OnboardTimerHarness(TransitionHarness):
     ptalog.startTransition();
     gpio.led_toggle(0);
     gpio.led_toggle(1);
-    ptalog.stopTransition(counter);
+    ptalog.stopTransition();
 
     for (unsigned char i = 0; i < 4; i++) {
         arch.sleep_ms(250);
@@ -423,7 +422,7 @@ class OnboardTimerHarness(TransitionHarness):
     ptalog.startTransition();
     gpio.led_toggle(0);
     gpio.led_toggle(1);
-    ptalog.stopTransition(counter);
+    ptalog.stopTransition();
     // ======================= LED SYNC ================================
     arch.sleep_ms(250);
 }\n\n"""
@@ -433,9 +432,7 @@ class OnboardTimerHarness(TransitionHarness):
         ret = ""
         if self.energytrace_sync == "led":
             ret += "runLASync();\n"
-        ret += "counter.start();\n"
-        ret += "counter.stop();\n"
-        ret += "ptalog.passNop(counter);\n"
+        ret += "ptalog.passNop();\n"
         ret += super().start_benchmark(benchmark_id)
         return ret
 
@@ -450,8 +447,12 @@ class OnboardTimerHarness(TransitionHarness):
         self, transition_id, transition_code, transition: object = None
     ):
         ret = "ptalog.passTransition({:d});\n".format(transition_id)
-        ret += self._pass_transition_call(transition_id)
-        ret += "counter.start();\n"
+        if self.gpio_mode == "bar":
+            ret += """ptalog.startTransition("{}", {});\n""".format(
+                *self._get_barcode(transition_id)
+            )
+        else:
+            ret += "ptalog.startTransition();\n"
         if (
             self.log_return_values
             and transition
@@ -460,14 +461,13 @@ class OnboardTimerHarness(TransitionHarness):
             ret += "transition_return_value = {}\n".format(transition_code)
         else:
             ret += "{}\n".format(transition_code)
-        ret += "counter.stop();\n"
         if (
             self.log_return_values
             and transition
             and len(transition.return_value_handlers)
         ):
             ret += "ptalog.logReturn(transition_return_value);\n"
-        ret += "ptalog.stopTransition(counter);\n"
+        ret += "ptalog.stopTransition();\n"
         return ret
 
     def _append_nondeterministic_parameter_value(
@@ -489,11 +489,26 @@ class OnboardTimerHarness(TransitionHarness):
                         res.group(1), res.group(2)
                     )
                 )
-        if re.match(r"\[PTA\] benchmark stop", line):
+        match = re.match(r"\[PTA\] benchmark stop, cycles=(\S+)/(\S+)", line)
+        if match:
             self.repetitions += 1
             self.synced = False
             if self.repeat > 0 and self.repetitions == self.repeat:
                 self.done = True
+                prev_state_cycles = int(match.group(1))
+                prev_state_overflow = int(match.group(2))
+                prev_state_duration_us = (
+                    prev_state_cycles * self.one_cycle_in_us
+                    + prev_state_overflow * self.one_overflow_in_us
+                    - self.nop_cycles * self.one_cycle_in_us
+                )
+                final_state = self.traces[self.trace_id]["trace"][-1]
+                if "offline_aggregates" not in final_state:
+                    final_state["offline_aggregates"] = {"duration": list()}
+                final_state["offline_aggregates"]["duration"].append(
+                    prev_state_duration_us
+                )
+
                 print("[HARNESS] done")
                 return
         # May be repeated, e.g. if the device is reset shortly after start by
@@ -509,14 +524,20 @@ class OnboardTimerHarness(TransitionHarness):
                 self.current_transition_in_trace = 0
             if self.log_return_values:
                 res = re.match(
-                    r"\[PTA\] transition=(\S+) cycles=(\S+)/(\S+) return=(\S+)", line
+                    r"\[PTA\] transition=(\S+) prevcycles=(\S+)/(\S+) cycles=(\S+)/(\S+) return=(\S+)",
+                    line,
                 )
             else:
-                res = re.match(r"\[PTA\] transition=(\S+) cycles=(\S+)/(\S+)", line)
+                res = re.match(
+                    r"\[PTA\] transition=(\S+) prevcycles=(\S+)/(\S+) cycles=(\S+)/(\S+)",
+                    line,
+                )
             if res:
                 transition_id = int(res.group(1))
-                cycles = int(res.group(2))
-                overflow = int(res.group(3))
+                prev_state_cycles = int(res.group(2))
+                prev_state_overflow = int(res.group(3))
+                cycles = int(res.group(4))
+                overflow = int(res.group(5))
                 if overflow >= self.counter_max_overflow:
                     self.abort = True
                     raise RuntimeError(
@@ -529,9 +550,26 @@ class OnboardTimerHarness(TransitionHarness):
                             transition_id,
                         )
                     )
+                if prev_state_overflow >= self.counter_max_overflow:
+                    self.abort = True
+                    raise RuntimeError(
+                        "Counter overflow ({:d}/{:d}) in benchmark id={:d} trace={:d}: state before transition #{:d} (ID {:d})".format(
+                            prev_state_cycles,
+                            prev_state_overflow,
+                            0,
+                            self.trace_id,
+                            self.current_transition_in_trace,
+                            transition_id,
+                        )
+                    )
                 duration_us = (
                     cycles * self.one_cycle_in_us
                     + overflow * self.one_overflow_in_us
+                    - self.nop_cycles * self.one_cycle_in_us
+                )
+                prev_state_duration_us = (
+                    prev_state_cycles * self.one_cycle_in_us
+                    + prev_state_overflow * self.one_overflow_in_us
                     - self.nop_cycles * self.one_cycle_in_us
                 )
                 if duration_us < 0:
@@ -541,6 +579,14 @@ class OnboardTimerHarness(TransitionHarness):
                     log_data_target = self.traces[self.trace_id]["trace"][
                         self.current_transition_in_trace * 2
                     ]
+                    if self.current_transition_in_trace > 0:
+                        prev_state_data = self.traces[self.trace_id]["trace"][
+                            self.current_transition_in_trace * 2 - 1
+                        ]
+                    elif self.current_transition_in_trace == 0 and self.trace_id > 0:
+                        prev_state_data = self.traces[self.trace_id - 1]["trace"][-1]
+                    else:
+                        prev_state_data = None
                 except IndexError:
                     transition_name = None
                     if self.pta:
@@ -565,6 +611,17 @@ class OnboardTimerHarness(TransitionHarness):
                             self.current_transition_in_trace,
                             transition_id,
                             log_data_target["isa"],
+                        )
+                    )
+                if prev_state_data and prev_state_data["isa"] != "state":
+                    self.abort = True
+                    raise RuntimeError(
+                        "Log mismatch in benchmark id={:d} trace={:d}: state before transition #{:d} (ID {:d}): Expected state, got {:s}".format(
+                            0,
+                            self.trace_id,
+                            self.current_transition_in_trace,
+                            transition_id,
+                            prev_state_data["isa"],
                         )
                     )
                 if self.pta:
@@ -637,4 +694,10 @@ class OnboardTimerHarness(TransitionHarness):
                 if "offline_aggregates" not in log_data_target:
                     log_data_target["offline_aggregates"] = {"duration": list()}
                 log_data_target["offline_aggregates"]["duration"].append(duration_us)
+                if prev_state_data is not None:
+                    if "offline_aggregates" not in prev_state_data:
+                        prev_state_data["offline_aggregates"] = {"duration": list()}
+                    prev_state_data["offline_aggregates"]["duration"].append(
+                        prev_state_duration_us
+                    )
                 self.current_transition_in_trace += 1
