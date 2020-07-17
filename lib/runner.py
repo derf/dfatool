@@ -419,7 +419,7 @@ def sleep_ms(duration: int, arch: str, cpu_freq: int = None) -> str:
         if tail_sleep > 0:
             ret += f"arch.sleep_ms({tail_sleep});\n"
         return ret
-    return "arch.sleep_ms({duration});\n"
+    return f"arch.sleep_ms({duration});\n"
 
 
 def get_counter_limits_us(arch: str) -> tuple:
