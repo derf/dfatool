@@ -1694,7 +1694,7 @@ class EnergyTraceWithLogicAnalyzer:
         plot_data_y = []
         last_data = [0, 0, 0, 0]
 
-        power_sync_watt = 0.0162
+        power_sync_watt = 0.015
 
         # MAIN ENERGY DATA ITERATION
         for energytrace_dataset in self.energy_data:
@@ -1735,7 +1735,7 @@ class EnergyTraceWithLogicAnalyzer:
             modified_timestamps_with_drift.append(((x - start_timestamp) * endFactor) + start_timestamp)
 
         self.start_offset = 0
-        def getPowerBetween(start, end, base_power=0.001469):
+        def getPowerBetween(start, end, base_power=0): #0.001469):
             first_index = 0
             all_power = 0
             all_power_count = 0
@@ -1841,7 +1841,44 @@ class EnergyTraceWithLogicAnalyzer:
 
         energy_trace_new = energy_trace_new[4:]
 
+        # ********************************************************************
+        # ********************************************************************
+        # ********************************************************************
+        #    _____  _      ____ _______ _______ _____ _   _  _____
+        #   |  __ \| |    / __ \__   __|__   __|_   _| \ | |/ ____|
+        #   | |__) | |   | |  | | | |     | |    | | |  \| | |  __
+        #   |  ___/| |   | |  | | | |     | |    | | | . ` | | |_ |
+        #   | |    | |___| |__| | | |     | |   _| |_| |\  | |__| |
+        #   |_|    |______\____/  |_|     |_|  |_____|_| \_|\_____|
+        #
+        # ********************************************************************
+        # ********************************************************************
+        # ********************************************************************
+        def calculateRectangleCurve(timestamps, min_value=0, max_value=0.160):
+            import numpy as np
+            data = []
+            for ts in timestamps:
+                data.append(ts)
+                data.append(ts)
 
+            a = np.empty((len(data),))
+            a[1::4] = max_value
+            a[2::4] = max_value
+            a[3::4] = min_value
+            a[4::4] = min_value
+            return data, a  # plotting by columns
+
+        import matplotlib.pyplot as plt
+        rectCurve_with_drift = calculateRectangleCurve(modified_timestamps_with_drift, max_value=max(plot_data_y))
+
+        plt.plot(plot_data_x, plot_data_y, label='Energy')  # plotting by columns
+        plt.plot(rectCurve_with_drift[0], rectCurve_with_drift[1], '-g', label='With calculated Driftfactor')
+        leg = plt.legend()
+        plt.show()
+
+        # ********************************************************************
+        # ********************************************************************
+        # ********************************************************************
 
         for number, item in enumerate(expected_transitions):
             name, duration = item
@@ -1876,9 +1913,10 @@ class EnergyTraceWithLogicAnalyzer:
 
         st = ""
         for i, x in enumerate(energy_trace_new[-10:]):
-            st += "(%s|%s|%s)" % (energy_trace[i-10]["name"],x['W_mean'],x['s'])
+            #st += "(%s|%s|%s)" % (energy_trace[i-10]["name"],x['W_mean'],x['s'])
+            st += "(%s|%s|%s)\n" % (energy_trace[i-10]["s"], x['s'], x['W_mean'])
 
-        #print(st)
+        #print(st, "\n_______________________")
         print(len(self.sync_data.timestamps), " - ", len(energy_trace_new), " - ", len(energy_trace), " - ", ",".join([str(x["s"]) for x in energy_trace_new[-6:]]), " - ", ",".join([str(x["s"]) for x in energy_trace[-6:]]))
         if len(energy_trace_new) < len(energy_trace):
             return None
@@ -1886,8 +1924,45 @@ class EnergyTraceWithLogicAnalyzer:
 
 
 class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
-    pass
+    def __init__(
+        self,
+        voltage: float,
+        state_duration: int,
+        transition_names: list,
+        with_traces=False,
+    ):
 
+        """
+        Create a new EnergyTraceWithLogicAnalyzer object.
+
+        :param voltage: supply voltage [V], usually 3.3 V
+        :param state_duration: state duration [ms]
+        :param transition_names: list of transition names in PTA transition order.
+            Needed to map barcode synchronization numbers to transitions.
+        """
+
+        self.voltage = voltage
+        self.state_duration = state_duration * 1e-3
+        self.transition_names = transition_names
+        self.with_traces = with_traces
+        self.errors = list()
+
+        super().__init__(voltage, state_duration, transition_names, with_traces)
+
+    def load_data(self, log_data):
+        from data.timing.SigrokInterface import SigrokResult
+        from data.energy.EnergyInterface import EnergyInterface
+
+        # Daten laden
+        self.sync_data = None
+        self.energy_data = EnergyInterface.getDataFromString(str(log_data[1]))
+
+        pass
+
+    def analyze_states(self, traces, offline_index: int):
+        from data.timing.SigrokInterface import SigrokResult
+        self.sync_data = SigrokResult.fromTraces(traces)
+        return super().analyze_states(traces, offline_index)
 
 class MIMOSA:
     """
