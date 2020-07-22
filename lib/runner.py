@@ -311,130 +311,157 @@ class ShellMonitor:
         pass
 
 
-def build(arch, app, opts=[]):
-    command = ["make", "arch={}".format(arch), "app={}".format(app), "clean"]
-    command.extend(opts)
-    res = subprocess.run(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
-    )
-    if res.returncode != 0:
-        raise RuntimeError(
-            "Build failure, executing {}:\n".format(command) + res.stderr
+class Arch:
+    def __init__(self, name, opts=list()):
+        self.name = name
+        self.opts = opts
+        self.info = self.get_info()
+
+    def build(self, app, opts=list()):
+        command = ["make", "arch={}".format(self.name), "app={}".format(app), "clean"]
+        command.extend(self.opts)
+        command.extend(opts)
+        res = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
         )
-    command = ["make", "-B", "arch={}".format(arch), "app={}".format(app)]
-    command.extend(opts)
-    res = subprocess.run(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
-    )
-    if res.returncode != 0:
-        raise RuntimeError(
-            "Build failure, executing {}:\n ".format(command) + res.stderr
+        if res.returncode != 0:
+            raise RuntimeError(
+                "Build failure, executing {}:\n".format(command) + res.stderr
+            )
+        command = ["make", "-B", "arch={}".format(self.name), "app={}".format(app)]
+        command.extend(self.opts)
+        command.extend(opts)
+        res = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
         )
-    return command
+        if res.returncode != 0:
+            raise RuntimeError(
+                "Build failure, executing {}:\n ".format(command) + res.stderr
+            )
+        return command
 
+    def flash(self, app, opts=list()):
+        command = ["make", "arch={}".format(self.name), "app={}".format(app), "program"]
+        command.extend(self.opts)
+        command.extend(opts)
+        res = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        if res.returncode != 0:
+            raise RuntimeError("Flash failure")
+        return command
 
-def flash(arch, app, opts=[]):
-    command = ["make", "arch={}".format(arch), "app={}".format(app), "program"]
-    command.extend(opts)
-    res = subprocess.run(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
-    )
-    if res.returncode != 0:
-        raise RuntimeError("Flash failure")
-    return command
+    def get_info(self, opts=list()) -> list:
+        """
+        Return multipass "make info" output.
 
+        Returns a list.
+        """
+        command = ["make", "arch={}".format(self.name), "info"]
+        command.extend(self.opts)
+        command.extend(opts)
+        res = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        if res.returncode != 0:
+            raise RuntimeError("make info Failure")
+        return res.stdout.split("\n")
 
-def get_info(arch, opts: list = []) -> list:
-    """
-    Return multipass "make info" output.
+    def _cached_info(self, opts=list()) -> list:
+        if len(opts):
+            return self.get_info(opts)
+        return self.info
 
-    Returns a list.
-    """
-    command = ["make", "arch={}".format(arch), "info"]
-    command.extend(opts)
-    res = subprocess.run(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
-    )
-    if res.returncode != 0:
-        raise RuntimeError("make info Failure")
-    return res.stdout.split("\n")
+    def get_monitor(self, **kwargs) -> object:
+        """
+        Return an appropriate monitor for arch, depending on "make info" output.
 
+        Port and Baud rate are taken from "make info".
 
-def get_monitor(arch: str, **kwargs) -> object:
-    """
-    Return an appropriate monitor for arch, depending on "make info" output.
-
-    Port and Baud rate are taken from "make info".
-
-    :param arch: architecture name, e.g. 'msp430fr5994lp' or 'posix'
-    :param energytrace: `EnergyTraceMonitor` options. Returns an EnergyTrace monitor if not None.
-    :param mimosa: `MIMOSAMonitor` options. Returns a MIMOSA monitor if not None.
-    """
-    for line in get_info(arch):
-        if "Monitor:" in line:
-            _, port, arg = line.split(" ")
-            if port == "run":
-                return ShellMonitor(arg, **kwargs)
-            elif "mimosa" in kwargs and kwargs["mimosa"] is not None:
-                mimosa_kwargs = kwargs.pop("mimosa")
-                return MIMOSAMonitor(port, arg, **mimosa_kwargs, **kwargs)
-            elif "energytrace" in kwargs and kwargs["energytrace"] is not None:
-                energytrace_kwargs = kwargs.pop("energytrace").copy()
-                sync_mode = energytrace_kwargs.pop("sync")
-                if sync_mode == "la":
-                    return EnergyTraceLogicAnalyzerMonitor(
-                        port, arg, **energytrace_kwargs, **kwargs
-                    )
+        :param energytrace: `EnergyTraceMonitor` options. Returns an EnergyTrace monitor if not None.
+        :param mimosa: `MIMOSAMonitor` options. Returns a MIMOSA monitor if not None.
+        """
+        for line in self.info:
+            if "Monitor:" in line:
+                _, port, arg = line.split(" ")
+                if port == "run":
+                    return ShellMonitor(arg, **kwargs)
+                elif "mimosa" in kwargs and kwargs["mimosa"] is not None:
+                    mimosa_kwargs = kwargs.pop("mimosa")
+                    return MIMOSAMonitor(port, arg, **mimosa_kwargs, **kwargs)
+                elif "energytrace" in kwargs and kwargs["energytrace"] is not None:
+                    energytrace_kwargs = kwargs.pop("energytrace").copy()
+                    sync_mode = energytrace_kwargs.pop("sync")
+                    if sync_mode == "la":
+                        return EnergyTraceLogicAnalyzerMonitor(
+                            port, arg, **energytrace_kwargs, **kwargs
+                        )
+                    else:
+                        return EnergyTraceMonitor(
+                            port, arg, **energytrace_kwargs, **kwargs
+                        )
                 else:
-                    return EnergyTraceMonitor(port, arg, **energytrace_kwargs, **kwargs)
+                    kwargs.pop("energytrace", None)
+                    kwargs.pop("mimosa", None)
+                    return SerialMonitor(port, arg, **kwargs)
+        raise RuntimeError("Monitor failure")
+
+    def get_counter_limits(self, opts=list()) -> tuple:
+        """Return multipass max counter and max overflow value for arch."""
+        for line in self._cached_info(opts):
+            match = re.match("Counter Overflow: ([^/]*)/(.*)", line)
+            if match:
+                overflow_value = int(match.group(1))
+                max_overflow = int(match.group(2))
+                return overflow_value, max_overflow
+        raise RuntimeError("Did not find Counter Overflow limits")
+
+    def sleep_ms(self, duration: int, opts=list()) -> str:
+        max_sleep = None
+        if "msp430fr" in self.name:
+            cpu_freq = None
+            for line in self._cached_info(opts):
+                match = re.match(r"CPU\s+Freq:\s+(.*)\s+Hz", line)
+                if match:
+                    cpu_freq = int(match.group(1))
+            if cpu_freq is not None and cpu_freq > 8000000:
+                max_sleep = 250
             else:
-                kwargs.pop("energytrace", None)
-                kwargs.pop("mimosa", None)
-                return SerialMonitor(port, arg, **kwargs)
-    raise RuntimeError("Monitor failure")
+                max_sleep = 500
+        if max_sleep is not None and duration > max_sleep:
+            sub_sleep_count = duration // max_sleep
+            tail_sleep = duration % max_sleep
+            ret = f"for (unsigned char i = 0; i < {sub_sleep_count}; i++) {{ arch.sleep_ms({max_sleep}); }}\n"
+            if tail_sleep > 0:
+                ret += f"arch.sleep_ms({tail_sleep});\n"
+            return ret
+        return f"arch.sleep_ms({duration});\n"
 
-
-def get_counter_limits(arch: str) -> tuple:
-    """Return multipass max counter and max overflow value for arch."""
-    for line in get_info(arch):
-        match = re.match("Counter Overflow: ([^/]*)/(.*)", line)
-        if match:
-            overflow_value = int(match.group(1))
-            max_overflow = int(match.group(2))
-            return overflow_value, max_overflow
-    raise RuntimeError("Did not find Counter Overflow limits")
-
-
-def sleep_ms(duration: int, arch: str, cpu_freq: int = None) -> str:
-    max_sleep = None
-    if "msp430fr" in arch:
-        if cpu_freq is not None and cpu_freq > 8000000:
-            max_sleep = 250
-        else:
-            max_sleep = 500
-    if max_sleep is not None and duration > max_sleep:
-        sub_sleep_count = duration // max_sleep
-        tail_sleep = duration % max_sleep
-        ret = f"for (unsigned char i = 0; i < {sub_sleep_count}; i++) {{ arch.sleep_ms({max_sleep}); }}\n"
-        if tail_sleep > 0:
-            ret += f"arch.sleep_ms({tail_sleep});\n"
-        return ret
-    return f"arch.sleep_ms({duration});\n"
-
-
-def get_counter_limits_us(arch: str, opts=list()) -> tuple:
-    """Return duration of one counter step and one counter overflow in us."""
-    cpu_freq = 0
-    overflow_value = 0
-    max_overflow = 0
-    for line in get_info(arch, opts):
-        match = re.match(r"CPU\s+Freq:\s+(.*)\s+Hz", line)
-        if match:
-            cpu_freq = int(match.group(1))
-        match = re.match(r"Counter Overflow:\s+([^/]*)/(.*)", line)
-        if match:
-            overflow_value = int(match.group(1))
-            max_overflow = int(match.group(2))
-    if cpu_freq and overflow_value:
-        return 1000000 / cpu_freq, overflow_value * 1000000 / cpu_freq, max_overflow
-    raise RuntimeError("Did not find Counter Overflow limits")
+    def get_counter_limits_us(self, opts=list()) -> tuple:
+        """Return duration of one counter step and one counter overflow in us."""
+        cpu_freq = 0
+        overflow_value = 0
+        max_overflow = 0
+        for line in self._cached_info(opts):
+            match = re.match(r"CPU\s+Freq:\s+(.*)\s+Hz", line)
+            if match:
+                cpu_freq = int(match.group(1))
+            match = re.match(r"Counter Overflow:\s+([^/]*)/(.*)", line)
+            if match:
+                overflow_value = int(match.group(1))
+                max_overflow = int(match.group(2))
+        if cpu_freq and overflow_value:
+            return 1000000 / cpu_freq, overflow_value * 1000000 / cpu_freq, max_overflow
+        raise RuntimeError("Did not find Counter Overflow limits")

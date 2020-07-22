@@ -224,7 +224,7 @@ def benchmark_from_runs(
             elif opt["sleep"]:
                 if "energytrace" in opt:
                     outbuf.write(f"// -> {transition.destination.name}\n")
-                    outbuf.write(runner.sleep_ms(opt["sleep"], opt["arch"]))
+                    outbuf.write(target.sleep_ms(opt["sleep"]))
                 else:
                     outbuf.write(f"// -> {transition.destination.name}\n")
                     outbuf.write("arch.delay_ms({:d});\n".format(opt["sleep"]))
@@ -283,7 +283,7 @@ def run_benchmark(
         needs_split = True
     else:
         try:
-            runner.build(arch, app, run_args)
+            target.build(app, run_args)
         except RuntimeError:
             if len(runs) > 50:
                 # Application is too large -> split up runs
@@ -336,14 +336,14 @@ def run_benchmark(
         i = 0
         while i < opt["repeat"]:
             print(f"""[RUN] flashing benchmark {i+1}/{opt["repeat"]}""")
-            runner.flash(arch, app, run_args)
+            target.flash(app, run_args)
             if "mimosa" in opt:
-                monitor = runner.get_monitor(
-                    arch, callback=harness.parser_cb, mimosa=opt["mimosa"]
+                monitor = target.get_monitor(
+                    callback=harness.parser_cb, mimosa=opt["mimosa"]
                 )
             elif "energytrace" in opt:
-                monitor = runner.get_monitor(
-                    arch, callback=harness.parser_cb, energytrace=opt["energytrace"]
+                monitor = target.get_monitor(
+                    callback=harness.parser_cb, energytrace=opt["energytrace"]
                 )
 
             sync_error = False
@@ -394,8 +394,8 @@ def run_benchmark(
 
         return [(runs, harness, monitor, files)]
     else:
-        runner.flash(arch, app, run_args)
-        monitor = runner.get_monitor(arch, callback=harness.parser_cb)
+        target.flash(app, run_args)
+        monitor = target.get_monitor(callback=harness.parser_cb)
 
         if arch == "posix":
             print("[RUN] Will run benchmark for {:.0f} seconds".format(run_timeout))
@@ -512,6 +512,11 @@ if __name__ == "__main__":
         print(err)
         sys.exit(2)
 
+    if "msp430fr" in opt["arch"]:
+        target = runner.Arch(opt["arch"], ["cpu_freq=8000000"])
+    else:
+        target = runner.Arch(opt["arch"])
+
     modelfile = args[0]
 
     pta = PTA.from_file(modelfile)
@@ -588,11 +593,7 @@ if __name__ == "__main__":
         if "codegen" in driver_definition and "flags" in driver_definition["codegen"]:
             if run_flags is None:
                 run_flags = driver_definition["codegen"]["flags"]
-    if run_flags is None:
-        run_flags = opt["run"].split()
-
-    if "msp430fr" in opt["arch"]:
-        run_flags.append("cpu_freq=8000000")
+    run_flags.extend(opt["run"].split())
 
     runs = list(
         pta.dfs(
@@ -639,7 +640,7 @@ if __name__ == "__main__":
             gpio_pin=timer_pin,
             gpio_mode=gpio_mode,
             pta=pta,
-            counter_limits=runner.get_counter_limits_us(opt["arch"], run_flags),
+            counter_limits=target.get_counter_limits_us(run_flags),
             log_return_values=need_return_values,
             repeat=1,
         )
@@ -647,7 +648,7 @@ if __name__ == "__main__":
         harness = OnboardTimerHarness(
             gpio_pin=timer_pin,
             pta=pta,
-            counter_limits=runner.get_counter_limits_us(opt["arch"], run_flags),
+            counter_limits=target.get_counter_limits_us(run_flags),
             log_return_values=need_return_values,
             repeat=opt["repeat"],
         )
