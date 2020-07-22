@@ -422,12 +422,12 @@ def sleep_ms(duration: int, arch: str, cpu_freq: int = None) -> str:
     return f"arch.sleep_ms({duration});\n"
 
 
-def get_counter_limits_us(arch: str) -> tuple:
+def get_counter_limits_us(arch: str, opts=list()) -> tuple:
     """Return duration of one counter step and one counter overflow in us."""
     cpu_freq = 0
     overflow_value = 0
     max_overflow = 0
-    for line in get_info(arch):
+    for line in get_info(arch, opts):
         match = re.match(r"CPU\s+Freq:\s+(.*)\s+Hz", line)
         if match:
             cpu_freq = int(match.group(1))

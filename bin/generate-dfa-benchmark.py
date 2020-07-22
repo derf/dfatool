@@ -639,7 +639,7 @@ if __name__ == "__main__":
             gpio_pin=timer_pin,
             gpio_mode=gpio_mode,
             pta=pta,
-            counter_limits=runner.get_counter_limits_us(opt["arch"]),
+            counter_limits=runner.get_counter_limits_us(opt["arch"], run_flags),
             log_return_values=need_return_values,
             repeat=1,
         )
@@ -647,7 +647,7 @@ if __name__ == "__main__":
         harness = OnboardTimerHarness(
             gpio_pin=timer_pin,
             pta=pta,
-            counter_limits=runner.get_counter_limits_us(opt["arch"]),
+            counter_limits=runner.get_counter_limits_us(opt["arch"], run_flags),
             log_return_values=need_return_values,
             repeat=opt["repeat"],
         )
