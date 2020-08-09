@@ -481,7 +481,7 @@ class RawData:
             if sorted(online_trace_part["parameter"].keys()) != self._parameter_names:
                 processed_data[
                     "error"
-                ] = "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) has inconsistent parameter set: should be {param_want:s}, is {param_is:s}".format(
+                ] = "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) has inconsistent parameter set: should be {param_want}, is {param_is}".format(
                     off_idx=offline_idx,
                     on_idx=online_run_idx,
                     on_sub=online_trace_part_idx,

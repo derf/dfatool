@@ -150,8 +150,8 @@ def model_quality_table(result_lists, info_list):
             "key",
             "attribute",
             "static".center(19),
-            "LUT".center(19),
             "parameterized".center(19),
+            "LUT".center(19),
         )
     )
     for state_or_tran in result_lists[0]["by_name"].keys():
@@ -434,7 +434,7 @@ if __name__ == "__main__":
             )
             sys.exit(2)
 
-        if len(traces) > 20:
+        if len(traces) > 40:
             print(f"""Truncating plot to 40 of {len(traces)} traces (random sample)""")
             traces = random.sample(traces, 40)
 
