@@ -14,13 +14,14 @@ import numpy as np
 from dfatool.functions import analytic
 from dfatool.loader import RawData
 from dfatool import parameters
-from dfatool.model import ParallelParamFit
+from dfatool.model import ParallelParamFit, PTAModel
 from dfatool.utils import by_name_to_by_param
 
 
 # from scipy.cluster.hierarchy import dendrogram, linkage # for graphical display
 
-# py bin\Proof_Of_Concept_PELT.py --filename="..\data\TX.json" --jump=1 --pen_override=10 --refinement_thresh=100
+# py bin\Proof_Of_Concept_PELT.py --filename="..\data\TX.json" --jump=1 --pen_override=28 --refinement_thresh=100
+# py bin\Proof_Of_Concept_PELT.py --filename="..\data\TX.json" --jump=1 --pen_override=28 --refinement_thresh=100 --cache_dicts --cache_loc="..\data\TX_cache"
 
 
 def plot_data_from_json(filename, trace_num, x_axis, y_axis):
@@ -294,7 +295,7 @@ def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0,
 
 # raw_states_calc_args.append((num_measurement, measurement, penalty, opt_model
 #                                                  , opt_jump))
-def calc_raw_states_func(num_trace, measurement, penalty, model, jump):
+def calc_raw_states_func(num_measurement, measurement, penalty, model, jump):
     signal = np.array(measurement['uW'])
     normed_signal = norm_signal(signal)
     bkpts = calc_pelt(normed_signal, penalty, model=model, jump=jump)
@@ -325,7 +326,7 @@ def calc_raw_states_func(num_trace, measurement, penalty, model, jump):
     # print_info("The average standard deviation for the newly found states is "
     #            + str(new_avg_std))
     # print_info("That is a reduction of " + str(change_avg_std))
-    return num_trace, calced_states, new_avg_std, change_avg_std
+    return num_measurement, calced_states, new_avg_std, change_avg_std
 
 
 def calc_raw_states(arg_list, num_processes=8):
@@ -380,6 +381,27 @@ def norm_signal(signal):
     for i, signal_i in enumerate(signal):
         normed_signal[i] = signal_i / 1000
     return normed_signal
+
+
+def norm_values_to_cluster(values_to_cluster):
+    new_vals = np.array(values_to_cluster)
+    num_samples = len(values_to_cluster)
+    num_params = len(values_to_cluster[0])
+    for i in range(num_params):
+        param_vals = []
+        for sample in new_vals:
+            param_vals.append(sample[i])
+        max_val = np.max(np.abs(param_vals))
+        for num_sample, sample in enumerate(new_vals):
+            values_to_cluster[num_sample][i] = sample[i] / max_val
+    return new_vals
+
+
+def get_state_num(state_name, distinct_states):
+    for state_num, states in enumerate(distinct_states):
+        if state_name in states:
+            return state_num
+    return -1
 
 
 if __name__ == '__main__':
@@ -536,6 +558,7 @@ if __name__ == '__main__':
         by_param_file = None
         by_name_file = None
         param_names_file = None
+        from_cache = False
         if opt_cache_loc is not None:
             flag = False
             by_name_loc = os.path.join(opt_cache_loc, "by_name.txt")
@@ -558,6 +581,12 @@ if __name__ == '__main__':
                 flag = True
             if flag:
                 print_info("The cache will be build.")
+            else:
+                print_warning("THE OPTION \"cache_dicts\" IS FOR DEBUGGING PURPOSES ONLY! "
+                              "\nDO NOT USE FOR REGULAR APPLICATIONS!"
+                              "\nThe script will not run to the end properly."
+                              "\nNo final parametrization will be done.")
+                from_cache = True
 
         if None in (by_param_file, by_name_file, param_names_file):
             state_durations_by_config = []
@@ -565,7 +594,8 @@ if __name__ == '__main__':
             for num_config, measurements_by_config in enumerate(configurations):
                 # loop through all occurrences of the looked at state
                 print_info("Looking at state '" + measurements_by_config['name'] + "' with params: "
-                           + str(measurements_by_config['parameter']) + "(" + str(num_config + 1) + "/"
+                           + str(measurements_by_config['parameter']) + "(" + str(
+                    num_config + 1) + "/"
                            + str(len(configurations)) + ")")
                 refine = False
                 print_info("Checking if refinement is necessary...")
@@ -578,8 +608,9 @@ if __name__ == '__main__':
                         print_info("Refinement is necessary!")
                         refine = True
                 if not refine:
-                    print_info("No refinement necessary for state '" + measurements_by_config['name']
-                               + "' with params: " + str(measurements_by_config['parameter']))
+                    print_info(
+                        "No refinement necessary for state '" + measurements_by_config['name']
+                        + "' with params: " + str(measurements_by_config['parameter']))
                 else:
                     # assume that all measurements of the same param configuration are fundamentally
                     # similar -> calculate penalty for first measurement, use it for all
@@ -598,7 +629,8 @@ if __name__ == '__main__':
                     # build arguments for parallel excecution
                     print_info("Starting raw_states calculation.")
                     raw_states_calc_args = []
-                    for num_measurement, measurement in enumerate(measurements_by_config['offline']):
+                    for num_measurement, measurement in enumerate(
+                            measurements_by_config['offline']):
                         raw_states_calc_args.append((num_measurement, measurement, penalty,
                                                      opt_model, opt_jump))
 
@@ -608,15 +640,16 @@ if __name__ == '__main__':
                     # entry still corresponds with index of measurement in measurements_by_states
                     # -> If measurements are discarded the correct ones are easily recognized
                     for ret_val in raw_states_res:
-                        num_trace = ret_val[0]
+                        num_measurement = ret_val[0]
                         raw_states = ret_val[1]
                         avg_std = ret_val[2]
                         change_avg_std = ret_val[3]
                         # TODO: Wieso gibt mir meine IDE hier eine Warning aus? Der Index müsste doch
                         #   int sein oder nicht? Es scheint auch vernünftig zu klappen...
-                        raw_states_list[num_trace] = raw_states
+                        raw_states_list[num_measurement] = raw_states
                         print_info("The average standard deviation for the newly found states in "
-                                   + "measurement No. " + str(num_trace) + " is " + str(avg_std))
+                                   + "measurement No. " + str(num_measurement) + " is " + str(
+                            avg_std))
                         print_info("That is a reduction of " + str(change_avg_std))
                     print_info("Finished raw_states calculation.")
                     num_states_array = [int()] * len(raw_states_list)
@@ -643,37 +676,46 @@ if __name__ == '__main__':
                     print_info("Choose " + str(num_raw_states) + " as number of raw_states.")
                     # iterate through all found breakpoints and determine start and end points as well
                     # as power consumption
-                    states_duration_list = [0] * num_raw_states
-                    states_consumption_list = [0] * num_raw_states
+                    num_measurements = len(raw_states_list)
+                    states_duration_list = [list()] * num_raw_states
+                    states_consumption_list = [list()] * num_raw_states
+                    for num_elem, _ in enumerate(states_duration_list):
+                        states_duration_list[num_elem] = [0] * num_measurements
+                        states_consumption_list[num_elem] = [0] * num_measurements
                     num_used_measurements = 0
-                    for num_trace, raw_states in enumerate(raw_states_list):
+                    for num_measurement, raw_states in enumerate(raw_states_list):
                         if len(raw_states) == num_raw_states:
                             num_used_measurements = num_used_measurements + 1
-                            # calced_state = (start_time, end_time, mean_power, std_dev)
                             for num_state, s in enumerate(raw_states):
-                                state_duration = s[1] - s[0]
-                                state_consumption = s[2]
-                                states_duration_list[num_state] = \
-                                    states_duration_list[num_state] + state_duration
-                                states_consumption_list[num_state] = \
-                                    states_consumption_list[num_state] + state_consumption
+                                states_duration_list[num_state][num_measurement] = s[1] - s[0]
+                                states_consumption_list[num_state][num_measurement] = s[2]
+                            # calced_state = (start_time, end_time, mean_power, std_dev)
+                            # for num_state, s in enumerate(raw_states):
+                            #     state_duration = s[1] - s[0]
+                            #     state_consumption = s[2]
+                            #     states_duration_list[num_state] = \
+                            #         states_duration_list[num_state] + state_duration
+                            #     states_consumption_list[num_state] = \
+                            #         states_consumption_list[num_state] + state_consumption
                         else:
-                            print_info("Discarding measurement No. " + str(num_trace) + " because it "
-                                       + "did not recognize the number of raw_states correctly.")
-                    for i, x in enumerate(states_duration_list):
-                        states_duration_list[i] = x / num_used_measurements
-                    for i, x in enumerate(states_consumption_list):
-                        states_consumption_list[i] = x / num_used_measurements
+                            print_info("Discarding measurement No. " + str(num_measurement)
+                                       + " because it did not recognize the number of "
+                                         "raw_states correctly.")
+                    # for i, x in enumerate(states_duration_list):
+                    #     states_duration_list[i] = x / num_used_measurements
+                    # for i, x in enumerate(states_consumption_list):
+                    #     states_consumption_list[i] = x / num_used_measurements
                     if num_used_measurements != len(raw_states_list):
                         if num_used_measurements / len(raw_states_list) <= 0.5:
                             print_warning("Only used " + str(num_used_measurements) + "/"
-                                          + str(len(raw_states_list)) + " Measurements for refinement. "
+                                          + str(
+                                len(raw_states_list)) + " Measurements for refinement. "
                                           + "Others did not recognize number of states correctly."
                                           + "\nYou should verify the integrity of the measurements.")
                         else:
                             print_info("Used " + str(num_used_measurements) + "/"
-                                       + str(len(raw_states_list)) + " Measurements for refinement. "
-                                       + "Others did not recognize number of states correctly.")
+                                       + str(len(raw_states_list)) + " Measurements for refinement."
+                                       + " Others did not recognize number of states correctly.")
                         num_used_measurements = i
                         # TODO: DEBUG Kram
                         sys.exit(0)
@@ -697,20 +739,19 @@ if __name__ == '__main__':
             num_raw_states = np.argmax(counts)
             usable_configs = len(state_consumptions_by_config)
             # param_list identical for each raw_state
-            # TODO: Kann man die echt einfach rausziehen aus der json? Ich hab sie nicht gefunden...
-            #   Nur für jede Messung. Aber da sind die ja ohnehin identisch.
             param_list = []
             param_names = configurations[0]['offline_aggregates']['paramkeys'][0]
             print_info("param_names: " + str(param_names))
             for num_config, states_consumption_list in state_consumptions_by_config:
                 if len(states_consumption_list) != num_raw_states:
-                    print_warning("Config No." + str(num_config) + " not usable yet due to different "
-                                  + "number of states. This hints a correlation between parameters and "
-                                  + "the structure of the resulting automaton. This will be possibly be"
-                                  + " supported in a future version of this tool.")
+                    print_warning(
+                        "Config No." + str(num_config) + " not usable yet due to different "
+                        + "number of states. This hints a correlation between parameters and "
+                        + "the structure of the resulting automaton. This will be possibly"
+                        + " supported in a future version of this tool.")
                     usable_configs = usable_configs - 1
                 else:
-                    param_list.append(configurations[num_config]['offline_aggregates']['param'][0])
+                    param_list.extend(configurations[num_config]['offline_aggregates']['param'])
             print_info("param_list: " + str(param_list))
 
             if usable_configs == len(state_consumptions_by_config):
@@ -722,16 +763,16 @@ if __name__ == '__main__':
                 consumptions_for_state = []
                 durations_for_state = []
                 for j, (_, states_consumption_list) in enumerate(state_consumptions_by_config):
-                    consumptions_for_state.append(states_consumption_list[i])
-                    durations_for_state.append(state_durations_by_config[j][1][i])
-                name = "state_" + str(i)
+                    consumptions_for_state.extend(states_consumption_list[i])
+                    durations_for_state.extend(state_durations_by_config[j][1][i])
+                state_name = "state_" + str(i)
                 state_dict = {
                     "param": param_list,
                     "power": consumptions_for_state,
                     "duration": durations_for_state,
                     "attributes": ["power", "duration"]
                 }
-                by_name[name] = state_dict
+                by_name[state_name] = state_dict
             by_param = by_name_to_by_param(by_name)
             if opt_cache_loc is not None:
                 by_name_loc = os.path.join(opt_cache_loc, "by_name.txt")
@@ -779,8 +820,8 @@ if __name__ == '__main__':
                            + str(stats.depends_on_param(state_name, "duration", param_name))
                            )
         paramfit.fit()
-        fit_res_dur_list = []
-        fit_res_pow_list = []
+        fit_res_dur_dict = {}
+        fit_res_pow_dict = {}
         for state_name in by_name.keys():
             fit_power = paramfit.get_result(state_name, "power")
             fit_duration = paramfit.get_result(state_name, "duration")
@@ -792,182 +833,340 @@ if __name__ == '__main__':
             combined_fit_duration.fit(by_param, state_name, "duration")
             if not combined_fit_duration.fit_success:
                 print_warning("Fitting(duration) for state " + state_name + " was not succesful!")
-            fit_res_pow_list.append(combined_fit_power)
-            fit_res_dur_list.append(combined_fit_duration)
+            fit_res_pow_dict[state_name] = combined_fit_power
+            fit_res_dur_dict[state_name] = combined_fit_duration
+        # only raw_states with the same number of function parameters can be similar
+        num_param_pow_dict = {}
+        num_param_dur_dict = {}
+        for state_name in by_name.keys():
+            model_function = str(fit_res_pow_dict[state_name].model_function)
+            model_args = fit_res_pow_dict[state_name].model_args
+            num_param_pow_dict[state_name] = len(model_args)
+            for num_arg, arg in enumerate(model_args):
+                replace_string = "regression_arg(" + str(num_arg) + ")"
+                model_function = model_function.replace(replace_string, str(arg))
+            print_info("Power-Function for state " + state_name + ": "
+                       + model_function)
+        for state_name in by_name.keys():
+            model_function = str(fit_res_dur_dict[state_name].model_function)
+            model_args = fit_res_dur_dict[state_name].model_args
+            num_param_dur_dict[state_name] = len(model_args)
+            for num_arg, arg in enumerate(model_args):
+                replace_string = "regression_arg(" + str(num_arg) + ")"
+                model_function = model_function.replace(replace_string, str(arg))
+            print_info("Duration-Function for state " + state_name + ": "
+                       + model_function)
+        similar_raw_state_buckets = {}
+        for state_name in by_name.keys():
+            pow_model_function = str(fit_res_pow_dict[state_name].model_function)
+            dur_model_function = str(fit_res_dur_dict[state_name].model_function)
+            key_tuple = (pow_model_function, dur_model_function)
+            if key_tuple not in similar_raw_state_buckets:
+                similar_raw_state_buckets[key_tuple] = []
+            similar_raw_state_buckets[key_tuple].append(state_name)
+
+        # cluster for each Key-Tuple using the function parameters
+        distinct_states = []
+        for key_tuple in similar_raw_state_buckets.keys():
+            print_info("Key-Tuple " + str(key_tuple) + ": "
+                       + str(similar_raw_state_buckets[key_tuple]))
+            similar_states = similar_raw_state_buckets[key_tuple]
+            if len(similar_states) > 1:
+                # functions are identical -> num_params is identical
+                num_params = num_param_dur_dict[similar_states[0]] + num_param_pow_dict[
+                    similar_states[0]]
+                values_to_cluster = np.zeros((len(similar_states), num_params))
+                for num_state, state_name in enumerate(similar_states):
+                    dur_params = fit_res_dur_dict[state_name].model_args
+                    pow_params = fit_res_pow_dict[state_name].model_args
+                    j = 0
+                    for param in pow_params:
+                        values_to_cluster[num_state][j] = param
+                        j = j + 1
+                    for param in dur_params:
+                        values_to_cluster[num_state][j] = param
+                        j = j + 1
+                normed_vals_to_cluster = norm_values_to_cluster(values_to_cluster)
+                cluster = AgglomerativeClustering(n_clusters=None, compute_full_tree=True,
+                                                  affinity='euclidean',
+                                                  linkage='ward',
+                                                  # TODO: Magic Number. Beim Evaluieren finetunen
+                                                  distance_threshold=1)
+                cluster.fit_predict(values_to_cluster)
+                cluster_labels = cluster.labels_
+                print_info("Cluster labels:\n" + str(cluster_labels))
+                if cluster.n_clusters_ > 1:
+                    # more than one distinct state found
+                    distinct_state_dict = {}
+                    for num_state, label in enumerate(cluster_labels):
+                        if label not in distinct_state_dict.keys():
+                            distinct_state_dict[label] = []
+                        distinct_state_dict[label].append(similar_states[num_state])
+                    for distinct_state_key in distinct_state_dict.keys():
+                        distinct_states.append(distinct_state_dict[distinct_state_key])
+                else:
+                    distinct_states.append(similar_states)
+            else:
+                distinct_states.append(similar_states)
+        for num_state, distinct_state in enumerate(distinct_states):
+            print("State " + str(num_state) + ": " + str(distinct_state))
+        num_raw_states = len(by_name.keys())
+        resulting_sequence = [int] * num_raw_states
+        for i in range(num_raw_states):
+            state_name = "state_" + str(i)
+            state_num = get_state_num(state_name, distinct_states)
+            if state_num == -1:
+                print_error("Critical Error when creating the resulting sequence. raw_state state_"
+                            + str(i) + " could not be mapped to a state.")
+                sys.exit(-1)
+            resulting_sequence[i] = state_num
+        print("Resulting sequence is: " + str(resulting_sequence))
+        # if from_cache:
+        #     print_warning(
+        #         "YOU USED THE OPTION \"cache_dicts\". THIS IS FOR DEBUGGING PURPOSES ONLY!"
+        #         "\nTHE SCRIPT WILL NOW STOP PREMATURELY,"
+        #         "SINCE DATA FOR FURTHER COMPUTATION IS MISSING!")
+        #     sys.exit(0)
+
+        new_by_name = {}
+        for num_state, distinct_state in enumerate(distinct_states):
+            state_name = "State_" + str(num_state)
+            consumptions_for_state = []
+            durations_for_state = []
+            param_list = []
+            for raw_state in distinct_state:
+                original_state_dict = by_name[raw_state]
+                param_list.extend(original_state_dict["param"])
+                consumptions_for_state.extend(original_state_dict["power"])
+                durations_for_state.extend(original_state_dict["duration"])
+            new_state_dict = {
+                "param": param_list,
+                "power": consumptions_for_state,
+                "duration": durations_for_state,
+                "attributes": ["power", "duration"]
+            }
+            new_by_name[state_name] = new_state_dict
+        new_by_param = by_name_to_by_param(new_by_name)
+        new_stats = parameters.ParamStats(new_by_name, new_by_param, param_names, dict())
+        new_paramfit = ParallelParamFit(new_by_param)
+        for state_name in new_by_name.keys():
+            for num_param, param_name in enumerate(param_names):
+                if new_stats.depends_on_param(state_name, "power", param_name):
+                    new_paramfit.enqueue(state_name, "power", num_param, param_name)
+                if new_stats.depends_on_param(state_name, "duration", param_name):
+                    new_paramfit.enqueue(state_name, "duration", num_param, param_name)
+                print_info("State " + state_name + "s power depends on param " + param_name + ":" +
+                           str(new_stats.depends_on_param(state_name, "power", param_name))
+                           )
+                print_info("State " + state_name + "s duration depends on param " + param_name + ":"
+                           + str(new_stats.depends_on_param(state_name, "duration", param_name))
+                           )
+        new_paramfit.fit()
+        new_fit_res_dur_dict = {}
+        new_fit_res_pow_dict = {}
+        for state_name in new_by_name.keys():
+            fit_power = new_paramfit.get_result(state_name, "power")
+            fit_duration = new_paramfit.get_result(state_name, "duration")
+            combined_fit_power = analytic.function_powerset(fit_power, param_names, 0)
+            combined_fit_duration = analytic.function_powerset(fit_duration, param_names, 0)
+            combined_fit_power.fit(new_by_param, state_name, "power")
+            if not combined_fit_power.fit_success:
+                print_warning("Fitting(power) for state " + state_name + " was not succesful!")
+            combined_fit_duration.fit(new_by_param, state_name, "duration")
+            if not combined_fit_duration.fit_success:
+                print_warning("Fitting(duration) for state " + state_name + " was not succesful!")
+            new_fit_res_pow_dict[state_name] = combined_fit_power
+            new_fit_res_dur_dict[state_name] = combined_fit_duration
+        for state_name in new_by_name.keys():
+            model_function = str(new_fit_res_pow_dict[state_name].model_function)
+            model_args = new_fit_res_pow_dict[state_name].model_args
+            for num_arg, arg in enumerate(model_args):
+                replace_string = "regression_arg(" + str(num_arg) + ")"
+                model_function = model_function.replace(replace_string, str(arg))
+            print("Power-Function for state " + state_name + ": "
+                  + model_function)
+        for state_name in new_by_name.keys():
+            model_function = str(new_fit_res_dur_dict[state_name].model_function)
+            model_args = new_fit_res_dur_dict[state_name].model_args
+            for num_arg, arg in enumerate(model_args):
+                replace_string = "regression_arg(" + str(num_arg) + ")"
+                model_function = model_function.replace(replace_string, str(arg))
+            print("Duration-Function for state " + state_name + ": "
+                  + model_function)
+        model = PTAModel(by_name, param_names, dict())
 
 
-        #         TODO: removed clustering (temporarily), since it provided too much dificultys
-        #           at the current state
-        #         i = 0
-        #         cluster_labels_list = []
-        #         num_cluster_list = []
-        #         for num_trace, raw_states in enumerate(raw_states_list):
-        #             # iterate through raw states from measurements
-        #             if len(raw_states) == num_raw_states:
-        #                 # build array with power values to cluster these
-        #                 value_to_cluster = np.zeros((num_raw_states, 2))
-        #                 j = 0
-        #                 for s in raw_states:
-        #                     value_to_cluster[j][0] = s[2]
-        #                     value_to_cluster[j][1] = 0
-        #                     j = j + 1
-        #                 # linked = linkage(value_to_cluster, 'single')
-        #                 #
-        #                 # labelList = range(1, 11)
-        #                 #
-        #                 # plt.figure(figsize=(10, 7))
-        #                 # dendrogram(linked,
-        #                 #            orientation='top',
-        #                 #            distance_sort='descending',
-        #                 #            show_leaf_counts=True)
-        #                 # plt.show()
-        #                 # TODO: Automatic detection of number of clusters. Aktuell noch MAGIC NUMBER
-        #                 #   im distance_threshold
-        #                 cluster = AgglomerativeClustering(n_clusters=None, compute_full_tree=True,
-        #                                                   affinity='euclidean',
-        #                                                   linkage='ward',
-        #                                                   distance_threshold=opt_refinement_thresh * 100)
-        #                 # cluster = AgglomerativeClustering(n_clusters=5, affinity='euclidean',
-        #                 #                                   linkage='ward')
-        #                 cluster.fit_predict(value_to_cluster)
-        #                 # print_info("Cluster labels:\n" + str(cluster.labels_))
-        #                 # plt.scatter(value_to_cluster[:, 0], value_to_cluster[:, 1], c=cluster.labels_, cmap='rainbow')
-        #                 # plt.show()
-        #                 cluster_labels_list.append((num_trace, cluster.labels_))
-        #                 num_cluster_list.append((num_trace, cluster.n_clusters_))
-        #                 i = i + 1
-        #             else:
-        #                 print_info("Discarding measurement No. " + str(num_trace) + " because it "
-        #                            + "did not recognize the number of raw_states correctly.")
-        #         num_used_measurements = len(raw_states_list)
-        #         if i != len(raw_states_list):
-        #             if i / len(raw_states_list) <= 0.5:
-        #                 print_warning("Only used " + str(i) + "/" + str(len(raw_states_list))
-        #                               + " Measurements for refinement. "
-        #                                 "Others did not recognize number of states correctly."
-        #                                 "\nYou should verify the integrity of the measurements.")
-        #             else:
-        #                 print_info("Used " + str(i) + "/" + str(len(raw_states_list))
-        #                            + " Measurements for refinement. "
-        #                              "Others did not recognize number of states correctly.")
-        #             num_used_measurements = i
-        #             # TODO: DEBUG Kram
-        #             sys.exit(0)
-        #         else:
-        #             print_info("Used all available measurements.")
-        #
-        #         num_states = np.argmax(np.bincount([elem[1] for elem in num_cluster_list]))
-        #         avg_per_state_list = [None] * len(cluster_labels_list)
-        #         used_clusters = 0
-        #         for number, (num_trace, labels) in enumerate(cluster_labels_list):
-        #             if num_cluster_list[number][1] == num_states:
-        #                 avg_per_state = [0] * num_states
-        #                 count_per_state = [0] * num_states
-        #                 raw_states = raw_states_list[num_trace]
-        #                 for num_label, label in enumerate(labels):
-        #                     count_per_state[label] = count_per_state[label] + 1
-        #                     avg_per_state[label] = avg_per_state[label] + raw_states[num_label][2]
-        #                 for i, _ in enumerate(avg_per_state):
-        #                     avg_per_state[i] = avg_per_state[i] / count_per_state[i]
-        #                 avg_per_state_list[number] = avg_per_state
-        #                 used_clusters = used_clusters + 1
-        #             else:
-        #                 # hopefully this does not happen regularly
-        #                 print_info("Discarding measurement " + str(number)
-        #                            + " because the clustering yielded not matching results.")
-        #                 num_used_measurements = num_used_measurements - 1
-        #         if num_used_measurements == 0:
-        #             print_error("Something went terribly wrong. Discarded all measurements.")
-        #             # continue
-        #             sys.exit(-1)
-        #         # flattend version for clustering:
-        #         values_to_cluster = np.zeros((num_states * used_clusters, 2))
-        #         index = 0
-        #         for avg_per_state in avg_per_state_list:
-        #             if avg_per_state is not None:
-        #                 for avg in avg_per_state:
-        #                     values_to_cluster[index][0] = avg
-        #                     values_to_cluster[index][1] = 0
-        #                     index = index + 1
-        #         # plt.scatter(values_to_cluster[:, 0], values_to_cluster[:, 1])
-        #         # plt.show()
-        #         cluster = AgglomerativeClustering(n_clusters=num_states)
-        #         cluster.fit_predict(values_to_cluster)
-        #         # Aktuell hast du hier ein plattes Array mit labels. Jetzt also das wieder auf die
-        #         # ursprünglichen Labels abbilden, die dann verändern mit den hier gefundenen Labels.
-        #         # Alle identischen Zustände haben identische Labels. Dann vllt bei resulting
-        #         # sequence ausgeben, wie groß die übereinstimmung bei der Stateabfolge ist.
-        #         new_labels_list = []
-        #         new_labels = []
-        #         i = 0
-        #         for label in cluster.labels_:
-        #             new_labels.append(label)
-        #             i = i + 1
-        #             if i == num_states:
-        #                 new_labels_list.append(new_labels)
-        #                 new_labels = []
-        #                 i = 0
-        #         # only the selected measurements are present in new_labels.
-        #         # new_labels_index should not be incremented, if not selected_measurement is skipped
-        #         new_labels_index = 0
-        #         # cluster_labels_list contains all measurements -> if measurement is skipped
-        #         # still increment the index
-        #         index = 0
-        #         for elem in avg_per_state_list:
-        #             if elem is not None:
-        #                 for number, label in enumerate(cluster_labels_list[index][1]):
-        #                     cluster_labels_list[index][1][number] = \
-        #                         new_labels_list[new_labels_index][label]
-        #                 new_labels_index = new_labels_index + 1
-        #             else:
-        #                 # override not selected measurement labels to avoid choosing the wrong ones.
-        #                 for number, label in enumerate(cluster_labels_list[index][1]):
-        #                     cluster_labels_list[index][1][number] = -1
-        #             index = index + 1
-        #         resulting_sequence = [None] * num_raw_states
-        #         i = 0
-        #         confidence = 0
-        #         for x in resulting_sequence:
-        #             j = 0
-        #             test_list = []
-        #             for arr in [elem[1] for elem in cluster_labels_list]:
-        #                 if num_cluster_list[j][1] != num_states:
-        #                     j = j + 1
-        #                 else:
-        #                     if -1 in arr:
-        #                         print_error("Bei Janis beschweren! Fehler beim Umbenennen der"
-        #                                     " Zustände wahrscheinlich.")
-        #                         sys.exit(-1)
-        #                     test_list.append(arr[i])
-        #                     j = j + 1
-        #             bincount = np.bincount(test_list)
-        #             resulting_sequence[i] = np.argmax(bincount)
-        #             confidence = confidence + bincount[resulting_sequence[i]] / np.sum(bincount)
-        #             i = i + 1
-        #         confidence = confidence / len(resulting_sequence)
-        #         print_info("Confidence of resulting sequence is " + str(confidence)
-        #                    + " while using " + str(num_used_measurements) + "/"
-        #                    + str(len(raw_states_list)) + " measurements.")
-        #         #print(resulting_sequence)
-        #         resulting_sequence_list.append((num_config, resulting_sequence))
-        # # TODO: Was jetzt? Hier habe ich jetzt pro Konfiguration eine Zustandsfolge. Daraus Automat
-        # #   erzeugen. Aber wie? Oder erst parametrisieren? Eigentlich brauche ich vorher die
-        # #   Loops. Wie erkenne ich die? Es können beliebig viele Loops an beliebigen Stellen
-        # #   auftreten.
-        # # TODO: Die Zustandsfolgen werden sich nicht einfach in isomorphe(-einzelne wegfallende bzw.
-        # #   hinzukommende Zustände) Automaten übersetzten lassen. Basiert alles auf dem Problem:
-        # #   wie erkenne ich, dass zwei Zustände die selben sind und nicht nur einfach eine ähnliche
-        # #   Leistungsaufnahme haben?! Vllt Zustände 2D clustern? 1Dim = Leistungsaufnahme,
-        # #   2Dim=Dauer? Zumindest innerhalb einer Paramkonfiguration sollte sich die Dauer eines
-        # #   Zustands ja nicht mehr ändern. Kann sicherlich immernoch Falschclustering erzeugen...
-        # for num_config, sequence in resulting_sequence_list:
-        #     print_info("NO. config:" + str(num_config))
-        #     print_info(sequence)
-        #
-        #
-        #
-        #
-
+    #         TODO: removed clustering (temporarily), since it provided too much dificultys
+    #           at the current state
+    #         i = 0
+    #         cluster_labels_list = []
+    #         num_cluster_list = []
+    #         for num_trace, raw_states in enumerate(raw_states_list):
+    #             # iterate through raw states from measurements
+    #             if len(raw_states) == num_raw_states:
+    #                 # build array with power values to cluster these
+    #                 value_to_cluster = np.zeros((num_raw_states, 2))
+    #                 j = 0
+    #                 for s in raw_states:
+    #                     value_to_cluster[j][0] = s[2]
+    #                     value_to_cluster[j][1] = 0
+    #                     j = j + 1
+    #                 # linked = linkage(value_to_cluster, 'single')
+    #                 #
+    #                 # labelList = range(1, 11)
+    #                 #
+    #                 # plt.figure(figsize=(10, 7))
+    #                 # dendrogram(linked,
+    #                 #            orientation='top',
+    #                 #            distance_sort='descending',
+    #                 #            show_leaf_counts=True)
+    #                 # plt.show()
+    #                 # TODO: Automatic detection of number of clusters. Aktuell noch MAGIC NUMBER
+    #                 #   im distance_threshold
+    #                 cluster = AgglomerativeClustering(n_clusters=None, compute_full_tree=True,
+    #                                                   affinity='euclidean',
+    #                                                   linkage='ward',
+    #                                                   distance_threshold=opt_refinement_thresh * 100)
+    #                 # cluster = AgglomerativeClustering(n_clusters=5, affinity='euclidean',
+    #                 #                                   linkage='ward')
+    #                 cluster.fit_predict(value_to_cluster)
+    #                 # print_info("Cluster labels:\n" + str(cluster.labels_))
+    #                 # plt.scatter(value_to_cluster[:, 0], value_to_cluster[:, 1], c=cluster.labels_, cmap='rainbow')
+    #                 # plt.show()
+    #                 cluster_labels_list.append((num_trace, cluster.labels_))
+    #                 num_cluster_list.append((num_trace, cluster.n_clusters_))
+    #                 i = i + 1
+    #             else:
+    #                 print_info("Discarding measurement No. " + str(num_trace) + " because it "
+    #                            + "did not recognize the number of raw_states correctly.")
+    #         num_used_measurements = len(raw_states_list)
+    #         if i != len(raw_states_list):
+    #             if i / len(raw_states_list) <= 0.5:
+    #                 print_warning("Only used " + str(i) + "/" + str(len(raw_states_list))
+    #                               + " Measurements for refinement. "
+    #                                 "Others did not recognize number of states correctly."
+    #                                 "\nYou should verify the integrity of the measurements.")
+    #             else:
+    #                 print_info("Used " + str(i) + "/" + str(len(raw_states_list))
+    #                            + " Measurements for refinement. "
+    #                              "Others did not recognize number of states correctly.")
+    #             num_used_measurements = i
+    #             # TODO: DEBUG Kram
+    #             sys.exit(0)
+    #         else:
+    #             print_info("Used all available measurements.")
+    #
+    #         num_states = np.argmax(np.bincount([elem[1] for elem in num_cluster_list]))
+    #         avg_per_state_list = [None] * len(cluster_labels_list)
+    #         used_clusters = 0
+    #         for number, (num_trace, labels) in enumerate(cluster_labels_list):
+    #             if num_cluster_list[number][1] == num_states:
+    #                 avg_per_state = [0] * num_states
+    #                 count_per_state = [0] * num_states
+    #                 raw_states = raw_states_list[num_trace]
+    #                 for num_label, label in enumerate(labels):
+    #                     count_per_state[label] = count_per_state[label] + 1
+    #                     avg_per_state[label] = avg_per_state[label] + raw_states[num_label][2]
+    #                 for i, _ in enumerate(avg_per_state):
+    #                     avg_per_state[i] = avg_per_state[i] / count_per_state[i]
+    #                 avg_per_state_list[number] = avg_per_state
+    #                 used_clusters = used_clusters + 1
+    #             else:
+    #                 # hopefully this does not happen regularly
+    #                 print_info("Discarding measurement " + str(number)
+    #                            + " because the clustering yielded not matching results.")
+    #                 num_used_measurements = num_used_measurements - 1
+    #         if num_used_measurements == 0:
+    #             print_error("Something went terribly wrong. Discarded all measurements.")
+    #             # continue
+    #             sys.exit(-1)
+    #         # flattend version for clustering:
+    #         values_to_cluster = np.zeros((num_states * used_clusters, 2))
+    #         index = 0
+    #         for avg_per_state in avg_per_state_list:
+    #             if avg_per_state is not None:
+    #                 for avg in avg_per_state:
+    #                     values_to_cluster[index][0] = avg
+    #                     values_to_cluster[index][1] = 0
+    #                     index = index + 1
+    #         # plt.scatter(values_to_cluster[:, 0], values_to_cluster[:, 1])
+    #         # plt.show()
+    #         cluster = AgglomerativeClustering(n_clusters=num_states)
+    #         cluster.fit_predict(values_to_cluster)
+    #         # Aktuell hast du hier ein plattes Array mit labels. Jetzt also das wieder auf die
+    #         # ursprünglichen Labels abbilden, die dann verändern mit den hier gefundenen Labels.
+    #         # Alle identischen Zustände haben identische Labels. Dann vllt bei resulting
+    #         # sequence ausgeben, wie groß die übereinstimmung bei der Stateabfolge ist.
+    #         new_labels_list = []
+    #         new_labels = []
+    #         i = 0
+    #         for label in cluster.labels_:
+    #             new_labels.append(label)
+    #             i = i + 1
+    #             if i == num_states:
+    #                 new_labels_list.append(new_labels)
+    #                 new_labels = []
+    #                 i = 0
+    #         # only the selected measurements are present in new_labels.
+    #         # new_labels_index should not be incremented, if not selected_measurement is skipped
+    #         new_labels_index = 0
+    #         # cluster_labels_list contains all measurements -> if measurement is skipped
+    #         # still increment the index
+    #         index = 0
+    #         for elem in avg_per_state_list:
+    #             if elem is not None:
+    #                 for number, label in enumerate(cluster_labels_list[index][1]):
+    #                     cluster_labels_list[index][1][number] = \
+    #                         new_labels_list[new_labels_index][label]
+    #                 new_labels_index = new_labels_index + 1
+    #             else:
+    #                 # override not selected measurement labels to avoid choosing the wrong ones.
+    #                 for number, label in enumerate(cluster_labels_list[index][1]):
+    #                     cluster_labels_list[index][1][number] = -1
+    #             index = index + 1
+    #         resulting_sequence = [None] * num_raw_states
+    #         i = 0
+    #         confidence = 0
+    #         for x in resulting_sequence:
+    #             j = 0
+    #             test_list = []
+    #             for arr in [elem[1] for elem in cluster_labels_list]:
+    #                 if num_cluster_list[j][1] != num_states:
+    #                     j = j + 1
+    #                 else:
+    #                     if -1 in arr:
+    #                         print_error("Bei Janis beschweren! Fehler beim Umbenennen der"
+    #                                     " Zustände wahrscheinlich.")
+    #                         sys.exit(-1)
+    #                     test_list.append(arr[i])
+    #                     j = j + 1
+    #             bincount = np.bincount(test_list)
+    #             resulting_sequence[i] = np.argmax(bincount)
+    #             confidence = confidence + bincount[resulting_sequence[i]] / np.sum(bincount)
+    #             i = i + 1
+    #         confidence = confidence / len(resulting_sequence)
+    #         print_info("Confidence of resulting sequence is " + str(confidence)
+    #                    + " while using " + str(num_used_measurements) + "/"
+    #                    + str(len(raw_states_list)) + " measurements.")
+    #         #print(resulting_sequence)
+    #         resulting_sequence_list.append((num_config, resulting_sequence))
+    # # TODO: Was jetzt? Hier habe ich jetzt pro Konfiguration eine Zustandsfolge. Daraus Automat
+    # #   erzeugen. Aber wie? Oder erst parametrisieren? Eigentlich brauche ich vorher die
+    # #   Loops. Wie erkenne ich die? Es können beliebig viele Loops an beliebigen Stellen
+    # #   auftreten.
+    # # TODO: Die Zustandsfolgen werden sich nicht einfach in isomorphe(-einzelne wegfallende bzw.
+    # #   hinzukommende Zustände) Automaten übersetzten lassen. Basiert alles auf dem Problem:
+    # #   wie erkenne ich, dass zwei Zustände die selben sind und nicht nur einfach eine ähnliche
+    # #   Leistungsaufnahme haben?! Vllt Zustände 2D clustern? 1Dim = Leistungsaufnahme,
+    # #   2Dim=Dauer? Zumindest innerhalb einer Paramkonfiguration sollte sich die Dauer eines
+    # #   Zustands ja nicht mehr ändern. Kann sicherlich immernoch Falschclustering erzeugen...
+    # for num_config, sequence in resulting_sequence_list:
+    #     print_info("NO. config:" + str(num_config))
+    #     print_info(sequence)
+    #
+    #
+    #
+    #
 
     elif ".tar" in opt_filename:
         # open with dfatool
