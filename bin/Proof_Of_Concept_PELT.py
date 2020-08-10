@@ -221,7 +221,7 @@ def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0,
     else:
         # range_min == range_max. has the same effect as pen_override
         knee = (range_min, None)
-    print_info(str(knee[0]) + " has been selected as kneepoint.")
+    print_info(str(knee[0]) + " has been selected as penalty.")
     if knee[0] is not None:
         return knee
 
@@ -375,11 +375,15 @@ def print_error(str_to_prt):
         print("[ERROR]" + str_prt, file=sys.stderr)
 
 
-def norm_signal(signal):
+def norm_signal(signal, scaler=50):
     # TODO: maybe refine normalisation of signal
+    max_val = max(signal)
     normed_signal = np.zeros(shape=len(signal))
     for i, signal_i in enumerate(signal):
-        normed_signal[i] = signal_i / 1000
+        normed_signal[i] = signal_i / max_val
+        normed_signal[i] = normed_signal[i] * scaler
+    # plt.plot(normed_signal)
+    # plt.show()
     return normed_signal
 
 
@@ -559,6 +563,7 @@ if __name__ == '__main__':
         by_name_file = None
         param_names_file = None
         from_cache = False
+        not_accurate = False
         if opt_cache_loc is not None:
             flag = False
             by_name_loc = os.path.join(opt_cache_loc, "by_name.txt")
@@ -701,6 +706,10 @@ if __name__ == '__main__':
                             print_info("Discarding measurement No. " + str(num_measurement)
                                        + " because it did not recognize the number of "
                                          "raw_states correctly.")
+                        # l_signal = measurements_by_config['offline'][num_measurement]['uW']
+                        # l_bkpts = [s[1] for s in raw_states]
+                        # fig, ax = rpt.display(np.array(l_signal), l_bkpts)
+                        # plt.show()
                     # for i, x in enumerate(states_duration_list):
                     #     states_duration_list[i] = x / num_used_measurements
                     # for i, x in enumerate(states_consumption_list):
@@ -718,7 +727,7 @@ if __name__ == '__main__':
                                        + " Others did not recognize number of states correctly.")
                         num_used_measurements = i
                         # TODO: DEBUG Kram
-                        sys.exit(0)
+                        #sys.exit(0)
                     else:
                         print_info("Used all available measurements.")
 
@@ -730,7 +739,25 @@ if __name__ == '__main__':
                     #     break
 
             # combine all state durations and consumptions to parametrized model
-
+            if len(state_durations_by_config) == 0:
+                print("No refinement necessary for this state. The macromodel is usable.")
+                sys.exit()
+            if len(state_durations_by_config) / len(configurations) > 1 / 2 \
+                    and len(state_durations_by_config) != len(configurations):
+                print_warning(
+                    "Some measurements(>50%) need to be refined, however that is not true for"
+                    " all measurements. This hints a correlation between the structure of"
+                    " the underlying automaton and parameters. Only the ones which need to"
+                    " be refined will be refined. THE RESULT WILL NOT ACCURATELY DEPICT "
+                    " THE REAL WORLD.")
+                not_accurate = True
+            if len(state_durations_by_config) / len(configurations) < 1 / 2:
+                print_warning(
+                    "Some measurements(<50%) need to be refined, however that is not true for"
+                    " all measurements. This hints a correlation between the structure of"
+                    " the underlying automaton and parameters. Or a poor quality of measurements."
+                    " No Refinement will be done.")
+                sys.exit(-1)
             # this is only necessary because at this state only linear automatons can be modeled.
             num_states_array = [int()] * len(state_consumptions_by_config)
             for i, (_, states_consumption_list) in enumerate(state_consumptions_by_config):
@@ -748,7 +775,9 @@ if __name__ == '__main__':
                         "Config No." + str(num_config) + " not usable yet due to different "
                         + "number of states. This hints a correlation between parameters and "
                         + "the structure of the resulting automaton. This will be possibly"
-                        + " supported in a future version of this tool.")
+                        + " supported in a future version of this tool. HOWEVER AT THE MOMENT"
+                          " THIS WILL LEAD TO INACCURATE RESULTS!")
+                    not_accurate = True
                     usable_configs = usable_configs - 1
                 else:
                     param_list.extend(configurations[num_config]['offline_aggregates']['param'])
@@ -759,18 +788,28 @@ if __name__ == '__main__':
             else:
                 print_info("Using only " + str(usable_configs) + " Configs.")
             by_name = {}
+            usable_configs_2 = len(state_consumptions_by_config)
             for i in range(num_raw_states):
                 consumptions_for_state = []
                 durations_for_state = []
                 for j, (_, states_consumption_list) in enumerate(state_consumptions_by_config):
-                    consumptions_for_state.extend(states_consumption_list[i])
-                    durations_for_state.extend(state_durations_by_config[j][1][i])
+                    if len(states_consumption_list) == num_raw_states:
+                        consumptions_for_state.extend(states_consumption_list[i])
+                        durations_for_state.extend(state_durations_by_config[j][1][i])
+                    else:
+                        not_accurate = True
+                        usable_configs_2 = usable_configs_2 - 1
+                if usable_configs_2 != usable_configs:
+                    print_error("an zwei unterschiedlichen Stellen wurden unterschiedlich viele "
+                                "Messungen rausgeworfen. Bei Janis beschweren.")
                 state_name = "state_" + str(i)
                 state_dict = {
                     "param": param_list,
                     "power": consumptions_for_state,
                     "duration": durations_for_state,
-                    "attributes": ["power", "duration"]
+                    "attributes": ["power", "duration"],
+                    # Da kein richtiger Automat generiert wird, gibt es auch keine Transitionen
+                    "isa": "state"
                 }
                 by_name[state_name] = state_dict
             by_param = by_name_to_by_param(by_name)
@@ -943,7 +982,9 @@ if __name__ == '__main__':
                 "param": param_list,
                 "power": consumptions_for_state,
                 "duration": durations_for_state,
-                "attributes": ["power", "duration"]
+                "attributes": ["power", "duration"],
+                # Da kein richtiger Automat generiert wird, gibt es auch keine Transitionen
+                "isa": "state"
             }
             new_by_name[state_name] = new_state_dict
         new_by_param = by_name_to_by_param(new_by_name)
@@ -993,7 +1034,13 @@ if __name__ == '__main__':
                 model_function = model_function.replace(replace_string, str(arg))
             print("Duration-Function for state " + state_name + ": "
                   + model_function)
-        model = PTAModel(by_name, param_names, dict())
+        model = PTAModel(new_by_name, param_names, dict())
+        model_json = model.to_json()
+        print(model_json)
+        if not_accurate:
+            print_warning(
+                "THIS RESULT IS NOT ACCURATE. SEE WARNINGLOG TO GET A BETTER UNDERSTANDING"
+                " WHY.")
 
 
     #         TODO: removed clustering (temporarily), since it provided too much dificultys
