@@ -547,7 +547,7 @@ if __name__ == '__main__':
     except getopt.GetoptError as err:
         print(err, file=sys.stderr)
         sys.exit(-1)
-
+    filepath = os.path.dirname(opt_filename)
     # OPENING DATA
     if ".json" in opt_filename:
         # open file with trace data from json
@@ -1034,37 +1034,37 @@ if __name__ == '__main__':
                 print_warning("Fitting(duration) for state " + state_name + " was not succesful!")
             new_fit_res_pow_dict[state_name] = combined_fit_power
             new_fit_res_dur_dict[state_name] = combined_fit_duration
-        for state_name in new_by_name.keys():
-            model_function = str(new_fit_res_pow_dict[state_name].model_function)
-            model_args = new_fit_res_pow_dict[state_name].model_args
-            for num_arg, arg in enumerate(model_args):
-                replace_string = "regression_arg(" + str(num_arg) + ")"
-                model_function = model_function.replace(replace_string, str(arg))
-            print("Power-Function for state " + state_name + ": "
-                  + model_function)
-        for state_name in new_by_name.keys():
-            model_function = str(new_fit_res_dur_dict[state_name].model_function)
-            model_args = new_fit_res_dur_dict[state_name].model_args
-            for num_arg, arg in enumerate(model_args):
-                replace_string = "regression_arg(" + str(num_arg) + ")"
-                model_function = model_function.replace(replace_string, str(arg))
-            print("Duration-Function for state " + state_name + ": "
-                  + model_function)
-        # model = PTAModel(new_by_name, param_names, dict())
-        # model_json = model.to_json()
-        # param_model, _ = model.get_fitted()
-        # param_quality = model.assess(param_model)
-        # pprint.pprint(param_quality)
-        # # model = PTAModel(by_name, ...)
-        # # validator = CrossValidator(PTAModel, by_name, ...)
-        # # param_quality = validator.kfold(lambda m: m.get_fitted()[0], 10)
-        # validator = CrossValidator(PTAModel, new_by_name, param_names, dict())
-        # param_quality = validator.kfold(lambda m: m.get_fitted()[0], 10)
-        # pprint.pprint(param_quality)
-        if not_accurate:
-            print_warning(
-                "THIS RESULT IS NOT ACCURATE. SEE WARNINGLOG TO GET A BETTER UNDERSTANDING"
-                " WHY.")
+        result_loc = os.path.join(filepath, "result.txt")
+        with open(result_loc, "w") as f:
+            f.write("Resulting Sequence: " + str(resulting_sequence))
+            f.write("\n\n")
+            for state_name in new_by_name.keys():
+                model_function = str(new_fit_res_pow_dict[state_name].model_function)
+                model_args = new_fit_res_pow_dict[state_name].model_args
+                for num_arg, arg in enumerate(model_args):
+                    replace_string = "regression_arg(" + str(num_arg) + ")"
+                    model_function = model_function.replace(replace_string, str(arg))
+                print("Power-Function for state " + state_name + ": "
+                      + model_function)
+                f.write("Power-Function for state " + state_name + ": "
+                        + model_function + "\n")
+            f.write("\n\n")
+            for state_name in new_by_name.keys():
+                model_function = str(new_fit_res_dur_dict[state_name].model_function)
+                model_args = new_fit_res_dur_dict[state_name].model_args
+                for num_arg, arg in enumerate(model_args):
+                    replace_string = "regression_arg(" + str(num_arg) + ")"
+                    model_function = model_function.replace(replace_string, str(arg))
+                print("Duration-Function for state " + state_name + ": "
+                      + model_function)
+                f.write("Duration-Function for state " + state_name + ": "
+                        + model_function + "\n")
+            if not_accurate:
+                print_warning(
+                    "THIS RESULT IS NOT ACCURATE. SEE WARNINGLOG TO GET A BETTER UNDERSTANDING"
+                    " WHY.")
+                f.write("THIS RESULT IS NOT ACCURATE. SEE WARNINGLOG TO GET A BETTER UNDERSTANDING"
+                        " WHY.")
 
 
     #         TODO: removed clustering (temporarily), since it provided too much dificultys
