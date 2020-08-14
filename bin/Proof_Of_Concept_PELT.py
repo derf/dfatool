@@ -600,7 +600,7 @@ if __name__ == '__main__':
                               "\nThe script will not run to the end properly."
                               "\nNo final parametrization will be done.")
                 from_cache = True
-
+        big_state_name = configurations[0]['name']
         if None in (by_param_file, by_name_file, param_names_file):
             state_durations_by_config = []
             state_consumptions_by_config = []
@@ -1034,7 +1034,7 @@ if __name__ == '__main__':
                 print_warning("Fitting(duration) for state " + state_name + " was not succesful!")
             new_fit_res_pow_dict[state_name] = combined_fit_power
             new_fit_res_dur_dict[state_name] = combined_fit_duration
-        result_loc = os.path.join(filepath, "result.txt")
+        result_loc = os.path.join(filepath, "result" + big_state_name + ".txt")
         with open(result_loc, "w") as f:
             f.write("Resulting Sequence: " + str(resulting_sequence))
             f.write("\n\n")
