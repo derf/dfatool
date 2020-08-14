@@ -4,6 +4,7 @@ import time
 import sys
 import getopt
 import re
+import pprint
 from multiprocessing import Pool, Manager, cpu_count
 from kneed import KneeLocator
 from sklearn.cluster import AgglomerativeClustering
@@ -21,7 +22,8 @@ from dfatool.utils import by_name_to_by_param
 # from scipy.cluster.hierarchy import dendrogram, linkage # for graphical display
 
 # py bin\Proof_Of_Concept_PELT.py --filename="..\data\TX.json" --jump=1 --pen_override=28 --refinement_thresh=100
-# py bin\Proof_Of_Concept_PELT.py --filename="..\data\TX.json" --jump=1 --pen_override=28 --refinement_thresh=100 --cache_dicts --cache_loc="..\data\TX_cache"
+# py bin\Proof_Of_Concept_PELT.py --filename="..\data\TX.json" --jump=1 --pen_override=28 --refinement_thresh=100 --cache_dicts --cache_loc="..\data\TX2_cache"
+from dfatool.validation import CrossValidator
 
 
 def plot_data_from_json(filename, trace_num, x_axis, y_axis):
@@ -98,7 +100,7 @@ def calc_pelt(signal, penalty, model="l1", jump=5, min_dist=2, plotting=False):
 
 def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0, range_max=50,
                             num_processes=8, refresh_delay=1, refresh_thresh=5, S=1.0,
-                            pen_modifier=None):
+                            pen_modifier=None, show_plots=False):
     # default params in Function
     if model is None:
         model = "l1"
@@ -138,7 +140,7 @@ def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0,
 
         print_info("starting kneepoint calculation.")
         # init Pool with num_proesses
-        with Pool(num_processes) as p:
+        with Pool(min(num_processes, len(args))) as p:
             # collect results from pool
             result = p.starmap_async(get_bkps, args)
             # monitor loop
@@ -199,18 +201,24 @@ def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0,
             if i == len(fitted_bkps_val[knee[0]:]) - 1:
                 # end sequence with last value
                 end_index = i
+                # # since it is not guaranteed that this is the end of the plateau, assume the mid
+                # # of the plateau was hit.
+                # size = end_index - start_index
+                # end_index = end_index + size
+                # However this is not the clean solution. Better if search interval is widened
                 if end_index - start_index > longest_end - longest_start:
                     # last found sequence is the longest found yet
                     longest_start = start_index
                     longest_end = end_index
                 start_index = i
             prev_val = num_bkpts
-        # plt.xlabel('Penalty')
-        # plt.ylabel('Number of Changepoints')
-        # plt.plot(pen_val, fitted_bkps_val)
-        # plt.vlines(longest_start + knee[0], 0, max(fitted_bkps_val), linestyles='dashed')
-        # plt.vlines(longest_end + knee[0], 0, max(fitted_bkps_val), linestyles='dashed')
-        # plt.show()
+        if show_plots:
+            plt.xlabel('Penalty')
+            plt.ylabel('Number of Changepoints')
+            plt.plot(pen_val, fitted_bkps_val)
+            plt.vlines(longest_start + knee[0], 0, max(fitted_bkps_val), linestyles='dashed')
+            plt.vlines(longest_end + knee[0], 0, max(fitted_bkps_val), linestyles='dashed')
+            plt.show()
         # choosing pen from plateau
         mid_of_plat = longest_start + (longest_end - longest_start) // 2
         knee = (mid_of_plat + knee[0], fitted_bkps_val[mid_of_plat + knee[0]])
@@ -331,7 +339,7 @@ def calc_raw_states_func(num_measurement, measurement, penalty, model, jump):
 
 def calc_raw_states(arg_list, num_processes=8):
     m = Manager()
-    with Pool(processes=num_processes) as p:
+    with Pool(processes=min(num_processes, len(arg_list))) as p:
         # collect results from pool
         result = p.starmap(calc_raw_states_func, arg_list)
     return result
@@ -375,7 +383,7 @@ def print_error(str_to_prt):
         print("[ERROR]" + str_prt, file=sys.stderr)
 
 
-def norm_signal(signal, scaler=50):
+def norm_signal(signal, scaler=25):
     # TODO: maybe refine normalisation of signal
     max_val = max(signal)
     normed_signal = np.zeros(shape=len(signal))
@@ -656,6 +664,10 @@ if __name__ == '__main__':
                                    + "measurement No. " + str(num_measurement) + " is " + str(
                             avg_std))
                         print_info("That is a reduction of " + str(change_avg_std))
+                        # l_signal = measurements_by_config['offline'][num_measurement]['uW']
+                        # l_bkpts = [s[1] for s in raw_states]
+                        # fig, ax = rpt.display(np.array(l_signal), l_bkpts)
+                        # plt.show()
                     print_info("Finished raw_states calculation.")
                     num_states_array = [int()] * len(raw_states_list)
                     i = 0
@@ -787,6 +799,10 @@ if __name__ == '__main__':
                 print_info("All configs usable.")
             else:
                 print_info("Using only " + str(usable_configs) + " Configs.")
+            if num_raw_states == 1:
+                print_info("Upon further inspection it is clear that no refinement is necessary."
+                           " The macromodel is usable.")
+                sys.exit(-1)
             by_name = {}
             usable_configs_2 = len(state_consumptions_by_config)
             for i in range(num_raw_states):
@@ -1034,9 +1050,17 @@ if __name__ == '__main__':
                 model_function = model_function.replace(replace_string, str(arg))
             print("Duration-Function for state " + state_name + ": "
                   + model_function)
-        model = PTAModel(new_by_name, param_names, dict())
-        model_json = model.to_json()
-        print(model_json)
+        # model = PTAModel(new_by_name, param_names, dict())
+        # model_json = model.to_json()
+        # param_model, _ = model.get_fitted()
+        # param_quality = model.assess(param_model)
+        # pprint.pprint(param_quality)
+        # # model = PTAModel(by_name, ...)
+        # # validator = CrossValidator(PTAModel, by_name, ...)
+        # # param_quality = validator.kfold(lambda m: m.get_fitted()[0], 10)
+        # validator = CrossValidator(PTAModel, new_by_name, param_names, dict())
+        # param_quality = validator.kfold(lambda m: m.get_fitted()[0], 10)
+        # pprint.pprint(param_quality)
         if not_accurate:
             print_warning(
                 "THIS RESULT IS NOT ACCURATE. SEE WARNINGLOG TO GET A BETTER UNDERSTANDING"
