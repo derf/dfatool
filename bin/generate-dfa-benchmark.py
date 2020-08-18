@@ -593,7 +593,8 @@ if __name__ == "__main__":
         if "codegen" in driver_definition and "flags" in driver_definition["codegen"]:
             if run_flags is None:
                 run_flags = driver_definition["codegen"]["flags"]
-    run_flags.extend(opt["run"].split())
+    if "run" in opt:
+        run_flags.extend(opt["run"].split())
 
     runs = list(
         pta.dfs(
