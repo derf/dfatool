@@ -11,6 +11,8 @@ import struct
 import tarfile
 import hashlib
 from multiprocessing import Pool
+
+from data.processing.DataProcessor import DataProcessor
 from .utils import running_mean, soft_cast_int
 
 logger = logging.getLogger(__name__)
@@ -1671,97 +1673,24 @@ class EnergyTraceWithLogicAnalyzer:
             * `W_mean_delta_next`: Differenz zwischen W_mean und W_mean des Folgezustands
         """
 
-        # Tatsächlich Daten auswerten
-        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # remove Dirty Data from previously running program (happens if logic Analyzer Measurement starts earlier than
-        # the HW Reset from energytrace)
-        use_data_after_index = 0
-        for x in range(1, len(self.sync_data.timestamps)):
-            if self.sync_data.timestamps[x] - self.sync_data.timestamps[x - 1] > 1.3:
-                use_data_after_index = x
-                break
 
-        time_stamp_data = self.sync_data.timestamps[use_data_after_index:]
-
-        start_offset = None
-        start_timestamp = None
-        end_offset = None
-        end_timestamp = None
-
-        last_values = []  # maybe needed to flatten the data
-        plot_data_x = []
-        plot_data_y = []
-        last_data = [0, 0, 0, 0]
-
-        power_sync_watt = 0.015
-
-        # MAIN ENERGY DATA ITERATION
-        for energytrace_dataset in self.energy_data:
-            usedtime = energytrace_dataset[0] - last_data[0]
-            usedenergy = energytrace_dataset[3] - last_data[3]
-            power = usedenergy / usedtime * 10 ** -3  # in watts
-
-            if power > 0:
-                if power > power_sync_watt and start_offset is None:
-                    # automatic START offset calculation
-                    start_offset = energytrace_dataset[0] / 1_000_000 - time_stamp_data[0]
-                    start_timestamp = energytrace_dataset[0] / 1_000_000
-                if power > power_sync_watt and start_offset is not None:  # TODO BETTER
-                    # automatic END offset calculation (Drift)
-                    end_offset = energytrace_dataset[0] / 1_000_000 - time_stamp_data[-1] - start_offset
-                    end_timestamp = energytrace_dataset[0] / 1_000_000
-                if len(last_values) > 10:
-                    last_values.pop(0)
-                last_values.append(power)
-                # print("%s \tUsed Energy: %i  \tUsed Time: %i  \tPower: %f \t l_10: %f" % (now_data[0], usedenergy, usedtime, power, sum(last_values) / len(last_values)))
-                plot_data_x.append(energytrace_dataset[0] / 1_000_000)
-                plot_data_y.append(power)
-
-                last_data = energytrace_dataset
-
-        # --------------------
-        # add start offset to the data
-        modified_timestamps_with_offset = []
-        for x in time_stamp_data:
-            if x + start_offset >= 0:
-                modified_timestamps_with_offset.append(x + start_offset)
-
-        # --------------------
-        # Add drift to datapoints
-        modified_timestamps_with_drift = []
-        endFactor = (end_timestamp + end_offset - start_timestamp) / (end_timestamp - start_timestamp)
-        for x in modified_timestamps_with_offset:
-            modified_timestamps_with_drift.append(((x - start_timestamp) * endFactor) + start_timestamp)
-
-        self.start_offset = 0
-        def getPowerBetween(start, end, base_power=0): #0.001469):
-            first_index = 0
-            all_power = 0
-            all_power_count = 0
-            for ind in range(self.start_offset, len(plot_data_x)):
-                first_index = ind
-                if plot_data_x[ind] > start:
-                    break
-
-            for ind in range(first_index, len(plot_data_x)):
-                all_power += plot_data_y[ind]
-                all_power_count += 1
-                if plot_data_x[ind] > end:
-                    self.start_offset = ind - 1
-                    break
-            return (all_power / all_power_count) - base_power
-
-        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        names = []
+        for trace_number, trace in enumerate(traces):
+            for state_or_transition in trace["trace"]:
+                names.append(state_or_transition["name"])
+        print(names[:15])
+        dp = DataProcessor(sync_data=self.sync_data, energy_data=self.energy_data)
+        dp.run()
+        energy_trace_new = list()
+        energy_trace_new.extend(dp.getStatesdfatool())
+        #dp.plot()
+        #dp.plot(names)
+        energy_trace_new = energy_trace_new[4:]
 
         energy_trace = list()
-
         expected_transitions = list()
         for trace_number, trace in enumerate(traces):
-            for state_or_transition_number, state_or_transition in enumerate(
-                trace["trace"]
-            ):
+            for state_or_transition_number, state_or_transition in enumerate(trace["trace"]):
                 if state_or_transition["isa"] == "transition":
                     try:
                         expected_transitions.append(
@@ -1785,100 +1714,6 @@ class EnergyTraceWithLogicAnalyzer:
                         return energy_trace
 
 
-        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-        end_transition_ts = None
-        timestamps_sync_start = 0
-        energy_trace_new = list()
-
-        for ts_index in range(0 + timestamps_sync_start, int(len(modified_timestamps_with_drift) / 2)):
-            start_transition_ts = modified_timestamps_with_drift[ts_index * 2]
-            if end_transition_ts is not None:
-                power = getPowerBetween(end_transition_ts, start_transition_ts)
-                #print("STATE", end_transition_ts * 10 ** 6, start_transition_ts * 10 ** 6, (start_transition_ts - end_transition_ts) * 10 ** 6, power)
-                if (start_transition_ts - end_transition_ts) * 10 ** 6 > 900_000 and power > power_sync_watt * 0.9 and ts_index > 10:
-                    #remove last transition and stop (upcoming data only sync)
-                    del energy_trace_new[-1]
-                    break
-                    pass
-
-                state = {
-                    "isa": "state",
-                    "W_mean": power,
-                    "W_std": 0.0001,
-                    "s": (start_transition_ts - end_transition_ts), #* 10 ** 6,
-                }
-                energy_trace_new.append(state)
-
-                energy_trace_new[-2]["W_mean_delta_next"] = (
-                        energy_trace_new[-2]["W_mean"] - energy_trace_new[-1]["W_mean"]
-                )
-
-                # get energy end_transition_ts
-            end_transition_ts = modified_timestamps_with_drift[ts_index * 2 + 1]
-            power = getPowerBetween(start_transition_ts, end_transition_ts)
-            #print("TRANS", start_transition_ts * 10 ** 6, end_transition_ts * 10 ** 6, (end_transition_ts - start_transition_ts) * 10 ** 6, power)
-            transition = {
-                "isa": "transition",
-                "W_mean": power,
-                "W_std": 0.0001,
-                "s": (end_transition_ts - start_transition_ts), #* 10 ** 6,
-            }
-
-            if (end_transition_ts - start_transition_ts) * 10 ** 6 > 2_000_000:
-                # TODO Last data set corrupted? HOT FIX!!!!!!!!!!!! REMOVE LATER
-                #for x in range(4):
-                #    del energy_trace_new[-1]
-                #break
-                pass
-
-            energy_trace_new.append(transition)
-            # print(start_transition_ts, "-", end_transition_ts, "-", end_transition_ts - start_transition_ts)
-
-        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-        energy_trace_new = energy_trace_new[4:]
-
-        # ********************************************************************
-        # ********************************************************************
-        # ********************************************************************
-        #    _____  _      ____ _______ _______ _____ _   _  _____
-        #   |  __ \| |    / __ \__   __|__   __|_   _| \ | |/ ____|
-        #   | |__) | |   | |  | | | |     | |    | | |  \| | |  __
-        #   |  ___/| |   | |  | | | |     | |    | | | . ` | | |_ |
-        #   | |    | |___| |__| | | |     | |   _| |_| |\  | |__| |
-        #   |_|    |______\____/  |_|     |_|  |_____|_| \_|\_____|
-        #
-        # ********************************************************************
-        # ********************************************************************
-        # ********************************************************************
-        def calculateRectangleCurve(timestamps, min_value=0, max_value=0.160):
-            import numpy as np
-            data = []
-            for ts in timestamps:
-                data.append(ts)
-                data.append(ts)
-
-            a = np.empty((len(data),))
-            a[1::4] = max_value
-            a[2::4] = max_value
-            a[3::4] = min_value
-            a[4::4] = min_value
-            return data, a  # plotting by columns
-
-        import matplotlib.pyplot as plt
-        rectCurve_with_drift = calculateRectangleCurve(modified_timestamps_with_drift, max_value=max(plot_data_y))
-
-        plt.plot(plot_data_x, plot_data_y, label='Energy')  # plotting by columns
-        plt.plot(rectCurve_with_drift[0], rectCurve_with_drift[1], '-g', label='With calculated Driftfactor')
-        leg = plt.legend()
-        plt.show()
-
-        # ********************************************************************
-        # ********************************************************************
-        # ********************************************************************
 
         for number, item in enumerate(expected_transitions):
             name, duration = item
@@ -1894,7 +1729,7 @@ class EnergyTraceWithLogicAnalyzer:
 
             if len(energy_trace) > 1:
                 energy_trace[-1]["W_mean_delta_prev"] = (
-                    energy_trace[-1]["W_mean"] - energy_trace[-2]["W_mean"]
+                        energy_trace[-1]["W_mean"] - energy_trace[-2]["W_mean"]
                 )
 
             state = {
@@ -1908,18 +1743,37 @@ class EnergyTraceWithLogicAnalyzer:
             energy_trace.append(state)
 
             energy_trace[-2]["W_mean_delta_next"] = (
-                energy_trace[-2]["W_mean"] - energy_trace[-1]["W_mean"]
+                    energy_trace[-2]["W_mean"] - energy_trace[-1]["W_mean"]
             )
 
-        st = ""
-        for i, x in enumerate(energy_trace_new[-10:]):
-            #st += "(%s|%s|%s)" % (energy_trace[i-10]["name"],x['W_mean'],x['s'])
-            st += "(%s|%s|%s)\n" % (energy_trace[i-10]["s"], x['s'], x['W_mean'])
+        for number, item in enumerate(energy_trace):
+            name = item["name"]
+            #print(energy_trace[number - 1]["name"])
+            #if name == "state" and "switchTo3K3" in energy_trace[number - 1]["name"]:
+                #print(name, energy_trace_new[number]["W_mean"])
+
+        # add next/prev state W_mean_delta
+        for number, item in enumerate(energy_trace_new):
+            if item['isa'] == 'transition' and number > 0 and number < len(energy_trace_new) - 1:
+                item['W_mean_delta_prev'] = energy_trace_new[number - 1]
+                item['W_mean_delta_next'] = energy_trace_new[number + 1]
+
+        for number, item in enumerate(energy_trace):
+            name = energy_trace[number]['name']
+
+            if energy_trace_new[number]['isa'] == 'transition':
+                print(name, energy_trace_new[number]['count_dp'], energy_trace_new[number]["W_mean"])
+
+        #st = ""
+        #for i, x in enumerate(energy_trace_new[-10:]):
+        #    #st += "(%s|%s|%s)" % (energy_trace[i-10]["name"],x['W_mean'],x['s'])
+        #    st += "(%s|%s|%s)\n" % (energy_trace[i-10]["s"], x['s'], x['W_mean'])
 
         #print(st, "\n_______________________")
-        print(len(self.sync_data.timestamps), " - ", len(energy_trace_new), " - ", len(energy_trace), " - ", ",".join([str(x["s"]) for x in energy_trace_new[-6:]]), " - ", ",".join([str(x["s"]) for x in energy_trace[-6:]]))
-        if len(energy_trace_new) < len(energy_trace):
-            return None
+        #print(len(self.sync_data.timestamps), " - ", len(energy_trace_new), " - ", len(energy_trace), " - ", ",".join([str(x["s"]) for x in energy_trace_new[-6:]]), " - ", ",".join([str(x["s"]) for x in energy_trace[-6:]]))
+        #if len(energy_trace_new) < len(energy_trace):
+        #    return None
+
         return energy_trace_new
 
 
@@ -1955,7 +1809,7 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
 
         # Daten laden
         self.sync_data = None
-        self.energy_data = EnergyInterface.getDataFromString(str(log_data[1]))
+        self.energy_data = EnergyInterface.getDataFromString(str(log_data[0]))
 
         pass
 
