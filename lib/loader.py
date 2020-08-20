@@ -1678,11 +1678,11 @@ class EnergyTraceWithLogicAnalyzer:
         for trace_number, trace in enumerate(traces):
             for state_or_transition in trace["trace"]:
                 names.append(state_or_transition["name"])
-        print(names[:15])
+        #print(names[:15])
         dp = DataProcessor(sync_data=self.sync_data, energy_data=self.energy_data)
         dp.run()
         energy_trace_new = list()
-        energy_trace_new.extend(dp.getStatesdfatool())
+        energy_trace_new.extend(dp.getStatesdfatool(state_sleep=self.state_duration))
         #dp.plot()
         #dp.plot(names)
         energy_trace_new = energy_trace_new[4:]
