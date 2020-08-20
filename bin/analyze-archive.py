@@ -381,6 +381,11 @@ if __name__ == "__main__":
 
     if "info" in opt:
         print(" ".join(raw_data.filenames) + ":")
+        if raw_data.ptalog:
+            options = " --".join(
+                map(lambda kv: f"{kv[0]}={str(kv[1])}", raw_data.ptalog["opt"].items())
+            )
+            print(f"    Options: --{options}")
         if raw_data.version <= 1:
             data_source = "MIMOSA"
         elif raw_data.version == 2:
