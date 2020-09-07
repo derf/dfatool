@@ -422,7 +422,7 @@ class OnboardTimerHarness(TransitionHarness):
     gpio.led_toggle(1);
     ptalog.stopTransition();
     // ======================= LED SYNC ================================
-    //arch.sleep_ms(250);
+    arch.sleep_ms(200);
 }\n\n"""
         return ret
 
