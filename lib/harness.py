@@ -141,9 +141,7 @@ class TransitionHarness:
 
     def start_trace(self):
         """Prepare a new trace/run in the internal `.traces` structure."""
-        self.traces.append(
-            {"id": self.trace_id, "trace": list(),}
-        )
+        self.traces.append({"id": self.trace_id, "trace": list()})
         self.trace_id += 1
 
     def append_state(self, state_name, param):
@@ -154,7 +152,7 @@ class TransitionHarness:
         :param param: parameter dict
         """
         self.traces[-1]["trace"].append(
-            {"name": state_name, "isa": "state", "parameter": param,}
+            {"name": state_name, "isa": "state", "parameter": param}
         )
 
     def append_transition(self, transition_name, param, args=[]):
@@ -405,7 +403,7 @@ class OnboardTimerHarness(TransitionHarness):
         ret = "#define PTALOG_TIMING\n"
         ret += super().global_code()
         if self.energytrace_sync == "led":
-            #TODO Make nicer
+            # TODO Make nicer
             ret += """\nvoid runLASync(){
     // ======================= LED SYNC ================================
     ptalog.passTransition(0);
@@ -424,7 +422,7 @@ class OnboardTimerHarness(TransitionHarness):
     gpio.led_toggle(1);
     ptalog.stopTransition();
     // ======================= LED SYNC ================================
-    arch.sleep_ms(250);
+    //arch.sleep_ms(250);
 }\n\n"""
         return ret
 

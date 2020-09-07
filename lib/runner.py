@@ -157,7 +157,7 @@ class EnergyTraceMonitor(SerialMonitor):
         self._start_energytrace()
 
     def _start_energytrace(self):
-        print("EnergyTrace Start")
+        print("[%s] Starting Measurement" % type(self).__name__)
         cmd = ["msp430-etv", "--save", self._output, "0"]
         self._logger = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
@@ -165,15 +165,15 @@ class EnergyTraceMonitor(SerialMonitor):
 
     # Benchmark fertig -> externe Hilfsprogramme beenden
     def close(self):
-        print("EnergyTrace Close")
         super().close()
         self._logger.send_signal(subprocess.signal.SIGINT)
         stdout, stderr = self._logger.communicate(timeout=15)
+        print("[%s] Stopped Measurement" % type(self).__name__)
 
     # Zusätzliche Dateien, die mit dem Benchmark-Log und -Plan abgespeichert werden sollen
     # (hier: Die von msp430-etv generierten Logfiles)
     def get_files(self) -> list:
-        print("EnergyTrace Get Files")
+        print("[%s] Getting files" % type(self).__name__)
         return [self._output]
 
     # Benchmark-Konfiguration. Hier: Die (konstante) Spannung.
