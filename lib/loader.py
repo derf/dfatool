@@ -1648,7 +1648,7 @@ class EnergyTraceWithLogicAnalyzer:
 
         pass
 
-    def analyze_states(self, traces, offline_index: int, timer_measurement=False):
+    def analyze_states(self, traces, offline_index: int):
         u"""
         Split log data into states and transitions and return duration, energy, and mean power for each element.
 
@@ -1679,7 +1679,7 @@ class EnergyTraceWithLogicAnalyzer:
                 names.append(state_or_transition["name"])
         # print(names[:15])
         dp = DataProcessor(sync_data=self.sync_data, energy_data=self.energy_data)
-        dp.run(timer_measurement)
+        dp.run()
         energy_trace_new = list()
         energy_trace_new.extend(dp.getStatesdfatool(state_sleep=self.state_duration))
         dp.plot()
@@ -1688,68 +1688,11 @@ class EnergyTraceWithLogicAnalyzer:
 
         energy_trace = list()
         expected_transitions = list()
-        for trace_number, trace in enumerate(traces):
-            for state_or_transition_number, state_or_transitistddevon in enumerate(
-                trace["trace"]
-            ):
-                if state_or_transition["isa"] == "transition":
-                    try:
-                        expected_transitions.append(
-                            (
-                                state_or_transition["name"],
-                                state_or_transition["online_aggregates"]["duration"][
-                                    offline_index
-                                ]
-                                * 1e-6,
-                            )
-                        )
-                    except IndexError:
-                        self.errors.append(
-                            'Entry #{} ("{}") in trace #{} has no duration entry for offline_index/repeat_id {}'.format(
-                                state_or_transition_number,
-                                state_or_transition["name"],
-                                trace_number,
-                                offline_index,
-                            )
-                        )
-                        return energy_trace
 
-        for number, item in enumerate(expected_transitions):
-            name, duration = item
-            transition = {
-                "isa": "transition",
-                "W_mean": max(np.random.normal(0.023, 0.002), 0),
-                "W_std": 0.0001,
-                "s": duration,
-                "name": name,
-            }
-
-            energy_trace.append(transition)
-
-            if len(energy_trace) > 1:
-                energy_trace[-1]["W_mean_delta_prev"] = (
-                    energy_trace[-1]["W_mean"] - energy_trace[-2]["W_mean"]
-                )
-
-            state = {
-                "isa": "state",
-                "W_mean": max(np.random.normal(0.023, 0.002), 0),
-                "W_std": 0.0001,
-                "s": self.state_duration,
-                "name": "state",
-            }
-
-            energy_trace.append(state)
-
-            energy_trace[-2]["W_mean_delta_next"] = (
-                energy_trace[-2]["W_mean"] - energy_trace[-1]["W_mean"]
-            )
-
-        for number, item in enumerate(energy_trace):
-            name = item["name"]
-            # print(energy_trace[number - 1]["name"])
-            # if name == "state" and "switchTo3K3" in energy_trace[number - 1]["name"]:
-            # print(name, energy_trace_new[number]["W_mean"])
+        # Print for debug purposes
+        # for number, name in enumerate(names):
+        #    if "P15_8MW" in name:
+        #        print(name, energy_trace_new[number]["W_mean"])
 
         # add next/prev state W_mean_delta
         for number, item in enumerate(energy_trace_new):
@@ -1757,16 +1700,6 @@ class EnergyTraceWithLogicAnalyzer:
                 item["W_mean_delta_prev"] = energy_trace_new[number - 1]
                 item["W_mean_delta_next"] = energy_trace_new[number + 1]
 
-        """
-        for number, item in enumerate(energy_trace):
-            name = energy_trace[number]["name"]
-            if energy_trace_new[number]["isa"] == "transition":
-                print(
-                    name,
-                    energy_trace_new[number]["count_dp"],
-                    energy_trace_new[number]["W_mean"],
-                )
-        """
         # st = ""
         # for i, x in enumerate(energy_trace_new[-10:]):
         #    #st += "(%s|%s|%s)" % (energy_trace[i-10]["name"],x['W_mean'],x['s'])
@@ -1820,7 +1753,7 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
         from data.timing.SigrokInterface import SigrokResult
 
         self.sync_data = SigrokResult.fromTraces(traces)
-        return super().analyze_states(traces, offline_index, timer_measurement=True)
+        return super().analyze_states(traces, offline_index)
 
 
 class MIMOSA:
