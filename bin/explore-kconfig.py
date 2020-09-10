@@ -64,14 +64,17 @@ def main():
 
     if args.random:
         for i in range(args.random):
-            logging.info(f"Running experiment {i+1} of {args.random}")
+            logging.info(f"Running randconfig {i+1} of {args.random}")
             kconf.run_randconfig()
 
     if args.neighbourhood:
         if os.path.isfile(args.neighbourhood):
             kconf.run_exploration_from_file(args.neighbourhood)
         elif os.path.isdir(args.neighbourhood):
-            pass
+            for filename in os.listdir(args.neighbourhood):
+                config_filename = f"{args.neighbourhood}/{filename}"
+                logging.info(f"Exploring neighbourhood of {config_filename}")
+                kconf.run_exploration_from_file(config_filename)
         else:
             print(
                 f"--neighbourhod: Error: {args.neighbourhood} must be a file or directory, but is neither",
