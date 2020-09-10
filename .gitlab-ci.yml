@@ -9,6 +9,8 @@ lint_python:
     - apt-get update -qy
     - apt-get install -y black
     - black --check --diff bin
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
 
 run_tests:
   stage: test
