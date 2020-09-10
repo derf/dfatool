@@ -53,6 +53,7 @@ class AttributeExperiment(Experiment):
 class RandomConfig(AttributeExperiment):
     inputs = {
         "randconfig_seed": String("FIXME"),
+        "kconfig_hash": String("FIXME"),
         "project_root": Directory("/tmp"),
         "project_version": String("FIXME"),
         "clean_command": String("make clean"),
@@ -64,6 +65,7 @@ class RandomConfig(AttributeExperiment):
 class ExploreConfig(AttributeExperiment):
     inputs = {
         "config_hash": String("FIXME"),
+        "kconfig_hash": String("FIXME"),
         "project_root": Directory("/tmp"),
         "project_version": String("FIXME"),
         "clean_command": String("make clean"),
@@ -110,7 +112,7 @@ class KConfig:
         revision = status.stdout.strip()
         return revision
 
-    def config_hash(self, config_file):
+    def file_hash(self, config_file):
         status = subprocess.run(
             ["sha256sum", config_file],
             cwd=self.cwd,
@@ -118,8 +120,8 @@ class KConfig:
             stderr=subprocess.PIPE,
             universal_newlines=True,
         )
-        config_hash = status.stdout.split()[0]
-        return config_hash
+        sha256sum = status.stdout.split()[0]
+        return sha256sum
 
     def run_randconfig(self):
         """Run a randomconfig experiment in the selected project. Results are written to the current working directory."""
@@ -128,6 +130,8 @@ class KConfig:
             [
                 "--randconfig_seed",
                 self.randconfig(),
+                "--kconfig_hash",
+                self.file_hash(f"{self.cwd}/Kconfig"),
                 "--project_version",
                 self.git_commit_id(),
                 "--project_root",
@@ -152,7 +156,8 @@ class KConfig:
         return True
 
     def run_exploration_from_file(self, config_file):
-        kconf = kconfiglib.Kconfig(f"{self.cwd}/Kconfig")
+        kconfig_file = f"{self.cwd}/Kconfig"
+        kconf = kconfiglib.Kconfig(kconfig_file)
         kconf.load_config(config_file)
         symbols = list(kconf.syms.keys())
 
@@ -161,7 +166,9 @@ class KConfig:
         experiment(
             [
                 "--config_hash",
-                self.config_hash(config_file),
+                self.file_hash(config_file),
+                "--kconfig_hash",
+                self.file_hash(kconfig_file),
                 "--project_version",
                 self.git_commit_id(),
                 "--project_root",
@@ -197,7 +204,9 @@ class KConfig:
             experiment(
                 [
                     "--config_hash",
-                    self.config_hash(f"{self.cwd}/.config"),
+                    self.file_hash(f"{self.cwd}/.config"),
+                    "--kconfig_hash",
+                    self.file_hash(kconfig_file),
                     "--project_version",
                     self.git_commit_id(),
                     "--project_root",
