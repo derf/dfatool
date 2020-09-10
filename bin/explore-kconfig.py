@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 
+"""explore-kconfig - Obtain build attributes of configuration variants
+
+explore-kconfig obtains build attributes such as ROM or RAM usage of
+configuration variants for a given software project. It works on random
+random configurations (--random) or in the neighbourhood
+of existing configurations (--neighbourhood).
+
+Supported projects must be configurable via kconfig and provide a command which
+outputs a JSON dict of build attributes on stdout. Use
+--{clean,build,attribute}-command to configure explore-kconfig for a project.
+"""
+
 import argparse
 import logging
 import os
