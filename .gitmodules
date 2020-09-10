@@ -1,0 +1,6 @@
+[submodule "kconfiglib"]
+	path = ext/kconfiglib
+	url = https://github.com/ulfalizer/Kconfiglib.git
+[submodule "versuchung"]
+	path = ext/versuchung
+	url = https://github.com/stettberger/versuchung.git
