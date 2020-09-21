@@ -12,7 +12,6 @@ import tarfile
 import hashlib
 from multiprocessing import Pool
 
-from data.processing.DataProcessor import DataProcessor
 from .utils import running_mean, soft_cast_int
 
 logger = logging.getLogger(__name__)
@@ -1678,6 +1677,8 @@ class EnergyTraceWithLogicAnalyzer:
             for state_or_transition in trace["trace"]:
                 names.append(state_or_transition["name"])
         # print(names[:15])
+        from data.processing.DataProcessor import DataProcessor
+
         dp = DataProcessor(sync_data=self.sync_data, energy_data=self.energy_data)
         dp.run()
         energy_trace_new = list()
