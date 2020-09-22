@@ -18,7 +18,6 @@ from dfatool import parameters
 from dfatool.model import ParallelParamFit, PTAModel
 from dfatool.utils import by_name_to_by_param
 
-
 # from scipy.cluster.hierarchy import dendrogram, linkage # for graphical display
 
 # py bin\Proof_Of_Concept_PELT.py --filename="..\data\TX.json" --jump=1 --pen_override=28 --refinement_thresh=100
@@ -26,6 +25,7 @@ from dfatool.utils import by_name_to_by_param
 from dfatool.validation import CrossValidator
 
 
+# helper functions. Not used
 def plot_data_from_json(filename, trace_num, x_axis, y_axis):
     with open(filename, 'r') as file:
         tx_data = json.load(file)
@@ -60,18 +60,26 @@ def plot_data_vs_data_vs_means(signal1, signal2, x_axis, y_axis):
     plt.show()
 
 
+# returns the found changepoints by algo for the specific penalty pen.
+# algo should be the return value of Pelt(...).fit(signal)
+# Also puts a token in container q to let the progressmeter know the changepoints for penalty pen
+# have been calculated.
+# used for parallel calculation of changepoints vs penalty
 def get_bkps(algo, pen, q):
     res = pen, len(algo.predict(pen=pen))
     q.put(pen)
     return res
 
 
+# Wrapper for kneedle
 def find_knee_point(data_x, data_y, S=1.0, curve='convex', direction='decreasing'):
     kneedle = KneeLocator(data_x, data_y, S=S, curve=curve, direction=direction)
     kneepoint = (kneedle.knee, kneedle.knee_y)
     return kneepoint
 
 
+# returns the changepoints found on signal with penalty penalty.
+# model, jump and min_dist are directly passed to PELT
 def calc_pelt(signal, penalty, model="l1", jump=5, min_dist=2, plotting=False):
     # default params in Function
     if model is None:
@@ -98,6 +106,11 @@ def calc_pelt(signal, penalty, model="l1", jump=5, min_dist=2, plotting=False):
     sys.exit(-1)
 
 
+# calculates and returns the necessary penalty for signal. Parallel execution with num_processes many processes
+# jump, min_dist are passed directly to PELT. S is directly passed to kneedle.
+# pen_modifier is used as a factor on the resulting penalty.
+# the interval [range_min, range_max] is used for searching.
+# refresh_delay and refresh_thresh are used to configure the progress "bar".
 def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0, range_max=50,
                             num_processes=8, refresh_delay=1, refresh_thresh=5, S=1.0,
                             pen_modifier=None, show_plots=False):
@@ -136,6 +149,7 @@ def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0,
         q = m.Queue()
 
         for i in range(range_min, range_max + 1):
+            # same calculation for all except other penalty
             args.append((algo, i, q))
 
         print_info("starting kneepoint calculation.")
@@ -184,7 +198,9 @@ def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0,
         # peaks, peak_plateaus = find_peaks(- np.array(fitted_bkps_val), plateau_size=1)
         # Since the data is monotonously decreasing only one plateau can be found.
 
-        # assuming the plateau is constant
+        # assuming the plateau is constant, i.e. no noise. OK to assume this here, since num_bkpts
+        # is monotonously decreasing. If the number of bkpts decreases inside a considered
+        # plateau, it means that the stable configuration is not yet met. -> Search further
         start_index = -1
         end_index = -1
         longest_start = -1
@@ -206,6 +222,7 @@ def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0,
                 # size = end_index - start_index
                 # end_index = end_index + size
                 # However this is not the clean solution. Better if search interval is widened
+                # with range_min and range_max
                 if end_index - start_index > longest_end - longest_start:
                     # last found sequence is the longest found yet
                     longest_start = start_index
@@ -238,78 +255,20 @@ def calculate_penalty_value(signal, model="l1", jump=5, min_dist=2, range_min=0,
     sys.exit(-1)
 
 
-# very short benchmark yielded approx. 1/3 of speed compared to solution with sorting
-# def needs_refinement_no_sort(signal, mean, thresh):
-#     # linear search for the top 10%/ bottom 10%
-#     # should be sufficient
-#     length_of_signal = len(signal)
-#     percentile_size = int()
-#     percentile_size = length_of_signal // 100
-#     upper_percentile = [None] * percentile_size
-#     lower_percentile = [None] * percentile_size
-#     fill_index_upper = percentile_size - 1
-#     fill_index_lower = percentile_size - 1
-#     index_smallest_val = fill_index_upper
-#     index_largest_val = fill_index_lower
-#
-#     for x in signal:
-#         if x > mean:
-#             # will be in upper percentile
-#             if fill_index_upper >= 0:
-#                 upper_percentile[fill_index_upper] = x
-#                 if x < upper_percentile[index_smallest_val]:
-#                     index_smallest_val = fill_index_upper
-#                 fill_index_upper = fill_index_upper - 1
-#                 continue
-#
-#             if x > upper_percentile[index_smallest_val]:
-#                 # replace smallest val. Find next smallest val
-#                 upper_percentile[index_smallest_val] = x
-#                 index_smallest_val = 0
-#                 i = 0
-#                 for y in upper_percentile:
-#                     if upper_percentile[i] < upper_percentile[index_smallest_val]:
-#                         index_smallest_val = i
-#                     i = i + 1
-#
-#         else:
-#             if fill_index_lower >= 0:
-#                 lower_percentile[fill_index_lower] = x
-#                 if x > lower_percentile[index_largest_val]:
-#                     index_largest_val = fill_index_upper
-#                 fill_index_lower = fill_index_lower - 1
-#                 continue
-#             if x < lower_percentile[index_largest_val]:
-#                 # replace smallest val. Find next smallest val
-#                 lower_percentile[index_largest_val] = x
-#                 index_largest_val = 0
-#                 i = 0
-#                 for y in lower_percentile:
-#                     if lower_percentile[i] > lower_percentile[index_largest_val]:
-#                         index_largest_val = i
-#                     i = i + 1
-#
-#     # should have the percentiles
-#     lower_percentile_mean = np.mean(lower_percentile)
-#     upper_percentile_mean = np.mean(upper_percentile)
-#     dist = mean - lower_percentile_mean
-#     if dist > thresh:
-#         return True
-#     dist = upper_percentile_mean - mean
-#     if dist > thresh:
-#         return True
-#     return False
-
-
-# raw_states_calc_args.append((num_measurement, measurement, penalty, opt_model
-#                                                  , opt_jump))
+# calculates the raw_states for measurement measurement. num_measurement is used to identify the
+# return value
+# penalty, model and jump are directly passed to pelt
 def calc_raw_states_func(num_measurement, measurement, penalty, model, jump):
+    # extract signal
     signal = np.array(measurement['uW'])
+    # norm signal to remove dependency on absolute values
     normed_signal = norm_signal(signal)
+    # calculate the breakpoints
     bkpts = calc_pelt(normed_signal, penalty, model=model, jump=jump)
     calced_states = list()
     start_time = 0
     end_time = 0
+    # calc metrics for all states
     for bkpt in bkpts:
         # start_time of state is end_time of previous one
         # (Transitions are instantaneous)
@@ -322,6 +281,7 @@ def calc_raw_states_func(num_measurement, measurement, penalty, model, jump):
         calced_states.append(calced_state)
     num = 0
     new_avg_std = 0
+    # calc avg std for all states from this measurement
     for s in calced_states:
         # print_info("State " + str(num) + " starts at t=" + str(s[0])
         #            + " and ends at t=" + str(s[1])
@@ -329,7 +289,11 @@ def calc_raw_states_func(num_measurement, measurement, penalty, model, jump):
         #            + "uW with  sigma=" + str(s[3]))
         num = num + 1
         new_avg_std = new_avg_std + s[3]
-    new_avg_std = new_avg_std / len(calced_states)
+    # check case if no state has been found to avoid crashing
+    if len(calced_states) != 0:
+        new_avg_std = new_avg_std / len(calced_states)
+    else:
+        new_avg_std = 0
     change_avg_std = measurement['uW_std'] - new_avg_std
     # print_info("The average standard deviation for the newly found states is "
     #            + str(new_avg_std))
@@ -337,6 +301,7 @@ def calc_raw_states_func(num_measurement, measurement, penalty, model, jump):
     return num_measurement, calced_states, new_avg_std, change_avg_std
 
 
+# parallelize calc over all measurements
 def calc_raw_states(arg_list, num_processes=8):
     m = Manager()
     with Pool(processes=min(num_processes, len(arg_list))) as p:
@@ -346,6 +311,7 @@ def calc_raw_states(arg_list, num_processes=8):
 
 
 # Very short benchmark yielded approx. 3 times the speed of solution not using sort
+# checks the percentiles if refinement is necessary
 def needs_refinement(signal, thresh):
     sorted_signal = sorted(signal)
     length_of_signal = len(signal)
@@ -364,7 +330,8 @@ def needs_refinement(signal, thresh):
         return True
     return False
 
-
+# helper functions for user output
+# TODO: maybe switch with python logging feature
 def print_info(str_to_prt):
     str_lst = str_to_prt.split(sep='\n')
     for str_prt in str_lst:
@@ -383,18 +350,17 @@ def print_error(str_to_prt):
         print("[ERROR]" + str_prt, file=sys.stderr)
 
 
+# norms the signal and apply scaler to all values as a factor
 def norm_signal(signal, scaler=25):
-    # TODO: maybe refine normalisation of signal
     max_val = max(signal)
     normed_signal = np.zeros(shape=len(signal))
     for i, signal_i in enumerate(signal):
         normed_signal[i] = signal_i / max_val
         normed_signal[i] = normed_signal[i] * scaler
-    # plt.plot(normed_signal)
-    # plt.show()
     return normed_signal
 
 
+# norms the values to prepare them for clustering
 def norm_values_to_cluster(values_to_cluster):
     new_vals = np.array(values_to_cluster)
     num_samples = len(values_to_cluster)
@@ -409,6 +375,7 @@ def norm_values_to_cluster(values_to_cluster):
     return new_vals
 
 
+# finds state_num using state name
 def get_state_num(state_name, distinct_states):
     for state_num, states in enumerate(distinct_states):
         if state_name in states:
@@ -564,9 +531,9 @@ if __name__ == '__main__':
         # plt.show()
         # sys.exit()
 
-        # loop through all traces check if refinement is necessary
         # resulting_sequence_list = []
         # search for param_names, by_param and by_name files
+        # cachingopts
         by_param_file = None
         by_name_file = None
         param_names_file = None
@@ -597,34 +564,44 @@ if __name__ == '__main__':
             else:
                 print_warning("THE OPTION \"cache_dicts\" IS FOR DEBUGGING PURPOSES ONLY! "
                               "\nDO NOT USE FOR REGULAR APPLICATIONS!"
-                              "\nThe script will not run to the end properly."
-                              "\nNo final parametrization will be done.")
+                              "\nThis will possibly not be maintained in further development.")
                 from_cache = True
         big_state_name = configurations[0]['name']
         if None in (by_param_file, by_name_file, param_names_file):
             state_durations_by_config = []
             state_consumptions_by_config = []
+            # loop through all traces check if refinement is necessary and if necessary refine it.
             for num_config, measurements_by_config in enumerate(configurations):
                 # loop through all occurrences of the looked at state
                 print_info("Looking at state '" + measurements_by_config['name'] + "' with params: "
                            + str(measurements_by_config['parameter']) + "(" + str(
                     num_config + 1) + "/"
                            + str(len(configurations)) + ")")
-                refine = False
+                num_needs_refine = 0
                 print_info("Checking if refinement is necessary...")
                 for measurement in measurements_by_config['offline']:
                     # loop through measurements of particular state
                     # an check if state needs refinement
                     signal = measurement['uW']
                     # mean = measurement['uW_mean']
-                    if needs_refinement(signal, opt_refinement_thresh) and not refine:
-                        print_info("Refinement is necessary!")
-                        refine = True
-                if not refine:
+                    if needs_refinement(signal, opt_refinement_thresh):
+                        num_needs_refine = num_needs_refine + 1
+                if num_needs_refine == 0:
                     print_info(
                         "No refinement necessary for state '" + measurements_by_config['name']
                         + "' with params: " + str(measurements_by_config['parameter']))
+                elif num_needs_refine < len(measurements_by_config['offline']) / 2:
+                    print_info(
+                        "No refinement necessary for state '" + measurements_by_config['name']
+                        + "' with params: " + str(measurements_by_config['parameter']))
+                    print_warning(
+                        "However this decision was not unanimously. This could hint a poor"
+                        "measurement quality.")
                 else:
+                    if num_needs_refine != len(measurements_by_config['parameter']):
+                        print_warning(
+                            "However this decision was not unanimously. This could hint a poor"
+                            "measurement quality.")
                     # assume that all measurements of the same param configuration are fundamentally
                     # similar -> calculate penalty for first measurement, use it for all
                     if opt_pen_override is None:
@@ -651,18 +628,18 @@ if __name__ == '__main__':
                     raw_states_res = calc_raw_states(raw_states_calc_args, opt_num_processes)
                     # extracting result and putting it in correct order -> index of raw_states_list
                     # entry still corresponds with index of measurement in measurements_by_states
-                    # -> If measurements are discarded the correct ones are easily recognized
+                    # -> If measurements are discarded the used ones are easily recognized
                     for ret_val in raw_states_res:
                         num_measurement = ret_val[0]
                         raw_states = ret_val[1]
                         avg_std = ret_val[2]
                         change_avg_std = ret_val[3]
-                        # TODO: Wieso gibt mir meine IDE hier eine Warning aus? Der Index müsste doch
+                        # FIXME: Wieso gibt mir meine IDE hier eine Warning aus? Der Index müsste doch
                         #   int sein oder nicht? Es scheint auch vernünftig zu klappen...
                         raw_states_list[num_measurement] = raw_states
                         print_info("The average standard deviation for the newly found states in "
-                                   + "measurement No. " + str(num_measurement) + " is " + str(
-                            avg_std))
+                                   + "measurement No. " + str(num_measurement) + " is "
+                                   + str(avg_std))
                         print_info("That is a reduction of " + str(change_avg_std))
                         # l_signal = measurements_by_config['offline'][num_measurement]['uW']
                         # l_bkpts = [s[1] for s in raw_states]
@@ -681,8 +658,9 @@ if __name__ == '__main__':
                     # TODO: MAGIC NUMBER
                     if num_states_dev > 1:
                         print_warning("The number of states varies strongly across measurements."
-                                      " Consider choosing a larger value for S or using the "
-                                      "pen_modifier option.")
+                                      " Consider choosing a larger range for penalty detection."
+                                      " It is also possible, that the processed data is not accurate"
+                                      " enough to produce proper results.")
                         time.sleep(5)
                     # TODO: Wie bekomme ich da jetzt raus, was die Wahrheit ist?
                     #   Einfach Durchschnitt nehmen?
@@ -691,6 +669,11 @@ if __name__ == '__main__':
                     counts = np.bincount(num_states_array)
                     num_raw_states = np.argmax(counts)
                     print_info("Choose " + str(num_raw_states) + " as number of raw_states.")
+                    if num_raw_states == 1:
+                        print_info(
+                            "Upon further inspection it is clear that no refinement is necessary."
+                            " The macromodel is usable for this configuration.")
+                        continue
                     # iterate through all found breakpoints and determine start and end points as well
                     # as power consumption
                     num_measurements = len(raw_states_list)
@@ -729,8 +712,8 @@ if __name__ == '__main__':
                     if num_used_measurements != len(raw_states_list):
                         if num_used_measurements / len(raw_states_list) <= 0.5:
                             print_warning("Only used " + str(num_used_measurements) + "/"
-                                          + str(
-                                len(raw_states_list)) + " Measurements for refinement. "
+                                          + str(len(raw_states_list))
+                                          + " Measurements for refinement. "
                                           + "Others did not recognize number of states correctly."
                                           + "\nYou should verify the integrity of the measurements.")
                         else:
@@ -738,22 +721,16 @@ if __name__ == '__main__':
                                        + str(len(raw_states_list)) + " Measurements for refinement."
                                        + " Others did not recognize number of states correctly.")
                         num_used_measurements = i
-                        # TODO: DEBUG Kram
-                        #sys.exit(0)
                     else:
                         print_info("Used all available measurements.")
 
                     state_durations_by_config.append((num_config, states_duration_list))
                     state_consumptions_by_config.append((num_config, states_consumption_list))
-                    # # TODO:
-                    # if num_config == 6:
-                    #     print("BRECHE AUS")
-                    #     break
 
             # combine all state durations and consumptions to parametrized model
             if len(state_durations_by_config) == 0:
                 print("No refinement necessary for this state. The macromodel is usable.")
-                sys.exit()
+                sys.exit(1)
             if len(state_durations_by_config) / len(configurations) > 1 / 2 \
                     and len(state_durations_by_config) != len(configurations):
                 print_warning(
@@ -799,10 +776,7 @@ if __name__ == '__main__':
                 print_info("All configs usable.")
             else:
                 print_info("Using only " + str(usable_configs) + " Configs.")
-            if num_raw_states == 1:
-                print_info("Upon further inspection it is clear that no refinement is necessary."
-                           " The macromodel is usable.")
-                sys.exit(-1)
+            # build by_name
             by_name = {}
             usable_configs_2 = len(state_consumptions_by_config)
             for i in range(num_raw_states):
@@ -824,7 +798,7 @@ if __name__ == '__main__':
                     "power": consumptions_for_state,
                     "duration": durations_for_state,
                     "attributes": ["power", "duration"],
-                    # Da kein richtiger Automat generiert wird, gibt es auch keine Transitionen
+                    # Da kein "richtiger" Automat generiert wird, gibt es auch keine Transitionen
                     "isa": "state"
                 }
                 by_name[state_name] = state_dict
@@ -877,6 +851,7 @@ if __name__ == '__main__':
         paramfit.fit()
         fit_res_dur_dict = {}
         fit_res_pow_dict = {}
+        # fit functions and check if successful
         for state_name in by_name.keys():
             fit_power = paramfit.get_result(state_name, "power")
             fit_duration = paramfit.get_result(state_name, "duration")
@@ -893,6 +868,7 @@ if __name__ == '__main__':
         # only raw_states with the same number of function parameters can be similar
         num_param_pow_dict = {}
         num_param_dur_dict = {}
+        # print found substate_results
         for state_name in by_name.keys():
             model_function = str(fit_res_pow_dict[state_name].model_function)
             model_args = fit_res_pow_dict[state_name].model_args
@@ -911,6 +887,7 @@ if __name__ == '__main__':
                 model_function = model_function.replace(replace_string, str(arg))
             print_info("Duration-Function for state " + state_name + ": "
                        + model_function)
+        # sort states in buckets for clustering
         similar_raw_state_buckets = {}
         for state_name in by_name.keys():
             pow_model_function = str(fit_res_pow_dict[state_name].model_function)
@@ -927,7 +904,9 @@ if __name__ == '__main__':
                        + str(similar_raw_state_buckets[key_tuple]))
             similar_states = similar_raw_state_buckets[key_tuple]
             if len(similar_states) > 1:
-                # functions are identical -> num_params is identical
+                # only necessary to cluster if more than one raw_state has the same function
+                # configuration
+                # functions are identical -> num_params and used params are identical
                 num_params = num_param_dur_dict[similar_states[0]] + num_param_pow_dict[
                     similar_states[0]]
                 values_to_cluster = np.zeros((len(similar_states), num_params))
@@ -951,7 +930,7 @@ if __name__ == '__main__':
                 cluster_labels = cluster.labels_
                 print_info("Cluster labels:\n" + str(cluster_labels))
                 if cluster.n_clusters_ > 1:
-                    # more than one distinct state found
+                    # more than one distinct state found -> seperation of raw_states necessary
                     distinct_state_dict = {}
                     for num_state, label in enumerate(cluster_labels):
                         if label not in distinct_state_dict.keys():
@@ -960,6 +939,7 @@ if __name__ == '__main__':
                     for distinct_state_key in distinct_state_dict.keys():
                         distinct_states.append(distinct_state_dict[distinct_state_key])
                 else:
+                    # all raw_states make up this state
                     distinct_states.append(similar_states)
             else:
                 distinct_states.append(similar_states)
@@ -968,6 +948,7 @@ if __name__ == '__main__':
         num_raw_states = len(by_name.keys())
         resulting_sequence = [int] * num_raw_states
         for i in range(num_raw_states):
+            # apply the projection from raw_states to states
             state_name = "state_" + str(i)
             state_num = get_state_num(state_name, distinct_states)
             if state_num == -1:
@@ -982,7 +963,7 @@ if __name__ == '__main__':
         #         "\nTHE SCRIPT WILL NOW STOP PREMATURELY,"
         #         "SINCE DATA FOR FURTHER COMPUTATION IS MISSING!")
         #     sys.exit(0)
-
+        # parameterize all new states
         new_by_name = {}
         for num_state, distinct_state in enumerate(distinct_states):
             state_name = "State_" + str(num_state)
@@ -1034,6 +1015,7 @@ if __name__ == '__main__':
                 print_warning("Fitting(duration) for state " + state_name + " was not succesful!")
             new_fit_res_pow_dict[state_name] = combined_fit_power
             new_fit_res_dur_dict[state_name] = combined_fit_duration
+        # output results
         result_loc = os.path.join(filepath, "result" + big_state_name + ".txt")
         with open(result_loc, "w") as f:
             f.write("Resulting Sequence: " + str(resulting_sequence))
@@ -1066,9 +1048,11 @@ if __name__ == '__main__':
                 f.write("THIS RESULT IS NOT ACCURATE. SEE WARNINGLOG TO GET A BETTER UNDERSTANDING"
                         " WHY.")
 
-
-    #         TODO: removed clustering (temporarily), since it provided too much dificultys
-    #           at the current state
+    #         Removed clustering at this point, since it provided too much difficulties
+    #           at the current state. Clustering is still used, but at another point of execution.
+    #           Now parametrization is done first. raw_states are grouped by their using a dict
+    #           where the key is [power_function, duration_dunction]. Then all raw_states from
+    #           each bucket are clustered by their parameters
     #         i = 0
     #         cluster_labels_list = []
     #         num_cluster_list = []
@@ -1249,21 +1233,10 @@ if __name__ == '__main__':
         print_info("Preprocessing file. Depending on its size, this could take a while.")
         preprocessed_data = raw_data.get_preprocessed_data()
         print_info("File fully preprocessed")
-        # TODO: Mal schauen, wie ich das mache. Erstmal nur mit json
+        # TODO: Mal schauen, wie ich das mache. Erstmal nur mit json. Ist erstmal raus. Wird nicht
+        #   umgesetzt.
         print_error("Not implemented yet. Please generate .json files first with dfatool and use"
                     " those.")
     else:
         print_error("Unknown dataformat")
         sys.exit(-1)
-
-    # print(tx_data[1]['parameter'])
-    # # parse json to array for PELT
-    # signal = np.array(tx_data[1]['offline'][0]['uW'])
-    #
-    # for i in range(0, len(signal)):
-    #     signal[i] = signal[i]/1000
-    # bkps = calc_pelt(signal, model=opt_model, range_max=opt_range_max, num_processes=opt_num_processes, jump=opt_jump, S=opt_S)
-    # fig, ax = rpt.display(signal, bkps)
-    # plt.xlabel('Time [us]')
-    # plt.ylabel('Power [mW]')
-    # plt.show()
