@@ -26,40 +26,6 @@ from dfatool.utils import by_name_to_by_param
 from dfatool.validation import CrossValidator
 
 
-# helper functions. Not used
-def plot_data_from_json(filename, trace_num, x_axis, y_axis):
-    with open(filename, "r") as file:
-        tx_data = json.load(file)
-    print(tx_data[trace_num]["parameter"])
-    plt.plot(tx_data[trace_num]["offline"][0]["uW"])
-    plt.xlabel(x_axis)
-    plt.ylabel(y_axis)
-    plt.show()
-
-
-def plot_data_vs_mean(signal, x_axis, y_axis):
-    plt.plot(signal)
-    average = np.mean(signal)
-    plt.hlines(average, 0, len(signal))
-    plt.xlabel(x_axis)
-    plt.ylabel(y_axis)
-    plt.show()
-
-
-def plot_data_vs_data_vs_means(signal1, signal2, x_axis, y_axis):
-    plt.plot(signal1)
-    lens = max(len(signal1), len(signal2))
-    average = np.mean(signal1)
-    plt.hlines(average, 0, lens, color="red")
-    plt.vlines(len(signal1), 0, 100000, color="red", linestyles="dashed")
-    plt.plot(signal2)
-    average = np.mean(signal2)
-    plt.hlines(average, 0, lens, color="green")
-    plt.vlines(len(signal2), 0, 100000, color="green", linestyles="dashed")
-    plt.xlabel(x_axis)
-    plt.ylabel(y_axis)
-    plt.show()
-
 
 # returns the found changepoints by algo for the specific penalty pen.
 # algo should be the return value of Pelt(...).fit(signal)
