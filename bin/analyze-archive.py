@@ -223,6 +223,32 @@ def print_html_model_data(model, pm, pq, lm, lq, am, ai, aq):
         print("</tr>")
     print("</table>")
 
+def plot_traces(preprocessed_data, sot_name):
+    traces = list()
+    for trace in preprocessed_data:
+        for state_or_transition in trace["trace"]:
+            if state_or_transition["name"] == sot_name:
+                traces.extend(
+                    map(lambda x: x["uW"], state_or_transition["offline"])
+                )
+    if len(traces) == 0:
+        print(
+            f"""Did not find traces for state or transition {sot_name}. Abort.""",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    if len(traces) > 40:
+        print(f"""Truncating plot to 40 of {len(traces)} traces (random sample)""")
+        traces = random.sample(traces, 40)
+
+    plotter.plot_y(
+        traces,
+        xlabel="t [1e-5 s]",
+        ylabel="P [uW]",
+        title=sot_name,
+        family=True,
+    )
 
 if __name__ == "__main__":
 
@@ -446,31 +472,7 @@ if __name__ == "__main__":
                 json.dump(data, f)
 
     if args.plot_traces:
-        traces = list()
-        for trace in preprocessed_data:
-            for state_or_transition in trace["trace"]:
-                if state_or_transition["name"] == args.plot_traces:
-                    traces.extend(
-                        map(lambda x: x["uW"], state_or_transition["offline"])
-                    )
-        if len(traces) == 0:
-            print(
-                f"""Did not find traces for state or transition {args.plot_traces}. Abort.""",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-
-        if len(traces) > 40:
-            print(f"""Truncating plot to 40 of {len(traces)} traces (random sample)""")
-            traces = random.sample(traces, 40)
-
-        plotter.plot_y(
-            traces,
-            xlabel="t [1e-5 s]",
-            ylabel="P [uW]",
-            title=args.plot_traces,
-            family=True,
-        )
+        plot_traces(preprocessed_data, args.plot_traces)
 
     if raw_data.preprocessing_stats["num_valid"] == 0:
         print("No valid data available. Abort.", file=sys.stderr)
