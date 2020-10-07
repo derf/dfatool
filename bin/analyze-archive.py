@@ -49,6 +49,32 @@ from dfatool.validation import CrossValidator
 from dfatool.utils import filter_aggregate_by_param
 from dfatool.automata import PTA
 
+### PELT
+import numpy as np
+
+# Very short benchmark yielded approx. 3 times the speed of solution not using sort
+# checks the percentiles if refinement is necessary
+def needs_refinement(signal, thresh):
+    sorted_signal = sorted(signal)
+    length_of_signal = len(signal)
+    percentile_size = int()
+    percentile_size = length_of_signal // 100
+    lower_percentile = sorted_signal[0:percentile_size]
+    upper_percentile = sorted_signal[
+        length_of_signal - percentile_size : length_of_signal
+    ]
+    lower_percentile_mean = np.mean(lower_percentile)
+    upper_percentile_mean = np.mean(upper_percentile)
+    median = np.median(sorted_signal)
+    dist = median - lower_percentile_mean
+    if dist > thresh:
+        return True
+    dist = upper_percentile_mean - median
+    if dist > thresh:
+        return True
+    return False
+
+### /PELT
 
 def print_model_quality(results):
     for state_or_tran in results.keys():
@@ -350,6 +376,11 @@ if __name__ == "__main__":
         type=str,
         help="Export JSON energy modle to FILE. Works out of the box for v1 and v2, requires --hwmodel for v0",
     )
+    parser.add_argument(
+        "--with-substates",
+        action="store_true",
+        help="Perform substate analysis"
+    )
     parser.add_argument("measurement", nargs="+")
 
     args = parser.parse_args()
@@ -396,7 +427,7 @@ if __name__ == "__main__":
 
     raw_data = RawData(
         args.measurement,
-        with_traces=(args.export_traces is not None or args.plot_traces is not None),
+        with_traces=(args.export_traces is not None or args.plot_traces is not None or args.with_substates is not None),
         skip_cache=args.no_cache,
     )
 
@@ -444,6 +475,59 @@ if __name__ == "__main__":
             print(f"exporting {target} ...")
             with open(target, "w") as f:
                 json.dump(data, f)
+
+    if args.with_substates:
+        opt_refinement_thresh = 100
+        uw_per_sot = dict()
+        for trace in preprocessed_data:
+            for state_or_transition in trace["trace"]:
+                if state_or_transition["isa"] == "state":
+                    name = state_or_transition["name"]
+                    if name not in uw_per_sot:
+                        uw_per_sot[name] = list()
+                    for elem in state_or_transition["offline"]:
+                        elem["uW"] = list(elem["uW"])
+                    uw_per_sot[name].append(state_or_transition)
+        for name, configurations in uw_per_sot.items():
+            for num_config, measurements_by_config in enumerate(configurations):
+                logging.debug(
+                    "Looking at state '"
+                    + measurements_by_config["name"]
+                    + "' with params: "
+                    + str(measurements_by_config["parameter"])
+                    + "("
+                    + str(num_config + 1)
+                    + "/"
+                    + str(len(configurations))
+                    + ")"
+                )
+                num_needs_refine = 0
+                logging.debug("Checking if refinement is necessary...")
+                for measurement in measurements_by_config["offline"]:
+                    # loop through measurements of particular state
+                    # and check if state needs refinement
+                    signal = measurement["uW"]
+                    # mean = measurement['uW_mean']
+                    if needs_refinement(signal, opt_refinement_thresh):
+                        num_needs_refine = num_needs_refine + 1
+                if num_needs_refine == 0:
+                    logging.debug(
+                        "No refinement necessary for state '"
+                        + measurements_by_config["name"]
+                        + "' with params: "
+                        + str(measurements_by_config["parameter"])
+                    )
+                elif num_needs_refine < len(measurements_by_config["offline"]) / 2:
+                    logging.debug(
+                        "No refinement necessary for state '"
+                        + measurements_by_config["name"]
+                        + "' with params: "
+                        + str(measurements_by_config["parameter"])
+                    )
+                    logging.debug(
+                        "However this decision was not unanimously. This could hint at poor "
+                        "measurement quality."
+                    )
 
     if args.plot_traces:
         traces = list()
