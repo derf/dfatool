@@ -180,8 +180,9 @@ def by_name_to_by_param(by_name: dict):
                     by_param[param_key]["isa"] = by_name[name]["isa"]
             for attribute in by_name[name]["attributes"]:
                 by_param[param_key][attribute].append(by_name[name][attribute][i])
-            for support in by_name[name]["supports"]:
-                by_param[param_key][support].append(by_name[name][support][i])
+            if "supports" in by_name[name]:
+                for support in by_name[name]["supports"]:
+                    by_param[param_key][support].append(by_name[name][support][i])
             # Required for match_parameter_valuse in _try_fits
             by_param[param_key]["param"].append(by_name[name]["param"][i])
     return by_param
