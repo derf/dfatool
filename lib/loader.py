@@ -575,6 +575,7 @@ class RawData:
         # and self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline_aggregates'] in place
         # (appends data from measurement['energy_trace'])
         # If measurement['expected_trace'] exists, it is edited in place instead
+        # "offline_aggregates" is the only data used later on by model.py's by_name / by_param dicts
         online_datapoints = []
         if "expected_trace" in measurement:
             traces = measurement["expected_trace"]
@@ -618,12 +619,14 @@ class RawData:
             if arg_support_enabled and "args" in online_trace_part:
                 paramvalues.extend(map(soft_cast_int, online_trace_part["args"]))
 
+            # TODO rename offline_aggregates to make it clear that this is what ends up in by_name / by_param and model.py
             if "offline_aggregates" not in online_trace_part:
                 online_trace_part["offline_attributes"] = [
                     "power",
                     "duration",
                     "energy",
                 ]
+                # this is what ends up in by_name / by_param and is used by model.py
                 online_trace_part["offline_aggregates"] = {
                     "power": [],
                     "duration": [],
@@ -639,6 +642,9 @@ class RawData:
                     online_trace_part["offline_aggregates"]["rel_energy_prev"] = []
                     online_trace_part["offline_aggregates"]["rel_energy_next"] = []
                     online_trace_part["offline_aggregates"]["timeout"] = []
+                elif "uW" in offline_trace_part:
+                    online_trace_part["offline_support"] = ["power_traces"]
+                    online_trace_part["offline_aggregates"]["power_traces"] = list()
 
             # Note: All state/transitions are 20us "too long" due to injected
             # active wait states. These are needed to work around MIMOSA's
@@ -668,6 +674,11 @@ class RawData:
                 )
                 online_trace_part["offline_aggregates"]["timeout"].append(
                     offline_trace_part["timeout"]
+                )
+
+            if online_trace_part["isa"] == "state" and "uW" in offline_trace_part:
+                online_trace_part["offline_aggregates"]["power_traces"].append(
+                    offline_trace_part["uW"]
                 )
 
     def _merge_online_and_etlog(self, measurement):
@@ -1078,13 +1089,17 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
                 "rel_energy_next",
             ]
             # Uncomment this line if you also want to analyze mean transition power
-            # aggrgate[key]['attributes'].append('power')
+            # aggregate[key]['attributes'].append('power')
             if "plan" in element and element["plan"]["level"] == "epilogue":
                 aggregate[key]["attributes"].insert(0, "timeout")
         attributes = aggregate[key]["attributes"].copy()
         for attribute in attributes:
             if attribute not in element["offline_aggregates"]:
                 aggregate[key]["attributes"].remove(attribute)
+        if "offline_support" in element:
+            aggregate[key]["supports"] = element["offline_support"]
+        else:
+            aggregate[key]["supports"] = list()
     for datakey, dataval in element["offline_aggregates"].items():
         aggregate[key][datakey].extend(dataval)
 

@@ -375,7 +375,7 @@ def _num_args_from_by_name(by_name):
 
 
 class AnalyticModel:
-    u"""
+    """
     Parameter-aware analytic energy/data size/... model.
 
     Supports both static and parameter-based model attributes, and automatic detection of parameter-dependence.
@@ -663,7 +663,7 @@ class AnalyticModel:
 
 
 class PTAModel:
-    u"""
+    """
     Parameter-aware PTA-based energy model.
 
     Supports both static and parameter-based model attributes, and automatic detection of parameter-dependence.
@@ -704,6 +704,7 @@ class PTAModel:
         function_override={},
         use_corrcoef=False,
         pta=None,
+        pelt=None,
     ):
         """
         Prepare a new PTA energy model.
@@ -726,6 +727,7 @@ class PTAModel:
         use_corrcoef -- use correlation coefficient instead of stddev comparison
             to detect whether a model attribute depends on a parameter
         pta -- hardware model as `PTA` object
+        pelt -- perform sub-state detection via PELT and model sub-states as well. Requires traces to be set.
         """
         self.by_name = by_name
         self.by_param = by_name_to_by_param(by_name)
@@ -733,6 +735,12 @@ class PTAModel:
         self._num_args = arg_count
         self._use_corrcoef = use_corrcoef
         self.traces = traces
+        if traces is not None and pelt is not None:
+            from .pelt import PELT
+
+            self.pelt = PELT(**pelt)
+        else:
+            self.pelt = None
         self.stats = ParamStats(
             self.by_name,
             self.by_param,
@@ -926,6 +934,19 @@ class PTAModel:
         self.cache["fitted_info_getter"] = info_getter
 
         return model_getter, info_getter
+
+    def get_substates(self):
+        states = self.states()
+        for k in self.by_param.keys():
+            if k[0] == "TX":
+                if self.pelt.needs_refinement(self.by_param[k]["power_traces"]):
+                    print(f"PELT: {k} needs refinement")
+                    penalty = self.pelt.get_penalty_value(
+                        self.by_param[k]["power_traces"]
+                    )
+                    print(f"    penalty: {penalty}")
+
+        return None, None
 
     def to_json(self):
         static_model = self.get_static()
