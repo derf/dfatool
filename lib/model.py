@@ -944,7 +944,12 @@ class PTAModel:
                     penalty = self.pelt.get_penalty_value(
                         self.by_param[k]["power_traces"]
                     )
-                    print(f"    penalty: {penalty}")
+                    print(
+                        f"    we found {penalty[1]} changepoints with penalty {penalty[0]}"
+                    )
+                    self.pelt.calc_raw_states(
+                        self.by_param[k]["power_traces"], penalty[0]
+                    )
 
         return None, None
 
