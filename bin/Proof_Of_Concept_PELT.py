@@ -26,7 +26,6 @@ from dfatool.utils import by_name_to_by_param
 from dfatool.validation import CrossValidator
 
 
-
 # returns the found changepoints by algo for the specific penalty pen.
 # algo should be the return value of Pelt(...).fit(signal)
 # Also puts a token in container q to let the progressmeter know the changepoints for penalty pen
@@ -630,6 +629,7 @@ if __name__ == "__main__":
                         penalty = opt_pen_override
                     # build arguments for parallel excecution
                     print_info("Starting raw_states calculation.")
+                    ### YOU ARE HERE
                     raw_states_calc_args = []
                     for num_measurement, measurement in enumerate(
                         measurements_by_config["offline"]
