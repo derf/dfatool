@@ -11,6 +11,7 @@ import struct
 import tarfile
 import hashlib
 from multiprocessing import Pool
+
 from .utils import running_mean, soft_cast_int
 
 logger = logging.getLogger(__name__)
@@ -107,7 +108,14 @@ def _preprocess_mimosa(measurement):
 
 def _preprocess_etlog(measurement):
     setup = measurement["setup"]
-    etlog = EnergyTraceLog(
+
+    energytrace_class = EnergyTraceWithBarcode
+    if measurement["sync_mode"] == "la":
+        energytrace_class = EnergyTraceWithLogicAnalyzer
+    elif measurement["sync_mode"] == "timer":
+        energytrace_class = EnergyTraceWithTimer
+
+    etlog = energytrace_class(
         float(setup["voltage"]),
         int(setup["state_duration"]),
         measurement["transition_names"],
@@ -406,7 +414,7 @@ class RawData:
             processed_data["error"] = "; ".join(processed_data["datasource_errors"])
             return False
 
-        # Note that the low-level parser (EnergyTraceLog) already checks
+        # Note that the low-level parser (EnergyTraceWithBarcode) already checks
         # whether the transition count is correct
 
         return True
@@ -909,6 +917,10 @@ class RawData:
                 new_filenames = list()
                 with tarfile.open(filename) as tf:
                     ptalog = self.ptalog
+                    if "sync" in ptalog["opt"]["energytrace"]:
+                        sync_mode = ptalog["opt"]["energytrace"]["sync"]
+                    else:
+                        sync_mode = "bar"
 
                     # Benchmark code may be too large to be executed in a single
                     # run, so benchmarks (a benchmark is basically a list of DFA runs)
@@ -963,13 +975,16 @@ class RawData:
                                 "state_duration": ptalog["opt"]["sleep"],
                             }
                         )
-                        for repeat_id, etlog_file in enumerate(ptalog["files"][j]):
-                            member = tf.getmember(etlog_file)
+                        for repeat_id, etlog_files in enumerate(ptalog["files"][j]):
+                            members = list(map(tf.getmember, etlog_files))
                             offline_data.append(
                                 {
-                                    "content": tf.extractfile(member).read(),
+                                    "content": list(
+                                        map(lambda f: tf.extractfile(f).read(), members)
+                                    ),
+                                    "sync_mode": sync_mode,
                                     "fileno": j,
-                                    "info": member,
+                                    "info": members[0],
                                     "setup": self.setup_by_fileno[j],
                                     "repeat_id": repeat_id,
                                     "expected_trace": ptalog["traces"][j],
@@ -1161,7 +1176,7 @@ def pta_trace_to_aggregate(traces, ignore_trace_indexes=[]):
     return by_name, parameter_names, arg_count
 
 
-class EnergyTraceLog:
+class EnergyTraceWithBarcode:
     """
     EnergyTrace log loader for DFA traces.
 
@@ -1184,7 +1199,7 @@ class EnergyTraceLog:
         with_traces=False,
     ):
         """
-        Create a new EnergyTraceLog object.
+        Create a new EnergyTraceWithBarcode object.
 
         :param voltage: supply voltage [V], usually 3.3 V
         :param state_duration: state duration [ms]
@@ -1226,7 +1241,7 @@ class EnergyTraceLog:
             )
             return list()
 
-        lines = log_data.decode("ascii").split("\n")
+        lines = log_data[0].decode("ascii").split("\n")
         data_count = sum(map(lambda x: len(x) > 0 and x[0] != "#", lines))
         data_lines = filter(lambda x: len(x) > 0 and x[0] != "#", lines)
 
@@ -1597,6 +1612,149 @@ class EnergyTraceLog:
         else:
             logger.warning("unable to find barcode")
             return None, None, None, None
+
+
+class EnergyTraceWithLogicAnalyzer:
+    def __init__(
+        self,
+        voltage: float,
+        state_duration: int,
+        transition_names: list,
+        with_traces=False,
+    ):
+
+        """
+        Create a new EnergyTraceWithLogicAnalyzer object.
+
+        :param voltage: supply voltage [V], usually 3.3 V
+        :param state_duration: state duration [ms]
+        :param transition_names: list of transition names in PTA transition order.
+            Needed to map barcode synchronization numbers to transitions.
+        """
+        self.voltage = voltage
+        self.state_duration = state_duration * 1e-3
+        self.transition_names = transition_names
+        self.with_traces = with_traces
+        self.errors = list()
+
+    def load_data(self, log_data):
+        from data.timing.SigrokInterface import SigrokResult
+        from data.energy.EnergyInterface import EnergyInterface
+
+        # Daten laden
+        self.sync_data = SigrokResult.fromString(log_data[0])
+        self.energy_data = EnergyInterface.getDataFromString(str(log_data[1]))
+
+        pass
+
+    def analyze_states(self, traces, offline_index: int):
+        u"""
+        Split log data into states and transitions and return duration, energy, and mean power for each element.
+
+        :param traces: expected traces, needed to synchronize with the measurement.
+            traces is a list of runs, traces[*]['trace'] is a single run
+            (i.e. a list of states and transitions, starting with a transition
+            and ending with a state).
+        :param offline_index: This function uses traces[*]['trace'][*]['online_aggregates']['duration'][offline_index] to find sync codes
+
+        :param charges: raw charges (each element describes the charge in pJ transferred during 10 µs)
+        :param trigidx: "charges" indexes corresponding to a trigger edge, see `trigger_edges`
+        :param ua_func: charge(pJ) -> current(µA) function as returned by `calibration_function`
+
+        :returns: returns list of states and transitions, starting with a transition and ending with astate
+            Each element is a dict containing:
+            * `isa`: 'state' or 'transition'
+            * `W_mean`: Mittelwert der Leistungsaufnahme
+            * `W_std`: Standardabweichung der Leistungsaufnahme
+            * `s`: Dauer
+            if isa == 'transition, it also contains:
+            * `W_mean_delta_prev`: Differenz zwischen W_mean und W_mean des vorherigen Zustands
+            * `W_mean_delta_next`: Differenz zwischen W_mean und W_mean des Folgezustands
+        """
+
+        names = []
+        for trace_number, trace in enumerate(traces):
+            for state_or_transition in trace["trace"]:
+                names.append(state_or_transition["name"])
+        # print(names[:15])
+        from data.processing.DataProcessor import DataProcessor
+
+        dp = DataProcessor(sync_data=self.sync_data, energy_data=self.energy_data)
+        dp.run()
+        energy_trace_new = list()
+        energy_trace_new.extend(dp.getStatesdfatool(state_sleep=self.state_duration))
+        dp.plot()
+        # dp.plot(names)
+        energy_trace_new = energy_trace_new[4:]
+
+        energy_trace = list()
+        expected_transitions = list()
+
+        # Print for debug purposes
+        # for number, name in enumerate(names):
+        #    if "P15_8MW" in name:
+        #        print(name, energy_trace_new[number]["W_mean"])
+
+        # add next/prev state W_mean_delta
+        for number, item in enumerate(energy_trace_new):
+            if item["isa"] == "transition" and 0 < number < len(energy_trace_new) - 1:
+                item["W_mean_delta_prev"] = energy_trace_new[number - 1]
+                item["W_mean_delta_next"] = energy_trace_new[number + 1]
+
+        # st = ""
+        # for i, x in enumerate(energy_trace_new[-10:]):
+        #    #st += "(%s|%s|%s)" % (energy_trace[i-10]["name"],x['W_mean'],x['s'])
+        #    st += "(%s|%s|%s)\n" % (energy_trace[i-10]["s"], x['s'], x['W_mean'])
+
+        # print(st, "\n_______________________")
+        # print(len(self.sync_data.timestamps), " - ", len(energy_trace_new), " - ", len(energy_trace), " - ", ",".join([str(x["s"]) for x in energy_trace_new[-6:]]), " - ", ",".join([str(x["s"]) for x in energy_trace[-6:]]))
+        # if len(energy_trace_new) < len(energy_trace):
+        #    return None
+
+        return energy_trace_new
+
+
+class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
+    def __init__(
+        self,
+        voltage: float,
+        state_duration: int,
+        transition_names: list,
+        with_traces=False,
+    ):
+
+        """
+        Create a new EnergyTraceWithLogicAnalyzer object.
+
+        :param voltage: supply voltage [V], usually 3.3 V
+        :param state_duration: state duration [ms]
+        :param transition_names: list of transition names in PTA transition order.
+            Needed to map barcode synchronization numbers to transitions.
+        """
+
+        self.voltage = voltage
+        self.state_duration = state_duration * 1e-3
+        self.transition_names = transition_names
+        self.with_traces = with_traces
+        self.errors = list()
+
+        super().__init__(voltage, state_duration, transition_names, with_traces)
+
+    def load_data(self, log_data):
+        from data.timing.SigrokInterface import SigrokResult
+        from data.energy.EnergyInterface import EnergyInterface
+
+        # Daten laden
+        self.sync_data = None
+        self.energy_data = EnergyInterface.getDataFromString(str(log_data[0]))
+
+        pass
+
+    def analyze_states(self, traces, offline_index: int):
+        from data.timing.SigrokInterface import SigrokResult
+
+        self.sync_data = SigrokResult.fromTraces(traces)
+        return super().analyze_states(traces, offline_index)
 
 
 class MIMOSA:
