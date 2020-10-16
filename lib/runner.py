@@ -17,7 +17,7 @@ import serial.threaded
 import subprocess
 import sys
 import time
-from data.timing.SigrokCLIInterface import SigrokCLIInterface
+from dfatool.lennart.SigrokCLIInterface import SigrokCLIInterface
 
 
 class SerialReader(serial.threaded.Protocol):

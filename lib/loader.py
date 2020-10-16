@@ -1638,8 +1638,8 @@ class EnergyTraceWithLogicAnalyzer:
         self.errors = list()
 
     def load_data(self, log_data):
-        from data.timing.SigrokInterface import SigrokResult
-        from data.energy.EnergyInterface import EnergyInterface
+        from dfatool.lennart.SigrokInterface import SigrokResult
+        from dfatool.lennart.EnergyInterface import EnergyInterface
 
         # Daten laden
         self.sync_data = SigrokResult.fromString(log_data[0])
@@ -1677,7 +1677,7 @@ class EnergyTraceWithLogicAnalyzer:
             for state_or_transition in trace["trace"]:
                 names.append(state_or_transition["name"])
         # print(names[:15])
-        from data.processing.DataProcessor import DataProcessor
+        from dfatool.lennart.DataProcessor import DataProcessor
 
         dp = DataProcessor(sync_data=self.sync_data, energy_data=self.energy_data)
         dp.run()
@@ -1741,8 +1741,8 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
         super().__init__(voltage, state_duration, transition_names, with_traces)
 
     def load_data(self, log_data):
-        from data.timing.SigrokInterface import SigrokResult
-        from data.energy.EnergyInterface import EnergyInterface
+        from dfatool.lennart.SigrokInterface import SigrokResult
+        from dfatool.lennart.EnergyInterface import EnergyInterface
 
         # Daten laden
         self.sync_data = None
@@ -1751,7 +1751,7 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
         pass
 
     def analyze_states(self, traces, offline_index: int):
-        from data.timing.SigrokInterface import SigrokResult
+        from dfatool.lennart.SigrokInterface import SigrokResult
 
         self.sync_data = SigrokResult.fromTraces(traces)
         return super().analyze_states(traces, offline_index)
