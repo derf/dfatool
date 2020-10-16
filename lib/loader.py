@@ -1683,8 +1683,9 @@ class EnergyTraceWithLogicAnalyzer:
         dp.run()
         energy_trace_new = list()
         energy_trace_new.extend(dp.getStatesdfatool(state_sleep=self.state_duration))
-        dp.plot()
-        # dp.plot(names)
+        # Uncomment to plot traces
+        # dp.plot() # <- plot traces with sync annotatons
+        # dp.plot(names) # <- plot annotated traces (with state/transition names)
         energy_trace_new = energy_trace_new[4:]
 
         energy_trace = list()
