@@ -1656,8 +1656,6 @@ class EnergyTraceWithLogicAnalyzer:
         self.sync_data = SigrokResult.fromString(log_data[0])
         self.energy_data = EnergyInterface.getDataFromString(str(log_data[1]))
 
-        pass
-
     def analyze_states(self, traces, offline_index: int):
         """
         Split log data into states and transitions and return duration, energy, and mean power for each element.
@@ -1693,9 +1691,13 @@ class EnergyTraceWithLogicAnalyzer:
         dp = DataProcessor(sync_data=self.sync_data, energy_data=self.energy_data)
         dp.run()
         energy_trace_new = list()
-        energy_trace_new.extend(dp.getStatesdfatool(state_sleep=self.state_duration))
+        energy_trace_new.extend(
+            dp.getStatesdfatool(
+                state_sleep=self.state_duration, with_traces=self.with_traces
+            )
+        )
         # Uncomment to plot traces
-        # dp.plot() # <- plot traces with sync annotatons
+        # dp.plot()  # <- plot traces with sync annotatons
         # dp.plot(names) # <- plot annotated traces (with state/transition names)
         energy_trace_new = energy_trace_new[4:]
 

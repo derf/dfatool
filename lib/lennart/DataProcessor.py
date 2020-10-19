@@ -1,3 +1,4 @@
+import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
@@ -248,13 +249,13 @@ class DataProcessor:
 
     def getPowerBetween(self, start, end, state_sleep):  # 0.001469
         """
-        calculates the average powerusage in interval
+        calculates the powerusage in interval
         NOT SIDE EFFECT FREE, DON'T USE IT EVERYWHERE
 
         :param start: Start timestamp of interval
         :param end: End timestamp of interval
         :param state_sleep: Length in seconds of one state, needed for cutting out the UART Sending cycle
-        :return: float with average power usage
+        :return: power measurements in W
         """
         first_index = 0
         all_power = []
@@ -297,9 +298,9 @@ class DataProcessor:
         elif len(all_power) == 1:
             # print("OKAY")
             pass
-        return pre_fix_len, sum(all_power) / len(all_power)
+        return np.array(all_power)
 
-    def getStatesdfatool(self, state_sleep, algorithm=False):
+    def getStatesdfatool(self, state_sleep, with_traces=False, algorithm=False):
         """
         Calculates the length and energy usage of the states
 
@@ -325,14 +326,14 @@ class DataProcessor:
             start_transition_ts_timing = self.reduced_timestamps[ts_index * 2]
 
             if end_transition_ts is not None:
-                count_dp, power = self.getPowerBetween(
+                power = self.getPowerBetween(
                     end_transition_ts, start_transition_ts, state_sleep
                 )
 
                 # print("STATE", end_transition_ts * 10 ** 6, start_transition_ts * 10 ** 6, (start_transition_ts - end_transition_ts) * 10 ** 6, power)
                 if (
                     (start_transition_ts - end_transition_ts) * 10 ** 6 > 900_000
-                    and power > self.power_sync_watt * 0.9
+                    and np.mean(power) > self.power_sync_watt * 0.9
                     and ts_index > 10
                 ):
                     # remove last transition and stop (upcoming data only sync)
@@ -342,8 +343,9 @@ class DataProcessor:
 
                 state = {
                     "isa": "state",
-                    "W_mean": power,
-                    "W_std": 0.0001,
+                    "W_mean": np.mean(power),
+                    "W_std": np.std(power),
+                    "uW": power * 1e6,
                     "s": (
                         start_transition_ts_timing - end_transition_ts_timing
                     ),  # * 10 ** 6,
@@ -356,7 +358,7 @@ class DataProcessor:
 
                 # get energy end_transition_ts
             end_transition_ts = self.modified_timestamps[ts_index * 2 + 1]
-            count_dp, power = self.getPowerBetween(
+            power = self.getPowerBetween(
                 start_transition_ts, end_transition_ts, state_sleep
             )
 
@@ -365,12 +367,13 @@ class DataProcessor:
 
             transition = {
                 "isa": "transition",
-                "W_mean": power,
-                "W_std": 0.0001,
+                "W_mean": np.mean(power),
+                "W_std": np.std(power),
+                "uW": power * 1e6,
                 "s": (
                     end_transition_ts_timing - start_transition_ts_timing
                 ),  # * 10 ** 6,
-                "count_dp": count_dp,
+                "count_dp": len(power),
             }
 
             if (end_transition_ts - start_transition_ts) * 10 ** 6 > 2_000_000:
