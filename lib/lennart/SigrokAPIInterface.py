@@ -51,7 +51,6 @@ class SigrokAPIInterface(SigrokInterface):
         self,
         driver="fx2lafw",
         sample_rate=100_000,
-        sample_count=1_000_000,
         debug_output=False,
         used_datafeed=datafeed_changes,
         fake=False,
@@ -60,12 +59,11 @@ class SigrokAPIInterface(SigrokInterface):
 
         :param driver: Driver that should be used
         :param sample_rate: The sample rate of the Logic analyzer
-        :param sample_count: The sample count of the Logic analyzer
         :param debug_output: Should be true if output should be displayed to user
         :param used_datafeed: one of the datafeeds above, user later as callback.
         :param fake:
         """
-        super(SigrokAPIInterface, self).__init__(sample_rate, sample_count)
+        super(SigrokAPIInterface, self).__init__(sample_rate)
         if fake:
             raise NotImplementedError("Not implemented!")
         self.used_datafeed = used_datafeed
@@ -98,7 +96,6 @@ class SigrokAPIInterface(SigrokInterface):
             )
 
         sigrokDevice.open()
-        sigrokDevice.config_set(ConfigKey.LIMIT_SAMPLES, self.sample_count)
         sigrokDevice.config_set(ConfigKey.SAMPLERATE, self.sample_rate)
 
         enabled_channels = ["D1"]
@@ -124,9 +121,7 @@ class SigrokAPIInterface(SigrokInterface):
         print(
             "Used time: ",
             total_time * 1_000_000,
-            "µs | sample/s: ",
-            self.sample_count / (total_time),
-            "Hz ",
+            "µs",
         )
         self.session.stop()
 

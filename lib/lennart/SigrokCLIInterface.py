@@ -9,7 +9,6 @@ class SigrokCLIInterface(SigrokInterface):
         self,
         bin_temp_file="temp/out.bin",
         sample_rate=100_000,
-        sample_count=1_000_000,
         fake=False,
     ):
         """
@@ -17,10 +16,9 @@ class SigrokCLIInterface(SigrokInterface):
 
         :param bin_temp_file: temporary file for binary output
         :param sample_rate: The sample rate of the Logic analyzer
-        :param sample_count: The sample count of the Logic analyzer
         :param fake: if it should use existing data
         """
-        super(SigrokCLIInterface, self).__init__(sample_rate, sample_count)
+        super(SigrokCLIInterface, self).__init__(sample_rate)
         self.fake = fake
         self.bin_temp_file = bin_temp_file
         self.sigrok_cli_thread = None
@@ -30,13 +28,15 @@ class SigrokCLIInterface(SigrokInterface):
         Force stopping measure, sometimes needs pkill for killing definitly
         :return: None
         """
-        self.sigrok_cli_thread.send_signal(subprocess.signal.SIGKILL)
-        stdout, stderr = self.sigrok_cli_thread.communicate(timeout=15)
-        time.sleep(5)
-        # TODO not nice solution, make better
-        import os
+        self.sigrok_cli_thread.terminate()
 
-        os.system("pkill -f sigrok")
+        try:
+            self.sigrok_cli_thread.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            logger.warning("sigrok-cli has not stopped. Killing it.")
+            self.sigrok_cli_thread.kill()
+
+        self.sigrok_cli_thread.communicate()
         self.runOpenAnalyze()
 
     def runMeasure(self):
@@ -51,11 +51,19 @@ class SigrokCLIInterface(SigrokInterface):
         """
         starts the measurement, not waiting for done
         """
-        shellcommand = (
-            'sigrok-cli --output-file %s --output-format binary --samples %s -d %s --config "samplerate=%s Hz"'
-            % (self.bin_temp_file, self.sample_count, self.driver, self.sample_rate)
-        )
-        self.sigrok_cli_thread = subprocess.Popen(shellcommand, shell=True)
+        shellcommand = [
+            "sigrok-cli",
+            "--output-file",
+            self.bin_temp_file,
+            "--output-format",
+            "binary",
+            "--continuous",
+            "-d",
+            self.driver,
+            "--config",
+            f"samplerate={self.sample_rate} Hz",
+        ]
+        self.sigrok_cli_thread = subprocess.Popen(shellcommand)
 
     def waitForAsynchronousMeasure(self):
         """

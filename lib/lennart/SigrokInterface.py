@@ -103,18 +103,14 @@ class SigrokResult:
 
 
 class SigrokInterface(DataInterface):
-    def __init__(
-        self, sample_rate, sample_count, driver="fx2lafw", filename="temp/sigrok.log"
-    ):
+    def __init__(self, sample_rate, driver="fx2lafw", filename="temp/sigrok.log"):
         """
 
         :param sample_rate: Samplerate of the Logic Analyzer
-        :param sample_count: Count of samples
         :param driver: for many Logic Analyzer from Saleae the "fx2lafw" should be working
         :param filename: temporary file name
         """
         # options
-        self.sample_count = sample_count
         self.sample_rate = sample_rate
         self.file = open(filename, "w+")
         self.driver = driver

@@ -189,14 +189,12 @@ class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
     def __init__(self, port: str, baud: int, callback=None, voltage=3.3):
         super().__init__(port=port, baud=baud, callback=callback, voltage=voltage)
 
-        # TODO Max length
-        options = {"length": 90, "fake": False, "sample_rate": 1_000_000}
+        options = {"fake": False, "sample_rate": 1_000_000}
         self.log_file = "logic_output_log_%s.json" % (time.strftime("%Y%m%d-%H%M%S"))
 
         # Initialization of Interfaces
         self.sig = SigrokCLIInterface(
             sample_rate=options["sample_rate"],
-            sample_count=options["length"] * options["sample_rate"],
             fake=options["fake"],
         )
 
