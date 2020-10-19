@@ -6,6 +6,9 @@ import sigrok.core as sr
 from sigrok.core.classes import *
 
 from util.ByteHelper import ByteHelper
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SigrokAPIInterface(SigrokInterface):

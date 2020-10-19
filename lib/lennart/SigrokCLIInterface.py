@@ -2,6 +2,9 @@ import subprocess
 import time
 
 from dfatool.lennart.SigrokInterface import SigrokInterface
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SigrokCLIInterface(SigrokInterface):

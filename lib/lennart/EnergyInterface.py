@@ -2,6 +2,9 @@ import re
 import subprocess
 
 from dfatool.lennart.DataInterface import DataInterface
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class EnergyInterface(DataInterface):

@@ -1,6 +1,9 @@
 import json
 
 from dfatool.lennart.DataInterface import DataInterface
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Adding additional parsing functionality

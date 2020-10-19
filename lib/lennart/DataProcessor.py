@@ -1,3 +1,8 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 class DataProcessor:
     def __init__(self, sync_data, energy_data):
         """
@@ -84,7 +89,7 @@ class DataProcessor:
                     (sync_start / 1_000_000, pre_outliers_ts / 1_000_000)
                 )
 
-        # print("SYNC SPOTS: ", datasync_timestamps)
+        logger.debug(f"Synchronization areas: {datasync_timestamps}")
         # print(time_stamp_data[2])
 
         start_offset = datasync_timestamps[0][1] - time_stamp_data[2]
@@ -92,9 +97,15 @@ class DataProcessor:
 
         end_offset = datasync_timestamps[-2][0] - (time_stamp_data[-8] + start_offset)
         end_timestamp = datasync_timestamps[-2][0]
-        print(start_timestamp, end_timestamp)
+        logger.debug(
+            f"Measurement area: LA timestamp range [{start_timestamp}, {end_timestamp}]"
+        )
+        logger.debug(f"Start/End offsets: {start_offset} / {end_offset}")
 
-        # print(start_offset, start_timestamp, end_offset, end_timestamp)
+        if end_offset > 10:
+            logger.warning(
+                f"synchronization end_offset == {end_offset}. It should be no more than a few seconds."
+            )
 
         with_offset = self.addOffset(time_stamp_data, start_offset)
 
