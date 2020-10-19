@@ -689,7 +689,18 @@ class RawData:
                 online_datapoints.append((run_idx, trace_part_idx))
         for offline_idx, online_ref in enumerate(online_datapoints):
             online_run_idx, online_trace_part_idx = online_ref
-            offline_trace_part = measurement["energy_trace"][offline_idx]
+            try:
+                offline_trace_part = measurement["energy_trace"][offline_idx]
+            except IndexError:
+                logger.error(
+                    f"While handling file #{measurement['fileno']} {measurement['info']}:"
+                )
+                logger.error(f"  offline energy_trace data is shorted than online data")
+                logger.error(f"  len(online_datapoints) == {len(online_datapoints)}")
+                logger.error(
+                    f"  len(energy_trace) == {len(measurement['energy_trace'])}"
+                )
+                raise
             online_trace_part = traces[online_run_idx]["trace"][online_trace_part_idx]
 
             if "offline" not in online_trace_part:
@@ -1105,7 +1116,7 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
 
 
 def pta_trace_to_aggregate(traces, ignore_trace_indexes=[]):
-    u"""
+    """
     Convert preprocessed DFA traces from peripherals/drivers to by_name aggregate for PTAModel.
 
     arguments:
@@ -1311,7 +1322,7 @@ class EnergyTraceWithBarcode:
         return self._ts_to_index(timestamp, mid_index, right_index)
 
     def analyze_states(self, traces, offline_index: int):
-        u"""
+        """
         Split log data into states and transitions and return duration, energy, and mean power for each element.
 
         :param traces: expected traces, needed to synchronize with the measurement.
@@ -1648,7 +1659,7 @@ class EnergyTraceWithLogicAnalyzer:
         pass
 
     def analyze_states(self, traces, offline_index: int):
-        u"""
+        """
         Split log data into states and transitions and return duration, energy, and mean power for each element.
 
         :param traces: expected traces, needed to synchronize with the measurement.
@@ -1789,7 +1800,7 @@ class MIMOSA:
         self.errors = list()
 
     def charge_to_current_nocal(self, charge):
-        u"""
+        """
         Convert charge per 10µs (in pJ) to mean currents (in µA) without accounting for calibration.
 
         :param charge: numpy array of charges (pJ per 10µs) as returned by `load_data` or `load_file`
@@ -1801,7 +1812,7 @@ class MIMOSA:
         return charge * ua_step
 
     def _load_tf(self, tf):
-        u"""
+        """
         Load MIMOSA log data from an open `tarfile` instance.
 
         :param tf: `tarfile` instance
@@ -1822,7 +1833,7 @@ class MIMOSA:
         return charges, triggers
 
     def load_data(self, raw_data):
-        u"""
+        """
         Load MIMOSA log data from a MIMOSA log file passed as raw byte string
 
         :param raw_data: MIMOSA log file, passed as raw byte string
@@ -1834,7 +1845,7 @@ class MIMOSA:
                 return self._load_tf(tf)
 
     def load_file(self, filename):
-        u"""
+        """
         Load MIMOSA log data from a MIMOSA log file
 
         :param filename: MIMOSA log file
@@ -1845,7 +1856,7 @@ class MIMOSA:
             return self._load_tf(tf)
 
     def currents_nocal(self, charges):
-        u"""
+        """
         Convert charges (pJ per 10µs) to mean currents without accounting for calibration.
 
         :param charges: numpy array of charges (pJ per 10µs)
@@ -1902,7 +1913,7 @@ class MIMOSA:
         return trigidx
 
     def calibration_edges(self, currents):
-        u"""
+        """
         Return start/stop indexes of calibration measurements.
 
         :param currents: uncalibrated currents as reported by MIMOSA. For best results,
@@ -1939,7 +1950,7 @@ class MIMOSA:
         )
 
     def calibration_function(self, charges, cal_edges):
-        u"""
+        """
         Calculate calibration function from previously determined calibration edges.
 
         :param charges: raw charges from MIMOSA
@@ -2029,7 +2040,7 @@ class MIMOSA:
         return calfunc, caldata
 
     def analyze_states(self, charges, trigidx, ua_func):
-        u"""
+        """
         Split log data into states and transitions and return duration, energy, and mean power for each element.
 
         :param charges: raw charges (each element describes the charge in pJ transferred during 10 µs)
