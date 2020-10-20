@@ -223,14 +223,13 @@ def print_html_model_data(model, pm, pq, lm, lq, am, ai, aq):
         print("</tr>")
     print("</table>")
 
+
 def plot_traces(preprocessed_data, sot_name):
     traces = list()
     for trace in preprocessed_data:
         for state_or_transition in trace["trace"]:
             if state_or_transition["name"] == sot_name:
-                traces.extend(
-                    map(lambda x: x["uW"], state_or_transition["offline"])
-                )
+                traces.extend(map(lambda x: x["uW"], state_or_transition["offline"]))
     if len(traces) == 0:
         print(
             f"""Did not find traces for state or transition {sot_name}. Abort.""",
@@ -249,6 +248,7 @@ def plot_traces(preprocessed_data, sot_name):
         title=sot_name,
         family=True,
     )
+
 
 if __name__ == "__main__":
 
@@ -295,7 +295,7 @@ if __name__ == "__main__":
         "--plot-traces",
         metavar="NAME",
         type=str,
-        help="Plot power trace for state or transition NAME",
+        help="Plot power trace for state or transition NAME. X axis is wrong for non-MIMOSA measurements",
     )
     parser.add_argument(
         "--show-models",
