@@ -42,7 +42,7 @@ class DataProcessor:
         last_data = [0, 0, 0, 0]
 
         # clean timestamp data, if at the end strange ts got added somehow
-        time_stamp_data = self.removeTooFarDatasets(time_stamp_data)
+        # time_stamp_data = self.removeTooFarDatasets(time_stamp_data)
 
         self.reduced_timestamps = time_stamp_data
 
@@ -95,13 +95,14 @@ class DataProcessor:
 
         # time_stamp_data contains an entry for each level change on the Logic Analyzer input.
         # So, time_stamp_data[0] is the first low-to-high transition, time_stamp_data[2] the second, etc.
-        # -> time_stamp_data[-8] is the low-to-high transition indicating the first after-measurement sync pulse
+        # -> time_stamp_data[2] is the low-to-high transition indicating the end of the first sync pulse
+        # -> time_stamp_data[-8] is the low-to-high transition indicating the start of the first after-measurement sync pulse
 
-        start_offset = datasync_timestamps[0][1] - time_stamp_data[2]
         start_timestamp = datasync_timestamps[0][1]
+        start_offset = start_timestamp - time_stamp_data[2]
 
-        end_offset = datasync_timestamps[-2][0] - (time_stamp_data[-8] + start_offset)
         end_timestamp = datasync_timestamps[-2][0]
+        end_offset = end_timestamp - (time_stamp_data[-8] + start_offset)
         logger.debug(
             f"Measurement area: ET timestamp range [{start_timestamp}, {end_timestamp}]"
         )
@@ -149,17 +150,19 @@ class DataProcessor:
         :param start_timestamp: Timestamp of last EnergyTrace datapoint at the first sync point
         :return: List of modified timestamps (float list)
         """
-        endFactor = (end_timestamp + end_offset - start_timestamp) / (
-            end_timestamp - start_timestamp
-        ) + 0.0001
+        endFactor = 1 + (end_offset / (end_timestamp - start_timestamp))
         # print(
-        #    f"({end_timestamp} + {end_offset} - {start_timestamp}) / ({end_timestamp} - {start_timestamp}) == {endFactor}"
+        #   f"({end_timestamp} + {end_offset} - {start_timestamp}) / ({end_timestamp} - {start_timestamp}) == {endFactor}"
         # )
         # Manuelles endFactor += 0.0001 macht es merklich besser
         # print(f"endFactor = {endFactor}")
+        # endFactor assumes that the end of the first sync pulse is at timestamp 0.
+        # Then, timestamps with drift := timestamps * endFactor.
+        # As this is not the case (the first sync pulse ends at start_timestamp > 0), we shift the data by first
+        # removing start_timestamp, then multiplying with endFactor, and then re-adding the start_timestamp.
         modified_timestamps_with_drift = (
-            (input_timestamps - start_timestamp) * endFactor
-        ) + start_timestamp
+            input_timestamps - start_timestamp
+        ) * endFactor + start_timestamp
         return modified_timestamps_with_drift
 
     def plot(self, annotateData=None):
