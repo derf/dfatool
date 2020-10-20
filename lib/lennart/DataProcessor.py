@@ -51,11 +51,12 @@ class DataProcessor:
         sync_start = 0
         outliers = 0
         pre_outliers_ts = None
+        # TODO only consider the first few and the last few seconds for sync points
         for i, energytrace_dataset in enumerate(self.energy_data):
             usedtime = energytrace_dataset[0] - last_data[0]  # in microseconds
             timestamp = energytrace_dataset[0]
             usedenergy = energytrace_dataset[3] - last_data[3]
-            power = usedenergy / usedtime * 10 ** -3  # in watts
+            power = usedenergy / usedtime * 1e-3  # in watts
             if power > 0:
                 if power > self.power_sync_watt:
                     if sync_start is None:
@@ -81,7 +82,7 @@ class DataProcessor:
 
                 last_data = energytrace_dataset
 
-            self.plot_data_x.append(energytrace_dataset[0] / 1_000_000)
+            self.plot_data_x.append(timestamp / 1_000_000)
             self.plot_data_y.append(power)
 
         if power > self.power_sync_watt:
@@ -90,8 +91,11 @@ class DataProcessor:
                     (sync_start / 1_000_000, pre_outliers_ts / 1_000_000)
                 )
 
-        logger.debug(f"Synchronization areas: {datasync_timestamps}")
-        # print(time_stamp_data[2])
+        # print(datasync_timestamps)
+
+        # time_stamp_data contains an entry for each level change on the Logic Analyzer input.
+        # So, time_stamp_data[0] is the first low-to-high transition, time_stamp_data[2] the second, etc.
+        # -> time_stamp_data[-8] is the low-to-high transition indicating the first after-measurement sync pulse
 
         start_offset = datasync_timestamps[0][1] - time_stamp_data[2]
         start_timestamp = datasync_timestamps[0][1]
@@ -99,7 +103,10 @@ class DataProcessor:
         end_offset = datasync_timestamps[-2][0] - (time_stamp_data[-8] + start_offset)
         end_timestamp = datasync_timestamps[-2][0]
         logger.debug(
-            f"Measurement area: LA timestamp range [{start_timestamp}, {end_timestamp}]"
+            f"Measurement area: ET timestamp range [{start_timestamp}, {end_timestamp}]"
+        )
+        logger.debug(
+            f"Measurement area: LA timestamp range [{time_stamp_data[2]}, {time_stamp_data[-8]}]"
         )
         logger.debug(f"Start/End offsets: {start_offset} / {end_offset}")
 
@@ -108,27 +115,13 @@ class DataProcessor:
                 f"synchronization end_offset == {end_offset}. It should be no more than a few seconds."
             )
 
-        with_offset = self.addOffset(time_stamp_data, start_offset)
+        with_offset = np.array(time_stamp_data) + start_offset
 
         with_drift = self.addDrift(
             with_offset, end_timestamp, end_offset, start_timestamp
         )
 
         self.modified_timestamps = with_drift
-
-    def addOffset(self, input_timestamps, start_offset):
-        """
-        Add begin offset at start
-
-        :param input_timestamps: List of timestamps (float list)
-        :param start_offset: Timestamp of last EnergyTrace datapoint at the first sync point
-        :return: List of modified timestamps (float list)
-        """
-        modified_timestamps_with_offset = []
-        for x in input_timestamps:
-            if x + start_offset >= 0:
-                modified_timestamps_with_offset.append(x + start_offset)
-        return modified_timestamps_with_offset
 
     def removeTooFarDatasets(self, input_timestamps):
         """
@@ -151,20 +144,22 @@ class DataProcessor:
         Add drift to datapoints
 
         :param input_timestamps: List of timestamps (float list)
-        :param end_timestamp: Timestamp of first EnergyTrace datapoint at the second last sync point
+        :param end_timestamp: Timestamp of first EnergyTrace datapoint at the second-to-last sync point
         :param end_offset: the time between end_timestamp and the timestamp of synchronisation signal
         :param start_timestamp: Timestamp of last EnergyTrace datapoint at the first sync point
         :return: List of modified timestamps (float list)
         """
         endFactor = (end_timestamp + end_offset - start_timestamp) / (
             end_timestamp - start_timestamp
-        )
-        modified_timestamps_with_drift = []
-        for x in input_timestamps:
-            modified_timestamps_with_drift.append(
-                ((x - start_timestamp) * endFactor) + start_timestamp
-            )
-
+        ) + 0.0001
+        # print(
+        #    f"({end_timestamp} + {end_offset} - {start_timestamp}) / ({end_timestamp} - {start_timestamp}) == {endFactor}"
+        # )
+        # Manuelles endFactor += 0.0001 macht es merklich besser
+        # print(f"endFactor = {endFactor}")
+        modified_timestamps_with_drift = (
+            (input_timestamps - start_timestamp) * endFactor
+        ) + start_timestamp
         return modified_timestamps_with_drift
 
     def plot(self, annotateData=None):
@@ -345,11 +340,12 @@ class DataProcessor:
                     "isa": "state",
                     "W_mean": np.mean(power),
                     "W_std": np.std(power),
-                    "uW": power * 1e6,
                     "s": (
                         start_transition_ts_timing - end_transition_ts_timing
                     ),  # * 10 ** 6,
                 }
+                if with_traces:
+                    state["uW"] = power * 1e6
                 energy_trace_new.append(state)
 
                 energy_trace_new[-2]["W_mean_delta_next"] = (
@@ -369,12 +365,13 @@ class DataProcessor:
                 "isa": "transition",
                 "W_mean": np.mean(power),
                 "W_std": np.std(power),
-                "uW": power * 1e6,
                 "s": (
                     end_transition_ts_timing - start_transition_ts_timing
                 ),  # * 10 ** 6,
                 "count_dp": len(power),
             }
+            if with_traces:
+                transition["uW"] = power * 1e6
 
             if (end_transition_ts - start_transition_ts) * 10 ** 6 > 2_000_000:
                 # TODO Last data set corrupted? HOT FIX!!!!!!!!!!!! REMOVE LATER
