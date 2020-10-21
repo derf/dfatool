@@ -909,6 +909,12 @@ class RawData:
                             }
                         )
                         for repeat_id, mim_file in enumerate(ptalog["files"][j]):
+                            # MIMOSA benchmarks always use a single .mim file per benchmark run.
+                            # However, depending on the dfatool version used to run the
+                            # benchmark, ptalog["files"][j] is either "foo.mim" (before Oct 2020)
+                            # or ["foo.mim"] (from Oct 2020 onwards).
+                            if type(mim_file) is list:
+                                mim_file = mim_file[0]
                             member = tf.getmember(mim_file)
                             offline_data.append(
                                 {
