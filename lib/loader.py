@@ -1431,7 +1431,13 @@ class EnergyTraceWithBarcode:
             }
 
             if self.with_traces:
-                transition["uW"] = transition_power_W * 1e6
+                timestamps = (
+                    self.interval_start_timestamp[
+                        transition_start_index:transition_done_index
+                    ]
+                    - self.interval_start_timestamp[transition_start_index]
+                )
+                transition["plot"] = (timestamps, transition_power_W)
 
             energy_trace.append(transition)
 
@@ -1451,7 +1457,11 @@ class EnergyTraceWithBarcode:
             }
 
             if self.with_traces:
-                state["uW"] = state_power_W * 1e6
+                timestamps = (
+                    self.interval_start_timestamp[state_start_index:state_done_index]
+                    - self.interval_start_timestamp[state_start_index]
+                )
+                state["plot"] = (timestamps, state_power_W)
 
             energy_trace.append(state)
 
@@ -1690,15 +1700,14 @@ class EnergyTraceWithLogicAnalyzer:
 
         dp = DataProcessor(sync_data=self.sync_data, energy_data=self.energy_data)
         dp.run()
-        energy_trace_new = list()
-        energy_trace_new.extend(
-            dp.getStatesdfatool(
-                state_sleep=self.state_duration, with_traces=self.with_traces
-            )
+        energy_trace_new = dp.getStatesdfatool(
+            state_sleep=self.state_duration, with_traces=self.with_traces
         )
         # Uncomment to plot traces
-        # dp.plot()  # <- plot traces with sync annotatons
-        # dp.plot(names) # <- plot annotated traces (with state/transition names)
+        if offline_index == 0:
+            # dp.plot()  # <- plot traces with sync annotatons
+            # dp.plot(names) # <- plot annotated traces (with state/transition names)
+            pass
         energy_trace_new = energy_trace_new[4:]
 
         energy_trace = list()
@@ -2091,7 +2100,10 @@ class MIMOSA:
             }
 
             if self.with_traces:
-                data["uW"] = range_ua * self.voltage
+                data["plot"] = (
+                    np.arange(len(range_ua)) * 1e-5,
+                    range_ua * self.voltage * 1e-6,
+                )
 
             if isa == "transition":
                 # subtract average power of previous state

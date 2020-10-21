@@ -226,10 +226,16 @@ def print_html_model_data(model, pm, pq, lm, lq, am, ai, aq):
 
 def plot_traces(preprocessed_data, sot_name):
     traces = list()
+    timestamps = list()
     for trace in preprocessed_data:
         for state_or_transition in trace["trace"]:
             if state_or_transition["name"] == sot_name:
-                traces.extend(map(lambda x: x["uW"], state_or_transition["offline"]))
+                timestamps.extend(
+                    map(lambda x: x["plot"][0], state_or_transition["offline"])
+                )
+                traces.extend(
+                    map(lambda x: x["plot"][1], state_or_transition["offline"])
+                )
     if len(traces) == 0:
         print(
             f"""Did not find traces for state or transition {sot_name}. Abort.""",
@@ -239,12 +245,15 @@ def plot_traces(preprocessed_data, sot_name):
 
     if len(traces) > 40:
         print(f"""Truncating plot to 40 of {len(traces)} traces (random sample)""")
-        traces = random.sample(traces, 40)
+        indexes = random.sample(range(len(traces)), 40)
+        timestamps = [timestamps[i] for i in indexes]
+        traces = [traces[i] for i in indexes]
 
-    plotter.plot_y(
+    plotter.plot_xy(
+        timestamps,
         traces,
-        xlabel="t [1e-5 s]",
-        ylabel="P [uW]",
+        xlabel="t [s]",
+        ylabel="P [W]",
         title=sot_name,
         family=True,
     )
@@ -463,7 +472,7 @@ if __name__ == "__main__":
                 if name not in uw_per_sot:
                     uw_per_sot[name] = list()
                 for elem in state_or_transition["offline"]:
-                    elem["uW"] = list(elem["uW"])
+                    elem["plot"] = list(elem["plot"])
                 uw_per_sot[name].append(state_or_transition)
         for name, data in uw_per_sot.items():
             target = f"{args.export_traces}/{name}.json"

@@ -256,7 +256,8 @@ class DataProcessor:
         :return: power measurements in W
         """
         first_index = 0
-        all_power = []
+        all_power = list()
+        all_ts = list()
         for ind in range(self.start_offset, len(self.plot_data_x)):
             first_index = ind
             if self.plot_data_x[ind] > start:
@@ -272,6 +273,7 @@ class DataProcessor:
                 self.start_offset = ind - 1
                 break
             all_power.append(self.plot_data_y[ind])
+            all_ts.append(self.plot_data_x[ind])
 
         # TODO Idea remove datapoints that are too far away
         def removeSD_Mean_Values(arr):
@@ -293,10 +295,11 @@ class DataProcessor:
         if len(all_power) == 0:
             # print("PROBLEM")
             all_power.append(self.plot_data_y[nextIndAfterIndex])
+            all_ts.append(0)
         elif len(all_power) == 1:
             # print("OKAY")
             pass
-        return np.array(all_power)
+        return np.array(all_power), np.array(all_ts)
 
     def getStatesdfatool(self, state_sleep, with_traces=False, algorithm=False):
         """
@@ -324,7 +327,7 @@ class DataProcessor:
             start_transition_ts_timing = self.reduced_timestamps[ts_index * 2]
 
             if end_transition_ts is not None:
-                power = self.getPowerBetween(
+                power, timestamps = self.getPowerBetween(
                     end_transition_ts, start_transition_ts, state_sleep
                 )
 
@@ -348,7 +351,7 @@ class DataProcessor:
                     ),  # * 10 ** 6,
                 }
                 if with_traces:
-                    state["uW"] = power * 1e6
+                    state["plot"] = (timestamps - timestamps[0], power)
                 energy_trace_new.append(state)
 
                 energy_trace_new[-2]["W_mean_delta_next"] = (
@@ -357,7 +360,7 @@ class DataProcessor:
 
                 # get energy end_transition_ts
             end_transition_ts = self.modified_timestamps[ts_index * 2 + 1]
-            power = self.getPowerBetween(
+            power, timestamps = self.getPowerBetween(
                 start_transition_ts, end_transition_ts, state_sleep
             )
 
@@ -374,7 +377,7 @@ class DataProcessor:
                 "count_dp": len(power),
             }
             if with_traces:
-                transition["uW"] = power * 1e6
+                transition["plot"] = (timestamps - timestamps[0], power)
 
             if (end_transition_ts - start_transition_ts) * 10 ** 6 > 2_000_000:
                 # TODO Last data set corrupted? HOT FIX!!!!!!!!!!!! REMOVE LATER
