@@ -228,9 +228,10 @@ class DataProcessor:
 
         def getDataText(x):
             # print(x)
+            dl = len(annotateData)
             for i, xt in enumerate(self.modified_timestamps):
-                if xt > x:
-                    return "Value: %s" % annotateData[i - 5]
+                if xt > x and i >= 4 and i - 5 < dl:
+                    return f"SoT: {annotateData[i - 5]}"
 
         def update_annot(x, y, name):
             annot.xy = (x, y)

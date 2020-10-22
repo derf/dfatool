@@ -1,4 +1,5 @@
 import json
+import numpy as np
 
 from dfatool.lennart.DataInterface import DataInterface
 import logging
@@ -61,48 +62,6 @@ class SigrokResult:
         data = json.loads(string)
         return SigrokResult(data["timestamps"], data["onBeforeFirstChange"])
         pass
-
-    @classmethod
-    def fromTraces(cls, traces):
-        """
-        Generates SigrokResult from ptalog.json traces
-
-        :param traces: traces from dfatool ptalog.json
-        :return: SigrokResult object
-        """
-        timestamps = [0]
-        for tr in traces:
-            for t in tr["trace"]:
-                # print(t['online_aggregates']['duration'][0])
-                timestamps.append(
-                    timestamps[-1] + (t["online_aggregates"]["duration"][0] * 10 ** -6)
-                )
-
-        # print(timestamps)
-        # prepend FAKE Sync point
-        t_neu = [0.0, 0.0000001, 1.0, 1.00000001]
-        for i, x in enumerate(timestamps):
-            t_neu.append(
-                round(float(x) + t_neu[3] + 0.20, 6)
-            )  # list(map(float, t_ist.split(",")[:i+1]))
-
-        # append FAKE Sync point / eine überschneidung
-        # [30.403632, 30.403639, 31.407265, 31.407271]
-        # appendData = [29.144855,30.148495,30.148502,30.403632,30.403639,31.407265,31.407271,]
-        appendData = [0, 1.000001, 1.000002, 1.25, 1.2500001]
-
-        # TODO future work here, why does the sync not work completely
-        t_neu[-1] = (
-            t_neu[-2] + (t_neu[-1] - t_neu[-2]) * 0.9
-        )  # Weird offset failure with UART stuff
-
-        offset = t_neu[-1] - appendData[0]
-        for x in appendData:
-            t_neu.append(x + offset)
-
-        # print(t_neu)
-        print(len(t_neu))
-        return SigrokResult(t_neu, False)
 
 
 class SigrokInterface(DataInterface):

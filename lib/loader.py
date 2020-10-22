@@ -1780,9 +1780,31 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
         pass
 
     def analyze_states(self, traces, offline_index: int):
+
+        # Start "Synchronization pulse"
+        timestamps = [0, 10, 1e6, 1e6 + 10]
+
+        # 250ms zwischen Ende der LASync und Beginn der Messungen
+        # (wegen sleep(250) in der generierten multipass-runLASync-Funktion)
+        timestamps.append(timestamps[-1] + 240e3)
+        for tr in traces:
+            for t in tr["trace"]:
+                # print(t['online_aggregates']['duration'][0])
+                timestamps.append(
+                    timestamps[-1] + t["online_aggregates"]["duration"][offline_index]
+                )
+
+        print(timestamps)
+
+        # Stop "Synchronization pulses". The first one has already started.
+        timestamps.extend(np.array([10, 1e6, 1e6 + 10]) + timestamps[-1])
+        timestamps.extend(np.array([0, 10, 1e6, 1e6 + 10]) + 250e3 + timestamps[-1])
+
+        timestamps = list(np.array(timestamps) * 1e-6)
+
         from dfatool.lennart.SigrokInterface import SigrokResult
 
-        self.sync_data = SigrokResult.fromTraces(traces)
+        self.sync_data = SigrokResult(timestamps, False)
         return super().analyze_states(traces, offline_index)
 
 

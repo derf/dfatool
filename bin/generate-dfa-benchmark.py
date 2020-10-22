@@ -647,6 +647,7 @@ if __name__ == "__main__":
             log_return_values=need_return_values,
             repeat=1,
             energytrace_sync=energytrace_sync,
+            remove_nop_from_timings=False,  # kein einfluss auf ungenauigkeiten
         )
     elif "timing" in opt:
         harness = OnboardTimerHarness(

@@ -355,10 +355,14 @@ class OnboardTimerHarness(TransitionHarness):
         the dict `offline_aggregates` with the member `duration`. It contains a list of durations (in us) of the corresponding state/transition for each
         benchmark iteration.
         I.e. `.traces[*]['trace'][*]['offline_aggregates']['duration'] = [..., ...]`
+    :param remove_nop_from_timings: If true, remove the nop duration from reported timings
+        (i.e., reported timings reflect the estimated transition/state duration with the timer call overhea dremoved).
+        If false, do not remove nop durations, so the timings more accurately reflect the elapsed wall-clock time during the benchmark.
     """
 
-    def __init__(self, counter_limits, **kwargs):
+    def __init__(self, counter_limits, remove_nop_from_timings=True, **kwargs):
         super().__init__(**kwargs)
+        self.remove_nop_from_timings = remove_nop_from_timings
         self.trace_length = 0
         (
             self.one_cycle_in_us,
@@ -422,7 +426,6 @@ class OnboardTimerHarness(TransitionHarness):
     gpio.led_toggle(1);
     ptalog.stopTransition();
     // ======================= LED SYNC ================================
-    arch.sleep_ms(250);
 }\n\n"""
         return ret
 
@@ -431,14 +434,17 @@ class OnboardTimerHarness(TransitionHarness):
         if self.energytrace_sync == "led":
             ret += "runLASync();\n"
         ret += "ptalog.passNop();\n"
+        if self.energytrace_sync == "led":
+            ret += "arch.sleep_ms(250);\n"
         ret += super().start_benchmark(benchmark_id)
         return ret
 
     def stop_benchmark(self):
         ret = ""
+        ret += super().stop_benchmark()
         if self.energytrace_sync == "led":
             ret += "runLASync();\n"
-        ret += super().stop_benchmark()
+            ret += "arch.sleep_ms(250);\n"
         return ret
 
     def pass_transition(
@@ -498,8 +504,9 @@ class OnboardTimerHarness(TransitionHarness):
                 prev_state_duration_us = (
                     prev_state_cycles * self.one_cycle_in_us
                     + prev_state_overflow * self.one_overflow_in_us
-                    - self.nop_cycles * self.one_cycle_in_us
                 )
+                if self.remove_nop_from_timings:
+                    prev_state_duration_us -= self.nop_cycles * self.one_cycle_in_us
                 final_state = self.traces[self.trace_id]["trace"][-1]
                 if "offline_aggregates" not in final_state:
                     final_state["offline_aggregates"] = {"duration": list()}
@@ -561,15 +568,15 @@ class OnboardTimerHarness(TransitionHarness):
                         )
                     )
                 duration_us = (
-                    cycles * self.one_cycle_in_us
-                    + overflow * self.one_overflow_in_us
-                    - self.nop_cycles * self.one_cycle_in_us
+                    cycles * self.one_cycle_in_us + overflow * self.one_overflow_in_us
                 )
                 prev_state_duration_us = (
                     prev_state_cycles * self.one_cycle_in_us
                     + prev_state_overflow * self.one_overflow_in_us
-                    - self.nop_cycles * self.one_cycle_in_us
                 )
+                if self.remove_nop_from_timings:
+                    duration_us -= self.nop_cycles * self.one_cycle_in_us
+                    prev_state_duration_us -= self.nop_cycles * self.one_cycle_in_us
                 if duration_us < 0:
                     duration_us = 0
                 # self.traces contains transitions and states, UART output only contains transitions -> use index * 2
