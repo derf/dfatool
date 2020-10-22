@@ -1786,7 +1786,9 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
 
         # 250ms zwischen Ende der LASync und Beginn der Messungen
         # (wegen sleep(250) in der generierten multipass-runLASync-Funktion)
-        timestamps.append(timestamps[-1] + 240e3)
+        # TODO die prevcycles der allerersten Transition werden vom Tooling nicht
+        # ausgewertet / weitergereicht, genau diese müssten hier hin.
+        timestamps.append(timestamps[-1] + 250e3)
         for tr in traces:
             for t in tr["trace"]:
                 # print(t['online_aggregates']['duration'][0])
