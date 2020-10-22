@@ -117,9 +117,15 @@ class DataProcessor:
             )
 
         with_offset = np.array(time_stamp_data) + start_offset
+        logger.debug(
+            f"Measurement area with offset: LA timestamp range [{with_offset[2]}, {with_offset[-8]}]"
+        )
 
         with_drift = self.addDrift(
             with_offset, end_timestamp, end_offset, start_timestamp
+        )
+        logger.debug(
+            f"Measurement area with drift: LA timestamp range [{with_drift[2]}, {with_drift[-8]}]"
         )
 
         self.modified_timestamps = with_drift
@@ -150,7 +156,7 @@ class DataProcessor:
         :param start_timestamp: Timestamp of last EnergyTrace datapoint at the first sync point
         :return: List of modified timestamps (float list)
         """
-        endFactor = 1 + (end_offset / (end_timestamp - start_timestamp))
+        endFactor = 1 + (end_offset / ((end_timestamp - end_offset) - start_timestamp))
         # print(
         #   f"({end_timestamp} + {end_offset} - {start_timestamp}) / ({end_timestamp} - {start_timestamp}) == {endFactor}"
         # )
@@ -216,7 +222,7 @@ class DataProcessor:
             label="Synchronisationsignale mit Driftfaktor",
         )
 
-        plt.xlabel("Zeit [s]")
+        plt.xlabel("Zeit von EnergyTrace [s]")
         plt.ylabel("Leistung [W]")
         leg = plt.legend()
 
