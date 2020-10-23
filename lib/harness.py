@@ -421,21 +421,19 @@ class OnboardTimerHarness(TransitionHarness):
             # TODO Make nicer
             ret += """\nvoid runLASync(){
     // ======================= LED SYNC ================================
-    ptalog.passTransition(0);
-    ptalog.startTransition();
-    gpio.led_toggle(0);
-    gpio.led_toggle(1);
-    ptalog.stopTransition();
+    gpio.write(PTALOG_GPIO, 1);
+    gpio.led_on(0);
+    gpio.led_on(1);
+    gpio.write(PTALOG_GPIO, 0);
 
     for (unsigned char i = 0; i < 4; i++) {
         arch.sleep_ms(250);
     }
 
-    ptalog.passTransition(0);
-    ptalog.startTransition();
-    gpio.led_toggle(0);
-    gpio.led_toggle(1);
-    ptalog.stopTransition();
+    gpio.write(PTALOG_GPIO, 1);
+    gpio.led_off(0);
+    gpio.led_off(1);
+    gpio.write(PTALOG_GPIO, 0);
     // ======================= LED SYNC ================================
 }\n\n"""
         return ret
@@ -452,9 +450,11 @@ class OnboardTimerHarness(TransitionHarness):
 
     def stop_benchmark(self):
         ret = ""
+        if self.energytrace_sync == "led":
+            ret += "counter.stop();\n"
+            ret += "runLASync();\n"
         ret += super().stop_benchmark()
         if self.energytrace_sync == "led":
-            ret += "runLASync();\n"
             ret += "arch.sleep_ms(250);\n"
         return ret
 
