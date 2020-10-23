@@ -384,6 +384,15 @@ class OnboardTimerHarness(TransitionHarness):
         new_harness.trace_id = self.trace_id
         return new_harness
 
+    def reset(self):
+        super().reset()
+        self.trace_length = 0
+
+    def set_trace_start_offset(self, start_offset):
+        if not "start_offset" in self.traces[0]:
+            self.traces[0]["start_offset"] = list()
+        self.traces[0]["start_offset"].append(start_offset)
+
     def undo(self, undo_from):
         """
         Undo all benchmark runs starting with index `undo_from`.
@@ -402,6 +411,8 @@ class OnboardTimerHarness(TransitionHarness):
                     ] = state_or_transition["offline_aggregates"]["duration"][
                         :undo_from
                     ]
+            if "start_offset" in trace:
+                trace["start_offset"] = trace["start_offset"][:undo_from]
 
     def global_code(self):
         ret = "#define PTALOG_TIMING\n"
@@ -591,6 +602,8 @@ class OnboardTimerHarness(TransitionHarness):
                     elif self.current_transition_in_trace == 0 and self.trace_id > 0:
                         prev_state_data = self.traces[self.trace_id - 1]["trace"][-1]
                     else:
+                        if self.current_transition_in_trace == 0 and self.trace_id == 0:
+                            self.set_trace_start_offset(prev_state_duration_us)
                         prev_state_data = None
                 except IndexError:
                     transition_name = None

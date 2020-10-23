@@ -1784,19 +1784,16 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
         # Start "Synchronization pulse"
         timestamps = [0, 10, 1e6, 1e6 + 10]
 
-        # 250ms zwischen Ende der LASync und Beginn der Messungen
-        # (wegen sleep(250) in der generierten multipass-runLASync-Funktion)
-        # TODO die prevcycles der allerersten Transition werden vom Tooling nicht
-        # ausgewertet / weitergereicht, genau diese müssten hier hin.
-        timestamps.append(timestamps[-1] + 250e3)
+        # The first trace doesn't start immediately, append offset saved by OnboarTimerHarness
+        timestamps.append(timestamps[-1] + traces[0]["start_offset"][offline_index])
         for tr in traces:
             for t in tr["trace"]:
-                # print(t['online_aggregates']['duration'][0])
+                # print(t["online_aggregates"]["duration"][offline_index])
                 timestamps.append(
                     timestamps[-1] + t["online_aggregates"]["duration"][offline_index]
                 )
 
-        print(timestamps)
+        # print(timestamps)
 
         # Stop "Synchronization pulses". The first one has already started.
         timestamps.extend(np.array([10, 1e6, 1e6 + 10]) + timestamps[-1])
