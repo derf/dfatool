@@ -188,10 +188,10 @@ class DataProcessor:
                 data.append(ts)
 
             a = np.empty((len(data),))
+            a[0::4] = min_value
             a[1::4] = max_value
             a[2::4] = max_value
             a[3::4] = min_value
-            a[4::4] = min_value
             return data, a  # plotting by columns
 
         import matplotlib.pyplot as plt

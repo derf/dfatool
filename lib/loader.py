@@ -578,7 +578,7 @@ class RawData:
                     # TODO es gibt next_transitions ohne 'plan'
         return True
 
-    def _merge_online_and_offline(self, measurement):
+    def _merge_online_and_mimosa(self, measurement):
         # Edits self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline']
         # and self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline_aggregates'] in place
         # (appends data from measurement['energy_trace'])
@@ -1050,7 +1050,7 @@ class RawData:
 
             if version == 0 or version == 1:
                 if self._measurement_is_valid_01(measurement):
-                    self._merge_online_and_offline(measurement)
+                    self._merge_online_and_mimosa(measurement)
                     num_valid += 1
                 else:
                     logger.warning(
