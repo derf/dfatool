@@ -1004,7 +1004,7 @@ class RawData:
                                     "info": members[0],
                                     "setup": self.setup_by_fileno[j],
                                     "repeat_id": repeat_id,
-                                    "expected_trace": ptalog["traces"][j],
+                                    "expected_trace": traces,
                                     "with_traces": self.with_traces,
                                     "transition_names": list(
                                         map(

@@ -287,8 +287,8 @@ class TransitionHarness:
                     if transition.name != log_data_target["name"]:
                         self.abort = True
                         raise RuntimeError(
-                            "Log mismatch: Expected transition {:s}, got transition {:s} -- may have been caused by preceding malformed UART output".format(
-                                log_data_target["name"], transition.name
+                            "Log mismatch: Expected transition {:s}, got transition {:s}\nMay have been caused by preceding malformed UART output\nOffending line: {:s}".format(
+                                log_data_target["name"], transition.name, line
                             )
                         )
                     if self.log_return_values and len(transition.return_value_handlers):
@@ -373,6 +373,7 @@ class OnboardTimerHarness(TransitionHarness):
     def copy(self):
         new_harness = __class__(
             (self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow),
+            remove_nop_from_timings=self.remove_nop_from_timings,
             gpio_pin=self.gpio_pin,
             gpio_mode=self.gpio_mode,
             pta=self.pta,
@@ -647,7 +648,7 @@ class OnboardTimerHarness(TransitionHarness):
                     if transition.name != log_data_target["name"]:
                         self.abort = True
                         raise RuntimeError(
-                            "Log mismatch in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}): Expected transition {:s}, got transition {:s} -- may have been caused by preceding maformed UART output".format(
+                            "Log mismatch in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}): Expected transition {:s}, got transition {:s}\nMay have been caused by preceding maformed UART output\nOffending line: {:s}".format(
                                 0,
                                 self.trace_id,
                                 self.current_transition_in_trace,
