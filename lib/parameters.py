@@ -434,7 +434,12 @@ class ParamStats:
     """
 
     def __init__(
-        self, by_name, by_param, parameter_names, arg_count, use_corrcoef=False,
+        self,
+        by_name,
+        by_param,
+        parameter_names,
+        arg_count,
+        use_corrcoef=False,
     ):
         """
         Compute standard deviation and correlation coefficient on parameterized data partitions.

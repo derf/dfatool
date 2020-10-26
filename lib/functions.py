@@ -394,7 +394,7 @@ class analytic:
         :param safe_functions_enabled: Include "safe" variants of functions with
             limited argument range, e.g. a safe
             inverse which returns 1 when dividing by 0.
-        
+
         Returns a dict of functions which are typical for energy/timing
         behaviour of embedded hardware, e.g. linear, exponential or inverse
         dependency on a configuration setting/runtime variable.
