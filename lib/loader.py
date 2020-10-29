@@ -1710,8 +1710,8 @@ class EnergyTraceWithLogicAnalyzer:
             state_sleep=self.state_duration, with_traces=self.with_traces
         )
         # Uncomment to plot traces
-        if offline_index == 0:
-            # dp.plot()  # <- plot traces with sync annotatons
+        if offline_index == 0 and os.getenv("DFATOOL_PLOT_LASYNC") is not None:
+            dp.plot()  # <- plot traces with sync annotatons
             # dp.plot(names) # <- plot annotated traces (with state/transition names)
             pass
         energy_trace_new = energy_trace_new[4:]
