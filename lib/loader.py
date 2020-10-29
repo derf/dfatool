@@ -1789,9 +1789,16 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
         for tr in traces:
             for t in tr["trace"]:
                 # print(t["online_aggregates"]["duration"][offline_index])
-                timestamps.append(
-                    timestamps[-1] + t["online_aggregates"]["duration"][offline_index]
-                )
+                try:
+                    timestamps.append(
+                        timestamps[-1]
+                        + t["online_aggregates"]["duration"][offline_index]
+                    )
+                except IndexError:
+                    self.errors.append(
+                        f"""offline_index {offline_index} missing in trace {tr["id"]}"""
+                    )
+                    return list()
 
         # print(timestamps)
 
