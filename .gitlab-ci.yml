@@ -3,15 +3,6 @@ image: debian:bullseye
 stages:
   - test
 
-lint_python:
-  stage: test
-  script:
-    - apt-get update -qy
-    - apt-get install -y black
-    - find bin lib -type f -name '*.py' | xargs black --check --diff
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
-
 run_tests:
   stage: test
   script:
