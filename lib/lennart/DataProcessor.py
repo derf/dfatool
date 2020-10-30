@@ -171,6 +171,23 @@ class DataProcessor:
         ) * endFactor + start_timestamp
         return modified_timestamps_with_drift
 
+    def export_sync(self):
+        # [1st trans start, 1st trans stop, 2nd trans start, 2nd trans stop, ...]
+        sync_timestamps = list()
+
+        for i in range(4, len(self.modified_timestamps) - 8, 2):
+            sync_timestamps.append(
+                (self.modified_timestamps[i], self.modified_timestamps[i + 1])
+            )
+
+        # EnergyTrace timestamps
+        timestamps = self.plot_data_x
+
+        # EnergyTrace power values
+        power = self.plot_data_y
+
+        return {"sync": sync_timestamps, "timestamps": timestamps, "power": power}
+
     def plot(self, annotateData=None):
         """
         Plots the power usage and the timestamps by logic analyzer

@@ -12,7 +12,7 @@ import tarfile
 import hashlib
 from multiprocessing import Pool
 
-from .utils import running_mean, soft_cast_int
+from .utils import NpEncoder, running_mean, soft_cast_int
 
 logger = logging.getLogger(__name__)
 
@@ -1714,6 +1714,11 @@ class EnergyTraceWithLogicAnalyzer:
             dp.plot()  # <- plot traces with sync annotatons
             # dp.plot(names) # <- plot annotated traces (with state/transition names)
             pass
+        if os.getenv("DFATOOL_EXPORT_LASYNC") is not None:
+            filename = os.getenv("DFATOOL_EXPORT_LASYNC") + f"_{offline_index}.json"
+            with open(filename, "w") as f:
+                json.dump(dp.export_sync(), f, cls=NpEncoder)
+            logger.info("Exported data and LA sync timestamps to {filename}")
         energy_trace_new = energy_trace_new[4:]
 
         energy_trace = list()
