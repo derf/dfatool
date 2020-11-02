@@ -87,8 +87,9 @@ class PELT:
         # long as --pelt isn't active.
         import ruptures
 
-        if self.num_samples is not None:
+        if self.num_samples is not None and len(signal) > self.num_samples:
             self.jump = len(signal) // int(self.num_samples)
+            print(f"jump = {self.jump}")
         else:
             self.jump = 1
 
