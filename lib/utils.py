@@ -152,9 +152,7 @@ def param_slice_eq(a, b, index):
     ('foo', [1, 4]), ('foo', [2, 4]), 1 -> False
 
     """
-    if (*a[1][:index], *a[1][index + 1 :]) == (*b[1][:index], *b[1][index + 1 :]) and a[
-        0
-    ] == b[0]:
+    if (*a[:index], *a[index + 1 :]) == (*b[:index], *b[index + 1 :]):
         return True
     return False
 

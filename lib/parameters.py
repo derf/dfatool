@@ -82,17 +82,17 @@ def _reduce_param_matrix(matrix: np.ndarray, parameter_names: list) -> list:
     return list()
 
 
-def _std_by_param(by_param, all_param_values, state_or_tran, attribute, param_index):
+def _std_by_param(n_by_param, all_param_values, state_or_tran, attribute, param_index):
     u"""
     Calculate standard deviations for a static model where all parameters but `param_index` are constant.
 
-    :param by_param: measurements sorted by key/transition name and parameter values
+    :param n_by_param: measurements of a specific model attribute partitioned by parameter values.
+        Example: `{(0, 2): [2], (0, 4): [4], (0, 6): [6]}`
     :param all_param_values: distinct values of each parameter in `state_or_tran`.
         E.g. for two parameters, the first being None, FOO, or BAR, and the second being 1, 2, 3, or 4, the argument is
         `[[None, 'FOO', 'BAR'], [1, 2, 3, 4]]`.
-    :param state_or_tran: state or transition name (-> by_param[(state_or_tran, *)])
-    :param attribute: model attribute, e.g. 'power' or 'duration'
-           (-> by_param[(state_or_tran, *)][attribute])
+    :param state_or_tran: state or transition name for debugging
+    :param attribute: model attribute for debugging, e.g. 'power' or 'duration'
     :param param_index: index of variable parameter
     :returns: (stddev matrix, mean stddev, LUT matrix)
         *stddev matrix* is an ((number of parameters)-1)-dimensional matrix giving the standard deviation of each individual parameter variation partition.
@@ -125,13 +125,10 @@ def _std_by_param(by_param, all_param_values, state_or_tran, attribute, param_in
     for param_value in itertools.product(*param_values):
         param_partition = list()
         std_list = list()
-        for k, v in by_param.items():
-            if (
-                k[0] == state_or_tran
-                and (*k[1][:param_index], *k[1][param_index + 1 :]) == param_value
-            ):
-                param_partition.extend(v[attribute])
-                std_list.append(np.std(v[attribute]))
+        for k, v in n_by_param.items():
+            if (*k[:param_index], *k[param_index + 1 :]) == param_value:
+                param_partition.extend(v)
+                std_list.append(np.std(v))
 
         if len(param_partition) > 1:
             matrix_index = list(range(len(param_value)))
@@ -162,25 +159,22 @@ def _std_by_param(by_param, all_param_values, state_or_tran, attribute, param_in
     )  # np.mean([np.std(partition) for partition in partitions])
 
 
-def _corr_by_param(by_name, state_or_trans, attribute, param_index):
+def _corr_by_param(attribute_data, param_values, param_index):
     """
-    Return correlation coefficient (`np.corrcoef`) of `by_name[state_or_trans][attribute][:]` <-> `by_name[state_or_trans]['param'][:][param_index]`
+    Return correlation coefficient (`np.corrcoef`) of `attribute_data` <-> `param_values[param_index]`
 
     A correlation coefficient close to 1 indicates that the attribute likely depends on the value of the parameter denoted by `param_index`, if it is nearly 0, it likely does not depend on it.
 
     If any value of `param_index` is not numeric (i.e., can not be parsed as float), this function returns 0.
 
-    :param by_name: measurements partitioned by state/transition name
-    :param state_or_trans: state or transition name
-    :param attribute: model attribute
+    :param attribute_data: list or 1-D numpy array taken from by_name[state_or_trans][attribute].
+    :param param_values: list of parameter values taken from by_name[state_or_trans]["param"].
     :param param_index: index of parameter in `by_name[state_or_trans]['param']`
     """
-    if _all_params_are_numeric(by_name[state_or_trans], param_index):
-        param_values = np.array(
-            list((map(lambda x: x[param_index], by_name[state_or_trans]["param"])))
-        )
+    if _all_params_are_numeric(param_values, param_index):
+        param_values = np.array(list((map(lambda x: x[param_index], param_values))))
         try:
-            return np.corrcoef(by_name[state_or_trans][attribute], param_values)[0, 1]
+            return np.corrcoef(attribute_data, param_values)[0, 1]
         except FloatingPointError:
             # Typically happens when all parameter values are identical.
             # Building a correlation coefficient is pointless in this case
@@ -188,16 +182,11 @@ def _corr_by_param(by_name, state_or_trans, attribute, param_index):
             return 0.0
         except ValueError:
             logger.error(
-                "ValueError in _corr_by_param(by_name, state_or_trans={}, attribute={}, param_index={})".format(
-                    state_or_trans, attribute, param_index
-                )
+                "ValueError in _corr_by_param(param_index={})".format(param_index)
             )
             logger.error(
-                "while executing np.corrcoef(by_name[{}][{}]={}, {}))".format(
-                    state_or_trans,
-                    attribute,
-                    by_name[state_or_trans][attribute],
-                    param_values,
+                "while executing np.corrcoef({}, {}))".format(
+                    attribute_data, param_values
                 )
             )
             raise
@@ -206,8 +195,9 @@ def _corr_by_param(by_name, state_or_trans, attribute, param_index):
 
 
 def _compute_param_statistics(
-    by_name,
-    by_param,
+    attribute_data,
+    param_values,
+    n_by_param,
     parameter_names,
     arg_count,
     state_or_trans,
@@ -223,14 +213,14 @@ def _compute_param_statistics(
     (1, 1), (5, 1), (7, 1,) (10, 1), (1, 2), (1, 6) will lead to bogus results.
     It is better to provide (1, 1), (5, 1), (1, 2), (5, 2), ... (i.e. a cross product of all individual parameter values)
 
-    :param by_name: ground truth partitioned by state/transition name.
-        by_name[state_or_trans][attribute] must be a list or 1-D numpy array.
-        by_name[state_or_trans]['param'] must be a list of parameter values
+    :param attribute_data: list or 1-D numpy array taken from by_name[state_or_trans][attribute]
+        (ground truth partitioned by state/transition name).
+    :param param_values: list of parameter values 
         corresponding to the ground truth, e.g. [[1, 2, 3], ...] if the
         first ground truth element has the (lexically) first parameter set to 1,
-        the second to 2 and the third to 3.
-    :param by_param: ground truth partitioned by state/transition name and parameters.
-        by_name[(state_or_trans, *)][attribute] must be a list or 1-D numpy array.
+        the second to 2 and the third to 3. Taken from by_name[state_or_trans]["param"].
+    :param n_by_param: measurements of a specific model attribute partitioned by parameter values.
+        Example: `{(0, 2): [2], (0, 4): [4], (0, 6): [6]}`
     :param parameter_names: list of parameter names, must have the same order as the parameter
         values in by_param (lexical sorting is recommended).
     :param arg_count: dict providing the number of functions args ("local parameters") for each function.
@@ -239,12 +229,12 @@ def _compute_param_statistics(
 
     :returns: a dict with the following content:
     std_static -- static parameter-unaware model error: stddev of by_name[state_or_trans][attribute]
-    std_param_lut -- static parameter-aware model error: mean stddev of by_param[(state_or_trans, *)][attribute]
+    std_param_lut -- static parameter-aware model error: mean stddev of n_by_param[*]
     std_by_param -- static parameter-aware model error ignoring a single parameter.
         dictionary with one key per parameter. The value is the mean stddev
         of measurements where all other parameters are fixed and the parameter
         in question is variable. E.g. std_by_param['X'] is the mean stddev of
-        by_param[(state_or_trans, (X=*, Y=..., Z=...))][attribute].
+        n_by_param[(X=*, Y=..., Z=...)].
     std_by_arg -- same, but ignoring a single function argument
         Only set if state_or_trans appears in arg_count, empty dict otherwise.
     corr_by_param -- correlation coefficient
@@ -254,14 +244,8 @@ def _compute_param_statistics(
     depends_on_arg -- list(bool). Same, but for function arguments, if any.
     """
     ret = {
-        "std_static": np.std(by_name[state_or_trans][attribute]),
-        "std_param_lut": np.mean(
-            [
-                np.std(by_param[x][attribute])
-                for x in by_param.keys()
-                if x[0] == state_or_trans
-            ]
-        ),
+        "std_static": np.std(attribute_data),
+        "std_param_lut": np.mean([np.std(n_by_param[x]) for x in n_by_param.keys()]),
         "std_by_param": {},
         "std_by_param_values": {},
         "lut_by_param_values": {},
@@ -278,7 +262,7 @@ def _compute_param_statistics(
 
     for param_idx, param in enumerate(parameter_names):
         std_matrix, mean_std, lut_matrix = _std_by_param(
-            by_param,
+            n_by_param,
             distinct_values_by_param_index,
             state_or_trans,
             attribute,
@@ -288,7 +272,7 @@ def _compute_param_statistics(
         ret["std_by_param_values"][param] = std_matrix
         ret["lut_by_param_values"][param] = lut_matrix
         ret["corr_by_param"][param] = _corr_by_param(
-            by_name, state_or_trans, attribute, param_idx
+            attribute_data, param_values, param_idx
         )
 
         ret["depends_on_param"][param] = _depends_on_param(
@@ -300,7 +284,7 @@ def _compute_param_statistics(
     if state_or_trans in arg_count:
         for arg_index in range(arg_count[state_or_trans]):
             std_matrix, mean_std, lut_matrix = _std_by_param(
-                by_param,
+                n_by_param,
                 distinct_values_by_param_index,
                 state_or_trans,
                 attribute,
@@ -311,7 +295,7 @@ def _compute_param_statistics(
             ret["lut_by_arg_values"].append(lut_matrix)
             ret["corr_by_arg"].append(
                 _corr_by_param(
-                    by_name, state_or_trans, attribute, len(parameter_names) + arg_index
+                    attribute_data, param_values, len(parameter_names) + arg_index
                 )
             )
 
@@ -335,7 +319,7 @@ def _compute_param_statistics_parallel(arg):
 
 def _all_params_are_numeric(data, param_idx):
     """Check if all `data['param'][*][param_idx]` elements are numeric, as reported by `utils.is_numeric`."""
-    param_values = list(map(lambda x: x[param_idx], data["param"]))
+    param_values = list(map(lambda x: x[param_idx], data))
     if len(list(filter(is_numeric, param_values))) == len(param_values):
         return True
     return False
@@ -434,12 +418,7 @@ class ParamStats:
     """
 
     def __init__(
-        self,
-        by_name,
-        by_param,
-        parameter_names,
-        arg_count,
-        use_corrcoef=False,
+        self, by_name, by_param, parameter_names, arg_count, use_corrcoef=False
     ):
         """
         Compute standard deviation and correlation coefficient on parameterized data partitions.
@@ -482,12 +461,17 @@ class ParamStats:
                     param
                 ] = self.distinct_values_by_param_index[state_or_tran][i]
             for attribute in by_name[state_or_tran]["attributes"]:
+                n_by_param = dict()
+                for k, v in by_param.items():
+                    if k[0] == state_or_tran:
+                        n_by_param[k[1]] = v[attribute]
                 stats_queue.append(
                     {
                         "key": [state_or_tran, attribute],
                         "args": [
-                            by_name,
-                            by_param,
+                            by_name[state_or_tran][attribute],
+                            by_name[state_or_tran]["param"],
+                            n_by_param,
                             parameter_names,
                             arg_count,
                             state_or_tran,
@@ -498,6 +482,9 @@ class ParamStats:
                     }
                 )
 
+        # Fails if an object is > 2 GB in size. This happens when using
+        # --plot-traces or --pelt, which cause by_param and by_name to contain
+        # "power_traces" data with raw traces
         with Pool() as pool:
             stats_results = pool.map(_compute_param_statistics_parallel, stats_queue)
 
