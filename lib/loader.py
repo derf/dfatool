@@ -753,6 +753,9 @@ class RawData:
                     "paramkeys": list(),
                     "param": list(),
                 }
+                if "plot" in offline_trace_part:
+                    online_trace_part["offline_support"] = ["power_traces"]
+                    online_trace_part["offline_aggregates"]["power_traces"] = list()
 
             offline_aggregates = online_trace_part["offline_aggregates"]
 
@@ -769,6 +772,9 @@ class RawData:
             )
             offline_aggregates["paramkeys"].append(paramkeys)
             offline_aggregates["param"].append(paramvalues)
+
+            if "plot" in offline_trace_part:
+                offline_aggregates["power_traces"].append(offline_trace_part["plot"][1])
 
             # if online_trace_part['isa'] == 'transition':
             #    offline_aggregates['rel_energy_prev'].append(offline_trace_part['W_mean_delta_prev'] * offline_trace_part['s'] * 1e12)
