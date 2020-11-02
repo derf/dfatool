@@ -264,17 +264,17 @@ class TransitionHarness:
                     transition_name = None
                     if self.pta:
                         transition_name = self.pta.transitions[transition_id].name
-                    print(
-                        "[HARNESS] benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}, name {}) is out of bounds".format(
+                    self.abort = True
+                    raise RuntimeError(
+                        "Benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}, name {}) is out of bounds. Offending line: {}".format(
                             0,
                             self.trace_id,
                             self.current_transition_in_trace,
                             transition_id,
                             transition_name,
+                            line,
                         )
                     )
-                    print("          Offending line: {}".format(line))
-                    return
                 if log_data_target["isa"] != "transition":
                     self.abort = True
                     raise RuntimeError(
