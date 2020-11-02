@@ -328,8 +328,10 @@ class ArduinoJSON(DummyProtocol):
             child = enc_node + "l"
             while child in self.children:
                 child += "_"
-            self.enc_buf += "ArduinoJson::JsonArray& {} = {}.createNestedArray();\n".format(
-                child, enc_node
+            self.enc_buf += (
+                "ArduinoJson::JsonArray& {} = {}.createNestedArray();\n".format(
+                    child, enc_node
+                )
             )
             self.children.add(child)
             self.from_json(value, child)
@@ -338,8 +340,10 @@ class ArduinoJSON(DummyProtocol):
             child = enc_node + "o"
             while child in self.children:
                 child += "_"
-            self.enc_buf += "ArduinoJson::JsonObject& {} = {}.createNestedObject();\n".format(
-                child, enc_node
+            self.enc_buf += (
+                "ArduinoJson::JsonObject& {} = {}.createNestedObject();\n".format(
+                    child, enc_node
+                )
             )
             self.children.add(child)
             self.from_json(value, child)
@@ -616,11 +620,15 @@ class CapnProtoC(DummyProtocol):
                     [len(value)],
                 )
                 for i, elem in enumerate(value):
-                    self.enc_buf += "capn_set{:d}({}.{}, {:d}, capn_from_f{:d}({:f}));\n".format(
-                        self.float_bits, self.name, key, i, self.float_bits, elem
+                    self.enc_buf += (
+                        "capn_set{:d}({}.{}, {:d}, capn_from_f{:d}({:f}));\n".format(
+                            self.float_bits, self.name, key, i, self.float_bits, elem
+                        )
                     )
-                    self.dec_buf += "kout << capn_to_f{:d}(capn_get{:d}({}.{}, {:d}));\n".format(
-                        self.float_bits, self.float_bits, self.name, key, i
+                    self.dec_buf += (
+                        "kout << capn_to_f{:d}(capn_get{:d}({}.{}, {:d}));\n".format(
+                            self.float_bits, self.float_bits, self.name, key, i
+                        )
                     )
                     self.assign_and_kout(
                         self.float_type,
@@ -1196,8 +1204,10 @@ class NanoPB(DummyProtocol):
                 self.cc_encoders += (
                     "if (!pb_encode_tag_for_field(stream, field)) return false;\n"
                 )
-                self.cc_encoders += 'return pb_encode_string(stream, (uint8_t*)"{}", {:d});\n'.format(
-                    value, len(value)
+                self.cc_encoders += (
+                    'return pb_encode_string(stream, (uint8_t*)"{}", {:d});\n'.format(
+                        value, len(value)
+                    )
                 )
                 self.cc_encoders += "}\n"
                 self.enc_buf += "msg.{}{}.funcs.encode = encode_{};\n".format(

@@ -136,7 +136,11 @@ def plot_xy(X, Y, xlabel=None, ylabel=None, title=None, output=None, family=Fals
     if family:
         cm = plt.get_cmap("brg", len(Y))
         for i, YY in enumerate(Y):
-            plt.plot(np.arange(len(YY)), YY, "-", markersize=2, color=cm(i))
+            if X:
+                XX = X[i]
+            else:
+                XX = np.arange(len(YY))
+            plt.plot(XX, YY, "-", markersize=2, color=cm(i))
     else:
         plt.plot(X, Y, "bo", markersize=2)
     if output:

@@ -9,7 +9,7 @@ Functions:
     get_monitor -- return Monitor class suitable for the selected multipass arch
     get_counter_limits -- return arch-specific multipass counter limits (max value, max overflow)
 """
-
+import json
 import os
 import re
 import serial
@@ -17,6 +17,7 @@ import serial.threaded
 import subprocess
 import sys
 import time
+from dfatool.lennart.SigrokCLIInterface import SigrokCLIInterface
 
 
 class SerialReader(serial.threaded.Protocol):
@@ -156,6 +157,7 @@ class EnergyTraceMonitor(SerialMonitor):
         self._start_energytrace()
 
     def _start_energytrace(self):
+        print("[%s] Starting Measurement" % type(self).__name__)
         cmd = ["msp430-etv", "--save", self._output, "0"]
         self._logger = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
@@ -166,17 +168,19 @@ class EnergyTraceMonitor(SerialMonitor):
         super().close()
         self._logger.send_signal(subprocess.signal.SIGINT)
         stdout, stderr = self._logger.communicate(timeout=15)
+        print("[%s] Stopped Measurement" % type(self).__name__)
 
     # Zusätzliche Dateien, die mit dem Benchmark-Log und -Plan abgespeichert werden sollen
     # (hier: Die von msp430-etv generierten Logfiles)
     def get_files(self) -> list:
+        print("[%s] Getting files" % type(self).__name__)
         return [self._output]
 
-    #
+    # Benchmark-Konfiguration. Hier: Die (konstante) Spannung.
+    # MSP430FR5969: 3,6V (wird aktuell nicht unterstützt)
+    # MSP430FR5994: 3,3V (default)
     def get_config(self) -> dict:
-        return {
-            "voltage": self._voltage,
-        }
+        return {"voltage": self._voltage}
 
 
 class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
@@ -184,6 +188,33 @@ class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
 
     def __init__(self, port: str, baud: int, callback=None, voltage=3.3):
         super().__init__(port=port, baud=baud, callback=callback, voltage=voltage)
+
+        options = {"fake": False, "sample_rate": 1_000_000}
+        self.log_file = "logic_output_log_%s.json" % (time.strftime("%Y%m%d-%H%M%S"))
+
+        # Initialization of Interfaces
+        self.sig = SigrokCLIInterface(
+            sample_rate=options["sample_rate"],
+            fake=options["fake"],
+        )
+
+        # Start Measurements
+        self.sig.runMeasureAsynchronous()
+
+    def close(self):
+        super().close()
+        # Read measured data
+        # self.sig.waitForAsynchronousMeasure()
+        self.sig.forceStopMeasure()
+        time.sleep(0.2)
+        sync_data = self.sig.getData()
+        with open(self.log_file, "w") as fp:
+            json.dump(sync_data.getDict(), fp)
+
+    def get_files(self) -> list:
+        files = [self.log_file]
+        files.extend(super().get_files())
+        return files
 
 
 class MIMOSAMonitor(SerialMonitor):
@@ -261,11 +292,7 @@ class MIMOSAMonitor(SerialMonitor):
         return [self.mim_file]
 
     def get_config(self) -> dict:
-        return {
-            "offset": self._offset,
-            "shunt": self._shunt,
-            "voltage": self._voltage,
-        }
+        return {"offset": self._offset, "shunt": self._shunt, "voltage": self._voltage}
 
 
 class ShellMonitor:

@@ -33,6 +33,7 @@ class TransitionHarness:
         log_return_values=False,
         repeat=0,
         post_transition_delay_us=0,
+        energytrace_sync=None,
     ):
         """
         Create a new TransitionHarness
@@ -53,6 +54,7 @@ class TransitionHarness:
         self.log_return_values = log_return_values
         self.repeat = repeat
         self.post_transition_delay_us = post_transition_delay_us
+        self.energytrace_sync = energytrace_sync
         self.reset()
 
     def copy(self):
@@ -63,6 +65,7 @@ class TransitionHarness:
             log_return_values=self.log_return_values,
             repeat=self.repeat,
             post_transition_delay_us=self.post_transition_delay_us,
+            energytrace_sync=self.energytrace_sync,
         )
         new_object.traces = self.traces.copy()
         new_object.trace_id = self.trace_id
@@ -138,9 +141,7 @@ class TransitionHarness:
 
     def start_trace(self):
         """Prepare a new trace/run in the internal `.traces` structure."""
-        self.traces.append(
-            {"id": self.trace_id, "trace": list(),}
-        )
+        self.traces.append({"id": self.trace_id, "trace": list()})
         self.trace_id += 1
 
     def append_state(self, state_name, param):
@@ -151,7 +152,7 @@ class TransitionHarness:
         :param param: parameter dict
         """
         self.traces[-1]["trace"].append(
-            {"name": state_name, "isa": "state", "parameter": param,}
+            {"name": state_name, "isa": "state", "parameter": param}
         )
 
     def append_transition(self, transition_name, param, args=[]):
@@ -175,21 +176,16 @@ class TransitionHarness:
         """Return C++ code used to start a new run/trace."""
         return "ptalog.reset();\n"
 
-    def _pass_transition_call(self, transition_id):
-        if self.gpio_mode == "bar":
-            barcode_bits = Code128("T{}".format(transition_id), charset="B").modules
-            if len(barcode_bits) % 8 != 0:
-                barcode_bits.extend([1] * (8 - (len(barcode_bits) % 8)))
-            barcode_bytes = [
-                255 - int("".join(map(str, reversed(barcode_bits[i : i + 8]))), 2)
-                for i in range(0, len(barcode_bits), 8)
-            ]
-            inline_array = "".join(map(lambda s: "\\x{:02x}".format(s), barcode_bytes))
-            return 'ptalog.startTransition("{}", {});\n'.format(
-                inline_array, len(barcode_bytes)
-            )
-        else:
-            return "ptalog.startTransition();\n"
+    def _get_barcode(self, transition_id):
+        barcode_bits = Code128("T{}".format(transition_id), charset="B").modules
+        if len(barcode_bits) % 8 != 0:
+            barcode_bits.extend([1] * (8 - (len(barcode_bits) % 8)))
+        barcode_bytes = [
+            255 - int("".join(map(str, reversed(barcode_bits[i : i + 8]))), 2)
+            for i in range(0, len(barcode_bits), 8)
+        ]
+        inline_array = "".join(map(lambda s: "\\x{:02x}".format(s), barcode_bytes))
+        return inline_array, len(barcode_bytes)
 
     def pass_transition(
         self, transition_id, transition_code, transition: object = None
@@ -201,7 +197,12 @@ class TransitionHarness:
         `post_transition_delay_us` is set.
         """
         ret = "ptalog.passTransition({:d});\n".format(transition_id)
-        ret += self._pass_transition_call(transition_id)
+        if self.gpio_mode == "bar":
+            ret += """ptalog.startTransition("{}", {});\n""".format(
+                *self._get_barcode(transition_id)
+            )
+        else:
+            ret += "ptalog.startTransition();\n"
         if (
             self.log_return_values
             and transition
@@ -263,17 +264,17 @@ class TransitionHarness:
                     transition_name = None
                     if self.pta:
                         transition_name = self.pta.transitions[transition_id].name
-                    print(
-                        "[HARNESS] benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}, name {}) is out of bounds".format(
+                    self.abort = True
+                    raise RuntimeError(
+                        "Benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}, name {}) is out of bounds. Offending line: {}".format(
                             0,
                             self.trace_id,
                             self.current_transition_in_trace,
                             transition_id,
                             transition_name,
+                            line,
                         )
                     )
-                    print("          Offending line: {}".format(line))
-                    return
                 if log_data_target["isa"] != "transition":
                     self.abort = True
                     raise RuntimeError(
@@ -286,8 +287,8 @@ class TransitionHarness:
                     if transition.name != log_data_target["name"]:
                         self.abort = True
                         raise RuntimeError(
-                            "Log mismatch: Expected transition {:s}, got transition {:s} -- may have been caused by preceding malformed UART output".format(
-                                log_data_target["name"], transition.name
+                            "Log mismatch: Expected transition {:s}, got transition {:s}\nMay have been caused by preceding malformed UART output\nOffending line: {:s}".format(
+                                log_data_target["name"], transition.name, line
                             )
                         )
                     if self.log_return_values and len(transition.return_value_handlers):
@@ -354,10 +355,14 @@ class OnboardTimerHarness(TransitionHarness):
         the dict `offline_aggregates` with the member `duration`. It contains a list of durations (in us) of the corresponding state/transition for each
         benchmark iteration.
         I.e. `.traces[*]['trace'][*]['offline_aggregates']['duration'] = [..., ...]`
+    :param remove_nop_from_timings: If true, remove the nop duration from reported timings
+        (i.e., reported timings reflect the estimated transition/state duration with the timer call overhea dremoved).
+        If false, do not remove nop durations, so the timings more accurately reflect the elapsed wall-clock time during the benchmark.
     """
 
-    def __init__(self, counter_limits, **kwargs):
+    def __init__(self, counter_limits, remove_nop_from_timings=True, **kwargs):
         super().__init__(**kwargs)
+        self.remove_nop_from_timings = remove_nop_from_timings
         self.trace_length = 0
         (
             self.one_cycle_in_us,
@@ -368,15 +373,26 @@ class OnboardTimerHarness(TransitionHarness):
     def copy(self):
         new_harness = __class__(
             (self.one_cycle_in_us, self.one_overflow_in_us, self.counter_max_overflow),
+            remove_nop_from_timings=self.remove_nop_from_timings,
             gpio_pin=self.gpio_pin,
             gpio_mode=self.gpio_mode,
             pta=self.pta,
             log_return_values=self.log_return_values,
             repeat=self.repeat,
+            energytrace_sync=self.energytrace_sync,
         )
         new_harness.traces = self.traces.copy()
         new_harness.trace_id = self.trace_id
         return new_harness
+
+    def reset(self):
+        super().reset()
+        self.trace_length = 0
+
+    def set_trace_start_offset(self, start_offset):
+        if not "start_offset" in self.traces[0]:
+            self.traces[0]["start_offset"] = list()
+        self.traces[0]["start_offset"].append(start_offset)
 
     def undo(self, undo_from):
         """
@@ -396,26 +412,63 @@ class OnboardTimerHarness(TransitionHarness):
                     ] = state_or_transition["offline_aggregates"]["duration"][
                         :undo_from
                     ]
+            if "start_offset" in trace:
+                trace["start_offset"] = trace["start_offset"][:undo_from]
 
     def global_code(self):
-        ret = '#include "driver/counter.h"\n'
-        ret += "#define PTALOG_TIMING\n"
+        ret = "#define PTALOG_TIMING\n"
         ret += super().global_code()
+        if self.energytrace_sync == "led":
+            # TODO Make nicer
+            ret += """\nvoid runLASync(){
+    // ======================= LED SYNC ================================
+    gpio.write(PTALOG_GPIO, 1);
+    gpio.led_on(0);
+    gpio.led_on(1);
+    gpio.write(PTALOG_GPIO, 0);
+
+    for (unsigned char i = 0; i < 4; i++) {
+        arch.sleep_ms(250);
+    }
+
+    gpio.write(PTALOG_GPIO, 1);
+    gpio.led_off(0);
+    gpio.led_off(1);
+    gpio.write(PTALOG_GPIO, 0);
+    // ======================= LED SYNC ================================
+}\n\n"""
         return ret
 
     def start_benchmark(self, benchmark_id=0):
-        ret = "counter.start();\n"
-        ret += "counter.stop();\n"
-        ret += "ptalog.passNop(counter);\n"
+        ret = ""
+        if self.energytrace_sync == "led":
+            ret += "runLASync();\n"
+        ret += "ptalog.passNop();\n"
+        if self.energytrace_sync == "led":
+            ret += "arch.sleep_ms(250);\n"
         ret += super().start_benchmark(benchmark_id)
+        return ret
+
+    def stop_benchmark(self):
+        ret = ""
+        if self.energytrace_sync == "led":
+            ret += "counter.stop();\n"
+            ret += "runLASync();\n"
+        ret += super().stop_benchmark()
+        if self.energytrace_sync == "led":
+            ret += "arch.sleep_ms(250);\n"
         return ret
 
     def pass_transition(
         self, transition_id, transition_code, transition: object = None
     ):
         ret = "ptalog.passTransition({:d});\n".format(transition_id)
-        ret += self._pass_transition_call(transition_id)
-        ret += "counter.start();\n"
+        if self.gpio_mode == "bar":
+            ret += """ptalog.startTransition("{}", {});\n""".format(
+                *self._get_barcode(transition_id)
+            )
+        else:
+            ret += "ptalog.startTransition();\n"
         if (
             self.log_return_values
             and transition
@@ -424,14 +477,13 @@ class OnboardTimerHarness(TransitionHarness):
             ret += "transition_return_value = {}\n".format(transition_code)
         else:
             ret += "{}\n".format(transition_code)
-        ret += "counter.stop();\n"
         if (
             self.log_return_values
             and transition
             and len(transition.return_value_handlers)
         ):
             ret += "ptalog.logReturn(transition_return_value);\n"
-        ret += "ptalog.stopTransition(counter);\n"
+        ret += "ptalog.stopTransition();\n"
         return ret
 
     def _append_nondeterministic_parameter_value(
@@ -453,11 +505,27 @@ class OnboardTimerHarness(TransitionHarness):
                         res.group(1), res.group(2)
                     )
                 )
-        if re.match(r"\[PTA\] benchmark stop", line):
+        match = re.match(r"\[PTA\] benchmark stop, cycles=(\S+)/(\S+)", line)
+        if match:
             self.repetitions += 1
             self.synced = False
             if self.repeat > 0 and self.repetitions == self.repeat:
                 self.done = True
+                prev_state_cycles = int(match.group(1))
+                prev_state_overflow = int(match.group(2))
+                prev_state_duration_us = (
+                    prev_state_cycles * self.one_cycle_in_us
+                    + prev_state_overflow * self.one_overflow_in_us
+                )
+                if self.remove_nop_from_timings:
+                    prev_state_duration_us -= self.nop_cycles * self.one_cycle_in_us
+                final_state = self.traces[self.trace_id]["trace"][-1]
+                if "offline_aggregates" not in final_state:
+                    final_state["offline_aggregates"] = {"duration": list()}
+                final_state["offline_aggregates"]["duration"].append(
+                    prev_state_duration_us
+                )
+
                 print("[HARNESS] done")
                 return
         # May be repeated, e.g. if the device is reset shortly after start by
@@ -473,14 +541,20 @@ class OnboardTimerHarness(TransitionHarness):
                 self.current_transition_in_trace = 0
             if self.log_return_values:
                 res = re.match(
-                    r"\[PTA\] transition=(\S+) cycles=(\S+)/(\S+) return=(\S+)", line
+                    r"\[PTA\] transition=(\S+) prevcycles=(\S+)/(\S+) cycles=(\S+)/(\S+) return=(\S+)",
+                    line,
                 )
             else:
-                res = re.match(r"\[PTA\] transition=(\S+) cycles=(\S+)/(\S+)", line)
+                res = re.match(
+                    r"\[PTA\] transition=(\S+) prevcycles=(\S+)/(\S+) cycles=(\S+)/(\S+)",
+                    line,
+                )
             if res:
                 transition_id = int(res.group(1))
-                cycles = int(res.group(2))
-                overflow = int(res.group(3))
+                prev_state_cycles = int(res.group(2))
+                prev_state_overflow = int(res.group(3))
+                cycles = int(res.group(4))
+                overflow = int(res.group(5))
                 if overflow >= self.counter_max_overflow:
                     self.abort = True
                     raise RuntimeError(
@@ -493,11 +567,28 @@ class OnboardTimerHarness(TransitionHarness):
                             transition_id,
                         )
                     )
+                if prev_state_overflow >= self.counter_max_overflow:
+                    self.abort = True
+                    raise RuntimeError(
+                        "Counter overflow ({:d}/{:d}) in benchmark id={:d} trace={:d}: state before transition #{:d} (ID {:d})".format(
+                            prev_state_cycles,
+                            prev_state_overflow,
+                            0,
+                            self.trace_id,
+                            self.current_transition_in_trace,
+                            transition_id,
+                        )
+                    )
                 duration_us = (
-                    cycles * self.one_cycle_in_us
-                    + overflow * self.one_overflow_in_us
-                    - self.nop_cycles * self.one_cycle_in_us
+                    cycles * self.one_cycle_in_us + overflow * self.one_overflow_in_us
                 )
+                prev_state_duration_us = (
+                    prev_state_cycles * self.one_cycle_in_us
+                    + prev_state_overflow * self.one_overflow_in_us
+                )
+                if self.remove_nop_from_timings:
+                    duration_us -= self.nop_cycles * self.one_cycle_in_us
+                    prev_state_duration_us -= self.nop_cycles * self.one_cycle_in_us
                 if duration_us < 0:
                     duration_us = 0
                 # self.traces contains transitions and states, UART output only contains transitions -> use index * 2
@@ -505,6 +596,16 @@ class OnboardTimerHarness(TransitionHarness):
                     log_data_target = self.traces[self.trace_id]["trace"][
                         self.current_transition_in_trace * 2
                     ]
+                    if self.current_transition_in_trace > 0:
+                        prev_state_data = self.traces[self.trace_id]["trace"][
+                            self.current_transition_in_trace * 2 - 1
+                        ]
+                    elif self.current_transition_in_trace == 0 and self.trace_id > 0:
+                        prev_state_data = self.traces[self.trace_id - 1]["trace"][-1]
+                    else:
+                        if self.current_transition_in_trace == 0 and self.trace_id == 0:
+                            self.set_trace_start_offset(prev_state_duration_us)
+                        prev_state_data = None
                 except IndexError:
                     transition_name = None
                     if self.pta:
@@ -531,12 +632,23 @@ class OnboardTimerHarness(TransitionHarness):
                             log_data_target["isa"],
                         )
                     )
+                if prev_state_data and prev_state_data["isa"] != "state":
+                    self.abort = True
+                    raise RuntimeError(
+                        "Log mismatch in benchmark id={:d} trace={:d}: state before transition #{:d} (ID {:d}): Expected state, got {:s}".format(
+                            0,
+                            self.trace_id,
+                            self.current_transition_in_trace,
+                            transition_id,
+                            prev_state_data["isa"],
+                        )
+                    )
                 if self.pta:
                     transition = self.pta.transitions[transition_id]
                     if transition.name != log_data_target["name"]:
                         self.abort = True
                         raise RuntimeError(
-                            "Log mismatch in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}): Expected transition {:s}, got transition {:s} -- may have been caused by preceding maformed UART output".format(
+                            "Log mismatch in benchmark id={:d} trace={:d}: transition #{:d} (ID {:d}): Expected transition {:s}, got transition {:s}\nMay have been caused by preceding maformed UART output\nOffending line: {:s}".format(
                                 0,
                                 self.trace_id,
                                 self.current_transition_in_trace,
@@ -601,4 +713,10 @@ class OnboardTimerHarness(TransitionHarness):
                 if "offline_aggregates" not in log_data_target:
                     log_data_target["offline_aggregates"] = {"duration": list()}
                 log_data_target["offline_aggregates"]["duration"].append(duration_us)
+                if prev_state_data is not None:
+                    if "offline_aggregates" not in prev_state_data:
+                        prev_state_data["offline_aggregates"] = {"duration": list()}
+                    prev_state_data["offline_aggregates"]["duration"].append(
+                        prev_state_duration_us
+                    )
                 self.current_transition_in_trace += 1

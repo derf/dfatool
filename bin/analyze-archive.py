@@ -224,6 +224,41 @@ def print_html_model_data(model, pm, pq, lm, lq, am, ai, aq):
     print("</table>")
 
 
+def plot_traces(preprocessed_data, sot_name):
+    traces = list()
+    timestamps = list()
+    for trace in preprocessed_data:
+        for state_or_transition in trace["trace"]:
+            if state_or_transition["name"] == sot_name:
+                timestamps.extend(
+                    map(lambda x: x["plot"][0], state_or_transition["offline"])
+                )
+                traces.extend(
+                    map(lambda x: x["plot"][1], state_or_transition["offline"])
+                )
+    if len(traces) == 0:
+        print(
+            f"""Did not find traces for state or transition {sot_name}. Abort.""",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    if len(traces) > 40:
+        print(f"""Truncating plot to 40 of {len(traces)} traces (random sample)""")
+        indexes = random.sample(range(len(traces)), 40)
+        timestamps = [timestamps[i] for i in indexes]
+        traces = [traces[i] for i in indexes]
+
+    plotter.plot_xy(
+        timestamps,
+        traces,
+        xlabel="t [s]",
+        ylabel="P [W]",
+        title=sot_name,
+        family=True,
+    )
+
+
 if __name__ == "__main__":
 
     ignored_trace_indexes = []
@@ -269,7 +304,7 @@ if __name__ == "__main__":
         "--plot-traces",
         metavar="NAME",
         type=str,
-        help="Plot power trace for state or transition NAME",
+        help="Plot power trace for state or transition NAME. X axis is wrong for non-MIMOSA measurements",
     )
     parser.add_argument(
         "--show-models",
@@ -447,7 +482,7 @@ if __name__ == "__main__":
                 if name not in uw_per_sot:
                     uw_per_sot[name] = list()
                 for elem in state_or_transition["offline"]:
-                    elem["uW"] = list(elem["uW"])
+                    elem["plot"] = list(elem["plot"])
                 uw_per_sot[name].append(state_or_transition)
         for name, data in uw_per_sot.items():
             target = f"{args.export_traces}/{name}.json"
@@ -464,31 +499,7 @@ if __name__ == "__main__":
         args.with_substates = arg_dict
 
     if args.plot_traces:
-        traces = list()
-        for trace in preprocessed_data:
-            for state_or_transition in trace["trace"]:
-                if state_or_transition["name"] == args.plot_traces:
-                    traces.extend(
-                        map(lambda x: x["uW"], state_or_transition["offline"])
-                    )
-        if len(traces) == 0:
-            print(
-                f"""Did not find traces for state or transition {args.plot_traces}. Abort.""",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-
-        if len(traces) > 40:
-            print(f"""Truncating plot to 40 of {len(traces)} traces (random sample)""")
-            traces = random.sample(traces, 40)
-
-        plotter.plot_y(
-            traces,
-            xlabel="t [1e-5 s]",
-            ylabel="P [uW]",
-            title=args.plot_traces,
-            family=True,
-        )
+        plot_traces(preprocessed_data, args.plot_traces)
 
     if raw_data.preprocessing_stats["num_valid"] == 0:
         print("No valid data available. Abort.", file=sys.stderr)
