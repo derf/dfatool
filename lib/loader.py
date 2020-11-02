@@ -650,7 +650,7 @@ class RawData:
                     online_trace_part["offline_aggregates"]["rel_energy_prev"] = []
                     online_trace_part["offline_aggregates"]["rel_energy_next"] = []
                     online_trace_part["offline_aggregates"]["timeout"] = []
-                elif "uW" in offline_trace_part:
+                elif "plot" in offline_trace_part:
                     online_trace_part["offline_support"] = ["power_traces"]
                     online_trace_part["offline_aggregates"]["power_traces"] = list()
 
@@ -684,9 +684,9 @@ class RawData:
                     offline_trace_part["timeout"]
                 )
 
-            if online_trace_part["isa"] == "state" and "uW" in offline_trace_part:
+            if online_trace_part["isa"] == "state" and "plot" in offline_trace_part:
                 online_trace_part["offline_aggregates"]["power_traces"].append(
-                    offline_trace_part["uW"]
+                    offline_trace_part["plot"][1]
                 )
 
     def _merge_online_and_etlog(self, measurement):
@@ -1872,7 +1872,7 @@ class MIMOSA:
 
         :returns: numpy array of mean currents (µA per 10µs)
         """
-        ua_max = 1.836 / self.shunt * 1000000
+        ua_max = 1.836 / self.shunt * 1_000_000
         ua_step = ua_max / 65535
         return charge * ua_step
 
@@ -1927,7 +1927,7 @@ class MIMOSA:
         :param charges: numpy array of charges (pJ per 10µs)
 
         :returns: numpy array of currents (mean µA per 10µs)"""
-        ua_max = 1.836 / self.shunt * 1000000
+        ua_max = 1.836 / self.shunt * 1_000_000
         ua_step = ua_max / 65535
         return charges.astype(np.double) * ua_step
 
@@ -1944,11 +1944,11 @@ class MIMOSA:
         """
         trigidx = []
 
-        if len(triggers) < 1000000:
+        if len(triggers) < 1_000_000:
             self.errors.append("MIMOSA log is too short")
             return trigidx
 
-        prevtrig = triggers[999999]
+        prevtrig = triggers[999_999]
 
         # if the first trigger is high (i.e., trigger/buzzer pin is active before the benchmark starts),
         # something went wrong and are unable to determine when the first
@@ -1968,7 +1968,7 @@ class MIMOSA:
 
         # the device is reset for MIMOSA calibration in the first 10s and may
         # send bogus interrupts -> bogus triggers
-        for i in range(1000000, triggers.shape[0]):
+        for i in range(1_000_000, triggers.shape[0]):
             trig = triggers[i]
             if trig != prevtrig:
                 # Due to MIMOSA's integrate-read-reset cycle, the charge/current
@@ -1991,27 +1991,27 @@ class MIMOSA:
         """
         r1idx = 0
         r2idx = 0
-        ua_r1 = self.voltage / self.r1 * 1000000
+        ua_r1 = self.voltage / self.r1 * 1_000_000
         # first second may be bogus
-        for i in range(100000, len(currents)):
+        for i in range(100_000, len(currents)):
             if r1idx == 0 and currents[i] > ua_r1 * 0.6:
                 r1idx = i
             elif (
                 r1idx != 0
                 and r2idx == 0
-                and i > (r1idx + 180000)
+                and i > (r1idx + 180_000)
                 and currents[i] < ua_r1 * 0.4
             ):
                 r2idx = i
         # 2s disconnected, 2s r1, 2s r2  with r1 < r2  ->  ua_r1 > ua_r2
         # allow 5ms buffer in both directions to account for bouncing relais contacts
         return (
-            r1idx - 180500,
+            r1idx - 180_500,
             r1idx - 500,
             r1idx + 500,
             r2idx - 500,
             r2idx + 500,
-            r2idx + 180500,
+            r2idx + 180_500,
         )
 
     def calibration_function(self, charges, cal_edges):
@@ -2050,8 +2050,8 @@ class MIMOSA:
         cal_r1_mean = np.mean(chg_r1)
         cal_r2_mean = np.mean(chg_r2)
 
-        ua_r1 = self.voltage / self.r1 * 1000000
-        ua_r2 = self.voltage / self.r2 * 1000000
+        ua_r1 = self.voltage / self.r1 * 1_000_000
+        ua_r2 = self.voltage / self.r2 * 1_000_000
 
         if cal_r2_mean > cal_0_mean:
             b_lower = (ua_r2 - 0) / (cal_r2_mean - cal_0_mean)

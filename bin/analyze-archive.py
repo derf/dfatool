@@ -250,12 +250,7 @@ def plot_traces(preprocessed_data, sot_name):
         traces = [traces[i] for i in indexes]
 
     plotter.plot_xy(
-        timestamps,
-        traces,
-        xlabel="t [s]",
-        ylabel="P [W]",
-        title=sot_name,
-        family=True,
+        timestamps, traces, xlabel="t [s]", ylabel="P [W]", title=sot_name, family=True
     )
 
 
@@ -495,7 +490,10 @@ if __name__ == "__main__":
         if args.with_substates != "":
             for kv in args.with_substates.split(","):
                 k, v = kv.split("=")
-                arg_dict[k] = v
+                try:
+                    arg_dict[k] = float(v)
+                except ValueError:
+                    arg_dict[k] = v
         args.with_substates = arg_dict
 
     if args.plot_traces:

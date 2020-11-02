@@ -938,18 +938,26 @@ class PTAModel:
     def get_substates(self):
         states = self.states()
         for k in self.by_param.keys():
-            if k[0] == "TX":
+            if k[0] in states:
                 if self.pelt.needs_refinement(self.by_param[k]["power_traces"]):
-                    print(f"PELT: {k} needs refinement")
-                    penalty = self.pelt.get_penalty_value(
-                        self.by_param[k]["power_traces"]
+                    logger.debug(f"PELT: {k} needs refinement")
+                    # Assumption: All power traces for this parameter setting
+                    # are similar, so determining the penalty for the first one
+                    # is sufficient.
+                    penalty, changepoints = self.pelt.get_penalty_and_changepoints(
+                        self.by_param[k]["power_traces"][0]
                     )
-                    print(
-                        f"    we found {penalty[1]} changepoints with penalty {penalty[0]}"
-                    )
-                    self.pelt.calc_raw_states(
-                        self.by_param[k]["power_traces"], penalty[0]
-                    )
+                    if len(changepoints):
+                        logger.debug(
+                            f"    we found {len(changepoints)} changepoints with penalty {penalty}"
+                        )
+                        self.pelt.calc_raw_states(
+                            self.by_param[k]["power_traces"], penalty
+                        )
+                    else:
+                        logger.debug(
+                            f"    we found no changepoints with penalty {penalty}"
+                        )
 
         return None, None
 
