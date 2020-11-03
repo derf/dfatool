@@ -643,7 +643,8 @@ if __name__ == "__main__":
     )
 
     if args.with_substates is not None:
-        substate_model, substate_info = model.get_substates()
+        substate_model = model.get_substates()
+        print(model.assess(substate_model, ref=model.sc_by_name))
 
     if "paramdetection" in show_models or "all" in show_models:
         for state in model.states_and_transitions():

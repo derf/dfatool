@@ -10,7 +10,7 @@ from .functions import analytic
 from .functions import AnalyticFunction
 from .parameters import ParamStats
 from .utils import is_numeric, soft_cast_int, param_slice_eq, remove_index_from_tuple
-from .utils import by_name_to_by_param, match_parameter_values
+from .utils import by_name_to_by_param, by_param_to_by_name, match_parameter_values
 
 logger = logging.getLogger(__name__)
 arg_support_enabled = True
@@ -921,29 +921,92 @@ class PTAModel:
 
         return model_getter, info_getter
 
+    def pelt_refine(self, by_param_key):
+        logger.debug(f"PELT: {by_param_key} needs refinement")
+        # Assumption: All power traces for this parameter setting
+        # are similar, so determining the penalty for the first one
+        # is sufficient.
+        penalty, changepoints = self.pelt.get_penalty_and_changepoints(
+            self.by_param[by_param_key]["power_traces"][0]
+        )
+        if len(changepoints) == 0:
+            logger.debug(f"    we found no changepoints with penalty {penalty}")
+            substate_counts = [1 for i in self.by_param[by_param_key]["param"]]
+            substate_data = {
+                "duration": self.by_param[by_param_key]["duration"],
+                "power": self.by_param[by_param_key]["power"],
+                "power_std": self.by_param[by_param_key]["power_std"],
+            }
+            return (substate_counts, substate_data)
+        logger.debug(
+            f"    we found {len(changepoints)} changepoints with penalty {penalty}"
+        )
+        return self.pelt.calc_raw_states(
+            self.by_param[by_param_key]["timestamps"],
+            self.by_param[by_param_key]["power_traces"],
+            penalty,
+        )
+
     def get_substates(self):
         states = self.states()
+
+        substates_by_param = dict()
         for k in self.by_param.keys():
             if k[0] in states:
+                state_name = k[0]
                 if self.pelt.needs_refinement(self.by_param[k]["power_traces"]):
-                    logger.debug(f"PELT: {k} needs refinement")
-                    # Assumption: All power traces for this parameter setting
-                    # are similar, so determining the penalty for the first one
-                    # is sufficient.
-                    penalty, changepoints = self.pelt.get_penalty_and_changepoints(
-                        self.by_param[k]["power_traces"][0]
-                    )
-                    if len(changepoints):
-                        logger.debug(
-                            f"    we found {len(changepoints)} changepoints with penalty {penalty}"
-                        )
-                        self.pelt.calc_raw_states(
-                            self.by_param[k]["power_traces"], penalty
-                        )
-                    else:
-                        logger.debug(
-                            f"    we found no changepoints with penalty {penalty}"
-                        )
+                    substates_by_param[k] = self.pelt_refine(k)
+                else:
+                    substate_counts = [1 for i in self.by_param[k]["param"]]
+                    substate_data = {
+                        "duration": self.by_param[k]["duration"],
+                        "power": self.by_param[k]["power"],
+                        "power_std": self.by_param[k]["power_std"],
+                    }
+                    substates_by_param[k] = (substate_counts, substate_data)
+
+        # suitable for AEMR modeling
+        sc_by_param = dict()
+        for param_key, (substate_counts, _) in substates_by_param.items():
+            sc_by_param[param_key] = {
+                "attributes": ["substate_count"],
+                "isa": "state",
+                "substate_count": substate_counts,
+                "param": self.by_param[param_key]["param"],
+            }
+
+        sc_by_name = by_param_to_by_name(sc_by_param)
+        self.sc_by_name = sc_by_name
+        self.sc_by_param = sc_by_param
+        static_model = self._get_model_from_dict(self.sc_by_name, np.median)
+
+        def static_model_getter(name, key, **kwargs):
+            return static_model[name][key]
+
+        return static_model_getter
+
+        """
+        for k in self.by_param.keys():
+            if k[0] in states:
+                state_name = k[0]
+                if state_name not in pelt_by_name:
+                    pelt_by_name[state_name] = dict()
+                if self.pelt.needs_refinement(self.by_param[k]["power_traces"]):
+                    res = self.pelt_refine(k)
+                    for substate_index, substate in enumerate(res):
+                        if substate_index not in pelt_by_name[state_name]:
+                            pelt_by_name[state_name][substate_index] = {
+                                "attribute": ["power", "duration"],
+                                "isa": "state",
+                                "param": list(),
+                                "power": list(),
+                                "duration": list()
+                            }
+                        pelt_by_name[state_name][substate_index]["param"].extend(self.by_param[k]["param"][:len(substate["power"])])
+                        pelt_by_name[state_name][substate_index]["power"].extend(substate["power"])
+                        pelt_by_name[state_name][substate_index]["duration"].extend(substate["duration"])
+        print(pelt_by_name)
+        """
 
         return None, None
 
@@ -994,7 +1057,7 @@ class PTAModel:
     def attributes(self, state_or_trans):
         return self.by_name[state_or_trans]["attributes"]
 
-    def assess(self, model_function):
+    def assess(self, model_function, ref=None):
         """
         Calculate MAE, SMAPE, etc. of model_function for each by_name entry.
 
@@ -1008,7 +1071,9 @@ class PTAModel:
         overfitting cannot be detected.
         """
         detailed_results = {}
-        for name, elem in sorted(self.by_name.items()):
+        if ref is None:
+            ref = self.by_name
+        for name, elem in sorted(ref.items()):
             detailed_results[name] = {}
             for key in elem["attributes"]:
                 predicted_data = np.array(

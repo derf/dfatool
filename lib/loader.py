@@ -651,8 +651,12 @@ class RawData:
                     online_trace_part["offline_aggregates"]["rel_energy_next"] = []
                     online_trace_part["offline_aggregates"]["timeout"] = []
                 elif "plot" in offline_trace_part:
-                    online_trace_part["offline_support"] = ["power_traces"]
+                    online_trace_part["offline_support"] = [
+                        "power_traces",
+                        "timestamps",
+                    ]
                     online_trace_part["offline_aggregates"]["power_traces"] = list()
+                    online_trace_part["offline_aggregates"]["timestamps"] = list()
 
             # Note: All state/transitions are 20us "too long" due to injected
             # active wait states. These are needed to work around MIMOSA's
@@ -687,6 +691,9 @@ class RawData:
             if online_trace_part["isa"] == "state" and "plot" in offline_trace_part:
                 online_trace_part["offline_aggregates"]["power_traces"].append(
                     offline_trace_part["plot"][1]
+                )
+                online_trace_part["offline_aggregates"]["timestamps"].append(
+                    offline_trace_part["plot"][0]
                 )
 
     def _merge_online_and_etlog(self, measurement):
