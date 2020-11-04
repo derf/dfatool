@@ -725,6 +725,7 @@ class PTAModel:
             from .pelt import PELT
 
             self.pelt = PELT(**pelt)
+            self.find_substates()
         else:
             self.pelt = None
         self.stats = ParamStats(
@@ -946,6 +947,49 @@ class PTAModel:
             self.by_param[by_param_key]["power_traces"],
             penalty,
         )
+
+    def find_substates(self):
+        """
+        Finds substates via PELT and adds substate_count to by_name and by_param.
+        """
+        states = self.states()
+        substates_by_param = dict()
+        for k in self.by_param.keys():
+            if k[0] in states:
+                state_name = k[0]
+                if self.pelt.needs_refinement(self.by_param[k]["power_traces"]):
+                    substates_by_param[k] = self.pelt_refine(k)
+                else:
+                    substate_counts = [1 for i in self.by_param[k]["param"]]
+                    substate_data = {
+                        "duration": self.by_param[k]["duration"],
+                        "power": self.by_param[k]["power"],
+                        "power_std": self.by_param[k]["power_std"],
+                    }
+                    substates_by_param[k] = (substate_counts, substate_data)
+
+        # suitable for AEMR modeling
+        sc_by_param = dict()
+        for param_key, (substate_counts, _) in substates_by_param.items():
+            # do not append "substate_count" to "attributes" here.
+            # by_param[(foo, *)]["attributes"] is the same object as by_name[foo]["attributes"]
+            self.by_param[param_key]["substate_count"] = substate_counts
+
+        for state_name in states:
+            param_offset = dict()
+            state = self.by_name[state_name]
+            state["attributes"].append("substate_count")
+            state["substate_count"] = list()
+            for i, param in enumerate(state["param"]):
+                param = tuple(param)
+                if param not in param_offset:
+                    param_offset[param] = 0
+                state["substate_count"].append(
+                    self.by_param[(state_name, param)]["substate_count"][
+                        param_offset[param]
+                    ]
+                )
+                param_offset[param] += 1
 
     def get_substates(self):
         states = self.states()

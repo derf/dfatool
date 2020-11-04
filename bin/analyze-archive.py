@@ -563,21 +563,28 @@ if __name__ == "__main__":
     static_model = model.get_static()
     if "static" in show_models or "all" in show_models:
         for state in model.states():
-            print(
-                "{:10s}: {:.0f} µW  ({:.2f})".format(
-                    state,
-                    static_model(state, "power"),
-                    model.stats.generic_param_dependence_ratio(state, "power"),
-                )
-            )
-            for param in model.parameters():
+            for attribute in model.attributes(state):
+                unit = "  "
+                if attribute == "power":
+                    unit = "µW"
+                elif attribute == "substate_count":
+                    unit = "su"
                 print(
-                    "{:10s}  dependence on {:15s}: {:.2f}".format(
-                        "",
-                        param,
-                        model.stats.param_dependence_ratio(state, "power", param),
+                    "{:10s}: {:.0f} {:s}  ({:.2f})".format(
+                        state,
+                        static_model(state, attribute),
+                        unit,
+                        model.stats.generic_param_dependence_ratio(state, attribute),
                     )
                 )
+                for param in model.parameters():
+                    print(
+                        "{:10s}  dependence on {:15s}: {:.2f}".format(
+                            "",
+                            param,
+                            model.stats.param_dependence_ratio(state, attribute, param),
+                        )
+                    )
 
         for trans in model.transitions():
             # Mean power is not a typical transition attribute, but may be present for debugging or analysis purposes
@@ -642,9 +649,8 @@ if __name__ == "__main__":
         safe_functions_enabled=safe_functions_enabled
     )
 
-    if args.with_substates is not None:
-        substate_model = model.get_substates()
-        print(model.assess(substate_model, ref=model.sc_by_name))
+    # substate_model = model.get_substates()
+    # print(model.assess(substate_model, ref=model.sc_by_name))
 
     if "paramdetection" in show_models or "all" in show_models:
         for state in model.states_and_transitions():
@@ -699,29 +705,34 @@ if __name__ == "__main__":
             for attribute in model.attributes(state):
                 if param_info(state, attribute):
                     print(
-                        "{:10s}: {}".format(
+                        "{:10s} {:15s}: {}".format(
                             state,
+                            attribute,
                             param_info(state, attribute)["function"].model_function,
                         )
                     )
                     print(
-                        "{:10s}  {}".format(
-                            "", param_info(state, attribute)["function"].model_args
+                        "{:10s} {:15s}  {}".format(
+                            "", "", param_info(state, attribute)["function"].model_args
                         )
                     )
         for trans in model.transitions():
             for attribute in model.attributes(trans):
                 if param_info(trans, attribute):
                     print(
-                        "{:10s}: {:10s}: {}".format(
+                        "{:10s} {:15s}: {:10s}: {}".format(
                             trans,
+                            attribute,
                             attribute,
                             param_info(trans, attribute)["function"].model_function,
                         )
                     )
                     print(
-                        "{:10s}  {:10s}  {}".format(
-                            "", "", param_info(trans, attribute)["function"].model_args
+                        "{:10s} {:15s}  {:10s}  {}".format(
+                            "",
+                            "",
+                            "",
+                            param_info(trans, attribute)["function"].model_args,
                         )
                     )
 
