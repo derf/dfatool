@@ -243,12 +243,14 @@ class TransitionHarness:
         if re.match(r"\[PTA\] benchmark start, id=(\S+)", line):
             self.synced = True
             print("[HARNESS] synced, {}/{}".format(self.repetitions + 1, self.repeat))
+            return
         if self.synced:
             res = re.match(r"\[PTA\] trace=(\S+) count=(\S+)", line)
             if res:
                 self.trace_id = int(res.group(1))
                 self.trace_length = int(res.group(2))
                 self.current_transition_in_trace = 0
+                return
             if self.log_return_values:
                 res = re.match(r"\[PTA\] transition=(\S+) return=(\S+)", line)
             else:
@@ -344,6 +346,8 @@ class TransitionHarness:
                                         ):
                                             break
                 self.current_transition_in_trace += 1
+            else:
+                print(f"[HARNESS] cannot parse line: {line}")
 
 
 class OnboardTimerHarness(TransitionHarness):
@@ -533,12 +537,14 @@ class OnboardTimerHarness(TransitionHarness):
         if re.match(r"\[PTA\] benchmark start, id=(\S+)", line):
             self.synced = True
             print("[HARNESS] synced, {}/{}".format(self.repetitions + 1, self.repeat))
+            return
         if self.synced:
             res = re.match(r"\[PTA\] trace=(\S+) count=(\S+)", line)
             if res:
                 self.trace_id = int(res.group(1))
                 self.trace_length = int(res.group(2))
                 self.current_transition_in_trace = 0
+                return
             if self.log_return_values:
                 res = re.match(
                     r"\[PTA\] transition=(\S+) prevcycles=(\S+)/(\S+) cycles=(\S+)/(\S+) return=(\S+)",
@@ -720,3 +726,5 @@ class OnboardTimerHarness(TransitionHarness):
                         prev_state_duration_us
                     )
                 self.current_transition_in_trace += 1
+            else:
+                print(f"[HARNESS] cannot parse line: {line}")
