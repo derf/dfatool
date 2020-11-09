@@ -111,7 +111,7 @@ class DataProcessor:
         )
         logger.debug(f"Start/End offsets: {start_offset} / {end_offset}")
 
-        if end_offset > 10:
+        if abs(end_offset) > 10:
             logger.warning(
                 f"synchronization end_offset == {end_offset}. It should be no more than a few seconds."
             )
