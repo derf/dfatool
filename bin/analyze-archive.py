@@ -353,6 +353,7 @@ if __name__ == "__main__":
         "--log-level",
         metavar="LEVEL",
         choices=["debug", "info", "warning", "error"],
+        default="warning",
         help="Set log level",
     )
     parser.add_argument(
