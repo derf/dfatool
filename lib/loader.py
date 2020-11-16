@@ -121,6 +121,7 @@ def _preprocess_etlog(measurement):
         measurement["transition_names"],
         with_traces=measurement["with_traces"],
     )
+    states_and_transitions = list()
     try:
         etlog.load_data(measurement["content"])
         states_and_transitions = etlog.analyze_states(
@@ -128,6 +129,8 @@ def _preprocess_etlog(measurement):
         )
     except EOFError as e:
         etlog.errors.append("EnergyTrace logfile error: {}".format(e))
+    except RuntimeError as e:
+        etlog.errors.append("EnergyTrace loader error: {}".format(e))
 
     processed_data = {
         "fileno": measurement["fileno"],
@@ -1738,10 +1741,11 @@ class EnergyTraceWithLogicAnalyzer:
             state_sleep=self.state_duration, with_traces=self.with_traces
         )
         # Uncomment to plot traces
-        if offline_index == 0 and os.getenv("DFATOOL_PLOT_LASYNC") is not None:
+        if os.getenv("DFATOOL_PLOT_LASYNC") is not None and offline_index == int(
+            os.getenv("DFATOOL_PLOT_LASYNC")
+        ):
             dp.plot()  # <- plot traces with sync annotatons
             # dp.plot(names) # <- plot annotated traces (with state/transition names)
-            pass
         if os.getenv("DFATOOL_EXPORT_LASYNC") is not None:
             filename = os.getenv("DFATOOL_EXPORT_LASYNC") + f"_{offline_index}.json"
             with open(filename, "w") as f:
