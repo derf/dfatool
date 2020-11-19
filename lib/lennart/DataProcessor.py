@@ -39,6 +39,15 @@ class DataProcessor:
 
         time_stamp_data = self.sync_data.timestamps[use_data_after_index:]
 
+        # Each synchronization pulse consists of two LogicAnalyzer pulses, so four
+        # entries in time_stamp_data (rising edge, falling edge, rising edge, falling edge).
+        # If we have less then twelve entries, we observed no transitions and don't even have
+        # valid synchronization data. In this case, we bail out.
+        if len(time_stamp_data) < 12:
+            raise RuntimeError(
+                f"LogicAnalyzer sync data has length {len(time_stamp_data)}, expected >= 12"
+            )
+
         last_data = [0, 0, 0, 0]
 
         # clean timestamp data, if at the end strange ts got added somehow
