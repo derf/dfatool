@@ -208,6 +208,8 @@ class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
         self.sig.forceStopMeasure()
         time.sleep(0.2)
         sync_data = self.sig.getData()
+        # TODO ensure that sync_data.getDict()["timestamps"] is not empty
+        # (if it is, communication with the LA was broken the entire time)
         with open(self.log_file, "w") as fp:
             json.dump(sync_data.getDict(), fp)
 

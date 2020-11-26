@@ -10,8 +10,7 @@ def PELT_get_changepoints(algo, penalty):
     return res
 
 
-# calculates the raw_states for measurement measurement. num_measurement is used to identify the
-# return value
+# calculates the raw_states for a measurement. num_measurement is used to identify the return value
 # penalty, model and jump are directly passed to pelt
 def PELT_get_raw_states(num_measurement, algo, penalty):
     changepoints = algo.predict(pen=penalty)

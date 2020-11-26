@@ -166,11 +166,6 @@ class DataProcessor:
         :return: List of modified timestamps (float list)
         """
         endFactor = 1 + (end_offset / ((end_timestamp - end_offset) - start_timestamp))
-        # print(
-        #   f"({end_timestamp} + {end_offset} - {start_timestamp}) / ({end_timestamp} - {start_timestamp}) == {endFactor}"
-        # )
-        # Manuelles endFactor += 0.0001 macht es merklich besser
-        # print(f"endFactor = {endFactor}")
         # endFactor assumes that the end of the first sync pulse is at timestamp 0.
         # Then, timestamps with drift := timestamps * endFactor.
         # As this is not the case (the first sync pulse ends at start_timestamp > 0), we shift the data by first
