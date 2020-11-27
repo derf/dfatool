@@ -1,5 +1,7 @@
+#!/usr/bin/env python3
 import numpy as np
 import logging
+from bisect import bisect_right
 
 logger = logging.getLogger(__name__)
 
@@ -12,10 +14,13 @@ class DataProcessor:
         :param sync_data: input timestamps (SigrokResult)
         :param energy_data: List of EnergyTrace datapoints
         """
-        self.reduced_timestamps = []
-        self.modified_timestamps = []
-        self.plot_data_x = []
-        self.plot_data_y = []
+        self.raw_sync_timestamps = []
+        # high-precision LA/Timer timestamps at synchronization events
+        self.sync_timestamps = []
+        # low-precision energytrace timestamps
+        self.et_timestamps = []
+        # energytrace power values
+        self.et_power_values = []
         self.sync_data = sync_data
         self.energy_data = energy_data
         self.start_offset = 0
@@ -50,10 +55,7 @@ class DataProcessor:
 
         last_data = [0, 0, 0, 0]
 
-        # clean timestamp data, if at the end strange ts got added somehow
-        # time_stamp_data = self.removeTooFarDatasets(time_stamp_data)
-
-        self.reduced_timestamps = time_stamp_data
+        self.raw_sync_timestamps = time_stamp_data
 
         # NEW
         datasync_timestamps = []
@@ -91,8 +93,8 @@ class DataProcessor:
 
                 last_data = energytrace_dataset
 
-            self.plot_data_x.append(timestamp / 1_000_000)
-            self.plot_data_y.append(power)
+            self.et_timestamps.append(timestamp / 1_000_000)
+            self.et_power_values.append(power)
 
         if power > self.power_sync_watt:
             if (self.energy_data[-1][0] - sync_start) / 1_000_000 > self.power_sync_len:
@@ -137,23 +139,7 @@ class DataProcessor:
             f"Measurement area with drift: LA timestamp range [{with_drift[2]}, {with_drift[-8]}]"
         )
 
-        self.modified_timestamps = with_drift
-
-    def removeTooFarDatasets(self, input_timestamps):
-        """
-        Removing datasets, that are to far away at ethe end
-
-        :param input_timestamps: List of timestamps (float list)
-        :return: List of modified timestamps (float list)
-        """
-        modified_timestamps = []
-        for i, x in enumerate(input_timestamps):
-            # print(x - input_timestamps[i - 1], x - input_timestamps[i - 1] < 2.5)
-            if x - input_timestamps[i - 1] < 1.6:
-                modified_timestamps.append(x)
-            else:
-                break
-        return modified_timestamps
+        self.sync_timestamps = with_drift
 
     def addDrift(self, input_timestamps, end_timestamp, end_offset, start_timestamp):
         """
@@ -170,25 +156,25 @@ class DataProcessor:
         # Then, timestamps with drift := timestamps * endFactor.
         # As this is not the case (the first sync pulse ends at start_timestamp > 0), we shift the data by first
         # removing start_timestamp, then multiplying with endFactor, and then re-adding the start_timestamp.
-        modified_timestamps_with_drift = (
+        sync_timestamps_with_drift = (
             input_timestamps - start_timestamp
         ) * endFactor + start_timestamp
-        return modified_timestamps_with_drift
+        return sync_timestamps_with_drift
 
     def export_sync(self):
         # [1st trans start, 1st trans stop, 2nd trans start, 2nd trans stop, ...]
         sync_timestamps = list()
 
-        for i in range(4, len(self.modified_timestamps) - 8, 2):
+        for i in range(4, len(self.sync_timestamps) - 8, 2):
             sync_timestamps.append(
-                (self.modified_timestamps[i], self.modified_timestamps[i + 1])
+                (self.sync_timestamps[i], self.sync_timestamps[i + 1])
             )
 
         # EnergyTrace timestamps
-        timestamps = self.plot_data_x
+        timestamps = self.et_timestamps
 
         # EnergyTrace power values
-        power = self.plot_data_y
+        power = self.et_power_values
 
         return {"sync": sync_timestamps, "timestamps": timestamps, "power": power}
 
@@ -231,10 +217,10 @@ class DataProcessor:
             annot.set_visible(True)
 
         rectCurve_with_drift = calculateRectangleCurve(
-            self.modified_timestamps, max_value=max(self.plot_data_y)
+            self.sync_timestamps, max_value=max(self.et_power_values)
         )
 
-        plt.plot(self.plot_data_x, self.plot_data_y, label="Leistung")
+        plt.plot(self.et_timestamps, self.et_power_values, label="Leistung")
 
         plt.plot(
             rectCurve_with_drift[0],
@@ -250,7 +236,7 @@ class DataProcessor:
         def getDataText(x):
             # print(x)
             dl = len(annotateData)
-            for i, xt in enumerate(self.modified_timestamps):
+            for i, xt in enumerate(self.sync_timestamps):
                 if xt > x and i >= 4 and i - 5 < dl:
                     return f"SoT: {annotateData[i - 5]}"
 
@@ -273,62 +259,6 @@ class DataProcessor:
 
         plt.show()
 
-    def getPowerBetween(self, start, end, state_sleep):  # 0.001469
-        """
-        calculates the powerusage in interval
-        NOT SIDE EFFECT FREE, DON'T USE IT EVERYWHERE
-
-        :param start: Start timestamp of interval
-        :param end: End timestamp of interval
-        :param state_sleep: Length in seconds of one state, needed for cutting out the UART Sending cycle
-        :return: power measurements in W
-        """
-        first_index = 0
-        all_power = list()
-        all_ts = list()
-        for ind in range(self.start_offset, len(self.plot_data_x)):
-            first_index = ind
-            if self.plot_data_x[ind] > start:
-                break
-
-        nextIndAfterIndex = None
-        for ind in range(first_index, len(self.plot_data_x)):
-            nextIndAfterIndex = ind
-            if (
-                self.plot_data_x[ind] > end
-                or self.plot_data_x[ind] > start + state_sleep
-            ):
-                self.start_offset = ind - 1
-                break
-            all_power.append(self.plot_data_y[ind])
-            all_ts.append(self.plot_data_x[ind])
-
-        # TODO Idea remove datapoints that are too far away
-        def removeSD_Mean_Values(arr):
-            import numpy
-
-            elements = numpy.array(arr)
-
-            mean = numpy.mean(elements, axis=0)
-            sd = numpy.std(elements, axis=0)
-
-            return [x for x in arr if (mean - 1 * sd < x < mean + 1.5 * sd)]
-
-        if len(all_power) > 10:
-            # all_power = removeSD_Mean_Values(all_power)
-            pass
-        # TODO algorithm relocate datapoint
-
-        pre_fix_len = len(all_power)
-        if len(all_power) == 0:
-            # print("PROBLEM")
-            all_power.append(self.plot_data_y[nextIndAfterIndex])
-            all_ts.append(0)
-        elif len(all_power) == 1:
-            # print("OKAY")
-            pass
-        return np.array(all_power), np.array(all_ts)
-
     def getStatesdfatool(self, state_sleep, with_traces=False, algorithm=False):
         """
         Calculates the length and energy usage of the states
@@ -348,72 +278,128 @@ class DataProcessor:
         timestamps_sync_start = 0
         energy_trace_new = list()
 
-        for ts_index in range(
-            0 + timestamps_sync_start, int(len(self.modified_timestamps) / 2)
-        ):
-            start_transition_ts = self.modified_timestamps[ts_index * 2]
-            start_transition_ts_timing = self.reduced_timestamps[ts_index * 2]
+        # sync_timestamps[3] is the start of the first (UNINITIALIZED) state (and the end of the benchmark-start sync pulse)
+        # sync_timestamps[-8] is the end of the final state and the corresponding UART dump (and the start of the benchmark-end sync pulses)
+        self.trigger_high_precision_timestamps = self.sync_timestamps[3:-7]
 
-            if end_transition_ts is not None:
-                power, timestamps = self.getPowerBetween(
-                    end_transition_ts, start_transition_ts, state_sleep
-                )
+        self.trigger_edges = list()
+        for ts in self.trigger_high_precision_timestamps:
+            # Let ts be the trigger timestamp corresponding to the end of a transition.
+            # We are looking for an index i such that et_timestamps[i-1] <= ts < et_timestamps[i].
+            # Then, et_power_values[i] (the mean power in the interval et_timestamps[i-1] .. et_timestamps[i]) is affected by the transition and
+            # et_power_values[i+1] is not affected by it.
+            #
+            # bisect_right does just what we need; bisect_left would correspond to et_timestamps[i-1] < ts <= et_timestamps[i].
+            # Not that this is a moot point in practice, as ts ≠ et_timestamps[j] for almost all j. Also, the resolution of
+            # et_timestamps is several decades lower than the resolution of trigger_high_precision_timestamps.
+            self.trigger_edges.append(bisect_right(self.et_timestamps, ts))
 
-                # print("STATE", end_transition_ts * 10 ** 6, start_transition_ts * 10 ** 6, (start_transition_ts - end_transition_ts) * 10 ** 6, power)
-                if (
-                    (start_transition_ts - end_transition_ts) * 10 ** 6 > 900_000
-                    and np.mean(power) > self.power_sync_watt * 0.9
-                    and ts_index > 10
-                ):
-                    # remove last transition and stop (upcoming data only sync)
-                    del energy_trace_new[-1]
-                    break
-                    pass
+        # Loop over transitions. We start at the end of the first transition and handle the transition and the following state.
+        # We then proceed to the end of the second transition, etc.
+        for i in range(2, len(self.trigger_high_precision_timestamps), 2):
+            prev_state_start_index = self.trigger_edges[i - 2]
+            prev_state_stop_index = self.trigger_edges[i - 1]
+            transition_start_index = self.trigger_edges[i - 1]
+            transition_stop_index = self.trigger_edges[i]
+            state_start_index = self.trigger_edges[i]
+            state_stop_index = self.trigger_edges[i + 1]
 
-                state = {
-                    "isa": "state",
-                    "W_mean": np.mean(power),
-                    "W_std": np.std(power),
-                    "s": (
-                        start_transition_ts_timing - end_transition_ts_timing
-                    ),  # * 10 ** 6,
-                }
-                if with_traces:
-                    state["plot"] = (timestamps - timestamps[0], power)
-                energy_trace_new.append(state)
+            # If a transition takes less time than the energytrace measurement interval, its start and stop index may be the same.
+            # In this case, et_power_values[transition_start_index] is the only data point affected by the transition.
+            # We use the et_power_values slice [transition_start_index, transition_stop_index) to determine the mean power, so we need
+            # to increment transition_stop_index by 1 to end at et_power_values[transition_start_index]
+            # (as et_power_values[transition_start_index : transition_start_index+1 ] == [et_power_values[transition_start_index])
+            if transition_stop_index == transition_start_index:
+                transition_stop_index += 1
 
-                energy_trace_new[-2]["W_mean_delta_next"] = (
-                    energy_trace_new[-2]["W_mean"] - energy_trace_new[-1]["W_mean"]
-                )
-
-                # get energy end_transition_ts
-            end_transition_ts = self.modified_timestamps[ts_index * 2 + 1]
-            power, timestamps = self.getPowerBetween(
-                start_transition_ts, end_transition_ts, state_sleep
+            prev_state_duration = (
+                self.trigger_high_precision_timestamps[i + 1]
+                - self.trigger_high_precision_timestamps[i]
+            )
+            transition_duration = (
+                self.trigger_high_precision_timestamps[i]
+                - self.trigger_high_precision_timestamps[i - 1]
+            )
+            state_duration = (
+                self.trigger_high_precision_timestamps[i + 1]
+                - self.trigger_high_precision_timestamps[i]
             )
 
-            # print("TRANS", start_transition_ts * 10 ** 6, end_transition_ts * 10 ** 6, (end_transition_ts - start_transition_ts) * 10 ** 6, power)
-            end_transition_ts_timing = self.reduced_timestamps[ts_index * 2 + 1]
+            # some states are followed by a UART dump of log data. This causes an increase in CPU energy
+            # consumption and is not part of the peripheral behaviour, so it should not be part of the benchmark results.
+            # If a case is followed by a UART dump, its duration is longer than the sleep duration between two transitions.
+            # In this case, we re-calculate the stop index, and calculate the state duration from coarse energytrace data
+            # instead of high-precision sync data
+            if (
+                self.et_timestamps[prev_state_stop_index]
+                - self.et_timestamps[prev_state_start_index]
+                > state_sleep
+            ):
+                prev_state_stop_index = bisect_right(
+                    self.et_timestamps,
+                    self.et_timestamps[prev_state_start_index] + state_sleep,
+                )
+                prev_state_duration = (
+                    self.et_timestamps[prev_state_stop_index]
+                    - self.et_timestamps[prev_state_start_index]
+                )
+
+            if (
+                self.et_timestamps[state_stop_index]
+                - self.et_timestamps[state_start_index]
+                > state_sleep
+            ):
+                state_stop_index = bisect_right(
+                    self.et_timestamps,
+                    self.et_timestamps[state_start_index] + state_sleep,
+                )
+                state_duration = (
+                    self.et_timestamps[state_stop_index]
+                    - self.et_timestamps[state_start_index]
+                )
+
+            prev_state_power = self.et_power_values[
+                prev_state_start_index:prev_state_stop_index
+            ]
+
+            transition_timestamps = self.et_timestamps[
+                transition_start_index:transition_stop_index
+            ]
+            transition_power = self.et_power_values[
+                transition_start_index:transition_stop_index
+            ]
+
+            state_timestamps = self.et_timestamps[state_start_index:state_stop_index]
+            state_power = self.et_power_values[state_start_index:state_stop_index]
 
             transition = {
                 "isa": "transition",
-                "W_mean": np.mean(power),
-                "W_std": np.std(power),
-                "s": (
-                    end_transition_ts_timing - start_transition_ts_timing
-                ),  # * 10 ** 6,
-                "count_dp": len(power),
+                "W_mean": np.mean(transition_power),
+                "W_std": np.std(transition_power),
+                "s": transition_duration,
+                "count_dp": len(transition_power),
             }
             if with_traces:
-                transition["plot"] = (timestamps - timestamps[0], power)
+                transition["plot"] = (
+                    transition_timestamps - transition_timestamps[0],
+                    transition_power,
+                )
 
-            if (end_transition_ts - start_transition_ts) * 10 ** 6 > 2_000_000:
-                # TODO Last data set corrupted? HOT FIX!!!!!!!!!!!! REMOVE LATER
-                # for x in range(4):
-                #    del energy_trace_new[-1]
-                # break
-                pass
+            state = {
+                "isa": "state",
+                "W_mean": np.mean(state_power),
+                "W_std": np.std(state_power),
+                "s": state_duration,
+            }
+            if with_traces:
+                state["plot"] = (state_timestamps - state_timestamps[0], state_power)
+
+            transition["W_mean_delta_prev"] = transition["W_mean"] - np.mean(
+                prev_state_power
+            )
+            transition["W_mean_delta_next"] = transition["W_mean"] - state["W_mean"]
 
             energy_trace_new.append(transition)
-            # print(start_transition_ts, "-", end_transition_ts, "-", end_transition_ts - start_transition_ts)
+            energy_trace_new.append(state)
+
         return energy_trace_new

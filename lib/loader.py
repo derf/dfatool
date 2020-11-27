@@ -721,6 +721,7 @@ class RawData:
                 logger.error(
                     f"  len(energy_trace) == {len(measurement['energy_trace'])}"
                 )
+                logger.error("Forwarding exception:")
                 raise
             online_trace_part = traces[online_run_idx]["trace"][online_trace_part_idx]
 
@@ -1751,7 +1752,6 @@ class EnergyTraceWithLogicAnalyzer:
             with open(filename, "w") as f:
                 json.dump(dp.export_sync(), f, cls=NpEncoder)
             logger.info("Exported data and LA sync timestamps to {filename}")
-        energy_trace_new = energy_trace_new[4:]
 
         energy_trace = list()
         expected_transitions = list()
