@@ -38,6 +38,7 @@ class PELT:
         self.refinement_threshold = 200e-6  # 200 µW
         self.range_min = 0
         self.range_max = 100
+        self.with_multiprocessing = True
         self.__dict__.update(kwargs)
 
     # signals: a set of uW measurements belonging to a single parameter configuration (i.e., a single by_param entry)
@@ -79,8 +80,11 @@ class PELT:
         queue = list()
         for i in range(0, 100):
             queue.append((algo, i))
-        with Pool() as pool:
-            changepoints = pool.starmap(PELT_get_changepoints, queue)
+        if self.with_multiprocessing:
+            with Pool() as pool:
+                changepoints = pool.starmap(PELT_get_changepoints, queue)
+        else:
+            changepoints = map(lambda x: PELT_get_changepoints(*x), queue)
         changepoints_by_penalty = dict()
         for res in changepoints:
             if len(res[1]) > 0 and res[1][-1] == len(signal):
