@@ -3,8 +3,11 @@ Harnesses for various types of benchmark logs.
 
 tbd
 """
+import logging
 import re
 from .pubcode import Code128
+
+logger = logging.getLogger(__name__)
 
 
 class TransitionHarness:
@@ -232,7 +235,7 @@ class TransitionHarness:
 
     # Here Be Dragons
     def parser_cb(self, line):
-        # print('[HARNESS] got line {}'.format(line))
+        logger.debug(f"Received: {line}")
         if re.match(r"\[PTA\] benchmark stop", line):
             self.repetitions += 1
             self.synced = False
@@ -499,7 +502,7 @@ class OnboardTimerHarness(TransitionHarness):
 
     # Here Be Dragons
     def parser_cb(self, line):
-        # print('[HARNESS] got line {}'.format(line))
+        logger.debug(f"Received: {line}")
         res = re.match(r"\[PTA\] nop=(\S+)/(\S+)", line)
         if res:
             self.nop_cycles = int(res.group(1))

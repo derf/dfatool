@@ -10,6 +10,7 @@ Functions:
     get_counter_limits -- return arch-specific multipass counter limits (max value, max overflow)
 """
 import json
+import logging
 import os
 import re
 import serial
@@ -18,6 +19,8 @@ import subprocess
 import sys
 import time
 from dfatool.lennart.SigrokCLIInterface import SigrokCLIInterface
+
+logger = logging.getLogger(__name__)
 
 
 class SerialReader(serial.threaded.Protocol):
@@ -101,6 +104,7 @@ class SerialMonitor:
         self.ser.parity = "N"
         self.ser.rtscts = False
         self.ser.xonxoff = False
+        logger.debug(f"Opening serial port {port} with {baud}N1")
 
         try:
             self.ser.open()
@@ -234,6 +238,7 @@ class MIMOSAMonitor(SerialMonitor):
     def _mimosactl(self, subcommand):
         cmd = ["mimosactl"]
         cmd.append(subcommand)
+        logger.debug(f"Executing {cmd}")
         res = subprocess.run(cmd)
         if res.returncode != 0:
             res = subprocess.run(cmd)
@@ -350,6 +355,7 @@ class Arch:
         command = ["make", "arch={}".format(self.name), "app={}".format(app), "clean"]
         command.extend(self.opts)
         command.extend(opts)
+        logger.debug(f"Building: {' '.join(command)}")
         res = subprocess.run(
             command,
             stdout=subprocess.PIPE,
@@ -363,6 +369,7 @@ class Arch:
         command = ["make", "-B", "arch={}".format(self.name), "app={}".format(app)]
         command.extend(self.opts)
         command.extend(opts)
+        logger.debug(f"Building: {' '.join(command)}")
         res = subprocess.run(
             command,
             stdout=subprocess.PIPE,
@@ -379,6 +386,7 @@ class Arch:
         command = ["make", "arch={}".format(self.name), "app={}".format(app), "program"]
         command.extend(self.opts)
         command.extend(opts)
+        logger.debug(f"Flashing: {' '.join(command)}")
         res = subprocess.run(
             command,
             stdout=subprocess.PIPE,
@@ -398,6 +406,7 @@ class Arch:
         command = ["make", "arch={}".format(self.name), "info"]
         command.extend(self.opts)
         command.extend(opts)
+        logger.debug(f"Getting Info: {' '.join(command)}")
         res = subprocess.run(
             command,
             stdout=subprocess.PIPE,

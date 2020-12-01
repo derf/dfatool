@@ -85,6 +85,7 @@ Perform timing measurements of BME680 funtion calls:
 
 import getopt
 import json
+import logging
 import os
 import re
 import sys
@@ -434,6 +435,7 @@ if __name__ == "__main__":
             "dummy= "
             "energytrace= "
             "instance= "
+            "log-level= "
             "mimosa= "
             "repeat= "
             "run= "
@@ -474,6 +476,13 @@ if __name__ == "__main__":
             opt["trace-filter"] = trace_filter
         else:
             opt["trace-filter"] = None
+
+        if "log-level" in opt:
+            numeric_level = getattr(logging, opt["log-level"].upper(), None)
+            if not isinstance(numeric_level, int):
+                print(f"Invalid log level: {args.log_level}", file=sys.stderr)
+                sys.exit(1)
+            logging.basicConfig(level=numeric_level)
 
         if "mimosa" in opt:
             if opt["mimosa"] == "":
