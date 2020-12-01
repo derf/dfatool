@@ -716,7 +716,7 @@ class RawData:
                 logger.error(
                     f"While handling file #{measurement['fileno']} {measurement['info']}:"
                 )
-                logger.error(f"  offline energy_trace data is shorted than online data")
+                logger.error(f"  offline energy_trace data is shorter than online data")
                 logger.error(f"  len(online_datapoints) == {len(online_datapoints)}")
                 logger.error(
                     f"  len(energy_trace) == {len(measurement['energy_trace'])}"
