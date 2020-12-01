@@ -721,7 +721,6 @@ class RawData:
                 logger.error(
                     f"  len(energy_trace) == {len(measurement['energy_trace'])}"
                 )
-                logger.error("Forwarding exception:")
                 raise
             online_trace_part = traces[online_run_idx]["trace"][online_trace_part_idx]
 
@@ -1090,8 +1089,13 @@ class RawData:
                     )
             elif version == 2:
                 if self._measurement_is_valid_2(measurement):
-                    self._merge_online_and_etlog(measurement)
-                    num_valid += 1
+                    try:
+                        self._merge_online_and_etlog(measurement)
+                        num_valid += 1
+                    except Exception as e:
+                        logger.warning(
+                            f"Skipping #{measurement['fileno']} {measurement['info']}: {e}"
+                        )
                 else:
                     logger.warning(
                         "Skipping {ar:s}/{m:s}: {e:s}".format(
