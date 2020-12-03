@@ -652,6 +652,140 @@ class TestFromFile(unittest.TestCase):
             param_lut_model("ON", "power", param=[None, None]), 17866, places=0
         )
 
+    def test_et_bar(self):
+        raw_data = RawData(["test-data/20200722-113624-timedResistiveLoad.tar"])
+        preprocessed_data = raw_data.get_preprocessed_data()
+        by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
+        model = PTAModel(by_name, parameters, arg_count)
+        self.assertEqual(model.states(), "P14MW P235UW P3_4MW SLEEP".split(" "))
+        self.assertEqual(
+            model.transitions(),
+            "nop10K nop1K0 nop3K3 setup switchTo3K3 switchTo47K switchTo750 switchToNone".split(
+                " "
+            ),
+        )
+        static_model = model.get_static()
+        self.assertAlmostEqual(static_model("P14MW", "power"), 14542, places=0)
+        self.assertAlmostEqual(static_model("P235UW", "power"), 899, places=0)
+        self.assertAlmostEqual(static_model("P3_4MW", "power"), 3974, places=0)
+        self.assertAlmostEqual(static_model("SLEEP", "power"), 672, places=0)
+        self.assertAlmostEqual(static_model("nop10K", "duration"), 514, places=0)
+        self.assertAlmostEqual(static_model("nop10K", "energy"), 1207636, places=0)
+        self.assertAlmostEqual(static_model("nop1K0", "duration"), 514, places=0)
+        self.assertAlmostEqual(static_model("nop1K0", "energy"), 1234947, places=0)
+        self.assertAlmostEqual(static_model("nop3K3", "duration"), 514, places=0)
+        self.assertAlmostEqual(static_model("nop3K3", "energy"), 1514341, places=0)
+        self.assertAlmostEqual(static_model("setup", "duration"), 27, places=0)
+        self.assertAlmostEqual(static_model("setup", "energy"), 19535, places=0)
+        self.assertAlmostEqual(static_model("switchTo3K3", "duration"), 19, places=0)
+        self.assertAlmostEqual(static_model("switchTo3K3", "energy"), 14359, places=0)
+        self.assertAlmostEqual(static_model("switchTo47K", "duration"), 19, places=0)
+        self.assertAlmostEqual(static_model("switchTo47K", "energy"), 14166, places=0)
+        self.assertAlmostEqual(static_model("switchTo750", "duration"), 19, places=0)
+        self.assertAlmostEqual(static_model("switchTo750", "energy"), 14166, places=0)
+        self.assertAlmostEqual(static_model("switchToNone", "duration"), 19, places=0)
+        self.assertAlmostEqual(static_model("switchToNone", "energy"), 14306, places=0)
+
+    def test_et_la_dco(self):
+        raw_data = RawData(["test-data/20201203-112341-et_la_dco.tar"])
+        preprocessed_data = raw_data.get_preprocessed_data()
+        by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
+        model = PTAModel(by_name, parameters, arg_count)
+        self.assertEqual(model.states(), "IDLE".split(" "))
+        self.assertEqual(
+            model.transitions(),
+            "setup trans100u trans10m trans1m trans2m trans5m".split(" "),
+        )
+        static_model = model.get_static()
+        self.assertAlmostEqual(static_model("IDLE", "power"), 760, places=0)
+        self.assertAlmostEqual(static_model("setup", "duration"), 15, places=0)
+        self.assertAlmostEqual(static_model("setup", "energy"), 13785, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "duration"), 146, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "energy"), 136794, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "duration"), 10084, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "energy"), 62784483, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "duration"), 1025, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "energy"), 3782557, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "duration"), 2031, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "energy"), 10500784, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "duration"), 5049, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "energy"), 30519236, places=0)
+
+    def test_et_timer_dco(self):
+        raw_data = RawData(["test-data/20201203-110526-et_timer_dco.tar"])
+        preprocessed_data = raw_data.get_preprocessed_data()
+        by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
+        model = PTAModel(by_name, parameters, arg_count)
+        self.assertEqual(model.states(), "IDLE".split(" "))
+        self.assertEqual(
+            model.transitions(),
+            "setup trans100u trans10m trans1m trans2m trans5m".split(" "),
+        )
+        static_model = model.get_static()
+        self.assertAlmostEqual(static_model("IDLE", "power"), 756, places=0)
+        self.assertAlmostEqual(static_model("setup", "duration"), 28, places=0)
+        self.assertAlmostEqual(static_model("setup", "energy"), 25714, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "duration"), 158, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "energy"), 148071, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "duration"), 10097, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "energy"), 61416161, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "duration"), 1038, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "energy"), 3023721, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "duration"), 2044, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "energy"), 9775385, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "duration"), 5062, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "energy"), 29832591, places=0)
+
+    def test_et_la_hfxt0(self):
+        raw_data = RawData(["test-data/20201203-113313-et_la_hfxt0.tar"])
+        preprocessed_data = raw_data.get_preprocessed_data()
+        by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
+        model = PTAModel(by_name, parameters, arg_count)
+        self.assertEqual(model.states(), "IDLE".split(" "))
+        self.assertEqual(
+            model.transitions(),
+            "setup trans100u trans10m trans1m trans2m trans5m".split(" "),
+        )
+        static_model = model.get_static()
+        self.assertAlmostEqual(static_model("IDLE", "power"), 1032, places=0)
+        self.assertAlmostEqual(static_model("setup", "duration"), 15, places=0)
+        self.assertAlmostEqual(static_model("setup", "energy"), 15737, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "duration"), 147, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "energy"), 178027, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "duration"), 10151, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "energy"), 66177218, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "duration"), 1032, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "energy"), 5464953, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "duration"), 2045, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "energy"), 12420220, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "duration"), 5083, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "energy"), 32831410, places=0)
+
+    def test_et_timer_hfxt0(self):
+        raw_data = RawData(["test-data/20201203-114004-et_timer_hfxt0.tar"])
+        preprocessed_data = raw_data.get_preprocessed_data()
+        by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
+        model = PTAModel(by_name, parameters, arg_count)
+        self.assertEqual(model.states(), "IDLE".split(" "))
+        self.assertEqual(
+            model.transitions(),
+            "setup trans100u trans10m trans1m trans2m trans5m".split(" "),
+        )
+        static_model = model.get_static()
+        self.assertAlmostEqual(static_model("IDLE", "power"), 1043, places=0)
+        self.assertAlmostEqual(static_model("setup", "duration"), 28, places=0)
+        self.assertAlmostEqual(static_model("setup", "energy"), 51894, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "duration"), 159, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "energy"), 224627, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "duration"), 10164, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "energy"), 65457407, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "duration"), 1045, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "energy"), 4487431, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "duration"), 2058, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "energy"), 11554553, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "duration"), 5096, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "energy"), 32640200, places=0)
+
     def test_multifile_lm75x(self):
         testfiles = [
             "test-data/20170116_124500_LM75x.tar",
