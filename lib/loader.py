@@ -1020,6 +1020,9 @@ class RawData:
                             }
                         )
                         for repeat_id, etlog_files in enumerate(ptalog["files"][j]):
+                            # legacy measurements supported only one file per run
+                            if type(etlog_files) is not list:
+                                etlog_files = [etlog_files]
                             members = list(map(tf.getmember, etlog_files))
                             offline_data.append(
                                 {
