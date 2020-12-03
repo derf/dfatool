@@ -522,6 +522,7 @@ if __name__ == "__main__":
         sys.exit(2)
 
     if "msp430fr" in opt["arch"]:
+        # target = runner.Arch(opt["arch"], ["cpu_freq=8000000", "with_hfxt=1"])
         target = runner.Arch(opt["arch"], ["cpu_freq=8000000"])
     else:
         target = runner.Arch(opt["arch"])

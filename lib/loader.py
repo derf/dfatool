@@ -1232,6 +1232,47 @@ def pta_trace_to_aggregate(traces, ignore_trace_indexes=[]):
     return by_name, parameter_names, arg_count
 
 
+def _load_energytrace(data_string):
+    """
+    Load log data (raw energytrace .txt file, one line per event).
+
+    :param log_data: raw energytrace log file in 4-column .txt format
+    """
+
+    lines = data_string.decode("ascii").split("\n")
+    data_count = sum(map(lambda x: len(x) > 0 and x[0] != "#", lines))
+    data_lines = filter(lambda x: len(x) > 0 and x[0] != "#", lines)
+
+    data = np.empty((data_count, 4))
+
+    for i, line in enumerate(data_lines):
+        fields = line.split(" ")
+        if len(fields) == 4:
+            timestamp, current, voltage, total_energy = map(int, fields)
+        elif len(fields) == 5:
+            # cpustate = fields[0]
+            timestamp, current, voltage, total_energy = map(int, fields[1:])
+        else:
+            raise RuntimeError('cannot parse line "{}"'.format(line))
+        data[i] = [timestamp, current, voltage, total_energy]
+
+    interval_start_timestamp = data[1:, 0] * 1e-6
+    interval_duration = (data[1:, 0] - data[:-1, 0]) * 1e-6
+    interval_power = (data[1:, 3] - data[:-1, 3]) / (data[1:, 0] - data[:-1, 0]) * 1e-3
+
+    m_duration_us = data[-1, 0] - data[0, 0]
+
+    sample_rate = data_count / (m_duration_us * 1e-6)
+
+    logger.debug(
+        "got {} samples with {} seconds of log data ({} Hz)".format(
+            data_count, m_duration_us * 1e-6, sample_rate
+        )
+    )
+
+    return (interval_start_timestamp, interval_duration, interval_power, sample_rate)
+
+
 class EnergyTraceWithBarcode:
     """
     EnergyTrace log loader for DFA traces.
@@ -1297,44 +1338,12 @@ class EnergyTraceWithBarcode:
             )
             return list()
 
-        lines = log_data[0].decode("ascii").split("\n")
-        data_count = sum(map(lambda x: len(x) > 0 and x[0] != "#", lines))
-        data_lines = filter(lambda x: len(x) > 0 and x[0] != "#", lines)
-
-        data = np.empty((data_count, 4))
-
-        for i, line in enumerate(data_lines):
-            fields = line.split(" ")
-            if len(fields) == 4:
-                timestamp, current, voltage, total_energy = map(int, fields)
-            elif len(fields) == 5:
-                # cpustate = fields[0]
-                timestamp, current, voltage, total_energy = map(int, fields[1:])
-            else:
-                raise RuntimeError('cannot parse line "{}"'.format(line))
-            data[i] = [timestamp, current, voltage, total_energy]
-
-        self.interval_start_timestamp = data[:-1, 0] * 1e-6
-        self.interval_duration = (data[1:, 0] - data[:-1, 0]) * 1e-6
-        self.interval_power = ((data[1:, 3] - data[:-1, 3]) * 1e-9) / (
-            (data[1:, 0] - data[:-1, 0]) * 1e-6
-        )
-
-        m_duration_us = data[-1, 0] - data[0, 0]
-
-        self.sample_rate = data_count / (m_duration_us * 1e-6)
-
-        logger.debug(
-            "got {} samples with {} seconds of log data ({} Hz)".format(
-                data_count, m_duration_us * 1e-6, self.sample_rate
-            )
-        )
-
-        return (
+        (
             self.interval_start_timestamp,
             self.interval_duration,
             self.interval_power,
-        )
+            self.sample_rate,
+        ) = _load_energytrace(log_data[0])
 
     def ts_to_index(self, timestamp):
         """
@@ -1709,7 +1718,12 @@ class EnergyTraceWithLogicAnalyzer:
 
         # Daten laden
         self.sync_data = SigrokResult.fromString(log_data[0])
-        self.energy_data = EnergyInterface.getDataFromString(str(log_data[1]))
+        (
+            self.interval_start_timestamp,
+            self.interval_duration,
+            self.interval_power,
+            self.sample_rate,
+        ) = _load_energytrace(log_data[1])
 
     def analyze_states(self, traces, offline_index: int):
         """
@@ -1743,7 +1757,11 @@ class EnergyTraceWithLogicAnalyzer:
         # print(names[:15])
         from dfatool.lennart.DataProcessor import DataProcessor
 
-        dp = DataProcessor(sync_data=self.sync_data, energy_data=self.energy_data)
+        dp = DataProcessor(
+            sync_data=self.sync_data,
+            et_timestamps=self.interval_start_timestamp,
+            et_power=self.interval_power,
+        )
         dp.run()
         energy_trace_new = dp.getStatesdfatool(
             state_sleep=self.state_duration, with_traces=self.with_traces
@@ -1814,14 +1832,13 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
         super().__init__(voltage, state_duration, transition_names, with_traces)
 
     def load_data(self, log_data):
-        from dfatool.lennart.SigrokInterface import SigrokResult
-        from dfatool.lennart.EnergyInterface import EnergyInterface
-
-        # Daten laden
         self.sync_data = None
-        self.energy_data = EnergyInterface.getDataFromString(str(log_data[0]))
-
-        pass
+        (
+            self.interval_start_timestamp,
+            self.interval_duration,
+            self.interval_power,
+            self.sample_rate,
+        ) = _load_energytrace(log_data[0])
 
     def analyze_states(self, traces, offline_index: int):
 

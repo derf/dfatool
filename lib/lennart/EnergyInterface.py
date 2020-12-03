@@ -70,39 +70,6 @@ class EnergyInterface(DataInterface):
             return
         self.energytrace.wait()
 
-    def getData(self):
-        """
-        cleans the string data and creates int list
-        :return: list of data, in format [[int,int,int,int], [int,int,int,int], ... ]
-        """
-        energytrace_log = open(self.temp_file)
-        lines = energytrace_log.readlines()[21:]
-        data = []
-        for line in lines:
-            if "MSP430_DisableEnergyTrace" in line:
-                break
-            else:
-                data.append([int(i) for i in line.split()])
-        return data
-
-    @classmethod
-    def getDataFromString(cls, string, delimiter="\\n"):
-        """
-        Parsing the data from string
-
-        :param string: input string which will be parsed
-        :param delimiter: for normal file its \n
-        :return: list of data, in format [[int,int,int,int], [int,int,int,int], ... ]
-        """
-        lines = string.split(delimiter)[21:]
-        data = []
-        for line in lines:
-            if "MSP430_DisableEnergyTrace" in line:
-                break
-            else:
-                data.append([int(i) for i in line.split()])
-        return data
-
     def setFile(self, path):
         """
         changeing the temporary file

@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataProcessor:
-    def __init__(self, sync_data, energy_data):
+    def __init__(self, sync_data, et_timestamps, et_power):
         """
         Creates DataProcessor object.
 
@@ -18,13 +18,14 @@ class DataProcessor:
         # high-precision LA/Timer timestamps at synchronization events
         self.sync_timestamps = []
         # low-precision energytrace timestamps
-        self.et_timestamps = []
+        self.et_timestamps = et_timestamps
         # energytrace power values
-        self.et_power_values = []
+        self.et_power_values = et_power
         self.sync_data = sync_data
-        self.energy_data = energy_data
         self.start_offset = 0
 
+        # TODO determine automatically based on minimum (or p1) power draw over measurement area + X
+        # use 0.02 for HFXT runs
         self.power_sync_watt = 0.011
         self.power_sync_len = 0.7
         self.power_sync_max_outliers = 2
@@ -53,8 +54,6 @@ class DataProcessor:
                 f"LogicAnalyzer sync data has length {len(time_stamp_data)}, expected >= 12"
             )
 
-        last_data = [0, 0, 0, 0]
-
         self.raw_sync_timestamps = time_stamp_data
 
         # NEW
@@ -63,11 +62,8 @@ class DataProcessor:
         outliers = 0
         pre_outliers_ts = None
         # TODO only consider the first few and the last few seconds for sync points
-        for i, energytrace_dataset in enumerate(self.energy_data):
-            usedtime = energytrace_dataset[0] - last_data[0]  # in microseconds
-            timestamp = energytrace_dataset[0]
-            usedenergy = energytrace_dataset[3] - last_data[3]
-            power = usedenergy / usedtime * 1e-3  # in watts
+        for i, timestamp in enumerate(self.et_timestamps):
+            power = self.et_power_values[i]
             if power > 0:
                 if power > self.power_sync_watt:
                     if sync_start is None:
@@ -80,27 +76,18 @@ class DataProcessor:
                     outliers += 1
                     if outliers > self.power_sync_max_outliers:
                         if sync_start is not None:
-                            if (
-                                pre_outliers_ts - sync_start
-                            ) / 1_000_000 > self.power_sync_len:
+                            if (pre_outliers_ts - sync_start) > self.power_sync_len:
                                 datasync_timestamps.append(
                                     (
-                                        sync_start / 1_000_000,
-                                        pre_outliers_ts / 1_000_000,
+                                        sync_start,
+                                        pre_outliers_ts,
                                     )
                                 )
                             sync_start = None
 
-                last_data = energytrace_dataset
-
-            self.et_timestamps.append(timestamp / 1_000_000)
-            self.et_power_values.append(power)
-
         if power > self.power_sync_watt:
-            if (self.energy_data[-1][0] - sync_start) / 1_000_000 > self.power_sync_len:
-                datasync_timestamps.append(
-                    (sync_start / 1_000_000, pre_outliers_ts / 1_000_000)
-                )
+            if (self.et_timestamps[-1] - sync_start) > self.power_sync_len:
+                datasync_timestamps.append((sync_start, pre_outliers_ts))
 
         # print(datasync_timestamps)
 
