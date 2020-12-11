@@ -429,6 +429,7 @@ if __name__ == "__main__":
         optspec = (
             "accounting= "
             "arch= "
+            "arch-flags= "
             "app= "
             "data= "
             "depth= "
@@ -453,6 +454,11 @@ if __name__ == "__main__":
 
         if "app" not in opt:
             opt["app"] = "aemr"
+
+        if "arch-flags" in opt:
+            opt["arch-flags"] = opt["arch-flags"].split(",")
+        else:
+            opt["arch-flags"] = list()
 
         if "depth" in opt:
             opt["depth"] = int(opt["depth"])
@@ -522,8 +528,9 @@ if __name__ == "__main__":
         sys.exit(2)
 
     if "msp430fr" in opt["arch"]:
-        # target = runner.Arch(opt["arch"], ["cpu_freq=8000000", "with_hfxt=1"])
-        target = runner.Arch(opt["arch"], ["cpu_freq=8000000"])
+        if len(opt["arch-flags"]) == 0:
+            opt["arch-flags"] = ["cpu-freq=8000000"]
+        target = runner.Arch(opt["arch"], opt["arch-flags"])
     else:
         target = runner.Arch(opt["arch"])
 
