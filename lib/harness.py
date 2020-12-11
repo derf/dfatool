@@ -429,19 +429,27 @@ class OnboardTimerHarness(TransitionHarness):
             # TODO Make nicer
             ret += """\nvoid runLASync(){
     // ======================= LED SYNC ================================
+    #ifdef PTALOG_GPIO
     gpio.write(PTALOG_GPIO, 1);
+    #endif
     gpio.led_on(0);
     gpio.led_on(1);
+    #ifdef PTALOG_GPIO
     gpio.write(PTALOG_GPIO, 0);
+    #endif
 
     for (unsigned char i = 0; i < 4; i++) {
         arch.sleep_ms(250);
     }
 
+    #ifdef PTALOG_GPIO
     gpio.write(PTALOG_GPIO, 1);
+    #endif
     gpio.led_off(0);
     gpio.led_off(1);
+    #ifdef PTALOG_GPIO
     gpio.write(PTALOG_GPIO, 0);
+    #endif
     // ======================= LED SYNC ================================
 }\n\n"""
         return ret

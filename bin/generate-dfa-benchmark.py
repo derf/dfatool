@@ -114,6 +114,7 @@ def benchmark_from_runs(
     outbuf = io.StringIO()
 
     outbuf.write('#include "arch.h"\n')
+    outbuf.write('#include "driver/gpio.h"\n')
     if dummy:
         outbuf.write('#include "driver/dummy.h"\n')
     elif "includes" in pta.codegen:
