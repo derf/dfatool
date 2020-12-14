@@ -530,7 +530,7 @@ if __name__ == "__main__":
 
     if "msp430fr" in opt["arch"]:
         if len(opt["arch-flags"]) == 0:
-            opt["arch-flags"] = ["cpu-freq=8000000"]
+            opt["arch-flags"] = ["cpu_freq=8000000", "uart_freq=9600"]
         target = runner.Arch(opt["arch"], opt["arch-flags"])
     else:
         target = runner.Arch(opt["arch"])
