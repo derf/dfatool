@@ -63,7 +63,7 @@ class PELT:
             normed_signal[i] = normed_signal[i] * scaler
         return normed_signal
 
-    def get_penalty_and_changepoints(self, signal):
+    def get_penalty_and_changepoints(self, signal, penalty=None):
         # imported here as ruptures is only used for changepoint detection.
         # This way, dfatool can be used without having ruptures installed as
         # long as --pelt isn't active.
@@ -77,6 +77,13 @@ class PELT:
         algo = ruptures.Pelt(
             model=self.model, jump=self.jump, min_size=self.min_dist
         ).fit(self.norm_signal(signal))
+
+        if penalty is not None:
+            changepoints = algo.predict(pen=penalty)
+            if len(changepoints) and changepoints[-1] == len(signal):
+                changepoints.pop()
+            return penalty, changepoints
+
         queue = list()
         for i in range(0, 100):
             queue.append((algo, i))
@@ -117,12 +124,12 @@ class PELT:
         changepoints = np.array(changepoints_by_penalty[middle_of_plateau])
         return middle_of_plateau, changepoints
 
-    def get_changepoints(self, signal):
-        _, changepoints = self.get_penalty_and_changepoints(signal)
+    def get_changepoints(self, signal, **kwargs):
+        _, changepoints = self.get_penalty_and_changepoints(signal, **kwargs)
         return changepoints
 
-    def get_penalty(self, signal):
-        penalty, _ = self.get_penalty_and_changepoints(signal)
+    def get_penalty(self, signal, **kwargs):
+        penalty, _ = self.get_penalty_and_changepoints(signal, **kwargs)
         return penalty
 
     def calc_raw_states(self, timestamps, signals, penalty, opt_model=None):

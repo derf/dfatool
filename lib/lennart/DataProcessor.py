@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import numpy as np
 import logging
-from bisect import bisect_right
+import os
+from bisect import bisect_left, bisect_right
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +115,14 @@ class DataProcessor:
                 f"synchronization end_offset == {end_offset}. It should be no more than a few seconds."
             )
 
+        # adjust start offset
         with_offset = np.array(time_stamp_data) + start_offset
         logger.debug(
             f"Measurement area with offset: LA timestamp range [{with_offset[2]}, {with_offset[-8]}]"
         )
 
+        # adjust stop offset (may be different from start offset due to drift caused by
+        # random temperature fluctuations)
         with_drift = self.addDrift(
             with_offset, end_timestamp, end_offset, start_timestamp
         )
@@ -127,6 +131,17 @@ class DataProcessor:
         )
 
         self.sync_timestamps = with_drift
+
+        # adjust intermediate timestamps. There is a small error between consecutive measurements,
+        # again due to drift caused by random temperature fluctuation. The error increases with
+        # increased distance from synchronization points: It is negligible at the start and end
+        # of the measurement and may be quite high around the middle. That's just the bounds, though --
+        # you may also have a low error in the middle and error peaks elsewhere.
+        # As the start and stop timestamps have already been synchronized, we only adjust
+        # actual transition timestamps here.
+        if os.getenv("DFATOOL_COMPENSATE_DRIFT"):
+            with_drift_compensation = self.compensateDrift(with_drift[4:-8])
+            self.sync_timestamps[4:-8] = with_drift_compensation
 
     def addDrift(self, input_timestamps, end_timestamp, end_offset, start_timestamp):
         """
@@ -147,6 +162,117 @@ class DataProcessor:
             input_timestamps - start_timestamp
         ) * endFactor + start_timestamp
         return sync_timestamps_with_drift
+
+    def compensateDrift(self, sync_timestamps):
+        from dfatool.pelt import PELT
+
+        pelt = PELT(min_dist=5, with_multiprocessing=False)
+        expected_transition_start_timestamps = sync_timestamps[::2]
+        transition_start_candidate_weights = list()
+        compensated_timestamps = list()
+        drift = 0
+
+        for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
+            # assumption: maximum deviation between expected and actual timestamps is 5ms.
+            # We use ±10ms to have some contetx for PELT
+            et_timestamps_start = bisect_left(
+                self.et_timestamps, expected_start_ts - 10e-3
+            )
+            et_timestamps_end = bisect_right(
+                self.et_timestamps, expected_start_ts + 10e-3
+            )
+            timestamps = self.et_timestamps[et_timestamps_start : et_timestamps_end + 1]
+            energy_data = self.et_power_values[
+                et_timestamps_start : et_timestamps_end + 1
+            ]
+            candidate_weight = dict()
+            for penalty in (1, 2, 5, 10, 15, 20):
+                for changepoint in pelt.get_changepoints(energy_data, penalty=penalty):
+                    if changepoint in candidate_weight:
+                        candidate_weight[changepoint] += 1
+                    else:
+                        candidate_weight[changepoint] = 1
+
+            transition_start_candidate_weights.append(
+                list(
+                    map(
+                        lambda k: (timestamps[k], candidate_weight[k]),
+                        candidate_weight.keys(),
+                    )
+                )
+            )
+            """
+
+        # drift between expected and actual / estimated start timestamps at the previous transition.
+        # For the first transition, the "previous transition" is the led sync pulse, which has already
+        # been adjusted, so we have a guaranteed drift of 0.
+        drift = 0
+        for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
+            # assumption: after adjusting for the previous drift, the actual start timestamp is ± 1 ms away.
+            expected_start_ts += drift
+            """
+            candidates = sorted(
+                map(lambda x: x[0], transition_start_candidate_weights[i])
+            )
+
+            expected_start_ts += drift
+            expected_end_ts = sync_timestamps[i * 2 + 1] + drift
+            right_sync = bisect_left(candidates, expected_start_ts)
+            left_sync = right_sync - 1
+
+            if left_sync > 0:
+                left_diff = expected_start_ts - candidates[left_sync]
+            else:
+                left_diff = None
+
+            if right_sync < len(candidates):
+                right_diff = candidates[right_sync] - expected_start_ts
+            else:
+                right_diff = None
+
+            if left_diff is None and right_diff is None:
+                # compensated_timestamps.append(None)
+                # compensated_timestamps.append(None)
+                compensated_timestamps.append(expected_start_ts)
+                compensated_timestamps.append(expected_end_ts)
+                continue
+
+            if right_diff is None and left_diff < 5e-4:
+                print(expected_start_ts, drift, -left_diff)
+                compensated_timestamps.append(expected_start_ts - left_diff)
+                compensated_timestamps.append(expected_end_ts - left_diff)
+                drift -= left_diff
+                continue
+
+            if left_diff is None and right_diff < 5e-4:
+                print(expected_start_ts, drift, right_diff)
+                compensated_timestamps.append(expected_start_ts + right_diff)
+                compensated_timestamps.append(expected_end_ts + right_diff)
+                drift += right_diff
+                continue
+
+            if left_diff is not None and right_diff is not None:
+                if left_diff < right_diff and left_diff < 1e-3:
+                    print(expected_start_ts, drift, -left_diff)
+                    compensated_timestamps.append(expected_start_ts - left_diff)
+                    compensated_timestamps.append(expected_end_ts - left_diff)
+                    drift -= left_diff
+                    continue
+                if right_diff < left_diff and right_diff < 1e-3:
+                    print(expected_start_ts, drift, right_diff)
+                    compensated_timestamps.append(expected_start_ts + right_diff)
+                    compensated_timestamps.append(expected_end_ts + right_diff)
+                    drift += right_diff
+                    continue
+
+            # compensated_timestamps.append(None)
+            # compensated_timestamps.append(None)
+            compensated_timestamps.append(expected_start_ts)
+            compensated_timestamps.append(expected_end_ts)
+
+        # TODO calculate drift for "None" timestamps based on the previous and next known drift value
+
+        return compensated_timestamps
 
     def export_sync(self):
         # [1st trans start, 1st trans stop, 2nd trans start, 2nd trans stop, ...]
@@ -208,6 +334,7 @@ class DataProcessor:
         )
 
         plt.plot(self.et_timestamps, self.et_power_values, label="Leistung")
+        plt.plot(self.et_timestamps, np.gradient(self.et_power_values), label="dP/dt")
 
         plt.plot(
             rectCurve_with_drift[0],
