@@ -169,6 +169,8 @@ class EnergyTraceMonitor(SerialMonitor):
 
     # Benchmark fertig -> externe Hilfsprogramme beenden
     def close(self):
+        # wait for tail sync
+        time.sleep(2)
         super().close()
         self._logger.send_signal(subprocess.signal.SIGINT)
         stdout, stderr = self._logger.communicate(timeout=15)
