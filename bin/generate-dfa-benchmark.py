@@ -65,6 +65,8 @@ Options:
     sync = bar (Barcode mode (default): synchronize measurements via barcodes embedded in the energy trace)
     sync = la (Logic Analyzer mode (WIP): An external logic analyzer captures transition timing)
     sync = timing (Timing mode (WIP): The on-board cycle counter captures transition timing)
+    plusplus = 0 (default, EnergyTrace measurements with about 3.7 kHz sample rate, energy only)
+    plusplus = 1 (EnergyTrace++ measurements with about 1 kHz sample rate, energy and cpu state)
 
 --trace-filter=<transition,transition,transition,...>[ <transition,transition,transition,...> ...]
     Only consider traces whose beginning matches one of the provided transition sequences.

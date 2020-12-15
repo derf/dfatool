@@ -142,7 +142,7 @@ class SerialMonitor:
         self.ser.close()
 
 
-# TODO Optionale Kalibrierung mit bekannten Widerständen an GPIOs am Anfang
+# TODO Optionale Kalibrierung mit bekannten Widerständen an GPIOs am Anfang (EnergyTrace selbst macht nur bis 1,5mA)
 # TODO Sync per LED? -> Vor und ggf nach jeder Transition kurz pulsen
 # TODO Für Verbraucher mit wenig Energiebedarf: Versorgung direkt per GPIO
 #      -> Zu Beginn der Messung ganz ausknipsen
@@ -154,15 +154,21 @@ class EnergyTraceMonitor(SerialMonitor):
     # Zusätzliche key-value-Argumente von generate-dfa-benchmark.py --energytrace=... landen hier
     # (z.B. --energytrace=var1=bar,somecount=2 => EnerygTraceMonitor(..., var1="bar", somecount="2")).
     # Soald das EnergyTraceMonitor-Objekt erzeugt wird, beginnt die Messung (d.h. hier: msp430-etv wird gestartet)
-    def __init__(self, port: str, baud: int, callback=None, voltage=3.3):
+    def __init__(
+        self, port: str, baud: int, callback=None, voltage=3.3, plusplus=False
+    ):
         super().__init__(port=port, baud=baud, callback=callback)
         self._voltage = voltage
+        self._plusplus = plusplus
         self._output = time.strftime("%Y%m%d-%H%M%S.etlog")
         self._start_energytrace()
 
     def _start_energytrace(self):
         print("[%s] Starting Measurement" % type(self).__name__)
-        cmd = ["msp430-etv", "--save", self._output, "0"]
+        if self._plusplus:
+            cmd = ["msp430-etv", "--with-hardware-states", "--save", self._output, "0"]
+        else:
+            cmd = ["msp430-etv", "--save", self._output, "0"]
         self._logger = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
         )
