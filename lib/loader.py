@@ -1244,13 +1244,14 @@ def _load_energytrace(data_string):
     data_lines = filter(lambda x: len(x) > 0 and x[0] != "#", lines)
 
     data = np.empty((data_count, 4))
+    hardware_states = [None for i in range(data_count)]
 
     for i, line in enumerate(data_lines):
         fields = line.split(" ")
         if len(fields) == 4:
             timestamp, current, voltage, total_energy = map(int, fields)
         elif len(fields) == 5:
-            # cpustate = fields[0]
+            hardware_states[i] = fields[0]
             timestamp, current, voltage, total_energy = map(int, fields[1:])
         else:
             raise RuntimeError('cannot parse line "{}"'.format(line))
@@ -1264,13 +1265,32 @@ def _load_energytrace(data_string):
 
     sample_rate = data_count / (m_duration_us * 1e-6)
 
+    hardware_state_changes = list()
+    if hardware_states[0]:
+        prev_state = hardware_states[0]
+        for i, state in enumerate(hardware_states):
+            if (
+                state != prev_state
+                and state != "0000000000000000"
+                and prev_state != "0000000000000000"
+            ):
+                hardware_state_changes.append(i)
+            if state != "0000000000000000":
+                prev_state = state
+
     logger.debug(
         "got {} samples with {} seconds of log data ({} Hz)".format(
             data_count, m_duration_us * 1e-6, sample_rate
         )
     )
 
-    return (interval_start_timestamp, interval_duration, interval_power, sample_rate)
+    return (
+        interval_start_timestamp,
+        interval_duration,
+        interval_power,
+        sample_rate,
+        hardware_state_changes,
+    )
 
 
 class EnergyTraceWithBarcode:
@@ -1343,6 +1363,7 @@ class EnergyTraceWithBarcode:
             self.interval_duration,
             self.interval_power,
             self.sample_rate,
+            self.hw_statechange_indexes,
         ) = _load_energytrace(log_data[0])
 
     def ts_to_index(self, timestamp):
@@ -1723,6 +1744,7 @@ class EnergyTraceWithLogicAnalyzer:
             self.interval_duration,
             self.interval_power,
             self.sample_rate,
+            self.hw_statechange_indexes,
         ) = _load_energytrace(log_data[1])
 
     def analyze_states(self, traces, offline_index: int):
@@ -1761,6 +1783,7 @@ class EnergyTraceWithLogicAnalyzer:
             sync_data=self.sync_data,
             et_timestamps=self.interval_start_timestamp,
             et_power=self.interval_power,
+            hw_statechange_indexes=self.hw_statechange_indexes,
         )
         dp.run()
         energy_trace_new = dp.getStatesdfatool(
@@ -1838,6 +1861,7 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
             self.interval_duration,
             self.interval_power,
             self.sample_rate,
+            self.hw_statechange_indexes,
         ) = _load_energytrace(log_data[0])
 
     def analyze_states(self, traces, offline_index: int):

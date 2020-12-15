@@ -8,7 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class DataProcessor:
-    def __init__(self, sync_data, et_timestamps, et_power):
+    def __init__(
+        self, sync_data, et_timestamps, et_power, hw_statechange_indexes=list()
+    ):
         """
         Creates DataProcessor object.
 
@@ -22,6 +24,7 @@ class DataProcessor:
         self.et_timestamps = et_timestamps
         # energytrace power values
         self.et_power_values = et_power
+        self.hw_statechange_indexes = hw_statechange_indexes
         self.sync_data = sync_data
         self.start_offset = 0
 
@@ -140,7 +143,10 @@ class DataProcessor:
         # As the start and stop timestamps have already been synchronized, we only adjust
         # actual transition timestamps here.
         if os.getenv("DFATOOL_COMPENSATE_DRIFT"):
-            with_drift_compensation = self.compensateDrift(with_drift[4:-8])
+            if len(self.hw_statechange_indexes):
+                with_drift_compensation = self.compensateDriftPlusplus(with_drift[4:-8])
+            else:
+                with_drift_compensation = self.compensateDrift(with_drift[4:-8])
             self.sync_timestamps[4:-8] = with_drift_compensation
 
     def addDrift(self, input_timestamps, end_timestamp, end_offset, start_timestamp):
@@ -162,6 +168,33 @@ class DataProcessor:
             input_timestamps - start_timestamp
         ) * endFactor + start_timestamp
         return sync_timestamps_with_drift
+
+    def compensateDriftPlusplus(self, sync_timestamps):
+        expected_transition_start_timestamps = sync_timestamps[::2]
+        compensated_timestamps = list()
+        drift = 0
+        for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
+            expected_end_ts = sync_timestamps[i * 2 + 1]
+            et_timestamps_start = bisect_left(
+                self.et_timestamps, expected_start_ts - 5e-3
+            )
+            et_timestamps_end = bisect_right(
+                self.et_timestamps, expected_start_ts + 5e-3
+            )
+
+            candidate_indexes = list()
+            for index in self.hw_statechange_indexes:
+                if et_timestamps_start <= index <= et_timestamps_end:
+                    candidate_indexes.append(index)
+
+            if len(candidate_indexes) >= 2:
+                drift = self.et_timestamps[candidate_indexes[0]] - expected_start_ts
+
+            compensated_timestamps.append(expected_start_ts + drift)
+            compensated_timestamps.append(expected_end_ts + drift)
+            print(drift)
+
+        return compensated_timestamps
 
     def compensateDrift(self, sync_timestamps):
         from dfatool.pelt import PELT
