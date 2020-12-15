@@ -272,6 +272,20 @@ class DataProcessor:
 
         # TODO calculate drift for "None" timestamps based on the previous and next known drift value
 
+        if os.getenv("DFATOOL_EXPORT_DRIFT_COMPENSATION"):
+            import json
+            from dfatool.utils import NpEncoder
+
+            with open(os.getenv("DFATOOL_EXPORT_DRIFT_COMPENSATION"), "w") as f:
+                json.dump(
+                    [
+                        expected_transition_start_timestamps,
+                        transition_start_candidate_weights,
+                    ],
+                    f,
+                    cls=NpEncoder,
+                )
+
         return compensated_timestamps
 
     def export_sync(self):
