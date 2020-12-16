@@ -1268,7 +1268,8 @@ def _load_energytrace(data_string):
     hardware_state_changes = list()
     if hardware_states[0]:
         prev_state = hardware_states[0]
-        for i, state in enumerate(hardware_states):
+        # timestamps start at data[1], so hardware state change indexes must start at 1, too
+        for i, state in enumerate(hardware_states[1:]):
             if (
                 state != prev_state
                 and state != "0000000000000000"
