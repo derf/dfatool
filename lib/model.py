@@ -678,6 +678,8 @@ class PTAModel:
     - timeout: list of duration of previous state in µs
     - rel_energy_prev: transition energy relative to previous state mean power in pJ
     - rel_energy_next: transition energy relative to next state mean power in pJ
+    - rel_power_prev: transition power relative to previous state mean power in µW
+    - rel_power_next: transition power relative to next state mean power in µW
     """
 
     def __init__(

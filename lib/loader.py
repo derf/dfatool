@@ -648,12 +648,20 @@ class RawData:
                 }
                 if online_trace_part["isa"] == "transition":
                     online_trace_part["offline_attributes"].extend(
-                        ["rel_energy_prev", "rel_energy_next", "timeout"]
+                        [
+                            "rel_energy_prev",
+                            "rel_energy_next",
+                            "rel_power_prev",
+                            "rel_power_next",
+                            "timeout",
+                        ]
                     )
                     online_trace_part["offline_aggregates"]["rel_energy_prev"] = []
                     online_trace_part["offline_aggregates"]["rel_energy_next"] = []
+                    online_trace_part["offline_aggregates"]["rel_power_prev"] = []
+                    online_trace_part["offline_aggregates"]["rel_power_next"] = []
                     online_trace_part["offline_aggregates"]["timeout"] = []
-                elif "plot" in offline_trace_part:
+                if "plot" in offline_trace_part:
                     online_trace_part["offline_support"] = [
                         "power_traces",
                         "timestamps",
@@ -686,6 +694,12 @@ class RawData:
                 online_trace_part["offline_aggregates"]["rel_energy_next"].append(
                     offline_trace_part["uW_mean_delta_next"]
                     * (offline_trace_part["us"] - 20)
+                )
+                online_trace_part["offline_aggregates"]["rel_power_prev"].append(
+                    offline_trace_part["uW_mean_delta_prev"]
+                )
+                online_trace_part["offline_aggregates"]["rel_power_next"].append(
+                    offline_trace_part["uW_mean_delta_next"]
                 )
                 online_trace_part["offline_aggregates"]["timeout"].append(
                     offline_trace_part["timeout"]
@@ -766,6 +780,14 @@ class RawData:
                 if "plot" in offline_trace_part:
                     online_trace_part["offline_support"] = ["power_traces"]
                     online_trace_part["offline_aggregates"]["power_traces"] = list()
+                if online_trace_part["isa"] == "transition":
+                    online_trace_part["offline_aggregates"][
+                        "offline_attributes"
+                    ].extend(["rel_power_prev", "rel_power_next"])
+                    online_trace_part["offline_aggregates"]["rel_energy_prev"] = list()
+                    online_trace_part["offline_aggregates"]["rel_energy_next"] = list()
+                    online_trace_part["offline_aggregates"]["rel_power_prev"] = list()
+                    online_trace_part["offline_aggregates"]["rel_power_next"] = list()
 
             offline_aggregates = online_trace_part["offline_aggregates"]
 
@@ -786,9 +808,23 @@ class RawData:
             if "plot" in offline_trace_part:
                 offline_aggregates["power_traces"].append(offline_trace_part["plot"][1])
 
-            # if online_trace_part['isa'] == 'transition':
-            #    offline_aggregates['rel_energy_prev'].append(offline_trace_part['W_mean_delta_prev'] * offline_trace_part['s'] * 1e12)
-            #    offline_aggregates['rel_energy_next'].append(offline_trace_part['W_mean_delta_next'] * offline_trace_part['s'] * 1e12)
+            if online_trace_part["isa"] == "transition":
+                offline_aggregates["rel_energy_prev"].append(
+                    offline_trace_part["W_mean_delta_prev"]
+                    * offline_trace_part["s"]
+                    * 1e12
+                )
+                offline_aggregates["rel_energy_next"].append(
+                    offline_trace_part["W_mean_delta_next"]
+                    * offline_trace_part["s"]
+                    * 1e12
+                )
+                offline_aggregates["rel_power_prev"].append(
+                    offline_trace_part["W_mean_delta_prev"] * 1e6
+                )
+                offline_aggregates["rel_power_next"].append(
+                    offline_trace_part["W_mean_delta_next"] * 1e6
+                )
 
     def _concatenate_traces(self, list_of_traces):
         """
@@ -840,11 +876,13 @@ class RawData:
             - `param`: List of lists, each sub-list contains the parameter values for this measurement. Typically, all sub-lists are the same.
             - `rel_energy_prev`: (only for transitions) transition energy relative to previous state mean power, pJ
             - `rel_energy_next`: (only for transitions) transition energy relative to next state mean power, pJ
+            - `rel_power_prev`: (only for transitions) powerrelative to previous state mean power, µW
+            - `rel_power_next`: (only for transitions) power relative to next state mean power, µW
             - `timeout`: (only for transitions) duration of previous state, us
-         * `offline_attributes`: List containing the keys of `offline_aggregates` which are meant to be part of themodel.
+         * `offline_attributes`: List containing the keys of `offline_aggregates` which are meant to be part of the model.
            This list ultimately decides which hardware/software attributes the model describes.
            If isa == state, it contains power, duration, energy
-           If isa == transition, it contains power, duration, energy, rel_energy_prev, rel_energy_next, timeout
+           If isa == transition, it contains power, rel_power_prev, rel_power_next, duration, timeout
          * `online`: List of online estimations for this state/transition. Each entry contains a result for this state/transition during one benchmark execution.
           Entry contents for isa == state:
             - `time`: state/transition
@@ -1140,9 +1178,9 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
             # TODO do not hardcode values
             aggregate[key]["attributes"] = [
                 "duration",
-                "energy",
-                "rel_energy_prev",
-                "rel_energy_next",
+                "power",
+                "rel_power_prev",
+                "rel_power_next",
             ]
             # Uncomment this line if you also want to analyze mean transition power
             # aggregate[key]['attributes'].append('power')
@@ -1186,6 +1224,8 @@ def pta_trace_to_aggregate(traces, ignore_trace_indexes=[]):
                 - timeout: [int(us)] Dauer des vorherigen Zustands
                 - rel_energy_prev: [int(pJ)]
                 - rel_energy_next: [int(pJ)]
+                - rel_power_prev: [int(µW)]
+                - rel_power_next: [int(µW)]
         ]
     ]
     ignore_trace_indexes -- list of trace indexes. The corresponding taces will be ignored.
@@ -1816,12 +1856,6 @@ class EnergyTraceWithLogicAnalyzer:
         # for number, name in enumerate(names):
         #    if "P15_8MW" in name:
         #        print(name, energy_trace_new[number]["W_mean"])
-
-        # add next/prev state W_mean_delta
-        for number, item in enumerate(energy_trace_new):
-            if item["isa"] == "transition" and 0 < number < len(energy_trace_new) - 1:
-                item["W_mean_delta_prev"] = energy_trace_new[number - 1]
-                item["W_mean_delta_next"] = energy_trace_new[number + 1]
 
         # st = ""
         # for i, x in enumerate(energy_trace_new[-10:]):

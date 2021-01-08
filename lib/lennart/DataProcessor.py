@@ -82,10 +82,7 @@ class DataProcessor:
                         if sync_start is not None:
                             if (pre_outliers_ts - sync_start) > self.power_sync_len:
                                 datasync_timestamps.append(
-                                    (
-                                        sync_start,
-                                        pre_outliers_ts,
-                                    )
+                                    (sync_start, pre_outliers_ts)
                                 )
                             sync_start = None
 
@@ -187,7 +184,7 @@ class DataProcessor:
                 if et_timestamps_start <= index <= et_timestamps_end:
                     candidate_indexes.append(index)
 
-            if len(candidate_indexes) >= 2:
+            if len(candidate_indexes) == 2:
                 drift = self.et_timestamps[candidate_indexes[0]] - expected_start_ts
 
             compensated_timestamps.append(expected_start_ts + drift)
