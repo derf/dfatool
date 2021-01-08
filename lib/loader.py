@@ -1565,6 +1565,11 @@ class EnergyTraceWithBarcode:
                 energy_trace[-1]["W_mean_delta_prev"] = (
                     energy_trace[-1]["W_mean"] - energy_trace[-2]["W_mean"]
                 )
+            else:
+                # TODO this really isn't nice, as W_mean_delta_prev of other setup
+                # transitions is probably different. The best solution might be
+                # ignoring the first transition when handling delta_prev values
+                energy_trace[-1]["W_mean_delta_prev"] = energy_trace[-1]["W_mean"]
 
             state_power_W = self.interval_power[state_start_index:state_done_index]
             state = {
