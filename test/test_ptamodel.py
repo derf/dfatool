@@ -476,6 +476,39 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(static_model("RX", "power"), 52254, places=0)
         self.assertAlmostEqual(static_model("STANDBY1", "power"), 7, places=0)
         self.assertAlmostEqual(static_model("TX", "power"), 18414, places=0)
+        self.assertAlmostEqual(static_model("begin", "power"), 84, places=0)
+        self.assertAlmostEqual(static_model("epilogue", "power"), 381, places=0)
+        self.assertAlmostEqual(static_model("powerDown", "power"), 51, places=0)
+        self.assertAlmostEqual(static_model("powerUp", "power"), 164, places=0)
+        self.assertAlmostEqual(static_model("setDataRate_num", "power"), 58, places=0)
+        self.assertAlmostEqual(static_model("setPALevel_num", "power"), 52, places=0)
+        self.assertAlmostEqual(static_model("startListening", "power"), 16354, places=0)
+        self.assertAlmostEqual(static_model("stopListening", "power"), 691, places=0)
+        self.assertAlmostEqual(static_model("write_nb", "power"), 428, places=0)
+        self.assertAlmostEqual(static_model("begin", "rel_power_prev"), 84, places=0)
+        self.assertAlmostEqual(
+            static_model("epilogue", "rel_power_prev"), -18025, places=0
+        )
+        self.assertAlmostEqual(
+            static_model("powerDown", "rel_power_prev"), 43, places=0
+        )
+        self.assertAlmostEqual(static_model("powerUp", "rel_power_prev"), 163, places=0)
+        self.assertAlmostEqual(
+            static_model("setDataRate_num", "rel_power_prev"), 51, places=0
+        )
+        self.assertAlmostEqual(
+            static_model("setPALevel_num", "rel_power_prev"), 41, places=0
+        )
+        self.assertAlmostEqual(
+            static_model("startListening", "rel_power_prev"), 16348, places=0
+        )
+        self.assertAlmostEqual(
+            static_model("stopListening", "rel_power_prev"), -51567, places=0
+        )
+        self.assertAlmostEqual(
+            static_model("write_nb", "rel_power_prev"), 421, places=0
+        )
+        """
         self.assertAlmostEqual(static_model("begin", "energy"), 1652249, places=0)
         self.assertAlmostEqual(static_model("epilogue", "energy"), 15449, places=0)
         self.assertAlmostEqual(static_model("powerDown", "energy"), 4547, places=0)
@@ -518,6 +551,7 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(
             static_model("write_nb", "rel_energy_prev"), 214618, places=0
         )
+        """
         self.assertAlmostEqual(static_model("begin", "duration"), 19830, places=0)
         self.assertAlmostEqual(static_model("epilogue", "duration"), 40, places=0)
         self.assertAlmostEqual(static_model("powerDown", "duration"), 90, places=0)
@@ -623,6 +657,13 @@ class TestFromFile(unittest.TestCase):
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("OFF", "power"), 7124, places=0)
         self.assertAlmostEqual(static_model("ON", "power"), 17866, places=0)
+        self.assertAlmostEqual(static_model("off", "power"), 29362, places=0)
+        self.assertAlmostEqual(static_model("setBrightness", "power"), 18500, places=0)
+        self.assertAlmostEqual(static_model("off", "rel_power_prev"), 11496, places=0)
+        self.assertAlmostEqual(
+            static_model("setBrightness", "rel_power_prev"), 11368, places=0
+        )
+        """
         self.assertAlmostEqual(static_model("off", "energy"), 268079197, places=0)
         self.assertAlmostEqual(
             static_model("setBrightness", "energy"), 168912773, places=0
@@ -633,6 +674,7 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(
             static_model("setBrightness", "rel_energy_prev"), 103745586, places=0
         )
+        """
         self.assertAlmostEqual(static_model("off", "duration"), 9130, places=0)
         self.assertAlmostEqual(
             static_model("setBrightness", "duration"), 9130, places=0
@@ -670,21 +712,21 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(static_model("P3_4MW", "power"), 3974, places=0)
         self.assertAlmostEqual(static_model("SLEEP", "power"), 672, places=0)
         self.assertAlmostEqual(static_model("nop10K", "duration"), 514, places=0)
-        self.assertAlmostEqual(static_model("nop10K", "energy"), 1219044, places=0)
+        self.assertAlmostEqual(static_model("nop10K", "power"), 939, places=0)
         self.assertAlmostEqual(static_model("nop1K0", "duration"), 514, places=0)
-        self.assertAlmostEqual(static_model("nop1K0", "energy"), 1199012, places=0)
+        self.assertAlmostEqual(static_model("nop1K0", "power"), 914, places=0)
         self.assertAlmostEqual(static_model("nop3K3", "duration"), 514, places=0)
-        self.assertAlmostEqual(static_model("nop3K3", "energy"), 1501667, places=0)
+        self.assertAlmostEqual(static_model("nop3K3", "power"), 1669, places=0)
         self.assertAlmostEqual(static_model("setup", "duration"), 27, places=0)
-        self.assertAlmostEqual(static_model("setup", "energy"), 19907, places=0)
+        self.assertAlmostEqual(static_model("setup", "power"), 726, places=0)
         self.assertAlmostEqual(static_model("switchTo3K3", "duration"), 19, places=0)
-        self.assertAlmostEqual(static_model("switchTo3K3", "energy"), 14359, places=0)
+        self.assertAlmostEqual(static_model("switchTo3K3", "power"), 743, places=0)
         self.assertAlmostEqual(static_model("switchTo47K", "duration"), 19, places=0)
-        self.assertAlmostEqual(static_model("switchTo47K", "energy"), 14166, places=0)
+        self.assertAlmostEqual(static_model("switchTo47K", "power"), 733, places=0)
         self.assertAlmostEqual(static_model("switchTo750", "duration"), 19, places=0)
-        self.assertAlmostEqual(static_model("switchTo750", "energy"), 14131, places=0)
+        self.assertAlmostEqual(static_model("switchTo750", "power"), 732, places=0)
         self.assertAlmostEqual(static_model("switchToNone", "duration"), 19, places=0)
-        self.assertAlmostEqual(static_model("switchToNone", "energy"), 14306, places=0)
+        self.assertAlmostEqual(static_model("switchToNone", "power"), 741, places=0)
 
     def test_et_la_dco(self):
         raw_data = RawData(["test-data/20201203-112341-et_la_dco.tar"])
@@ -699,17 +741,17 @@ class TestFromFile(unittest.TestCase):
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("IDLE", "power"), 766, places=0)
         self.assertAlmostEqual(static_model("setup", "duration"), 15, places=0)
-        self.assertAlmostEqual(static_model("setup", "energy"), 13818, places=0)
+        self.assertAlmostEqual(static_model("setup", "power"), 935, places=0)
         self.assertAlmostEqual(static_model("trans100u", "duration"), 146, places=0)
-        self.assertAlmostEqual(static_model("trans100u", "energy"), 136794, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "power"), 939, places=0)
         self.assertAlmostEqual(static_model("trans10m", "duration"), 10084, places=0)
-        self.assertAlmostEqual(static_model("trans10m", "energy"), 62784483, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "power"), 6227, places=0)
         self.assertAlmostEqual(static_model("trans1m", "duration"), 1025, places=0)
-        self.assertAlmostEqual(static_model("trans1m", "energy"), 3782557, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "power"), 3691, places=0)
         self.assertAlmostEqual(static_model("trans2m", "duration"), 2031, places=0)
-        self.assertAlmostEqual(static_model("trans2m", "energy"), 10500784, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "power"), 5169, places=0)
         self.assertAlmostEqual(static_model("trans5m", "duration"), 5049, places=0)
-        self.assertAlmostEqual(static_model("trans5m", "energy"), 30521933, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "power"), 6045, places=0)
 
     def test_et_timer_dco(self):
         raw_data = RawData(["test-data/20201203-110526-et_timer_dco.tar"])
@@ -724,17 +766,17 @@ class TestFromFile(unittest.TestCase):
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("IDLE", "power"), 764, places=0)
         self.assertAlmostEqual(static_model("setup", "duration"), 28, places=0)
-        self.assertAlmostEqual(static_model("setup", "energy"), 25716, places=0)
+        self.assertAlmostEqual(static_model("setup", "power"), 935, places=0)
         self.assertAlmostEqual(static_model("trans100u", "duration"), 158, places=0)
-        self.assertAlmostEqual(static_model("trans100u", "energy"), 148072, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "power"), 935, places=0)
         self.assertAlmostEqual(static_model("trans10m", "duration"), 10097, places=0)
-        self.assertAlmostEqual(static_model("trans10m", "energy"), 61416161, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "power"), 6082, places=0)
         self.assertAlmostEqual(static_model("trans1m", "duration"), 1038, places=0)
-        self.assertAlmostEqual(static_model("trans1m", "energy"), 3023721, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "power"), 2913, places=0)
         self.assertAlmostEqual(static_model("trans2m", "duration"), 2044, places=0)
-        self.assertAlmostEqual(static_model("trans2m", "energy"), 9775385, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "power"), 4783, places=0)
         self.assertAlmostEqual(static_model("trans5m", "duration"), 5062, places=0)
-        self.assertAlmostEqual(static_model("trans5m", "energy"), 29832591, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "power"), 5893, places=0)
 
     def test_et_la_hfxt0(self):
         raw_data = RawData(["test-data/20201203-113313-et_la_hfxt0.tar"])
@@ -749,17 +791,17 @@ class TestFromFile(unittest.TestCase):
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("IDLE", "power"), 1032, places=0)
         self.assertAlmostEqual(static_model("setup", "duration"), 15, places=0)
-        self.assertAlmostEqual(static_model("setup", "energy"), 15737, places=0)
+        self.assertAlmostEqual(static_model("setup", "power"), 1103, places=0)
         self.assertAlmostEqual(static_model("trans100u", "duration"), 147, places=0)
-        self.assertAlmostEqual(static_model("trans100u", "energy"), 178027, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "power"), 1214, places=0)
         self.assertAlmostEqual(static_model("trans10m", "duration"), 10151, places=0)
-        self.assertAlmostEqual(static_model("trans10m", "energy"), 66177218, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "power"), 6519, places=0)
         self.assertAlmostEqual(static_model("trans1m", "duration"), 1032, places=0)
-        self.assertAlmostEqual(static_model("trans1m", "energy"), 5464953, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "power"), 5296, places=0)
         self.assertAlmostEqual(static_model("trans2m", "duration"), 2045, places=0)
-        self.assertAlmostEqual(static_model("trans2m", "energy"), 12420220, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "power"), 6074, places=0)
         self.assertAlmostEqual(static_model("trans5m", "duration"), 5083, places=0)
-        self.assertAlmostEqual(static_model("trans5m", "energy"), 32831410, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "power"), 6459, places=0)
 
     def test_et_timer_hfxt0(self):
         raw_data = RawData(["test-data/20201203-114004-et_timer_hfxt0.tar"])
@@ -774,17 +816,17 @@ class TestFromFile(unittest.TestCase):
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("IDLE", "power"), 1043, places=0)
         self.assertAlmostEqual(static_model("setup", "duration"), 28, places=0)
-        self.assertAlmostEqual(static_model("setup", "energy"), 51894, places=0)
+        self.assertAlmostEqual(static_model("setup", "power"), 1874, places=0)
         self.assertAlmostEqual(static_model("trans100u", "duration"), 159, places=0)
-        self.assertAlmostEqual(static_model("trans100u", "energy"), 224627, places=0)
+        self.assertAlmostEqual(static_model("trans100u", "power"), 1408, places=0)
         self.assertAlmostEqual(static_model("trans10m", "duration"), 10164, places=0)
-        self.assertAlmostEqual(static_model("trans10m", "energy"), 65457407, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "power"), 6440, places=0)
         self.assertAlmostEqual(static_model("trans1m", "duration"), 1045, places=0)
-        self.assertAlmostEqual(static_model("trans1m", "energy"), 4487431, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "power"), 4295, places=0)
         self.assertAlmostEqual(static_model("trans2m", "duration"), 2058, places=0)
-        self.assertAlmostEqual(static_model("trans2m", "energy"), 11554553, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "power"), 5616, places=0)
         self.assertAlmostEqual(static_model("trans5m", "duration"), 5096, places=0)
-        self.assertAlmostEqual(static_model("trans5m", "energy"), 32640200, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "power"), 6405, places=0)
 
     def test_multifile_lm75x(self):
         testfiles = [
@@ -802,6 +844,23 @@ class TestFromFile(unittest.TestCase):
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("ACTIVE", "power"), 332, places=0)
         self.assertAlmostEqual(static_model("POWEROFF", "power"), 7, places=0)
+        self.assertAlmostEqual(static_model("getTemp", "power"), 2041, places=0)
+        self.assertAlmostEqual(static_model("setHyst", "power"), 2415, places=0)
+        self.assertAlmostEqual(static_model("setOS", "power"), 2382, places=0)
+        self.assertAlmostEqual(static_model("shutdown", "power"), 1693, places=0)
+        self.assertAlmostEqual(static_model("start", "power"), 1784, places=0)
+        self.assertAlmostEqual(
+            static_model("getTemp", "rel_power_prev"), 1704, places=0
+        )
+        self.assertAlmostEqual(
+            static_model("setHyst", "rel_power_prev"), 2078, places=0
+        )
+        self.assertAlmostEqual(static_model("setOS", "rel_power_prev"), 2045, places=0)
+        self.assertAlmostEqual(
+            static_model("shutdown", "rel_power_prev"), 1683, places=0
+        )
+        self.assertAlmostEqual(static_model("start", "rel_power_prev"), 1776, places=0)
+        """
         self.assertAlmostEqual(static_model("getTemp", "energy"), 26016748, places=0)
         self.assertAlmostEqual(static_model("setHyst", "energy"), 22082226, places=0)
         self.assertAlmostEqual(static_model("setOS", "energy"), 21774238, places=0)
@@ -822,6 +881,7 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(
             static_model("start", "rel_energy_prev"), 12391462, places=0
         )
+        """
         self.assertAlmostEqual(static_model("getTemp", "duration"), 12740, places=0)
         self.assertAlmostEqual(static_model("setHyst", "duration"), 9140, places=0)
         self.assertAlmostEqual(static_model("setOS", "duration"), 9140, places=0)
@@ -845,6 +905,25 @@ class TestFromFile(unittest.TestCase):
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("DISABLED", "power"), 22, places=0)
         self.assertAlmostEqual(static_model("ENABLED", "power"), 24, places=0)
+        self.assertAlmostEqual(static_model("clear", "power"), 464, places=0)
+        self.assertAlmostEqual(static_model("disable", "power"), 1240, places=0)
+        self.assertAlmostEqual(static_model("enable", "power"), 1170, places=0)
+        self.assertAlmostEqual(static_model("ioInit", "power"), 22, places=0)
+        self.assertAlmostEqual(static_model("sendLine", "power"), 211, places=0)
+        self.assertAlmostEqual(static_model("toggleVCOM", "power"), 1025, places=0)
+        self.assertAlmostEqual(static_model("clear", "rel_power_prev"), 439, places=0)
+        self.assertAlmostEqual(
+            static_model("disable", "rel_power_prev"), 1216, places=0
+        )
+        self.assertAlmostEqual(static_model("enable", "rel_power_prev"), 1148, places=0)
+        self.assertAlmostEqual(static_model("ioInit", "rel_power_prev"), -2, places=0)
+        self.assertAlmostEqual(
+            static_model("sendLine", "rel_power_prev"), 186, places=0
+        )
+        self.assertAlmostEqual(
+            static_model("toggleVCOM", "rel_power_prev"), 1000, places=0
+        )
+        """
         self.assertAlmostEqual(static_model("clear", "energy"), 14059, places=0)
         self.assertAlmostEqual(static_model("disable", "energy"), 0, places=0)
         self.assertAlmostEqual(static_model("enable", "energy"), 0, places=0)
@@ -863,6 +942,7 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(
             static_model("toggleVCOM", "rel_energy_prev"), 30242, places=0
         )
+        """
         self.assertAlmostEqual(static_model("clear", "duration"), 30, places=0)
         self.assertAlmostEqual(static_model("disable", "duration"), 0, places=0)
         self.assertAlmostEqual(static_model("enable", "duration"), 0, places=0)
@@ -886,6 +966,15 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(static_model("G", "power"), 29432, places=0)
         self.assertAlmostEqual(static_model("OFF", "power"), 7057, places=0)
         self.assertAlmostEqual(static_model("R", "power"), 49068, places=0)
+        self.assertAlmostEqual(static_model("blue", "power"), 40981, places=0)
+        self.assertAlmostEqual(static_model("green", "power"), 40715, places=0)
+        self.assertAlmostEqual(static_model("off", "power"), 40831, places=0)
+        self.assertAlmostEqual(static_model("red", "power"), 41477, places=0)
+        self.assertAlmostEqual(static_model("blue", "rel_power_prev"), 11551, places=0)
+        self.assertAlmostEqual(static_model("green", "rel_power_prev"), 11278, places=0)
+        self.assertAlmostEqual(static_model("off", "rel_power_prev"), 11342, places=0)
+        self.assertAlmostEqual(static_model("red", "rel_power_prev"), 12090, places=0)
+        """
         self.assertAlmostEqual(static_model("blue", "energy"), 374440955, places=0)
         self.assertAlmostEqual(static_model("green", "energy"), 372026027, places=0)
         self.assertAlmostEqual(static_model("off", "energy"), 372999554, places=0)
@@ -902,6 +991,7 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(
             static_model("red", "rel_energy_prev"), 110474331, places=0
         )
+        """
         self.assertAlmostEqual(static_model("blue", "duration"), 9140, places=0)
         self.assertAlmostEqual(static_model("green", "duration"), 9140, places=0)
         self.assertAlmostEqual(static_model("off", "duration"), 9140, places=0)
@@ -940,6 +1030,41 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(static_model("SYNTH_ON", "power"), 60036, places=0)
         self.assertAlmostEqual(static_model("TX", "power"), 92461, places=0)
         self.assertAlmostEqual(static_model("XOFF", "power"), 780, places=0)
+        self.assertAlmostEqual(static_model("crystal_off", "power"), 6140, places=0)
+        self.assertAlmostEqual(static_model("eWOR", "power"), 7511, places=0)
+        self.assertAlmostEqual(static_model("idle", "power"), 48579, places=0)
+        self.assertAlmostEqual(static_model("init", "power"), 4627, places=0)
+        self.assertAlmostEqual(static_model("prepare_xmit", "power"), 19079, places=0)
+        self.assertAlmostEqual(static_model("receive", "power"), 19386, places=0)
+        self.assertAlmostEqual(static_model("send", "power"), 10478, places=0)
+        self.assertAlmostEqual(static_model("setSymbolRate", "power"), 9656, places=0)
+        self.assertAlmostEqual(static_model("setTxPower", "power"), 9625, places=0)
+        self.assertAlmostEqual(static_model("sleep", "power"), 5734, places=0)
+        self.assertAlmostEqual(static_model("txDone", "power"), 9707, places=0)
+        self.assertAlmostEqual(
+            static_model("crystal_off", "rel_power_prev"), -3325, places=0
+        )
+        self.assertAlmostEqual(static_model("eWOR", "rel_power_prev"), -1968, places=0)
+        self.assertAlmostEqual(static_model("idle", "rel_power_prev"), -33472, places=0)
+        self.assertAlmostEqual(static_model("init", "rel_power_prev"), 4472, places=0)
+        self.assertAlmostEqual(
+            static_model("prepare_xmit", "rel_power_prev"), 9618, places=0
+        )
+        self.assertAlmostEqual(
+            static_model("receive", "rel_power_prev"), 9887, places=0
+        )
+        self.assertAlmostEqual(static_model("send", "rel_power_prev"), 986, places=0)
+        self.assertAlmostEqual(
+            static_model("setSymbolRate", "rel_power_prev"), 160, places=0
+        )
+        self.assertAlmostEqual(
+            static_model("setTxPower", "rel_power_prev"), 132, places=0
+        )
+        self.assertAlmostEqual(static_model("sleep", "rel_power_prev"), -3758, places=0)
+        self.assertAlmostEqual(
+            static_model("txDone", "rel_power_prev"), -82886, places=0
+        )
+        """
         self.assertAlmostEqual(static_model("crystal_off", "energy"), 114658, places=0)
         self.assertAlmostEqual(static_model("eWOR", "energy"), 317556, places=0)
         self.assertAlmostEqual(static_model("idle", "energy"), 717713, places=0)
@@ -953,6 +1078,7 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(static_model("setTxPower", "energy"), 288701, places=0)
         self.assertAlmostEqual(static_model("sleep", "energy"), 104445, places=0)
         self.assertEqual(static_model("txDone", "energy"), 0)
+        """
 
         param_model, param_info = model.get_fitted()
         self.assertEqual(param_info("IDLE", "power"), None)

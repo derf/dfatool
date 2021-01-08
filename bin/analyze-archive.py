@@ -588,30 +588,45 @@ if __name__ == "__main__":
                     )
 
         for trans in model.transitions():
-            # Mean power is not a typical transition attribute, but may be present for debugging or analysis purposes
+            if "energy" in model.attributes(trans):
+                try:
+                    print(
+                        "{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  ({:.2f} / {:.2f} / {:.2f})".format(
+                            trans,
+                            static_model(trans, "energy"),
+                            static_model(trans, "rel_energy_prev"),
+                            static_model(trans, "rel_energy_next"),
+                            model.stats.generic_param_dependence_ratio(trans, "energy"),
+                            model.stats.generic_param_dependence_ratio(
+                                trans, "rel_energy_prev"
+                            ),
+                            model.stats.generic_param_dependence_ratio(
+                                trans, "rel_energy_next"
+                            ),
+                        )
+                    )
+                except KeyError:
+                    print(
+                        "{:10s}: {:.0f} pJ  ({:.2f})".format(
+                            trans,
+                            static_model(trans, "energy"),
+                            model.stats.generic_param_dependence_ratio(trans, "energy"),
+                        )
+                    )
+            print("{:10s}: {:.0f} µs".format(trans, static_model(trans, "duration")))
             try:
                 print(
-                    "{:10s}: {:.0f} µW  ({:.2f})".format(
+                    "{:10s}: {:.0f} / {:.0f} / {:.0f} µW  ({:.2f} / {:.2f} / {:.2f})".format(
                         trans,
                         static_model(trans, "power"),
+                        static_model(trans, "rel_power_prev"),
+                        static_model(trans, "rel_power_next"),
                         model.stats.generic_param_dependence_ratio(trans, "power"),
-                    )
-                )
-            except KeyError:
-                pass
-            try:
-                print(
-                    "{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  ({:.2f} / {:.2f} / {:.2f})".format(
-                        trans,
-                        static_model(trans, "energy"),
-                        static_model(trans, "rel_energy_prev"),
-                        static_model(trans, "rel_energy_next"),
-                        model.stats.generic_param_dependence_ratio(trans, "energy"),
                         model.stats.generic_param_dependence_ratio(
-                            trans, "rel_energy_prev"
+                            trans, "rel_power_prev"
                         ),
                         model.stats.generic_param_dependence_ratio(
-                            trans, "rel_energy_next"
+                            trans, "rel_power_next"
                         ),
                     )
                 )
@@ -619,11 +634,10 @@ if __name__ == "__main__":
                 print(
                     "{:10s}: {:.0f} pJ  ({:.2f})".format(
                         trans,
-                        static_model(trans, "energy"),
-                        model.stats.generic_param_dependence_ratio(trans, "energy"),
+                        static_model(trans, "power"),
+                        model.stats.generic_param_dependence_ratio(trans, "power"),
                     )
                 )
-            print("{:10s}: {:.0f} µs".format(trans, static_model(trans, "duration")))
 
     if xv_method == "montecarlo":
         static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
