@@ -1357,6 +1357,7 @@ class EnergyTraceWithBarcode:
             self.errors.append(
                 'zbar module is not available. Try "apt install python3-zbar"'
             )
+            self.interval_power = None
             return list()
 
         (
@@ -1426,9 +1427,12 @@ class EnergyTraceWithBarcode:
             * `uW_mean_delta_next`: Differenz zwischen uW_mean und uW_mean des Folgezustands
         """
 
+        energy_trace = list()
         first_sync = self.find_first_sync()
 
-        energy_trace = list()
+        if first_sync is None:
+            logger.error("did not find initial synchronization pulse")
+            return energy_trace
 
         expected_transitions = list()
         for trace_number, trace in enumerate(traces):
@@ -1558,6 +1562,9 @@ class EnergyTraceWithBarcode:
         return energy_trace
 
     def find_first_sync(self):
+        # zbar unavailable
+        if self.interval_power is None:
+            return None
         # LED Power is approx. self.led_power W, use self.led_power/2 W above surrounding median as threshold
         sync_threshold_power = (
             np.median(self.interval_power[: int(3 * self.sample_rate)])
