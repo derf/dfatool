@@ -87,7 +87,17 @@ def model_quality_table(result_lists, info_list):
             for i, results in enumerate(result_lists):
                 info = info_list[i]
                 buf += "  |||  "
-                if info is None or info(state_or_tran, key):
+                if (
+                    info is None
+                    or info(state_or_tran, key)
+                    or (
+                        key == "energy_Pt"
+                        and (
+                            info(state_or_tran, "power")
+                            or info(state_or_tran, "duration")
+                        )
+                    )
+                ):
                     result = results["by_name"][state_or_tran][key]
                     buf += format_quality_measures(result)
                 else:

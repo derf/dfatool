@@ -1181,6 +1181,9 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
                 "power",
                 "rel_power_prev",
                 "rel_power_next",
+                "energy",
+                "rel_energy_prev",
+                "rel_energy_next",
             ]
             # Uncomment this line if you also want to analyze mean transition power
             # aggregate[key]['attributes'].append('power')

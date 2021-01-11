@@ -1132,6 +1132,22 @@ class PTAModel:
                 )
                 measures = regression_measures(predicted_data, elem[key])
                 detailed_results[name][key] = measures
+            if elem["isa"] == "transition":
+                predicted_data = np.array(
+                    list(
+                        map(
+                            lambda i: model_function(
+                                name, "power", param=elem["param"][i]
+                            )
+                            * model_function(name, "duration", param=elem["param"][i]),
+                            range(len(elem["power"])),
+                        )
+                    )
+                )
+                measures = regression_measures(
+                    predicted_data, elem["power"] * elem["duration"]
+                )
+                detailed_results[name]["energy_Pt"] = measures
 
         return {"by_name": detailed_results}
 
