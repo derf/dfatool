@@ -613,6 +613,27 @@ if __name__ == "__main__":
                             model.stats.generic_param_dependence_ratio(trans, "energy"),
                         )
                     )
+            else:
+                try:
+                    print(
+                        "{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  (E=P·t)".format(
+                            trans,
+                            static_model(trans, "power")
+                            * static_model(trans, "duration"),
+                            static_model(trans, "rel_power_prev")
+                            * static_model(trans, "duration"),
+                            static_model(trans, "rel_power_next")
+                            * static_model(trans, "duration"),
+                        )
+                    )
+                except KeyError:
+                    print(
+                        "{:10s}: {:.0f} pJ  (E=P·t)".format(
+                            trans,
+                            static_model(trans, "power")
+                            * static_model(trans, "duration"),
+                        )
+                    )
             print("{:10s}: {:.0f} µs".format(trans, static_model(trans, "duration")))
             try:
                 print(
