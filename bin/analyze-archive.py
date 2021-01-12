@@ -46,7 +46,7 @@ from dfatool.loader import RawData, pta_trace_to_aggregate
 from dfatool.functions import gplearn_to_function
 from dfatool.model import PTAModel
 from dfatool.validation import CrossValidator
-from dfatool.utils import filter_aggregate_by_param
+from dfatool.utils import filter_aggregate_by_param, detect_outliers_in_aggregate
 from dfatool.automata import PTA
 
 
@@ -312,6 +312,17 @@ if __name__ == "__main__":
         help="Plot power trace for state or transition NAME. X axis is wrong for non-MIMOSA measurements",
     )
     parser.add_argument(
+        "--remove-outliers",
+        action="store_true",
+        help="Remove outliers exceeding the configured z score (default: 10)",
+    )
+    parser.add_argument(
+        "--z-score",
+        type=int,
+        default=10,
+        help="Configure z score for outlier detection (and optional removel)",
+    )
+    parser.add_argument(
         "--show-models",
         choices=["static", "paramdetection", "param", "all", "tex", "html"],
         help="static: show static model values as well as parameter detection heuristic.\n"
@@ -522,6 +533,9 @@ if __name__ == "__main__":
     )
 
     filter_aggregate_by_param(by_name, parameters, args.filter_param)
+    detect_outliers_in_aggregate(
+        by_name, z_limit=args.z_score, remove_outliers=args.remove_outliers
+    )
 
     model = PTAModel(
         by_name,

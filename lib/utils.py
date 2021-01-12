@@ -37,7 +37,7 @@ def human_readable(value, unit):
     for prefix, factor in (
         ("p", 1e-12),
         ("n", 1e-9),
-        (u"µ", 1e-6),
+        ("µ", 1e-6),
         ("m", 1e-3),
         ("", 1),
         ("k", 1e3),
@@ -266,6 +266,46 @@ def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
                         names_to_remove.add(name)
         for name in names_to_remove:
             aggregate.pop(name)
+
+
+def detect_outliers_in_aggregate(aggregate, z_limit=10, remove_outliers=False):
+    for name in aggregate.keys():
+        indices_to_remove = set()
+        attributes = list()
+        for attribute in aggregate[name]["attributes"]:
+            data = aggregate[name][attribute]
+            z_scores = (data - np.mean(data)) / np.std(data)
+            outliers = np.abs(z_scores) > z_limit
+            if np.any(outliers) and remove_outliers:
+                indices_to_remove = indices_to_remove.union(
+                    np.arange(len(outliers))[outliers]
+                )
+                attributes.append(attribute)
+            elif np.any(outliers):
+                logger.info(
+                    f"{name} {attribute} has {len(z_scores[outliers])} outliers"
+                )
+        if indices_to_remove:
+            # Assumption: len(aggregate[name][attribute]) is the same for each
+            # attribute.
+            logger.info(
+                f"Removing outliers {indices_to_remove} from {name}. Affected attributes: {attributes}"
+            )
+            indices_to_keep = map(
+                lambda x: x not in indices_to_remove, np.arange(len(outliers))
+            )
+            indices_to_keep = np.array(list(indices_to_keep))
+            for attribute in aggregate[name]["attributes"]:
+                aggregate[name][attribute] = aggregate[name][attribute][indices_to_keep]
+            aggregate[name]["param"] = list(
+                map(
+                    lambda iv: iv[1],
+                    filter(
+                        lambda iv: indices_to_keep[iv[0]],
+                        enumerate(aggregate[name]["param"]),
+                    ),
+                )
+            )
 
 
 class OptionalTimingAnalysis:
