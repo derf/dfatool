@@ -215,7 +215,7 @@ def _compute_param_statistics(
 
     :param attribute_data: list or 1-D numpy array taken from by_name[state_or_trans][attribute]
         (ground truth partitioned by state/transition name).
-    :param param_values: list of parameter values 
+    :param param_values: list of parameter values
         corresponding to the ground truth, e.g. [[1, 2, 3], ...] if the
         first ground truth element has the (lexically) first parameter set to 1,
         the second to 2 and the third to 3. Taken from by_name[state_or_trans]["param"].
@@ -245,6 +245,9 @@ def _compute_param_statistics(
     """
     ret = {
         "std_static": np.std(attribute_data),
+        # TODO Gewichtung? Parameterkombinationen mit wenig verfügbaren Messdaten werden
+        # genau so behandelt wie welchemit vielen verfügbaren Messdaten, in
+        # std_static haben sie dagegen weniger Gewicht
         "std_param_lut": np.mean([np.std(n_by_param[x]) for x in n_by_param.keys()]),
         "std_by_param": {},
         "std_by_param_values": {},
