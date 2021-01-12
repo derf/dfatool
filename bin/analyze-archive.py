@@ -644,7 +644,13 @@ if __name__ == "__main__":
                             * static_model(trans, "duration"),
                         )
                     )
-            print("{:10s}: {:.0f} µs".format(trans, static_model(trans, "duration")))
+            print(
+                "{:10s}: {:.0f} µs  ({:.2f})".format(
+                    trans,
+                    static_model(trans, "duration"),
+                    model.stats.generic_param_dependence_ratio(trans, "duration"),
+                )
+            )
             try:
                 print(
                     "{:10s}: {:.0f} / {:.0f} / {:.0f} µW  ({:.2f} / {:.2f} / {:.2f})".format(
