@@ -149,6 +149,7 @@ def plot_xy(X, Y, xlabel=None, ylabel=None, title=None, output=None, family=Fals
             print("X Y", file=f)
             for i in range(len(X)):
                 print("{} {}".format(X[i], Y[i]), file=f)
+        print(f"plot saved to {output}")
     else:
         plt.show()
 
@@ -261,6 +262,7 @@ def plot_param(
     print(data_filename_base, function_filename)
     if output:
         plt.savefig(output)
+        print(f"plot saved to {output}")
     else:
         plt.show()
 
@@ -408,5 +410,6 @@ def boxplot(ticks, measurements, xlabel="", ylabel="", modeldata=None, output=No
             for i, data in enumerate(measurements):
                 for value in data:
                     print("{} {}".format(ticks[i], value), file=f)
+        print(f"plot saved to {output}")
     else:
         plt.show()
