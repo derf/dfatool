@@ -182,8 +182,69 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
                     )
 
 
-def print_html_model_data(model, pm, pq, lm, lq, am, ai, aq):
+def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
     state_attributes = model.attributes(model.states()[0])
+    trans_attributes = model.attributes(model.transitions()[0])
+
+    print("# Setup")
+    print("* Input files: `", " ".join(raw_data.filenames), "`")
+    print(
+        f"""* Number of usable / performed measurements: {raw_data.preprocessing_stats["num_valid"]}/{raw_data.preprocessing_stats["num_runs"]}"""
+    )
+    print(f"""* State duration: {raw_data.setup_by_fileno[0]["state_duration"]} ms""")
+    print()
+    print("# States")
+
+    for state in model.states():
+        print()
+        print(f"## {state}")
+        print()
+        for param in model.parameters():
+            print("* {} ∈ {}".format(param, model.stats.distinct_values[state][param]))
+        for attribute in state_attributes:
+            unit = ""
+            if attribute == "power":
+                unit = "µW"
+            static_quality = pq["by_name"][state][attribute]["smape"]
+            print(
+                f"* {attribute} mean: {pm(state, attribute):.0f} {unit} (± {static_quality:.1f}%)"
+            )
+            if ai(state, attribute):
+                analytic_quality = aq["by_name"][state][attribute]["smape"]
+                fstr = ai(state, attribute)["function"].model_function
+                fstr = fstr.replace("0 + ", "", 1)
+                for i, marg in enumerate(ai(state, attribute)["function"].model_args):
+                    fstr = fstr.replace(f"regression_arg({i})", str(marg))
+                fstr = fstr.replace("+ -", "-")
+                print(f"* {attribute} function: {fstr} (± {analytic_quality:.1f}%)")
+
+    print()
+    print("# Transitions")
+
+    for trans in model.transitions():
+        print()
+        print(f"## {trans}")
+        print()
+        for param in model.parameters():
+            print("* {} ∈ {}".format(param, model.stats.distinct_values[trans][param]))
+        for attribute in trans_attributes:
+            unit = ""
+            if attribute == "duration":
+                unit = "µs"
+            elif attribute in ["energy", "rel_energy_prev"]:
+                unit = "pJ"
+            static_quality = pq["by_name"][trans][attribute]["smape"]
+            print(
+                f"* {attribute} mean: {pm(trans, attribute):.0f} {unit} (± {static_quality:.1f}%)"
+            )
+            if ai(trans, attribute):
+                analytic_quality = aq["by_name"][trans][attribute]["smape"]
+                fstr = ai(trans, attribute)["function"].model_function
+                fstr = fstr.replace("0 + ", "", 1)
+                for i, marg in enumerate(ai(trans, attribute)["function"].model_args):
+                    fstr = fstr.replace(f"regression_arg({i})", str(marg))
+                fstr = fstr.replace("+ -", "-")
+                print(f"* {attribute} function: {fstr} (± {analytic_quality:.1f}%)")
 
     print(
         "<table><tr><th>state</th><th>"
@@ -823,6 +884,7 @@ if __name__ == "__main__":
 
     if "html" in show_models or "html" in show_quality:
         print_html_model_data(
+            raw_data,
             model,
             static_model,
             static_quality,
