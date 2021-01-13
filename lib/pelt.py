@@ -1,5 +1,8 @@
+#!/usr/bin/env python3
+
 import logging
 import numpy as np
+import os
 from multiprocessing import Pool
 
 logger = logging.getLogger(__name__)
@@ -40,6 +43,13 @@ class PELT:
         self.range_max = 100
         self.with_multiprocessing = True
         self.__dict__.update(kwargs)
+
+        if os.getenv("DFATOOL_PELT_MODEL"):
+            self.model = os.getenv("DFATOOL_PELT_MODEL")
+        if os.getenv("DFATOOL_PELT_JUMP"):
+            self.jump = int(os.getenv("DFATOOL_PELT_JUMP"))
+        if os.getenv("DFATOOL_PELT_MIN_DIST"):
+            self.min_dist = int(os.getenv("DFATOOL_PELT_MIN_DIST"))
 
     # signals: a set of uW measurements belonging to a single parameter configuration (i.e., a single by_param entry)
     def needs_refinement(self, signals):

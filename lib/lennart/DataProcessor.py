@@ -94,8 +94,6 @@ class DataProcessor:
             if (self.et_timestamps[-1] - sync_start) > self.power_sync_len:
                 datasync_timestamps.append((sync_start, pre_outliers_ts))
 
-        # print(datasync_timestamps)
-
         # time_stamp_data contains an entry for each level change on the Logic Analyzer input.
         # So, time_stamp_data[0] is the first low-to-high transition, time_stamp_data[2] the second, etc.
         # -> time_stamp_data[2] is the low-to-high transition indicating the end of the first sync pulse
@@ -201,9 +199,13 @@ class DataProcessor:
         return compensated_timestamps
 
     def compensateDrift(self, sync_timestamps):
+        """Use ruptures (e.g. Pelt, Dynp) to determine transition timestamps."""
         from dfatool.pelt import PELT
 
-        pelt = PELT(min_dist=5, with_multiprocessing=False)
+        # TODO die Anzahl Changepoints ist a priori bekannt, es könnte mit ruptures.Dynp statt ruptures.Pelt besser funktionieren.
+        # Vielleicht sollte man auch "rbf" statt "l1" nutzen.
+        # "rbf" und "l2" scheinen ähnlich gut zu funktionieren, l2 ist schneller.
+        pelt = PELT(with_multiprocessing=False)
         expected_transition_start_timestamps = sync_timestamps[::2]
         transition_start_candidate_weights = list()
         compensated_timestamps = list()
@@ -223,7 +225,11 @@ class DataProcessor:
                 et_timestamps_start : et_timestamps_end + 1
             ]
             candidate_weight = dict()
-            for penalty in (1, 2, 5, 10, 15, 20):
+            if os.getenv("DFATOOL_DRIFT_COMPENSATION_PENALTY"):
+                penalties = (int(os.getenv("DFATOOL_DRIFT_COMPENSATION_PENALTY")),)
+            else:
+                penalties = (1, 2, 5, 10, 15, 20)
+            for penalty in penalties:
                 for changepoint in pelt.get_changepoints(energy_data, penalty=penalty):
                     if changepoint in candidate_weight:
                         candidate_weight[changepoint] += 1
@@ -254,6 +260,9 @@ class DataProcessor:
 
             expected_start_ts += drift
             expected_end_ts = sync_timestamps[i * 2 + 1] + drift
+
+            # Wähle die beiden nächsten Kandidaten um den erwarteten Sync-Punkt, einmal nach links
+            # (kleinerer Timestamp) und einmal nach rechts (größerer Timestamp)
             right_sync = bisect_left(candidates, expected_start_ts)
             left_sync = right_sync - 1
 
