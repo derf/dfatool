@@ -39,15 +39,19 @@ class DataProcessor:
         Main Function to remove unwanted data, get synchronization points, add the offset and add drift.
         :return: None
         """
-        # remove Dirty Data from previously running program (happens if logic Analyzer Measurement starts earlier than
-        # the HW Reset from energytrace)
-        use_data_after_index = 0
-        for x in range(1, len(self.sync_data.timestamps)):
-            if self.sync_data.timestamps[x] - self.sync_data.timestamps[x - 1] > 1.3:
-                use_data_after_index = x
+
+        # Remove bogus data before / after the measurement
+
+        time_stamp_data = self.sync_data.timestamps
+        for x in range(1, len(time_stamp_data)):
+            if time_stamp_data[x] - time_stamp_data[x - 1] > 1.3:
+                time_stamp_data = time_stamp_data[x:]
                 break
 
-        time_stamp_data = self.sync_data.timestamps[use_data_after_index:]
+        for x in reversed(range(1, len(time_stamp_data))):
+            if time_stamp_data[x] - time_stamp_data[x - 1] > 1.3:
+                time_stamp_data = time_stamp_data[:x]
+                break
 
         # Each synchronization pulse consists of two LogicAnalyzer pulses, so four
         # entries in time_stamp_data (rising edge, falling edge, rising edge, falling edge).
@@ -141,6 +145,8 @@ class DataProcessor:
         # actual transition timestamps here.
         if os.getenv("DFATOOL_COMPENSATE_DRIFT"):
             if len(self.hw_statechange_indexes):
+                # measurement was performed with EnergyTrace++
+                # (i.e., with cpu state annotations)
                 with_drift_compensation = self.compensateDriftPlusplus(with_drift[4:-8])
             else:
                 with_drift_compensation = self.compensateDrift(with_drift[4:-8])
@@ -167,6 +173,7 @@ class DataProcessor:
         return sync_timestamps_with_drift
 
     def compensateDriftPlusplus(self, sync_timestamps):
+        """Use hardware state changes reported by EnergyTrace++ to determine transition timestamps."""
         expected_transition_start_timestamps = sync_timestamps[::2]
         compensated_timestamps = list()
         drift = 0
