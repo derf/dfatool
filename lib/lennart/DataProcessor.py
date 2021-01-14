@@ -236,6 +236,9 @@ class DataProcessor:
                     else:
                         candidate_weight[changepoint] = 1
 
+            # TODO ist expected_start_ts wirklich eine gute Referenz? Wenn vor einer Transition ein UART-Dump
+            # liegt, dürfte expected_end_ts besser sein, dann muss allerdings bei der compensation wieder auf
+            # start_ts zurückgerechnet werden.
             transition_start_candidate_weights.append(
                 list(
                     map(
