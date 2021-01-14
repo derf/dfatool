@@ -291,8 +291,10 @@ class DataProcessor:
                     delta_drift = np.abs(prev_drift - new_drift)
                     csr_weights.append(delta_drift)
 
-            prev_nodes = new_nodes
-            prev_drifts = new_drifts
+            # a transition's candidate list may be empty
+            if len(new_nodes):
+                prev_nodes = new_nodes
+                prev_drifts = new_drifts
 
         # add an end node for shortest path search
         # (end node == final sync, so drift == 0)
