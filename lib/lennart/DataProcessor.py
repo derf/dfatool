@@ -289,6 +289,8 @@ class DataProcessor:
                     edge_dsts.append(new_node)
 
                     delta_drift = np.abs(prev_drift - new_drift)
+                    # TODO evaluate "delta_drift ** 2" or similar nonlinear
+                    # weights -> further penalize large drift deltas
                     csr_weights.append(delta_drift)
 
             # a transition's candidate list may be empty
@@ -362,26 +364,11 @@ class DataProcessor:
             transition = transition_by_node[node]
             drift = node_drifts[node]
 
-            if transition - prev_transition >= 2:
-                # previous transition was skipped due to lack of detected changepoints
+            while transition - prev_transition > 1:
                 prev_drift = node_drifts[nodes[i - 1]]
-                mean_drift = np.mean([prev_drift, drift])
-                expected_start_ts = (
-                    sync_timestamps[(prev_transition + 1) * 2] + mean_drift
-                )
-                expected_end_ts = (
-                    sync_timestamps[(prev_transition + 1) * 2 + 1] + mean_drift
-                )
-                compensated_timestamps.append(expected_start_ts)
-                compensated_timestamps.append(expected_end_ts)
-            if transition - prev_transition >= 3:
-                # previous transition was skipped due to lack of detected changepoints
-                expected_start_ts = (
-                    sync_timestamps[(prev_transition + 2) * 2] + mean_drift
-                )
-                expected_end_ts = (
-                    sync_timestamps[(prev_transition + 2) * 2 + 1] + mean_drift
-                )
+                prev_transition += 1
+                expected_start_ts = sync_timestamps[prev_transition * 2] + prev_drift
+                expected_end_ts = sync_timestamps[prev_transition * 2 + 1] + prev_drift
                 compensated_timestamps.append(expected_start_ts)
                 compensated_timestamps.append(expected_end_ts)
 
