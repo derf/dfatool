@@ -102,12 +102,16 @@ class PELT:
             changepoints = algo.predict(pen=penalty)
             if len(changepoints) and changepoints[-1] == len(signal):
                 changepoints.pop()
+            if len(changepoints) and changepoints[0] == 0:
+                changepoints.pop(0)
             return penalty, changepoints
 
         if self.algo == "dynp" and num_changepoints is not None:
-            changepoints = algo.predict(pen=penalty)
+            changepoints = algo.predict(n_bkps=num_changepoints)
             if len(changepoints) and changepoints[-1] == len(signal):
                 changepoints.pop()
+            if len(changepoints) and changepoints[0] == 0:
+                changepoints.pop(0)
             return None, changepoints
 
         queue = list()
