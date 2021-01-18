@@ -272,8 +272,11 @@ class DataProcessor:
                 )
             )
 
-        # TODO provide different algorithmes (shortest path, greedy, ...?) and use environment variables to decide
-        # which one should be used
+        if os.getenv("DFATOOL_COMPENSATE_DRIFT_GREEDY"):
+            return self.compensate_drift_greedy(
+                sync_timestamps, transition_start_candidate_weights
+            )
+
         return self.compensate_drift_graph(
             sync_timestamps, transition_start_candidate_weights
         )
@@ -465,7 +468,87 @@ class DataProcessor:
     def compensate_drift_greedy(
         self, sync_timestamps, transition_start_candidate_weights
     ):
-        pass
+        drift = 0
+        expected_transition_start_timestamps = sync_timestamps[::2]
+        for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
+            candidates = sorted(
+                map(
+                    lambda x: x[0] + expected_start_ts,
+                    transition_start_candidate_weights[i],
+                )
+            )
+            expected_start_ts += drift
+            expected_end_ts = sync_timestamps[2 * i + 1] + drift
+
+            # choose the next candidates around the expected sync point.
+            right_sync = bisect_left(candidates, expected_start_ts)
+            left_sync = right_sync - 1
+
+            if left_sync > 0:
+                left_diff = expected_start_ts - candidates[left_sync]
+            else:
+                left_diff = None
+
+            if right_sync < len(candidates):
+                right_diff = candidates[right_sync] - expected_start_ts
+            else:
+                right_diff = None
+
+            if left_diff is None and right_diff is None:
+                # compensated_timestamps.append(None)
+                # compensated_timestamps.append(None)
+                compensated_timestamps.append(expected_start_ts)
+                compensated_timestamps.append(expected_end_ts)
+                continue
+
+            if right_diff is None and left_diff < 5e-4:
+                print(expected_start_ts, drift, -left_diff)
+                compensated_timestamps.append(expected_start_ts - left_diff)
+                compensated_timestamps.append(expected_end_ts - left_diff)
+                drift -= left_diff
+                continue
+
+            if left_diff is None and right_diff < 5e-4:
+                print(expected_start_ts, drift, right_diff)
+                compensated_timestamps.append(expected_start_ts + right_diff)
+                compensated_timestamps.append(expected_end_ts + right_diff)
+                drift += right_diff
+                continue
+
+            if left_diff is not None and right_diff is not None:
+                if left_diff < right_diff and left_diff < 1e-3:
+                    print(expected_start_ts, drift, -left_diff)
+                    compensated_timestamps.append(expected_start_ts - left_diff)
+                    compensated_timestamps.append(expected_end_ts - left_diff)
+                    drift -= left_diff
+                    continue
+                if right_diff < left_diff and right_diff < 1e-3:
+                    print(expected_start_ts, drift, right_diff)
+                    compensated_timestamps.append(expected_start_ts + right_diff)
+                    compensated_timestamps.append(expected_end_ts + right_diff)
+                    drift += right_diff
+                    continue
+
+            compensated_timestamps.append(expected_start_ts)
+            compensated_timestamps.append(expected_end_ts)
+
+        if os.getenv("DFATOOL_EXPORT_DRIFT_COMPENSATION"):
+            import json
+            from dfatool.utils import NpEncoder
+
+            expected_transition_start_timestamps = sync_timestamps[::2]
+
+            with open(os.getenv("DFATOOL_EXPORT_DRIFT_COMPENSATION"), "w") as f:
+                json.dump(
+                    [
+                        expected_transition_start_timestamps,
+                        transition_start_candidate_weights,
+                    ],
+                    f,
+                    cls=NpEncoder,
+                )
+
+        return compensated_timestamps
 
     def export_sync(self):
         # [1st trans start, 1st trans stop, 2nd trans start, 2nd trans stop, ...]
