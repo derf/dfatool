@@ -222,7 +222,6 @@ class DataProcessor:
         pelt = PELT(with_multiprocessing=False)
         expected_transition_start_timestamps = sync_timestamps[::2]
         transition_start_candidate_weights = list()
-        compensated_timestamps = list()
         drift = 0
 
         for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
@@ -266,6 +265,15 @@ class DataProcessor:
                 )
             )
 
+        # TODO provide different algorithmes (shortest path, greedy, ...?) and use environment variables to decide
+        # which one should be used
+        return self.compensate_drift_graph(
+            sync_timestamps, transition_start_candidate_weights
+        )
+
+    def compensate_drift_graph(
+        self, sync_timestamps, transition_start_candidate_weights
+    ):
         # Algorithm: Obtain the shortest path in a layered graph made up from
         # transition candidates. Each node represents a transition candidate timestamp, and each layer represents a transition.
         # Each node in layer i contains a directed edge to each node in layer i+1.
@@ -284,6 +292,7 @@ class DataProcessor:
 
         nodes_by_transition_index = dict()
         transition_by_node = dict()
+        compensated_timestamps = list()
 
         for transition_index, candidates in enumerate(
             transition_start_candidate_weights
@@ -398,6 +407,8 @@ class DataProcessor:
         if os.getenv("DFATOOL_EXPORT_DRIFT_COMPENSATION"):
             import json
             from dfatool.utils import NpEncoder
+
+            expected_transition_start_timestamps = sync_timestamps[::2]
 
             with open(os.getenv("DFATOOL_EXPORT_DRIFT_COMPENSATION"), "w") as f:
                 json.dump(
