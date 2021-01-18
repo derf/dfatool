@@ -161,7 +161,7 @@ class DataProcessor:
                 self.sync_timestamps[4:-8] = with_drift_compensation
             except ValueError:
                 logger.error(
-                    f"Iteration #{self.offline_index}: drift-compensated sequence is too short"
+                    f"Iteration #{self.offline_index}: drift-compensated sequence is too short ({len(with_drift_compensation)}/{len(self.sync_timestamps[4:-8])-1})"
                 )
                 raise
 
@@ -240,12 +240,16 @@ class DataProcessor:
                 et_timestamps_start : et_timestamps_end + 1
             ]
             candidate_weight = dict()
-            if os.getenv("DFATOOL_DRIFT_COMPENSATION_PENALTY"):
+            if 0:
+                penalties = (None,)
+            elif os.getenv("DFATOOL_DRIFT_COMPENSATION_PENALTY"):
                 penalties = (int(os.getenv("DFATOOL_DRIFT_COMPENSATION_PENALTY")),)
             else:
                 penalties = (1, 2, 5, 10, 15, 20)
             for penalty in penalties:
-                for changepoint in pelt.get_changepoints(energy_data, penalty=penalty):
+                for changepoint in pelt.get_changepoints(
+                    energy_data, penalty=penalty, num_changepoints=1
+                ):
                     if changepoint in candidate_weight:
                         candidate_weight[changepoint] += 1
                     else:
@@ -296,6 +300,12 @@ class DataProcessor:
         transition_by_node = dict()
         compensated_timestamps = list()
 
+        # up to two nodes may be skipped
+        max_skip_count = 2
+
+        if os.getenv("DFATOOL_DC_MAX_SKIP"):
+            max_skip_count = int(os.getenv("DFATOOL_DC_MAX_SKIP"))
+
         for transition_index, candidates in enumerate(
             transition_start_candidate_weights
         ):
@@ -342,32 +352,26 @@ class DataProcessor:
         for transition_index, candidates in enumerate(
             transition_start_candidate_weights
         ):
-            if transition_index < 2:
-                continue
-            for from_i, (_, from_drift, _) in enumerate(
-                transition_start_candidate_weights[transition_index - 2]
-            ):
-                for to_i, (_, to_drift, _) in enumerate(candidates):
-                    # Penalize shortcut by the duration of one sample
-                    # (~270 us)
-                    edge_srcs.append(
-                        nodes_by_transition_index[transition_index - 2][from_i]
-                    )
-                    edge_dsts.append(nodes_by_transition_index[transition_index][to_i])
-                    csr_weights.append(np.abs(from_drift - to_drift) + 270e-6)
-            if transition_index < 3:
-                continue
-            for from_i, (_, from_drift, _) in enumerate(
-                transition_start_candidate_weights[transition_index - 3]
-            ):
-                for to_i, (_, to_drift, _) in enumerate(candidates):
-                    # Penalize shortcut by the duration of one sample
-                    # (~270 us)
-                    edge_srcs.append(
-                        nodes_by_transition_index[transition_index - 3][from_i]
-                    )
-                    edge_dsts.append(nodes_by_transition_index[transition_index][to_i])
-                    csr_weights.append(np.abs(from_drift - to_drift) + 2 * 270e-6)
+            for skip_count in range(2, max_skip_count + 2):
+                if transition_index < skip_count:
+                    continue
+                for from_i, (_, from_drift, _) in enumerate(
+                    transition_start_candidate_weights[transition_index - skip_count]
+                ):
+                    for to_i, (_, to_drift, _) in enumerate(candidates):
+                        # Penalize shortcut by the duration of one sample
+                        # (~270 us)
+                        edge_srcs.append(
+                            nodes_by_transition_index[transition_index - skip_count][
+                                from_i
+                            ]
+                        )
+                        edge_dsts.append(
+                            nodes_by_transition_index[transition_index][to_i]
+                        )
+                        csr_weights.append(
+                            np.abs(from_drift - to_drift) + skip_count * 270e-6
+                        )
 
         sm = scipy.sparse.csr_matrix(
             (csr_weights, (edge_srcs, edge_dsts)), shape=(new_node + 1, new_node + 1)
