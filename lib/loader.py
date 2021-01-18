@@ -1840,6 +1840,7 @@ class EnergyTraceWithLogicAnalyzer:
             et_timestamps=self.interval_start_timestamp,
             et_power=self.interval_power,
             hw_statechange_indexes=self.hw_statechange_indexes,
+            offline_index=offline_index,
         )
         dp.run()
         energy_trace_new = dp.getStatesdfatool(

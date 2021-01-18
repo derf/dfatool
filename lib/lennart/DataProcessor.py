@@ -10,7 +10,12 @@ logger = logging.getLogger(__name__)
 
 class DataProcessor:
     def __init__(
-        self, sync_data, et_timestamps, et_power, hw_statechange_indexes=list()
+        self,
+        sync_data,
+        et_timestamps,
+        et_power,
+        hw_statechange_indexes=list(),
+        offline_index=None,
     ):
         """
         Creates DataProcessor object.
@@ -26,6 +31,7 @@ class DataProcessor:
         # energytrace power values
         self.et_power_values = et_power
         self.hw_statechange_indexes = hw_statechange_indexes
+        self.offline_index = offline_index
         self.sync_data = sync_data
         self.start_offset = 0
 
@@ -106,22 +112,24 @@ class DataProcessor:
         end_timestamp = datasync_timestamps[-2][0]
         end_offset = end_timestamp - (time_stamp_data[-8] + start_offset)
         logger.debug(
-            f"Measurement area: ET timestamp range [{start_timestamp}, {end_timestamp}]"
+            f"Iteration #{self.offline_index}: Measurement area: ET timestamp range [{start_timestamp}, {end_timestamp}]"
         )
         logger.debug(
-            f"Measurement area: LA timestamp range [{time_stamp_data[2]}, {time_stamp_data[-8]}]"
+            f"Iteration #{self.offline_index}: Measurement area: LA timestamp range [{time_stamp_data[2]}, {time_stamp_data[-8]}]"
         )
-        logger.debug(f"Start/End offsets: {start_offset} / {end_offset}")
+        logger.debug(
+            f"Iteration #{self.offline_index}: Start/End offsets: {start_offset} / {end_offset}"
+        )
 
         if abs(end_offset) > 10:
             raise RuntimeError(
-                f"synchronization end_offset == {end_offset}. It should be no more than a few seconds."
+                f"Iteration #{self.offline_index}: synchronization end_offset == {end_offset}. It should be no more than a few seconds."
             )
 
         # adjust start offset
         with_offset = np.array(time_stamp_data) + start_offset
         logger.debug(
-            f"Measurement area with offset: LA timestamp range [{with_offset[2]}, {with_offset[-8]}]"
+            f"Iteration #{self.offline_index}: Measurement area with offset: LA timestamp range [{with_offset[2]}, {with_offset[-8]}]"
         )
 
         # adjust stop offset (may be different from start offset due to drift caused by
@@ -130,7 +138,7 @@ class DataProcessor:
             with_offset, end_timestamp, end_offset, start_timestamp
         )
         logger.debug(
-            f"Measurement area with drift: LA timestamp range [{with_drift[2]}, {with_drift[-8]}]"
+            f"Iteration #{self.offline_index}: Measurement area with drift: LA timestamp range [{with_drift[2]}, {with_drift[-8]}]"
         )
 
         self.sync_timestamps = with_drift
@@ -149,7 +157,13 @@ class DataProcessor:
                 with_drift_compensation = self.compensateDriftPlusplus(with_drift[4:-8])
             else:
                 with_drift_compensation = self.compensateDrift(with_drift[4:-8])
-            self.sync_timestamps[4:-8] = with_drift_compensation
+            try:
+                self.sync_timestamps[4:-8] = with_drift_compensation
+            except ValueError:
+                logger.error(
+                    "Iteration #{self.offline_index}: drift-compensated sequence is too short"
+                )
+                raise
 
     def addDrift(self, input_timestamps, end_timestamp, end_offset, start_timestamp):
         """
