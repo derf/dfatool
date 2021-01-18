@@ -404,6 +404,15 @@ class DataProcessor:
             compensated_timestamps.append(expected_end_ts)
             prev_transition = transition
 
+        transition = len(transition_start_candidate_weights) - 1
+        while transition - prev_transition > 0:
+            prev_drift = node_drifts[nodes[-1]]
+            prev_transition += 1
+            expected_start_ts = sync_timestamps[prev_transition * 2] + prev_drift
+            expected_end_ts = sync_timestamps[prev_transition * 2 + 1] + prev_drift
+            compensated_timestamps.append(expected_start_ts)
+            compensated_timestamps.append(expected_end_ts)
+
         if os.getenv("DFATOOL_EXPORT_DRIFT_COMPENSATION"):
             import json
             from dfatool.utils import NpEncoder
