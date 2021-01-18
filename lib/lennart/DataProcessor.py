@@ -161,7 +161,7 @@ class DataProcessor:
                 self.sync_timestamps[4:-8] = with_drift_compensation
             except ValueError:
                 logger.error(
-                    "Iteration #{self.offline_index}: drift-compensated sequence is too short"
+                    f"Iteration #{self.offline_index}: drift-compensated sequence is too short"
                 )
                 raise
 
