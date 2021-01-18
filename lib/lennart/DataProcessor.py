@@ -227,13 +227,14 @@ class DataProcessor:
         drift = 0
 
         for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
+            expected_end_ts = sync_timestamps[2 * i + 1]
             # assumption: maximum deviation between expected and actual timestamps is 5ms.
             # We use ±10ms to have some contetx for PELT
             et_timestamps_start = bisect_left(
                 self.et_timestamps, expected_start_ts - 10e-3
             )
             et_timestamps_end = bisect_right(
-                self.et_timestamps, expected_start_ts + 10e-3
+                self.et_timestamps, expected_end_ts + 10e-3
             )
             timestamps = self.et_timestamps[et_timestamps_start : et_timestamps_end + 1]
             energy_data = self.et_power_values[
@@ -262,8 +263,8 @@ class DataProcessor:
                 list(
                     map(
                         lambda k: (
-                            timestamps[k],
                             timestamps[k] - expected_start_ts,
+                            timestamps[k] - expected_end_ts,
                             candidate_weight[k],
                         ),
                         candidate_weight.keys(),
@@ -296,11 +297,16 @@ class DataProcessor:
         csr_weights = list()
         node_drifts = list()
 
+        # (transition index) -> [candidate 0/start node, candidate 0/end node, candidate 1/start node, ...]
         nodes_by_transition_index = dict()
+
+        # (node number) -> (transition index, candidate index, is_end)
+        # (-> transition_start_candidate_weights[transition index][candidate index][is_end])
         transition_by_node = dict()
+
         compensated_timestamps = list()
 
-        # up to two nodes may be skipped
+        # default: up to two nodes may be skipped
         max_skip_count = 2
 
         if os.getenv("DFATOOL_DC_MAX_SKIP"):
@@ -313,23 +319,30 @@ class DataProcessor:
             new_drifts = list()
             i_offset = prev_nodes[-1] + 1
             nodes_by_transition_index[transition_index] = list()
-            for new_node_i, (_, new_drift, _) in enumerate(candidates):
-                new_node = new_node_i + i_offset
-                nodes_by_transition_index[transition_index].append(new_node)
-                transition_by_node[new_node] = transition_index
-                new_nodes.append(new_node)
-                new_drifts.append(new_drift)
-                node_drifts.append(new_drift)
-                for prev_node_i, prev_node in enumerate(prev_nodes):
-                    prev_drift = prev_drifts[prev_node_i]
+            for new_node_i, (new_drift_start, new_drift_end, _) in enumerate(
+                candidates
+            ):
+                for is_end, new_drift in enumerate((new_drift_start, new_drift_end)):
+                    new_node = i_offset + new_node_i * 2 + is_end
+                    nodes_by_transition_index[transition_index].append(new_node)
+                    transition_by_node[new_node] = (
+                        transition_index,
+                        new_node_i,
+                        is_end,
+                    )
+                    new_nodes.append(new_node)
+                    new_drifts.append(new_drift)
+                    node_drifts.append(new_drift)
+                    for prev_node_i, prev_node in enumerate(prev_nodes):
+                        prev_drift = prev_drifts[prev_node_i]
 
-                    edge_srcs.append(prev_node)
-                    edge_dsts.append(new_node)
+                        edge_srcs.append(prev_node)
+                        edge_dsts.append(new_node)
 
-                    delta_drift = np.abs(prev_drift - new_drift)
-                    # TODO evaluate "delta_drift ** 2" or similar nonlinear
-                    # weights -> further penalize large drift deltas
-                    csr_weights.append(delta_drift)
+                        delta_drift = np.abs(prev_drift - new_drift)
+                        # TODO evaluate "delta_drift ** 2" or similar nonlinear
+                        # weights -> further penalize large drift deltas
+                        csr_weights.append(delta_drift)
 
             # a transition's candidate list may be empty
             if len(new_nodes):
@@ -345,8 +358,7 @@ class DataProcessor:
             edge_dsts.append(new_node)
             csr_weights.append(np.abs(prev_drift))
 
-        # Add "skip" edges spanning from transition i to transition i+2
-        # and from transition i to transition i+3.
+        # Add "skip" edges spanning from transition i to transition i+n (n > 1).
         # These avoid synchronization errors caused by transitions wich are
         # not found by changepiont detection, as long as they are sufficiently rare.
         for transition_index, candidates in enumerate(
@@ -355,22 +367,34 @@ class DataProcessor:
             for skip_count in range(2, max_skip_count + 2):
                 if transition_index < skip_count:
                     continue
-                for from_i, (_, from_drift, _) in enumerate(
-                    transition_start_candidate_weights[transition_index - skip_count]
-                ):
-                    for to_i, (_, to_drift, _) in enumerate(candidates):
-                        # Penalize shortcut by the duration of one sample
-                        # (~270 us)
-                        edge_srcs.append(
-                            nodes_by_transition_index[transition_index - skip_count][
-                                from_i
-                            ]
-                        )
-                        edge_dsts.append(
-                            nodes_by_transition_index[transition_index][to_i]
-                        )
+                for from_node in nodes_by_transition_index[
+                    transition_index - skip_count
+                ]:
+                    for to_node in nodes_by_transition_index[transition_index]:
+
+                        (
+                            from_trans_i,
+                            from_candidate_i,
+                            from_is_end,
+                        ) = transition_by_node[from_node]
+                        to_trans_i, to_candidate_i, to_is_end = transition_by_node[
+                            to_node
+                        ]
+
+                        assert transition_index - skip_count == from_trans_i
+                        assert transition_index == to_trans_i
+
+                        from_drift = transition_start_candidate_weights[from_trans_i][
+                            from_candidate_i
+                        ][from_is_end]
+                        to_drift = transition_start_candidate_weights[to_trans_i][
+                            to_candidate_i
+                        ][to_is_end]
+
+                        edge_srcs.append(from_node)
+                        edge_dsts.append(to_node)
                         csr_weights.append(
-                            np.abs(from_drift - to_drift) + skip_count * 270e-6
+                            np.abs(from_drift - to_drift) + (skip_count - 1) * 270e-6
                         )
 
         sm = scipy.sparse.csr_matrix(
@@ -388,12 +412,12 @@ class DataProcessor:
 
         nodes = list(reversed(nodes))
 
-        # first and graph nodes are not included in "nodes" as they represent
+        # first and last node are not included in "nodes" as they represent
         # the start/stop sync pulse (and not a transition with sync candidates)
 
         prev_transition = -1
         for i, node in enumerate(nodes):
-            transition = transition_by_node[node]
+            transition, _, _ = transition_by_node[node]
             drift = node_drifts[node]
 
             while transition - prev_transition > 1:
@@ -410,6 +434,7 @@ class DataProcessor:
             compensated_timestamps.append(expected_end_ts)
             prev_transition = transition
 
+        # handle skips over the last few transitions, if any
         transition = len(transition_start_candidate_weights) - 1
         while transition - prev_transition > 0:
             prev_drift = node_drifts[nodes[-1]]
@@ -436,6 +461,11 @@ class DataProcessor:
                 )
 
         return compensated_timestamps
+
+    def compensate_drift_greedy(
+        self, sync_timestamps, transition_start_candidate_weights
+    ):
+        pass
 
     def export_sync(self):
         # [1st trans start, 1st trans stop, 2nd trans start, 2nd trans stop, ...]
