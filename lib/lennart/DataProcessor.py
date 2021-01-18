@@ -219,7 +219,9 @@ class DataProcessor:
         # TODO die Anzahl Changepoints ist a priori bekannt, es könnte mit ruptures.Dynp statt ruptures.Pelt besser funktionieren.
         # Vielleicht sollte man auch "rbf" statt "l1" nutzen.
         # "rbf" und "l2" scheinen ähnlich gut zu funktionieren, l2 ist schneller.
-        pelt = PELT(with_multiprocessing=False)
+        # PELT does not find changepoints for transitions which span just four or five data points (i.e., transitions shorter than ~2ms).
+        # Workaround: Double the data rate passed to PELT by interpolation ("stretch=2")
+        pelt = PELT(with_multiprocessing=False, stretch=2)
         expected_transition_start_timestamps = sync_timestamps[::2]
         transition_start_candidate_weights = list()
         drift = 0
