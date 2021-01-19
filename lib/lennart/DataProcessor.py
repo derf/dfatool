@@ -241,6 +241,11 @@ class DataProcessor:
                 et_timestamps_start : et_timestamps_end + 1
             ]
             candidate_weight = dict()
+
+            # TODO for greedy mode, perform changepoint detection between greedy steps
+            # (-> the expected changepoint area is well-known, Dynp with 1/2 changepoints
+            # should work much better than "somewhere in these 20ms there should be a transition")
+
             if 0:
                 penalties = (None,)
             elif os.getenv("DFATOOL_DRIFT_COMPENSATION_PENALTY"):
@@ -470,6 +475,8 @@ class DataProcessor:
     ):
         drift = 0
         expected_transition_start_timestamps = sync_timestamps[::2]
+        compensated_timestamps = list()
+
         for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
             candidates = sorted(
                 map(
@@ -481,56 +488,41 @@ class DataProcessor:
             expected_end_ts = sync_timestamps[2 * i + 1] + drift
 
             # choose the next candidates around the expected sync point.
-            right_sync = bisect_left(candidates, expected_start_ts)
-            left_sync = right_sync - 1
+            start_right_sync = bisect_left(candidates, expected_start_ts)
+            start_left_sync = start_right_sync - 1
 
-            if left_sync > 0:
-                left_diff = expected_start_ts - candidates[left_sync]
+            end_right_sync = bisect_left(candidates, expected_end_ts)
+            end_left_sync = end_right_sync - 1
+
+            start_left_diff = expected_start_ts - candidates[start_left_sync]
+            start_right_diff = candidates[start_right_sync] - expected_start_ts
+            end_left_diff = expected_end_ts - candidates[end_left_sync]
+            end_right_diff = candidates[end_right_sync] - expected_end_ts
+
+            drift_candidates = (
+                start_left_diff,
+                start_right_diff,
+                end_left_diff,
+                end_right_diff,
+            )
+            min_drift_i = np.argmin(drift_candidates)
+            min_drift = min(drift_candidates)
+
+            if min_drift < 5e-4:
+                if min_drift_i % 2 == 0:
+                    # left
+                    compensated_timestamps.append(expected_start_ts - min_drift)
+                    compensated_timestamps.append(expected_end_ts - min_drift)
+                    drift -= min_drift
+                else:
+                    # right
+                    compensated_timestamps.append(expected_start_ts + min_drift)
+                    compensated_timestamps.append(expected_end_ts + min_drift)
+                    drift += min_drift
+
             else:
-                left_diff = None
-
-            if right_sync < len(candidates):
-                right_diff = candidates[right_sync] - expected_start_ts
-            else:
-                right_diff = None
-
-            if left_diff is None and right_diff is None:
-                # compensated_timestamps.append(None)
-                # compensated_timestamps.append(None)
                 compensated_timestamps.append(expected_start_ts)
                 compensated_timestamps.append(expected_end_ts)
-                continue
-
-            if right_diff is None and left_diff < 5e-4:
-                print(expected_start_ts, drift, -left_diff)
-                compensated_timestamps.append(expected_start_ts - left_diff)
-                compensated_timestamps.append(expected_end_ts - left_diff)
-                drift -= left_diff
-                continue
-
-            if left_diff is None and right_diff < 5e-4:
-                print(expected_start_ts, drift, right_diff)
-                compensated_timestamps.append(expected_start_ts + right_diff)
-                compensated_timestamps.append(expected_end_ts + right_diff)
-                drift += right_diff
-                continue
-
-            if left_diff is not None and right_diff is not None:
-                if left_diff < right_diff and left_diff < 1e-3:
-                    print(expected_start_ts, drift, -left_diff)
-                    compensated_timestamps.append(expected_start_ts - left_diff)
-                    compensated_timestamps.append(expected_end_ts - left_diff)
-                    drift -= left_diff
-                    continue
-                if right_diff < left_diff and right_diff < 1e-3:
-                    print(expected_start_ts, drift, right_diff)
-                    compensated_timestamps.append(expected_start_ts + right_diff)
-                    compensated_timestamps.append(expected_end_ts + right_diff)
-                    drift += right_diff
-                    continue
-
-            compensated_timestamps.append(expected_start_ts)
-            compensated_timestamps.append(expected_end_ts)
 
         if os.getenv("DFATOOL_EXPORT_DRIFT_COMPENSATION"):
             import json
