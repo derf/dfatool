@@ -300,10 +300,10 @@ class DataProcessor:
 
         prev_nodes = [0]
         prev_drifts = [0]
+        node_drifts = [0]
         edge_srcs = list()
         edge_dsts = list()
         csr_weights = list()
-        node_drifts = list()
 
         # (transition index) -> [candidate 0/start node, candidate 0/end node, candidate 1/start node, ...]
         nodes_by_transition_index = dict()
