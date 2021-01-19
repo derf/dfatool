@@ -226,6 +226,9 @@ class DataProcessor:
         transition_start_candidate_weights = list()
         drift = 0
 
+        # TODO auch Kandidatenbestimmung per Ableitung probieren
+        # (-> Umgebungsvariable zur Auswahl)
+
         for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
             expected_end_ts = sync_timestamps[2 * i + 1]
             # assumption: maximum deviation between expected and actual timestamps is 5ms.
@@ -436,6 +439,16 @@ class DataProcessor:
                 compensated_timestamps.append(expected_start_ts)
                 compensated_timestamps.append(expected_end_ts)
 
+            if os.getenv("DFATOOL_PLOT_LASYNC") and self.offline_index == int(
+                os.getenv("DFATOOL_PLOT_LASYNC")
+            ):
+                print(
+                    f"trans {transition:3d}: raw ({sync_timestamps[transition * 2]:.6f}, {sync_timestamps[transition * 2 + 1]:.6f}), candidate {transition_by_node[node]}"
+                )
+                print(
+                    f"trans {transition:3d}   -> ({sync_timestamps[transition * 2] + drift:.6f}, {sync_timestamps[transition * 2 + 1] + drift:.6f})"
+                )
+
             expected_start_ts = sync_timestamps[transition * 2] + drift
             expected_end_ts = sync_timestamps[transition * 2 + 1] + drift
             compensated_timestamps.append(expected_start_ts)
@@ -457,8 +470,10 @@ class DataProcessor:
             from dfatool.utils import NpEncoder
 
             expected_transition_start_timestamps = sync_timestamps[::2]
+            filename = os.getenv("DFATOOL_EXPORT_DRIFT_COMPENSATION")
+            filename = f"{filename}.{self.offline_index}"
 
-            with open(os.getenv("DFATOOL_EXPORT_DRIFT_COMPENSATION"), "w") as f:
+            with open(filename, "w") as f:
                 json.dump(
                     [
                         expected_transition_start_timestamps,
