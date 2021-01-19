@@ -272,7 +272,7 @@ class DataProcessor:
                             timestamps[k] - expected_end_ts,
                             candidate_weight[k],
                         ),
-                        candidate_weight.keys(),
+                        sorted(candidate_weight.keys()),
                     )
                 )
             )
