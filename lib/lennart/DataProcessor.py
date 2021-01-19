@@ -495,9 +495,15 @@ class DataProcessor:
             end_left_sync = end_right_sync - 1
 
             start_left_diff = expected_start_ts - candidates[start_left_sync]
-            start_right_diff = candidates[start_right_sync] - expected_start_ts
+            if start_right_sync < len(candidates):
+                start_right_diff = candidates[start_right_sync] - expected_start_ts
+            else:
+                start_right_diff = np.inf
             end_left_diff = expected_end_ts - candidates[end_left_sync]
-            end_right_diff = candidates[end_right_sync] - expected_end_ts
+            if end_right_sync < len(candidates):
+                end_right_diff = candidates[end_right_sync] - expected_end_ts
+            else:
+                end_right_diff = np.inf
 
             drift_candidates = (
                 start_left_diff,
