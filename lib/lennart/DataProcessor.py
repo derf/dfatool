@@ -509,12 +509,21 @@ class DataProcessor:
             end_right_sync = bisect_left(candidates, expected_end_ts)
             end_left_sync = end_right_sync - 1
 
-            start_left_diff = expected_start_ts - candidates[start_left_sync]
+            if start_right_sync >= 0:
+                start_left_diff = expected_start_ts - candidates[start_left_sync]
+            else:
+                start_left_diff = np.inf
+
             if start_right_sync < len(candidates):
                 start_right_diff = candidates[start_right_sync] - expected_start_ts
             else:
                 start_right_diff = np.inf
-            end_left_diff = expected_end_ts - candidates[end_left_sync]
+
+            if end_left_sync >= 0:
+                end_left_diff = expected_end_ts - candidates[end_left_sync]
+            else:
+                end_left_diff = np.inf
+
             if end_right_sync < len(candidates):
                 end_right_diff = candidates[end_right_sync] - expected_end_ts
             else:
