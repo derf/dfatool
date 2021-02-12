@@ -46,6 +46,9 @@ class PELT:
         self.with_multiprocessing = True
         self.__dict__.update(kwargs)
 
+        self.jump = int(self.jump)
+        self.min_dist = int(self.min_dist)
+
         if os.getenv("DFATOOL_PELT_MODEL"):
             # https://centre-borelli.github.io/ruptures-docs/user-guide/costs/costl1/
             self.model = os.getenv("DFATOOL_PELT_MODEL")
@@ -89,10 +92,11 @@ class PELT:
                 signal,
             )
 
-        if self.num_samples is not None and len(signal) > self.num_samples:
-            self.jump = len(signal) // int(self.num_samples)
-        else:
-            self.jump = 1
+        if self.num_samples is not None:
+            if len(signal) > self.num_samples:
+                self.jump = len(signal) // int(self.num_samples)
+            else:
+                self.jump = 1
 
         if self.algo == "dynp":
             # https://centre-borelli.github.io/ruptures-docs/user-guide/detection/dynp/
@@ -172,49 +176,56 @@ class PELT:
             prev_val = num_changepoints
         middle_of_plateau = longest_start + (longest_start - longest_start) // 2
         changepoints = np.array(changepoints_by_penalty[middle_of_plateau])
-        return middle_of_plateau, changepoints
+        return middle_of_plateau, changepoints_by_penalty
 
     def get_changepoints(self, signal, **kwargs):
-        _, changepoints = self.get_penalty_and_changepoints(signal, **kwargs)
-        return changepoints
+        penalty, changepoints_by_penalty = self.get_penalty_and_changepoints(
+            signal, **kwargs
+        )
+        return changepoints_by_penalty[penalty]
 
     def get_penalty(self, signal, **kwargs):
         penalty, _ = self.get_penalty_and_changepoints(signal, **kwargs)
         return penalty
 
-    def calc_raw_states(self, timestamps, signals, penalty, opt_model=None):
+    def calc_raw_states(
+        self,
+        timestamps,
+        signals,
+        changepoints_by_signal,
+        num_changepoints,
+        opt_model=None,
+    ):
         """
         Calculate substates for signals (assumed to be long to a single parameter configuration).
 
         :returns: List of substates with duration and mean power: [(substate 1 duration, substate 1 power), ...]
         """
 
-        # imported here as ruptures is only used for changepoint detection.
-        # This way, dfatool can be used without having ruptures installed as
-        # long as --pelt isn't active.
-        import ruptures
-
         substate_data = list()
+        substate_counts = list()
+        usable_measurements = list()
+        expected_substate_count = num_changepoints
 
-        raw_states_calc_args = list()
-        for num_measurement, measurement in enumerate(signals):
-            normed_signal = self.norm_signal(measurement)
-            algo = ruptures.Pelt(
-                model=self.model, jump=self.jump, min_size=self.min_dist
-            ).fit(normed_signal)
-            raw_states_calc_args.append((num_measurement, algo, penalty))
+        for i, changepoints in enumerate(changepoints_by_signal):
+            substates = list()
+            start_index = 0
+            end_index = 0
+            # calc metrics for all states
+            for changepoint in changepoints:
+                # start_index of state is end_index of previous one
+                # (Transitions are instantaneous)
+                start_index = end_index
+                end_index = changepoint - 1
+                substate = (start_index, end_index)
+                substates.append(substate)
 
-        raw_states_list = [None] * len(signals)
-        with Pool() as pool:
-            raw_states_res = pool.starmap(PELT_get_raw_states, raw_states_calc_args)
+            substate_counts.append(len(substates))
+            if len(substates) == expected_substate_count:
+                usable_measurements.append((i, substates))
 
-        substate_counts = list(map(lambda x: len(x[1]), raw_states_res))
-        expected_substate_count = np.argmax(np.bincount(substate_counts))
-        usable_measurements = list(
-            filter(lambda x: len(x[1]) == expected_substate_count, raw_states_res)
-        )
         logger.debug(
-            f"    There are {expected_substate_count} substates (std = {np.std(substate_counts)}, {len(usable_measurements)}/{len(raw_states_res)} results are usable)"
+            f"{len(usable_measurements)} of {len(changepoints_by_signal)} measurements have {expected_substate_count} sub-states"
         )
 
         for i in range(expected_substate_count):
