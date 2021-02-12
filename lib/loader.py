@@ -705,7 +705,7 @@ class RawData:
                     offline_trace_part["timeout"]
                 )
 
-            if online_trace_part["isa"] == "state" and "plot" in offline_trace_part:
+            if "plot" in offline_trace_part:
                 online_trace_part["offline_aggregates"]["power_traces"].append(
                     offline_trace_part["plot"][1]
                 )
