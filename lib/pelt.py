@@ -49,6 +49,7 @@ class PELT:
 
         self.jump = int(self.jump)
         self.min_dist = int(self.min_dist)
+        self.stretch = int(self.stretch)
 
         if os.getenv("DFATOOL_PELT_MODEL"):
             # https://centre-borelli.github.io/ruptures-docs/user-guide/costs/costl1/
@@ -150,8 +151,9 @@ class PELT:
             if len(res[1]) > 0 and res[1][-1] == len(signal):
                 res[1].pop()
             if self.stretch != 1:
-                res[1] = np.array(
-                    np.around(np.array(res[1]) / self.stretch), dtype=np.int
+                res = (
+                    res[0],
+                    np.array(np.around(np.array(res[1]) / self.stretch), dtype=np.int),
                 )
             changepoints_by_penalty[res[0]] = res[1]
         changepoint_counts = list()
