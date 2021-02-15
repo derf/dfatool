@@ -61,7 +61,9 @@ class PELT:
     def needs_refinement(self, signals):
         count = 0
         for signal in signals:
-            # test
+            if len(signal) < 30:
+                continue
+
             p1, median, p99 = np.percentile(signal[5:-5], (1, 50, 99))
 
             if median - p1 > self.refinement_threshold:
