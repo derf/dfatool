@@ -39,6 +39,7 @@ class PELT:
         self.jump = 1
         self.min_dist = 10
         self.num_samples = None
+        self.name_filter = None
         self.refinement_threshold = 200e-6  # 200 µW
         self.range_min = 0
         self.range_max = 100

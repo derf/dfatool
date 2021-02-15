@@ -970,18 +970,18 @@ class PTAModel:
         states = self.states()
         substates_by_param = dict()
         for k in self.by_param.keys():
-            if k[0] in states:
-                state_name = k[0]
-                if self.pelt.needs_refinement(self.by_param[k]["power_traces"]):
-                    substates_by_param[k] = self.pelt_refine(k)
-                else:
-                    substate_counts = [1 for i in self.by_param[k]["param"]]
-                    substate_data = {
-                        "duration": self.by_param[k]["duration"],
-                        "power": self.by_param[k]["power"],
-                        "power_std": self.by_param[k]["power_std"],
-                    }
-                    substates_by_param[k] = (substate_counts, substate_data)
+            if (
+                self.pelt.name_filter is None or k[0] == self.pelt.name_filter
+            ) and self.pelt.needs_refinement(self.by_param[k]["power_traces"]):
+                substates_by_param[k] = self.pelt_refine(k)
+            else:
+                substate_counts = [1 for i in self.by_param[k]["param"]]
+                substate_data = {
+                    "duration": self.by_param[k]["duration"],
+                    "power": self.by_param[k]["power"],
+                    "power_std": self.by_param[k]["power_std"],
+                }
+                substates_by_param[k] = (substate_counts, substate_data)
 
         # suitable for AEMR modeling
         sc_by_param = dict()
