@@ -42,7 +42,7 @@ class PELT:
         self.name_filter = None
         self.refinement_threshold = 200e-6  # 200 µW
         self.range_min = 0
-        self.range_max = 100
+        self.range_max = 88
         self.stretch = 1
         self.with_multiprocessing = True
         self.__dict__.update(kwargs)
@@ -138,7 +138,7 @@ class PELT:
             return None, changepoints
 
         queue = list()
-        for i in range(0, 100):
+        for i in range(self.range_min, self.range_max):
             queue.append((algo, i))
         if self.with_multiprocessing:
             with Pool() as pool:
@@ -155,7 +155,7 @@ class PELT:
                 )
             changepoints_by_penalty[res[0]] = res[1]
         changepoint_counts = list()
-        for i in range(0, 100):
+        for i in range(self.range_min, self.range_max):
             changepoint_counts.append(len(changepoints_by_penalty[i]))
 
         start_index = -1
@@ -227,9 +227,14 @@ class PELT:
             if len(substates) == expected_substate_count:
                 usable_measurements.append((i, substates))
 
-        logger.debug(
-            f"{len(usable_measurements)} of {len(changepoints_by_signal)} measurements have {expected_substate_count} sub-states"
-        )
+        if len(usable_measurements) <= len(changepoints_by_signal) * 0.5:
+            logger.info(
+                f"Only {len(usable_measurements)} of {len(changepoints_by_signal)} measurements have {expected_substate_count} sub-states. Try lowering the jump step size"
+            )
+        else:
+            logger.debug(
+                f"{len(usable_measurements)} of {len(changepoints_by_signal)} measurements have {expected_substate_count} sub-states"
+            )
 
         for i in range(expected_substate_count):
             substate_data.append(

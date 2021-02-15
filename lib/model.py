@@ -942,7 +942,9 @@ class PTAModel:
             changepoints_by_trace.append(changepoints_by_penalty[penalty])
 
         if np.median(num_changepoints_by_trace) < 1:
-            logger.debug(f"    we found no changepoints with penalty {penalty}")
+            logger.debug(
+                f"    we found no changepoints {num_changepoints_by_trace} with penalties {penalty_by_trace}"
+            )
             substate_counts = [1 for i in self.by_param[by_param_key]["param"]]
             substate_data = {
                 "duration": self.by_param[by_param_key]["duration"],
@@ -954,7 +956,7 @@ class PTAModel:
         num_changepoints = np.argmax(np.bincount(num_changepoints_by_trace))
 
         logger.debug(
-            f"    we found {num_changepoints} changepoints from {num_changepoints_by_trace} with penalties {penalty_by_trace}"
+            f"    we found {num_changepoints} changepoints {num_changepoints_by_trace} with penalties {penalty_by_trace}"
         )
         return self.pelt.calc_raw_states(
             self.by_param[by_param_key]["timestamps"],
