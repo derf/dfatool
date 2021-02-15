@@ -778,8 +778,12 @@ class RawData:
                     "param": list(),
                 }
                 if "plot" in offline_trace_part:
-                    online_trace_part["offline_support"] = ["power_traces"]
+                    online_trace_part["offline_support"] = [
+                        "power_traces",
+                        "timestamps",
+                    ]
                     online_trace_part["offline_aggregates"]["power_traces"] = list()
+                    online_trace_part["offline_aggregates"]["timestamps"] = list()
                 if online_trace_part["isa"] == "transition":
                     online_trace_part["offline_aggregates"][
                         "offline_attributes"
@@ -807,6 +811,7 @@ class RawData:
 
             if "plot" in offline_trace_part:
                 offline_aggregates["power_traces"].append(offline_trace_part["plot"][1])
+                offline_aggregates["timestamps"].append(offline_trace_part["plot"][0])
 
             if online_trace_part["isa"] == "transition":
                 offline_aggregates["rel_energy_prev"].append(
