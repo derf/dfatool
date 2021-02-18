@@ -85,7 +85,7 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
     print(r"key attribute parameter $1 - \frac{...}{...}$")
     for state_or_tran in model.by_name.keys():
         for attribute in model.by_name[state_or_tran]["attributes"]:
-            for param in model.parameters():
+            for param in model.parameters:
                 print(
                     "{} {} {} {:.8f}".format(
                         state_or_tran,
@@ -197,7 +197,7 @@ if __name__ == "__main__":
                     model.generic_param_dependence_ratio(state, "power"),
                 )
             )
-            for param in model.parameters():
+            for param in model.parameters:
                 print(
                     "{:10s}  dependence on {:15s}: {:.2f}".format(
                         "", param, model.param_dependence_ratio(state, "power", param)
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     print("state_or_trans attribute param stddev_ratio corrcoef")
     for state in model.states():
         for attribute in model.attributes(state):
-            for param in model.parameters():
+            for param in model.parameters:
                 print(
                     "{:10s} {:10s} {:10s} {:f} {:f}".format(
                         state,
@@ -251,7 +251,7 @@ if __name__ == "__main__":
                 )
     for trans in model.transitions():
         for attribute in model.attributes(trans):
-            for param in model.parameters():
+            for param in model.parameters:
                 print(
                     "{:10s} {:10s} {:10s} {:f} {:f}".format(
                         trans,

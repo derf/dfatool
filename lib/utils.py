@@ -173,6 +173,16 @@ def match_parameter_values(input_param: dict, match_param: dict):
     return True
 
 
+def partition_by_param(data, param_values):
+    ret = dict()
+    for i, parameters in enumerate(param_values):
+        param_key = tuple(parameters)
+        if param_key not in ret:
+            ret[param_key] = list()
+        ret[param_key].append(data[i])
+    return ret
+
+
 def by_name_to_by_param(by_name: dict):
     """
     Convert aggregation by name to aggregation by name and parameter values.

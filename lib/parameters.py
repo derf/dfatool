@@ -6,16 +6,16 @@ from collections import OrderedDict
 from copy import deepcopy
 from multiprocessing import Pool
 from .utils import remove_index_from_tuple, is_numeric
-from .utils import filter_aggregate_by_param, by_name_to_by_param
+from .utils import filter_aggregate_by_param, partition_by_param
 
 logger = logging.getLogger(__name__)
 
 
-def distinct_param_values(by_name, state_or_tran):
+def distinct_param_values(param_tuples):
     """
-    Return the distinct values of each parameter in by_name[state_or_tran].
+    Return the distinct values of each parameter in param_tuples.
 
-    E.g. if by_name[state_or_tran]['param'] contains the distinct entries (1, 1), (1, 2), (1, 3), (0, 3),
+    E.g. if param_tuples contains the distinct entries (1, 1), (1, 2), (1, 3), (0, 3),
     this function returns [[1, 0], [1, 2, 3]].
 
     Note that this function deliberately also consider None
@@ -25,10 +25,8 @@ def distinct_param_values(by_name, state_or_tran):
     write() or similar has not been called yet. Other parameters should always
     be initialized when leaving UNINITIALIZED.
     """
-    distinct_values = [
-        OrderedDict() for i in range(len(by_name[state_or_tran]["param"][0]))
-    ]
-    for param_tuple in by_name[state_or_tran]["param"]:
+    distinct_values = [OrderedDict() for i in range(len(param_tuples[0]))]
+    for param_tuple in param_tuples:
         for i in range(len(param_tuple)):
             distinct_values[i][param_tuple[i]] = True
 
@@ -82,17 +80,15 @@ def _reduce_param_matrix(matrix: np.ndarray, parameter_names: list) -> list:
     return list()
 
 
-def _std_by_param(n_by_param, all_param_values, state_or_tran, attribute, param_index):
+def _std_by_param(n_by_param, all_param_values, param_index):
     u"""
     Calculate standard deviations for a static model where all parameters but `param_index` are constant.
 
     :param n_by_param: measurements of a specific model attribute partitioned by parameter values.
         Example: `{(0, 2): [2], (0, 4): [4], (0, 6): [6]}`
-    :param all_param_values: distinct values of each parameter in `state_or_tran`.
+    :param all_param_values: distinct values of each parameter.
         E.g. for two parameters, the first being None, FOO, or BAR, and the second being 1, 2, 3, or 4, the argument is
         `[[None, 'FOO', 'BAR'], [1, 2, 3, 4]]`.
-    :param state_or_tran: state or transition name for debugging
-    :param attribute: model attribute for debugging, e.g. 'power' or 'duration'
     :param param_index: index of variable parameter
     :returns: (stddev matrix, mean stddev, LUT matrix)
         *stddev matrix* is an ((number of parameters)-1)-dimensional matrix giving the standard deviation of each individual parameter variation partition.
@@ -100,8 +96,7 @@ def _std_by_param(n_by_param, all_param_values, state_or_tran, attribute, param_
         measurements with param0 == all_param_values[0][a],
         param1 == all_param_values[1][b], param2 variable, and
         param3 == all_param_values[3][d].
-        *mean stddev* is the mean standard deviation of all measurements of `attribute`
-        for `state_or_tran` where parameter `param_index` is dynamic and all other parameters are fixed.
+        *mean stddev* is the mean standard deviation of all measurements where parameter `param_index` is dynamic and all other parameters are fixed.
         E.g., if parameters are a, b, c ∈ {1,2,3} and 'index' corresponds to b, then
         this function returns the mean of the standard deviations of (a=1, b=*, c=1),
         (a=1, b=*, c=2), and so on.
@@ -146,8 +141,8 @@ def _std_by_param(n_by_param, all_param_values, state_or_tran, attribute, param_
 
     if np.all(np.isnan(stddev_matrix)):
         warnings.warn(
-            "{}/{} parameter #{} has no data partitions. stddev_matrix = {}".format(
-                state_or_tran, attribute, param_index, stddev_matrix
+            "parameter #{} has no data partitions. stddev_matrix = {}".format(
+                param_index, stddev_matrix
             )
         )
         return stddev_matrix, 0.0
@@ -167,9 +162,9 @@ def _corr_by_param(attribute_data, param_values, param_index):
 
     If any value of `param_index` is not numeric (i.e., can not be parsed as float), this function returns 0.
 
-    :param attribute_data: list or 1-D numpy array taken from by_name[state_or_trans][attribute].
-    :param param_values: list of parameter values taken from by_name[state_or_trans]["param"].
-    :param param_index: index of parameter in `by_name[state_or_trans]['param']`
+    :param attribute_data: list or 1-D numpy array of measurements
+    :param param_values: list of parameter values
+    :param param_index: index of parameter in `by_name[*]['param']`
     """
     if _all_params_are_numeric(param_values, param_index):
         param_values = np.array(list((map(lambda x: x[param_index], param_values))))
@@ -195,121 +190,113 @@ def _corr_by_param(attribute_data, param_values, param_index):
 
 
 def _compute_param_statistics(
-    attribute_data,
-    param_values,
-    n_by_param,
-    parameter_names,
-    arg_count,
-    state_or_trans,
-    attribute,
-    distinct_values,
-    distinct_values_by_param_index,
+    data, param_names, param_tuples, arg_count=None, use_corrcoef=False
 ):
     """
-    Compute standard deviation and correlation coefficient for various data partitions.
+    Compute standard deviation and correlation coefficient on parameterized data partitions.
 
-    It is strongly recommended to vary all parameter values evenly across partitions.
+    It is strongly recommended to vary all parameter values evenly.
     For instance, given two parameters, providing only the combinations
     (1, 1), (5, 1), (7, 1,) (10, 1), (1, 2), (1, 6) will lead to bogus results.
     It is better to provide (1, 1), (5, 1), (1, 2), (5, 2), ... (i.e. a cross product of all individual parameter values)
 
-    :param attribute_data: list or 1-D numpy array taken from by_name[state_or_trans][attribute]
-        (ground truth partitioned by state/transition name).
-    :param param_values: list of parameter values
-        corresponding to the ground truth, e.g. [[1, 2, 3], ...] if the
-        first ground truth element has the (lexically) first parameter set to 1,
-        the second to 2 and the third to 3. Taken from by_name[state_or_trans]["param"].
-    :param n_by_param: measurements of a specific model attribute partitioned by parameter values.
-        Example: `{(0, 2): [2], (0, 4): [4], (0, 6): [6]}`
-    :param parameter_names: list of parameter names, must have the same order as the parameter
-        values in by_param (lexical sorting is recommended).
-    :param arg_count: dict providing the number of functions args ("local parameters") for each function.
-    :param state_or_trans: state or transition name, e.g. 'send' or 'TX'
-    :param attribute: model attribute, e.g. 'power' or 'duration'
+    arguments:
+    data -- measurement data (ground truth). Must be a list or 1-D numpy array.
+    param_names -- list of parameter names
+    param_tuples -- list of parameter values corresponding to the order in param_names
+    arg_count -- dict providing the number of functions args ("local parameters") for each function.
+    use_corrcoef -- use correlation coefficient instead of stddev heuristic for parameter detection
 
     :returns: a dict with the following content:
-    std_static -- static parameter-unaware model error: stddev of by_name[state_or_trans][attribute]
-    std_param_lut -- static parameter-aware model error: mean stddev of n_by_param[*]
+    std_static -- static parameter-unaware model error: stddev of data
+    std_param_lut -- static parameter-aware model error: mean stddev of data[*]
     std_by_param -- static parameter-aware model error ignoring a single parameter.
         dictionary with one key per parameter. The value is the mean stddev
         of measurements where all other parameters are fixed and the parameter
         in question is variable. E.g. std_by_param['X'] is the mean stddev of
         n_by_param[(X=*, Y=..., Z=...)].
     std_by_arg -- same, but ignoring a single function argument
-        Only set if state_or_trans appears in arg_count, empty dict otherwise.
+        Only set if arg_count is non-zero, empty list otherwise.
     corr_by_param -- correlation coefficient
     corr_by_arg -- same, but ignoring a single function argument
-        Only set if state_or_trans appears in arg_count, empty dict otherwise.
+        Only set if arg_count is non-zero, empty list otherwise.
     depends_on_param -- dict(parameter_name -> Bool). True if /attribute/ behaviour probably depends on /parameter_name/
     depends_on_arg -- list(bool). Same, but for function arguments, if any.
     """
-    ret = {
-        "std_static": np.std(attribute_data),
-        # TODO Gewichtung? Parameterkombinationen mit wenig verfügbaren Messdaten werden
-        # genau so behandelt wie welchemit vielen verfügbaren Messdaten, in
-        # std_static haben sie dagegen weniger Gewicht
-        "std_param_lut": np.mean([np.std(n_by_param[x]) for x in n_by_param.keys()]),
-        "std_by_param": {},
-        "std_by_param_values": {},
-        "lut_by_param_values": {},
-        "std_by_arg": [],
-        "std_by_arg_values": [],
-        "lut_by_arg_values": [],
-        "corr_by_param": {},
-        "corr_by_arg": [],
-        "depends_on_param": {},
-        "depends_on_arg": [],
-    }
+    ret = dict()
+
+    ret["by_param"] = by_param = partition_by_param(data, param_tuples)
+
+    ret["use_corrcoef"] = use_corrcoef
+    ret["_parameter_names"] = param_names
+
+    ret["distinct_values_by_param_index"] = distinct_param_values(param_tuples)
+
+    ret["distinct_values_by_param_name"] = dict()
+    for i, param in enumerate(param_names):
+        ret["distinct_values_by_param_name"][param] = ret[
+            "distinct_values_by_param_index"
+        ][i]
+
+    ret["std_static"] = np.std(data)
+    # TODO Gewichtung? Parameterkombinationen mit wenig verfügbaren Messdaten werden
+    # genau so behandelt wie welchemit vielen verfügbaren Messdaten, in
+    # std_static haben sie dagegen weniger Gewicht
+    ret["std_param_lut"] = np.mean([np.std(v) for v in by_param.values()])
+
+    ret["std_by_param"] = dict()
+    ret["std_by_param_values"] = dict()
+    ret["lut_by_param_values"] = dict()
+
+    ret["std_by_arg"] = list()
+    ret["std_by_arg_values"] = list()
+    ret["lut_by_arg_values"] = list()
+
+    ret["corr_by_param"] = dict()
+    ret["corr_by_arg"] = list()
+
+    ret["_depends_on_param"] = dict()
+    ret["_depends_on_arg"] = list()
 
     np.seterr("raise")
 
-    for param_idx, param in enumerate(parameter_names):
+    for param_idx, param in enumerate(param_names):
         std_matrix, mean_std, lut_matrix = _std_by_param(
-            n_by_param,
-            distinct_values_by_param_index,
-            state_or_trans,
-            attribute,
-            param_idx,
+            by_param, ret["distinct_values_by_param_index"], param_idx
         )
         ret["std_by_param"][param] = mean_std
         ret["std_by_param_values"][param] = std_matrix
         ret["lut_by_param_values"][param] = lut_matrix
-        ret["corr_by_param"][param] = _corr_by_param(
-            attribute_data, param_values, param_idx
-        )
+        ret["corr_by_param"][param] = _corr_by_param(data, param_tuples, param_idx)
 
-        ret["depends_on_param"][param] = _depends_on_param(
+        ret["_depends_on_param"][param] = _depends_on_param(
             ret["corr_by_param"][param],
             ret["std_by_param"][param],
             ret["std_param_lut"],
         )
 
-    if state_or_trans in arg_count:
-        for arg_index in range(arg_count[state_or_trans]):
+    if arg_count:
+        for arg_index in range(arg_count):
             std_matrix, mean_std, lut_matrix = _std_by_param(
-                n_by_param,
-                distinct_values_by_param_index,
-                state_or_trans,
-                attribute,
-                len(parameter_names) + arg_index,
+                by_param,
+                ret["distinct_values_by_param_index"],
+                len(param_names) + arg_index,
             )
             ret["std_by_arg"].append(mean_std)
             ret["std_by_arg_values"].append(std_matrix)
             ret["lut_by_arg_values"].append(lut_matrix)
             ret["corr_by_arg"].append(
-                _corr_by_param(
-                    attribute_data, param_values, len(parameter_names) + arg_index
-                )
+                _corr_by_param(data, param_tuples, len(param_names) + arg_index)
             )
 
             if False:
-                ret["depends_on_arg"].append(ret["corr_by_arg"][arg_index] > 0.1)
+                ret["_depends_on_arg"].append(ret["corr_by_arg"][arg_index] > 0.1)
             elif ret["std_by_arg"][arg_index] == 0:
                 # In general, std_param_lut < std_by_arg. So, if std_by_arg == 0, std_param_lut == 0 follows.
                 # This means that the variation of arg does not affect the model quality -> no influence
-                ret["depends_on_arg"].append(False)
+                ret["_depends_on_arg"].append(False)
             else:
-                ret["depends_on_arg"].append(
+                ret["_depends_on_arg"].append(
                     ret["std_param_lut"] / ret["std_by_arg"][arg_index] < 0.5
                 )
 
@@ -317,7 +304,7 @@ def _compute_param_statistics(
 
 
 def _compute_param_statistics_parallel(arg):
-    return {"key": arg["key"], "result": _compute_param_statistics(*arg["args"])}
+    return {"key": arg["key"], "dict": _compute_param_statistics(*arg["args"])}
 
 
 def _all_params_are_numeric(data, param_idx):
@@ -413,213 +400,150 @@ def remove_parameters_by_indices(by_name, parameter_names, parameter_indices_to_
         parameter_names.pop(parameter_index)
 
 
-class ParamStats:
-    """
-    :param stats: `stats[state_or_tran][attribute]` = std_static, std_param_lut, ... (see `compute_param_statistics`)
-    :param distinct_values: `distinct_values[state_or_tran][param]` = [distinct values in aggregate]
-    :param distinct_values_by_param_index: `distinct_values[state_or_tran][i]` = [distinct values in aggregate]
-    """
+class ParallelParamStats:
+    def __init__(self):
+        self.queue = list()
+        self.map = dict()
 
-    def __init__(
-        self, by_name, by_param, parameter_names, arg_count, use_corrcoef=False
-    ):
+    def enqueue(self, key, attr):
+        self.queue.append(
+            {
+                "key": key,
+                "args": [
+                    attr.data,
+                    attr.param_names,
+                    attr.param_values,
+                    attr.arg_count,
+                ],
+            }
+        )
+        self.map[key] = attr
+
+    def compute(self):
         """
-        Compute standard deviation and correlation coefficient on parameterized data partitions.
+        Fit functions on previously enqueue data.
 
-        It is strongly recommended to vary all parameter values evenly.
-        For instance, given two parameters, providing only the combinations
-        (1, 1), (5, 1), (7, 1,) (10, 1), (1, 2), (1, 6) will lead to bogus results.
-        It is better to provide (1, 1), (5, 1), (1, 2), (5, 2), ... (i.e. a cross product of all individual parameter values)
+        Fitting is one in parallel with one process per core.
 
-        arguments:
-        by_name -- ground truth partitioned by state/transition name.
-            by_name[state_or_trans][attribute] must be a list or 1-D numpy array.
-            by_name[state_or_trans]['param'] must be a list of parameter values
-            corresponding to the ground truth, e.g. [[1, 2, 3], ...] if the
-            first ground truth element has the (lexically) first parameter set to 1,
-            the second to 2 and the third to 3.
-        by_param -- ground truth partitioned by state/transition name and parameters.
-            by_name[(state_or_trans, *)][attribute] must be a list or 1-D numpy array.
-        parameter_names -- list of parameter names, must have the same order as the parameter
-            values in by_param (lexical sorting is recommended).
-        arg_count -- dict providing the number of functions args ("local parameters") for each function.
-        use_corrcoef -- use correlation coefficient instead of stddev heuristic for parameter detection
+        Results can be accessed using the public ParallelParamFit.results object.
         """
-        self.stats = dict()
-        self.distinct_values = dict()
-        self.distinct_values_by_param_index = dict()
-        self.use_corrcoef = use_corrcoef
-        self._parameter_names = parameter_names
-
-        stats_queue = list()
-
-        for state_or_tran in by_name.keys():
-            self.stats[state_or_tran] = dict()
-            self.distinct_values_by_param_index[state_or_tran] = distinct_param_values(
-                by_name, state_or_tran
-            )
-            self.distinct_values[state_or_tran] = dict()
-            for i, param in enumerate(parameter_names):
-                self.distinct_values[state_or_tran][
-                    param
-                ] = self.distinct_values_by_param_index[state_or_tran][i]
-            for attribute in by_name[state_or_tran]["attributes"]:
-                n_by_param = dict()
-                for k, v in by_param.items():
-                    if k[0] == state_or_tran:
-                        n_by_param[k[1]] = v[attribute]
-                stats_queue.append(
-                    {
-                        "key": [state_or_tran, attribute],
-                        "args": [
-                            by_name[state_or_tran][attribute],
-                            by_name[state_or_tran]["param"],
-                            n_by_param,
-                            parameter_names,
-                            arg_count,
-                            state_or_tran,
-                            attribute,
-                            self.distinct_values[state_or_tran],
-                            self.distinct_values_by_param_index[state_or_tran],
-                        ],
-                    }
-                )
-
-        # Fails if an object is > 2 GB in size. This happens when using
-        # --plot-traces or --pelt, which cause by_param and by_name to contain
-        # "power_traces" data with raw traces
         with Pool() as pool:
-            stats_results = pool.map(_compute_param_statistics_parallel, stats_queue)
+            results = pool.map(_compute_param_statistics_parallel, self.queue)
 
-        for stats in stats_results:
-            state_or_tran, attribute = stats["key"]
-            self.stats[state_or_tran][attribute] = stats["result"]
+        for result in results:
+            self.map[result["key"]].by_param = result["dict"].pop("by_param")
+            self.map[result["key"]].stats = ParamStats(result["dict"])
 
-    def can_be_fitted(self, state_or_tran=None) -> bool:
+
+class ParamStats:
+    def __init__(self, data):
+        self.__dict__.update(data)
+
+    def can_be_fitted(self) -> bool:
         """
         Return whether a sufficient amount of distinct numeric parameter values is available, allowing a parameter-aware model to be generated.
-
-        :param state_or_tran: state or transition. If unset, returns whether any state or transition can be fitted.
         """
-        if state_or_tran is None:
-            keys = self.stats.keys()
-        else:
-            keys = [state_or_tran]
-
-        for key in keys:
-            for param in self._parameter_names:
-                if (
-                    len(
+        for param in self._parameter_names:
+            if (
+                len(
+                    list(
+                        filter(
+                            lambda n: is_numeric(n),
+                            self.distinct_values_by_param_name[param],
+                        )
+                    )
+                )
+                > 2
+            ):
+                logger.debug(
+                    "can be fitted for param {} on {}".format(
+                        param,
                         list(
                             filter(
                                 lambda n: is_numeric(n),
-                                self.distinct_values[key][param],
+                                self.distinct_values_by_param_name[param],
                             )
-                        )
+                        ),
                     )
-                    > 2
-                ):
-                    logger.debug(
-                        "{} can be fitted for param {} on {}".format(
-                            key,
-                            param,
-                            list(
-                                filter(
-                                    lambda n: is_numeric(n),
-                                    self.distinct_values[key][param],
-                                )
-                            ),
-                        )
-                    )
-                    return True
+                )
+                return True
         return False
 
-    def _generic_param_independence_ratio(self, state_or_trans, attribute):
+    def _generic_param_independence_ratio(self):
         """
-        Return the heuristic ratio of parameter independence for state_or_trans and attribute.
+        Return the heuristic ratio of parameter independence.
 
         This is not supported if the correlation coefficient is used.
         A value close to 1 means no influence, a value close to 0 means high probability of influence.
         """
-        statistics = self.stats[state_or_trans][attribute]
         if self.use_corrcoef:
             # not supported
             raise ValueError
-        if statistics["std_static"] == 0:
+        if self.std_static == 0:
             return 0
-        return statistics["std_param_lut"] / statistics["std_static"]
+        return self.std_param_lut / self.std_static
 
-    def generic_param_dependence_ratio(self, state_or_trans, attribute):
+    def generic_param_dependence_ratio(self):
         """
-        Return the heuristic ratio of parameter dependence for state_or_trans and attribute.
+        Return the heuristic ratio of parameter dependence.
 
         This is not supported if the correlation coefficient is used.
         A value close to 0 means no influence, a value close to 1 means high probability of influence.
         """
-        return 1 - self._generic_param_independence_ratio(state_or_trans, attribute)
+        return 1 - self._generic_param_independence_ratio()
 
-    def _param_independence_ratio(
-        self, state_or_trans: str, attribute: str, param: str
-    ) -> float:
+    def _param_independence_ratio(self, param: str) -> float:
         """
-        Return the heuristic ratio of parameter independence for state_or_trans, attribute, and param.
+        Return the heuristic ratio of parameter independence for param.
 
         A value close to 1 means no influence, a value close to 0 means high probability of influence.
         """
-        statistics = self.stats[state_or_trans][attribute]
         if self.use_corrcoef:
-            return 1 - np.abs(statistics["corr_by_param"][param])
-        if statistics["std_by_param"][param] == 0:
-            if statistics["std_param_lut"] != 0:
+            return 1 - np.abs(self.corr_by_param[param])
+        if self.std_by_param[param] == 0:
+            if self.std_param_lut != 0:
                 raise RuntimeError("wat")
             # In general, std_param_lut < std_by_param. So, if std_by_param == 0, std_param_lut == 0 follows.
             # This means that the variation of param does not affect the model quality -> no influence, return 1
             return 1.0
 
-        return statistics["std_param_lut"] / statistics["std_by_param"][param]
+        return self.std_param_lut / self.std_by_param[param]
 
-    def param_dependence_ratio(
-        self, state_or_trans: str, attribute: str, param: str
-    ) -> float:
+    def param_dependence_ratio(self, param: str) -> float:
         """
-        Return the heuristic ratio of parameter dependence for state_or_trans, attribute, and param.
+        Return the heuristic ratio of parameter dependence for param.
 
         A value close to 0 means no influence, a value close to 1 means high probability of influence.
 
-        :param state_or_trans: state or transition name
-        :param attribute: model attribute
         :param param: parameter name
 
         :returns: parameter dependence (float between 0 == no influence and 1 == high probability of influence)
         """
-        return 1 - self._param_independence_ratio(state_or_trans, attribute, param)
+        return 1 - self._param_independence_ratio(param)
 
-    def _arg_independence_ratio(self, state_or_trans, attribute, arg_index):
-        statistics = self.stats[state_or_trans][attribute]
+    def _arg_independence_ratio(self, arg_index):
         if self.use_corrcoef:
-            return 1 - np.abs(statistics["corr_by_arg"][arg_index])
-        if statistics["std_by_arg"][arg_index] == 0:
-            if statistics["std_param_lut"] != 0:
+            return 1 - np.abs(self.corr_by_arg[arg_index])
+        if self.std_by_arg[arg_index] == 0:
+            if self.std_param_lut != 0:
                 raise RuntimeError("wat")
             # In general, std_param_lut < std_by_arg. So, if std_by_arg == 0, std_param_lut == 0 follows.
             # This means that the variation of arg does not affect the model quality -> no influence, return 1
             return 1
-        return statistics["std_param_lut"] / statistics["std_by_arg"][arg_index]
+        return self.std_param_lut / self.std_by_arg[arg_index]
 
-    def arg_dependence_ratio(
-        self, state_or_trans: str, attribute: str, arg_index: int
-    ) -> float:
-        return 1 - self._arg_independence_ratio(state_or_trans, attribute, arg_index)
+    def arg_dependence_ratio(self, arg_index: int) -> float:
+        return 1 - self._arg_independence_ratio(arg_index)
 
     # This heuristic is very similar to the "function is not much better than
     # median" checks in get_fitted. So far, doing it here as well is mostly
     # a performance and not an algorithm quality decision.
     # --df, 2018-04-18
-    def depends_on_param(self, state_or_trans, attribute, param):
+    def depends_on_param(self, param):
         """Return whether attribute of state_or_trans depens on param."""
-        return self.stats[state_or_trans][attribute]["depends_on_param"][param]
+        return self._depends_on_param[param]
 
     # See notes on depends_on_param
-    def depends_on_arg(self, state_or_trans, attribute, arg_index):
+    def depends_on_arg(self, arg_index):
         """Return whether attribute of state_or_trans depens on arg_index."""
-        return self.stats[state_or_trans][attribute]["depends_on_arg"][arg_index]
+        return self._depends_on_arg[arg_index]

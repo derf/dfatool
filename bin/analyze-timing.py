@@ -128,21 +128,21 @@ def model_quality_table(result_lists, info_list):
 def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
     print("")
     print(r"key attribute $1 - \frac{\sigma_X}{...}$")
-    for state_or_tran in model.by_name.keys():
+    for state_or_tran in model.names:
         for attribute in model.attributes(state_or_tran):
             print(
                 "{} {} {:.8f}".format(
                     state_or_tran,
                     attribute,
-                    model.stats.generic_param_dependence_ratio(
-                        state_or_tran, attribute
-                    ),
+                    model.attr_by_name[state_or_tran][
+                        attr_by_name
+                    ].stats.generic_param_dependence_ratio(),
                 )
             )
 
     print("")
     print(r"key attribute parameter $1 - \frac{...}{...}$")
-    for state_or_tran in model.by_name.keys():
+    for state_or_tran in model.names:
         for attribute in model.attributes(state_or_tran):
             for param in model.parameters():
                 print(
@@ -150,9 +150,9 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
                         state_or_tran,
                         attribute,
                         param,
-                        model.stats.param_dependence_ratio(
-                            state_or_tran, attribute, param
-                        ),
+                        model.attr_by_name[state_or_tran][
+                            attribute
+                        ].stats.param_dependence_ratio(param),
                     )
                 )
             if state_or_tran in model._num_args:
@@ -162,9 +162,9 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
                             state_or_tran,
                             attribute,
                             arg_index,
-                            model.stats.arg_dependence_ratio(
-                                state_or_tran, attribute, arg_index
-                            ),
+                            model.attr_by_name[state_or_tran][
+                                attr_by_name
+                            ].stats.arg_dependence_ratio(arg_index),
                         )
                     )
 
@@ -275,7 +275,10 @@ if __name__ == "__main__":
             for param in model.parameters:
                 print(
                     "    {} = {}".format(
-                        param, model.stats.distinct_values[state][param]
+                        param,
+                        model.attr_by_name[state][
+                            "duration"
+                        ].stats.distinct_values_by_param_name[param],
                     )
                 )
 
@@ -284,9 +287,7 @@ if __name__ == "__main__":
             state_or_trans, attribute, ylabel = kv.split(":")
             fname = "param_y_{}_{}.pdf".format(state_or_trans, attribute)
             plotter.plot_y(
-                model.by_name[state_or_trans][attribute],
-                xlabel="measurement #",
-                ylabel=ylabel,
+                model.attributes(state_or_trans), xlabel="measurement #", ylabel=ylabel
             )
 
     if len(show_models):
@@ -300,7 +301,9 @@ if __name__ == "__main__":
                     "{:10s}  dependence on {:15s}: {:.2f}".format(
                         "",
                         param,
-                        model.stats.param_dependence_ratio(trans, "duration", param),
+                        model.attr_by_name[trans][
+                            "duration"
+                        ].stats.param_dependence_ratio(param),
                     )
                 )
 
@@ -333,27 +336,27 @@ if __name__ == "__main__":
                     "{:10s} {:10s} non-param stddev {:f}".format(
                         transition,
                         attribute,
-                        model.stats.stats[transition][attribute]["std_static"],
+                        model.attr_by_name[transition][attribute].stats.std_static,
                     )
                 )
                 print(
                     "{:10s} {:10s} param-lut stddev {:f}".format(
                         transition,
                         attribute,
-                        model.stats.stats[transition][attribute]["std_param_lut"],
+                        model.attr_by_name[transition][attribute].stats.std_param_lut,
                     )
                 )
                 for param in sorted(
-                    model.stats.stats[transition][attribute]["std_by_param"].keys()
+                    model.attr_by_name[transition][attribute].stats.std_by_param.keys()
                 ):
                     print(
                         "{:10s} {:10s} {:10s} stddev {:f}".format(
                             transition,
                             attribute,
                             param,
-                            model.stats.stats[transition][attribute]["std_by_param"][
-                                param
-                            ],
+                            model.attr_by_name[transition][
+                                attribute
+                            ].stats.std_by_param[param],
                         )
                     )
                     print(
@@ -361,13 +364,13 @@ if __name__ == "__main__":
                             transition,
                             attribute,
                             param,
-                            model.stats.param_dependence_ratio(
-                                transition, attribute, param
-                            ),
+                            model.attr_by_name[transition][
+                                attribute
+                            ].stats.param_dependence_ratio(param),
                         )
                     )
                 for i, arg_stddev in enumerate(
-                    model.stats.stats[transition][attribute]["std_by_arg"]
+                    model.attr_by_name[transition][attribute].stats.std_by_arg
                 ):
                     print(
                         "{:10s} {:10s} arg{:d} stddev {:f}".format(
@@ -379,7 +382,9 @@ if __name__ == "__main__":
                             transition,
                             attribute,
                             i,
-                            model.stats.arg_dependence_ratio(transition, attribute, i),
+                            model.attr_by_name[transition][
+                                attribute
+                            ].stats.arg_dependence_ratio(i),
                         )
                     )
                 if info is not None:

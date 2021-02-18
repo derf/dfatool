@@ -147,9 +147,9 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
                 "{} {} {:.8f}".format(
                     state_or_tran,
                     attribute,
-                    model.stats.generic_param_dependence_ratio(
-                        state_or_tran, attribute
-                    ),
+                    model.attr_by_name[state_or_tran][
+                        attr_by_name
+                    ].stats.generic_param_dependence_ratio(),
                 )
             )
 
@@ -157,15 +157,15 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
     print(r"key attribute parameter $1 - \frac{...}{...}$")
     for state_or_tran in model.by_name.keys():
         for attribute in model.attributes(state_or_tran):
-            for param in model.parameters():
+            for param in model.parameters:
                 print(
                     "{} {} {} {:.8f}".format(
                         state_or_tran,
                         attribute,
                         param,
-                        model.stats.param_dependence_ratio(
-                            state_or_tran, attribute, param
-                        ),
+                        model.attr_by_name[state_or_tran][
+                            attribute
+                        ].stats.param_dependence_ratio(param),
                     )
                 )
             if state_or_tran in model._num_args:
@@ -175,9 +175,9 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
                             state_or_tran,
                             attribute,
                             arg_index,
-                            model.stats.arg_dependence_ratio(
-                                state_or_tran, attribute, arg_index
-                            ),
+                            model.attr_by_name[state_or_tran][
+                                attribute
+                            ].stats.arg_dependence_ratio(arg_index),
                         )
                     )
 
@@ -199,8 +199,15 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
         print()
         print(f"## {state}")
         print()
-        for param in model.parameters():
-            print("* {} ∈ {}".format(param, model.stats.distinct_values[state][param]))
+        for param in model.parameters:
+            print(
+                "* {} ∈ {}".format(
+                    param,
+                    model.attr_by_name[state][
+                        "power"
+                    ].stats.distinct_values_by_param_name[param],
+                )
+            )
         for attribute in state_attributes:
             unit = ""
             if attribute == "power":
@@ -225,8 +232,15 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
         print()
         print(f"## {trans}")
         print()
-        for param in model.parameters():
-            print("* {} ∈ {}".format(param, model.stats.distinct_values[trans][param]))
+        for param in model.parameters:
+            print(
+                "* {} ∈ {}".format(
+                    param,
+                    model.attr_by_name[trans][
+                        "duration"
+                    ].stats.distinct_values_by_param_name[param],
+                )
+            )
         for attribute in trans_attributes:
             unit = ""
             if attribute == "duration":
@@ -615,10 +629,13 @@ if __name__ == "__main__":
         for state in model.states():
             print("{}:".format(state))
             print(f"""    Number of Measurements: {len(by_name[state]["power"])}""")
-            for param in model.parameters():
+            for param in model.parameters:
                 print(
                     "    Parameter {} ∈ {}".format(
-                        param, model.stats.distinct_values[state][param]
+                        param,
+                        model.attr_by_name[state][
+                            "power"
+                        ].stats.distinct_values_by_param_name[param],
                     )
                 )
         for transition in model.transitions():
@@ -626,10 +643,13 @@ if __name__ == "__main__":
             print(
                 f"""    Number of Measurements: {len(by_name[transition]["duration"])}"""
             )
-            for param in model.parameters():
+            for param in model.parameters:
                 print(
                     "    Parameter {} ∈ {}".format(
-                        param, model.stats.distinct_values[transition][param]
+                        param,
+                        model.attr_by_name[transition][
+                            "duration"
+                        ].stats.distinct_values_by_param_name[param],
                     )
                 )
 
@@ -660,15 +680,19 @@ if __name__ == "__main__":
                         state,
                         static_model(state, attribute),
                         unit,
-                        model.stats.generic_param_dependence_ratio(state, attribute),
+                        model.attr_by_name[state][
+                            attribute
+                        ].stats.generic_param_dependence_ratio(),
                     )
                 )
-                for param in model.parameters():
+                for param in model.parameters:
                     print(
                         "{:10s}  dependence on {:15s}: {:.2f}".format(
                             "",
                             param,
-                            model.stats.param_dependence_ratio(state, attribute, param),
+                            model.attr_by_name[state][
+                                attribute
+                            ].stats.param_dependence_ratio(param),
                         )
                     )
 
@@ -681,13 +705,15 @@ if __name__ == "__main__":
                             static_model(trans, "energy"),
                             static_model(trans, "rel_energy_prev"),
                             static_model(trans, "rel_energy_next"),
-                            model.stats.generic_param_dependence_ratio(trans, "energy"),
-                            model.stats.generic_param_dependence_ratio(
-                                trans, "rel_energy_prev"
-                            ),
-                            model.stats.generic_param_dependence_ratio(
-                                trans, "rel_energy_next"
-                            ),
+                            model.attr_by_name[trans][
+                                "energy"
+                            ].stats.generic_param_dependence_ratio(),
+                            model.attr_by_name[trans][
+                                "rel_energy_prev"
+                            ].stats.generic_param_dependence_ratio(),
+                            model.attr_by_name[trans][
+                                "rel_energy_next"
+                            ].stats.generic_param_dependence_ratio(),
                         )
                     )
                 except KeyError:
@@ -695,7 +721,9 @@ if __name__ == "__main__":
                         "{:10s}: {:.0f} pJ  ({:.2f})".format(
                             trans,
                             static_model(trans, "energy"),
-                            model.stats.generic_param_dependence_ratio(trans, "energy"),
+                            model.attr_by_name[trans][
+                                "energy"
+                            ].stats.generic_param_dependence_ratio(),
                         )
                     )
             else:
@@ -723,7 +751,9 @@ if __name__ == "__main__":
                 "{:10s}: {:.0f} µs  ({:.2f})".format(
                     trans,
                     static_model(trans, "duration"),
-                    model.stats.generic_param_dependence_ratio(trans, "duration"),
+                    model.attr_by_name[trans][
+                        "duration"
+                    ].stats.generic_param_dependence_ratio(),
                 )
             )
             try:
@@ -733,13 +763,15 @@ if __name__ == "__main__":
                         static_model(trans, "power"),
                         static_model(trans, "rel_power_prev"),
                         static_model(trans, "rel_power_next"),
-                        model.stats.generic_param_dependence_ratio(trans, "power"),
-                        model.stats.generic_param_dependence_ratio(
-                            trans, "rel_power_prev"
-                        ),
-                        model.stats.generic_param_dependence_ratio(
-                            trans, "rel_power_next"
-                        ),
+                        model.attr_by_name[trans][
+                            "power"
+                        ].stats.generic_param_dependence_ratio(),
+                        model.attr_by_name[trans][
+                            "rel_power_prev"
+                        ].stats.generic_param_dependence_ratio(),
+                        model.attr_by_name[trans][
+                            "rel_power_next"
+                        ].stats.generic_param_dependence_ratio(),
                     )
                 )
             except KeyError:
@@ -747,7 +779,9 @@ if __name__ == "__main__":
                     "{:10s}: {:.0f} pJ  ({:.2f})".format(
                         trans,
                         static_model(trans, "power"),
-                        model.stats.generic_param_dependence_ratio(trans, "power"),
+                        model.attr_by_name[trans][
+                            "power"
+                        ].stats.generic_param_dependence_ratio(),
                     )
                 )
 
@@ -787,25 +821,27 @@ if __name__ == "__main__":
                     "{:10s} {:10s} non-param stddev {:f}".format(
                         state,
                         attribute,
-                        model.stats.stats[state][attribute]["std_static"],
+                        model.attr_by_name[state][attribute].stats.std_static,
                     )
                 )
                 print(
                     "{:10s} {:10s} param-lut stddev {:f}".format(
                         state,
                         attribute,
-                        model.stats.stats[state][attribute]["std_param_lut"],
+                        model.attr_by_name[state][attribute].stats.std_param_lut,
                     )
                 )
                 for param in sorted(
-                    model.stats.stats[state][attribute]["std_by_param"].keys()
+                    model.attr_by_name[state][attribute].stats.std_by_param.keys()
                 ):
                     print(
                         "{:10s} {:10s} {:10s} stddev {:f}".format(
                             state,
                             attribute,
                             param,
-                            model.stats.stats[state][attribute]["std_by_param"][param],
+                            model.attr_by_name[state][attribute].stats.std_by_param[
+                                param
+                            ],
                         )
                     )
                 if info is not None:
@@ -824,10 +860,6 @@ if __name__ == "__main__":
                             )
 
     if "param" in show_models or "all" in show_models:
-        if not model.stats.can_be_fitted():
-            logging.warning(
-                "measurements have insufficient distinct numeric parameters for fitting. A parameter-aware model is not available."
-            )
         for state in model.states():
             for attribute in model.attributes(state):
                 if param_info(state, attribute):

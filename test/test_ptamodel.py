@@ -567,54 +567,76 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(static_model("write_nb", "duration"), 510, places=0)
 
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("POWERDOWN", "power", "datarate"),
+            model.attr_by_name["POWERDOWN"]["power"].stats.param_dependence_ratio(
+                "datarate"
+            ),
             0,
             places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("POWERDOWN", "power", "txbytes"),
+            model.attr_by_name["POWERDOWN"]["power"].stats.param_dependence_ratio(
+                "txbytes"
+            ),
             0,
             places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("POWERDOWN", "power", "txpower"),
+            model.attr_by_name["POWERDOWN"]["power"].stats.param_dependence_ratio(
+                "txpower"
+            ),
             0,
             places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("RX", "power", "datarate"),
+            model.attr_by_name["RX"]["power"].stats.param_dependence_ratio("datarate"),
             0.99,
             places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("RX", "power", "txbytes"), 0, places=2
+            model.attr_by_name["RX"]["power"].stats.param_dependence_ratio("txbytes"),
+            0,
+            places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("RX", "power", "txpower"), 0.01, places=2
+            model.attr_by_name["RX"]["power"].stats.param_dependence_ratio("txpower"),
+            0.01,
+            places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("STANDBY1", "power", "datarate"),
+            model.attr_by_name["STANDBY1"]["power"].stats.param_dependence_ratio(
+                "datarate"
+            ),
             0.04,
             places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("STANDBY1", "power", "txbytes"),
+            model.attr_by_name["STANDBY1"]["power"].stats.param_dependence_ratio(
+                "txbytes"
+            ),
             0.35,
             places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("STANDBY1", "power", "txpower"),
+            model.attr_by_name["STANDBY1"]["power"].stats.param_dependence_ratio(
+                "txpower"
+            ),
             0.32,
             places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("TX", "power", "datarate"), 1, places=2
+            model.attr_by_name["TX"]["power"].stats.param_dependence_ratio("datarate"),
+            1,
+            places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("TX", "power", "txbytes"), 0.09, places=2
+            model.attr_by_name["TX"]["power"].stats.param_dependence_ratio("txbytes"),
+            0.09,
+            places=2,
         )
         self.assertAlmostEqual(
-            model.stats.param_dependence_ratio("TX", "power", "txpower"), 1, places=2
+            model.attr_by_name["TX"]["power"].stats.param_dependence_ratio("txpower"),
+            1,
+            places=2,
         )
 
         param_model, param_info = model.get_fitted()
