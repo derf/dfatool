@@ -262,7 +262,7 @@ class PELT:
         opt_model=None,
     ):
         """
-        Calculate substates for signals (assumed to be long to a single parameter configuration).
+        Calculate substates for signals (assumed to belong to a single parameter configuration).
 
         :returns: List of substates with duration and mean power: [(substate 1 duration, substate 1 power), ...]
         """
@@ -270,7 +270,7 @@ class PELT:
         substate_data = list()
         substate_counts = list()
         usable_measurements = list()
-        expected_substate_count = num_changepoints
+        expected_substate_count = num_changepoints + 1
 
         for i, changepoints in enumerate(changepoints_by_signal):
             substates = list()
@@ -281,9 +281,11 @@ class PELT:
                 # start_index of state is end_index of previous one
                 # (Transitions are instantaneous)
                 start_index = end_index
-                end_index = changepoint - 1
+                end_index = changepoint
                 substate = (start_index, end_index)
                 substates.append(substate)
+
+            substates.append((end_index, len(signals[i]) - 1))
 
             substate_counts.append(len(substates))
             if len(substates) == expected_substate_count:
