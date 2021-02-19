@@ -853,11 +853,13 @@ class PTAModel(AnalyticModel):
                 f"    we found no changepoints {num_changepoints_by_trace} with penalties {penalty_by_trace}"
             )
             substate_counts = [1 for i in self.by_param[by_param_key]["param"]]
-            substate_data = {
-                "duration": self.by_param[by_param_key]["duration"],
-                "power": self.by_param[by_param_key]["power"],
-                "power_std": self.by_param[by_param_key]["power_std"],
-            }
+            substate_data = [
+                {
+                    "duration": self.by_param[by_param_key]["duration"],
+                    "power": self.by_param[by_param_key]["power"],
+                    "power_std": self.by_param[by_param_key]["power_std"],
+                }
+            ]
             return (substate_counts, substate_data)
 
         num_changepoints = np.argmax(np.bincount(num_changepoints_by_trace))
@@ -865,7 +867,7 @@ class PTAModel(AnalyticModel):
         logger.debug(
             f"    we found {num_changepoints} changepoints {num_changepoints_by_trace} with penalties {penalty_by_trace}"
         )
-        return self.pelt.calc_raw_states(
+        return num_changepoints + 1, self.pelt.calc_raw_states(
             self.by_param[by_param_key]["timestamps"],
             self.by_param[by_param_key]["power_traces"],
             changepoints_by_trace,
@@ -876,30 +878,26 @@ class PTAModel(AnalyticModel):
         """
         Finds substates via PELT and adds substate_count to by_name and by_param.
         """
-        states = self.states()
         substates_by_param = dict()
         for k in self.by_param.keys():
             if (
                 self.pelt.name_filter is None or k[0] == self.pelt.name_filter
             ) and self.pelt.needs_refinement(self.by_param[k]["power_traces"]):
-                substates_by_param[k] = self.pelt_refine(k)
+                num_substates, (substate_counts, substate_data) = self.pelt_refine(k)
+                # substate_data[substate index]["power"] = [mean power of substate in first iteration, ...]
+                substates_by_param[k] = (num_substates, substate_counts, substate_data)
             else:
                 substate_counts = [1 for i in self.by_param[k]["param"]]
-                substate_data = {
-                    "duration": self.by_param[k]["duration"],
-                    "power": self.by_param[k]["power"],
-                    "power_std": self.by_param[k]["power_std"],
-                }
-                substates_by_param[k] = (substate_counts, substate_data)
+                substates_by_param[k] = (1, substate_counts, None)
 
         # suitable for AEMR modeling
         sc_by_param = dict()
-        for param_key, (substate_counts, _) in substates_by_param.items():
+        for param_key, (_, substate_counts, _) in substates_by_param.items():
             # do not append "substate_count" to "attributes" here.
             # by_param[(foo, *)]["attributes"] is the same object as by_name[foo]["attributes"]
             self.by_param[param_key]["substate_count"] = substate_counts
 
-        for state_name in states:
+        for state_name in self.names:
             param_offset = dict()
             state = self.by_name[state_name]
             state["attributes"].append("substate_count")
@@ -914,6 +912,85 @@ class PTAModel(AnalyticModel):
                     ]
                 )
                 param_offset[param] += 1
+
+        substate_counts_by_name = dict()
+        for k, (num_substates, _, _) in substates_by_param.items():
+            if k[0] not in substate_counts_by_name:
+                substate_counts_by_name[k[0]] = set()
+            substate_counts_by_name[k[0]].add(num_substates)
+
+        print(substate_counts_by_name)
+
+        for name in self.names:
+            for substate_count in substate_counts_by_name[name]:
+                data = list()
+                for k, (num_substates, _, substate_data) in substates_by_param.items():
+                    if (
+                        k[0] == name
+                        and substate_count > 1
+                        and num_substates == substate_count
+                    ):
+                        data.append((k[1], substate_data))
+                if len(data):
+                    self.mk_submodel(name, substate_count, data)
+
+        #    substate_counts = dict()
+        #    for k, (num_substates, _, substate_data) in substates_by_param.items():
+        #        if k[0] == name and num_substates > 1:
+        #            for datapoint in substates_by_param[k][2]:
+        #            for i, sc in enumerate(substates_by_param[k][0]):
+        #                if sc not in substate_counts:
+        #                    substate_counts[sc] = list()
+        #                if sc > 1:
+        #                    # substates_by_param[k][substate index]["power"] = [mean power of substate in first iteration, ...]
+        #                    substate_counts[sc].append((k[1], substates_by_param[k][1][1][i], substates_by_param[k][1][2][i]))
+        #    for substate_count in substate_counts.keys():
+        #        self.mk_submodel(name, substate_count, substate_counts[substate_count])
+
+        # TODO Für alle n>1 mit "Es gibt Parameterkombinationen mit n Teilzuständen":
+        # Für jeden Teilzustand ein neues ModelAttribute erzeugen, das nur aus den
+        # Teilzuständen von Parameterkombinationen mit n Teilzuständen erzeugt wird.
+        # Dann diese jeweils fitten.
+
+    # data[0] = [first sub-state, second sub-state, ...]
+    # data[1] = [first sub-state, second sub-state, ...]
+    # ...
+    def mk_submodel(self, name, substate_count, data):
+        paramstats = ParallelParamStats()
+        sub_states = list()
+        for substate_index in range(substate_count):
+            sub_name = f"{name}.{substate_index}"
+            durations = list()
+            powers = list()
+            param_values = list()
+            for param, run in data:
+                durations.extend(run[substate_index]["duration"])
+                powers.extend(run[substate_index]["power"])
+                param_values.extend([param for i in run[substate_index]["duration"]])
+            power_attr = ModelAttribute(
+                sub_name, "power", powers, param_values, self.parameters, 0
+            )
+            duration_attr = ModelAttribute(
+                sub_name, "duration", durations, param_values, self.parameters, 0
+            )
+            sub_states.append((duration_attr, power_attr))
+            print(f"{sub_name} mean power: {power_attr.get_static()}")
+            print(f"{sub_name} mean duration: {duration_attr.get_static()}")
+            paramstats.enqueue((sub_name, "power"), power_attr)
+            paramstats.enqueue((sub_name, "duration"), duration_attr)
+
+        paramstats.compute()
+
+        for substate_index in range(substate_count):
+            sub_name = f"{name}.{substate_index}"
+            duration_attr, power_attr = sub_states[substate_index]
+            for param in self.parameters:
+                print(
+                    f"{sub_name:16s} duration dependence on {param:15s}: {duration_attr.stats.param_dependence_ratio(param):.2f}"
+                )
+                print(
+                    f"{sub_name:16s} power    dependence on {param:15s}: {power_attr.stats.param_dependence_ratio(param):.2f}"
+                )
 
     def get_substates(self):
         states = self.states()

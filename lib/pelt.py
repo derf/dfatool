@@ -272,7 +272,15 @@ class PELT:
         """
         Calculate substates for signals (assumed to belong to a single parameter configuration).
 
-        :returns: List of substates with duration and mean power: [(substate 1 duration, substate 1 power), ...]
+        :returns: (substate_counts, substate_data)
+            substates_counts = [number of substates in first changepoints_by_signal entry, number of substates in second entry, ...]
+            substate_data = [data for first sub-state, data for second sub-state, ...]
+                data = {"duration": [durations of corresponding sub-state in signals[i] where changepoints_by_signal[i] == num_changepoints]}
+            Note that len(substate_counts) >= len(substate_data). substate_counts gives the number of sub-states of each signal in signals
+                (substate_counts[i] == number of substates in signals[i]). substate_data only contains entries for signals which have
+                num_changepoints + 1 substates.
+
+        List of substates with duration and mean power: [(substate 1 duration, substate 1 power), ...]
         """
 
         substate_data = list()
@@ -284,7 +292,6 @@ class PELT:
             substates = list()
             start_index = 0
             end_index = 0
-            # calc metrics for all states
             for changepoint in changepoints:
                 # start_index of state is end_index of previous one
                 # (Transitions are instantaneous)
@@ -310,7 +317,12 @@ class PELT:
 
         for i in range(expected_substate_count):
             substate_data.append(
-                {"duration": list(), "power": list(), "power_std": list()}
+                {
+                    "duration": list(),
+                    "power": list(),
+                    "power_std": list(),
+                    "signals_index": list(),
+                }
             )
 
         for num_measurement, substates in usable_measurements:
@@ -325,5 +337,6 @@ class PELT:
                 substate_data[i]["duration"].append(duration)
                 substate_data[i]["power"].append(mean_power)
                 substate_data[i]["power_std"].append(std_power)
+                substate_data[i]["signals_index"].append(num_measurement)
 
         return substate_counts, substate_data
