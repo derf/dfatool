@@ -81,7 +81,7 @@ def _reduce_param_matrix(matrix: np.ndarray, parameter_names: list) -> list:
 
 
 def _std_by_param(n_by_param, all_param_values, param_index):
-    u"""
+    """
     Calculate standard deviations for a static model where all parameters but `param_index` are constant.
 
     :param n_by_param: measurements of a specific model attribute partitioned by parameter values.
@@ -501,8 +501,8 @@ class ParamStats:
         if self.use_corrcoef:
             return 1 - np.abs(self.corr_by_param[param])
         if self.std_by_param[param] == 0:
-            if self.std_param_lut != 0:
-                raise RuntimeError("wat")
+            # if self.std_param_lut != 0:
+            #    raise RuntimeError(f"wat: std_by_param[{param}]==0, but std_param_lut=={self.std_param_lut} ≠ 0")
             # In general, std_param_lut < std_by_param. So, if std_by_param == 0, std_param_lut == 0 follows.
             # This means that the variation of param does not affect the model quality -> no influence, return 1
             return 1.0
@@ -526,7 +526,9 @@ class ParamStats:
             return 1 - np.abs(self.corr_by_arg[arg_index])
         if self.std_by_arg[arg_index] == 0:
             if self.std_param_lut != 0:
-                raise RuntimeError("wat")
+                raise RuntimeError(
+                    f"wat: std_by_arg[{arg_index}]==0, but std_param_lut=={self.std_param_lut} ≠ 0"
+                )
             # In general, std_param_lut < std_by_arg. So, if std_by_arg == 0, std_param_lut == 0 follows.
             # This means that the variation of arg does not affect the model quality -> no influence, return 1
             return 1

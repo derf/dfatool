@@ -339,6 +339,32 @@ def plot_traces(preprocessed_data, sot_name):
     )
 
 
+def print_static(model, static_model, name, attribute):
+    unit = "  "
+    if attribute == "power":
+        unit = "µW"
+    elif attribute == "duration":
+        unit = "µs"
+    elif attribute == "substate_count":
+        unit = "su"
+    print(
+        "{:10s}: {:.0f} {:s}  ({:.2f})".format(
+            name,
+            static_model(name, attribute),
+            unit,
+            model.attr_by_name[name][attribute].stats.generic_param_dependence_ratio(),
+        )
+    )
+    for param in model.parameters:
+        print(
+            "{:10s}  dependence on {:15s}: {:.2f}".format(
+                "",
+                param,
+                model.attr_by_name[name][attribute].stats.param_dependence_ratio(param),
+            )
+        )
+
+
 if __name__ == "__main__":
 
     ignored_trace_indexes = []
@@ -670,31 +696,14 @@ if __name__ == "__main__":
     if "static" in show_models or "all" in show_models:
         for state in model.states():
             for attribute in model.attributes(state):
-                unit = "  "
-                if attribute == "power":
-                    unit = "µW"
-                elif attribute == "substate_count":
-                    unit = "su"
-                print(
-                    "{:10s}: {:.0f} {:s}  ({:.2f})".format(
-                        state,
-                        static_model(state, attribute),
-                        unit,
-                        model.attr_by_name[state][
-                            attribute
-                        ].stats.generic_param_dependence_ratio(),
-                    )
-                )
-                for param in model.parameters:
-                    print(
-                        "{:10s}  dependence on {:15s}: {:.2f}".format(
-                            "",
-                            param,
-                            model.attr_by_name[state][
-                                attribute
-                            ].stats.param_dependence_ratio(param),
+                print_static(model, static_model, state, attribute)
+        if args.with_substates:
+            for submodel in model.submodel_by_nc.values():
+                for substate in submodel.states():
+                    for subattribute in submodel.attributes(substate):
+                        print_static(
+                            submodel, submodel.get_static(), substate, subattribute
                         )
-                    )
 
         for trans in model.transitions():
             if "energy" in model.attributes(trans):

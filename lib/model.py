@@ -353,6 +353,10 @@ class ModelAttribute:
         self.function_override = None
         self.param_model = None
 
+    def __repr__(self):
+        mean = np.mean(self.data)
+        return f"ModelAttribute<{self.name}, {self.attr}, mean={mean}>"
+
     def get_static(self, use_mean=False):
         if use_mean:
             return np.mean(self.data)
@@ -516,6 +520,10 @@ class AnalyticModel:
         self.fit_done = False
 
         self._compute_stats(by_name)
+
+    def __repr__(self):
+        names = ", ".join(self.by_name.keys())
+        return f"AnalyticModel<names=[{names}]>"
 
     def _compute_stats(self, by_name):
         paramstats = ParallelParamStats()
@@ -703,6 +711,12 @@ class AnalyticModel:
         # TODO
         pass
 
+    def predict(self, trace, with_fitted=True, wth_lut=False):
+        pass
+        # TODO trace= ( (name, duration), (name, duration), ...)
+        # -> Return predicted (duration, mean power, cumulative energy) for trace
+        # Achtung: Teilweise schon in der PTA-Klasse implementiert. Am besten diese mitbenutzen.
+
 
 class PTAModel(AnalyticModel):
     """
@@ -783,6 +797,7 @@ class PTAModel(AnalyticModel):
         self._use_corrcoef = use_corrcoef
         self.traces = traces
         self.function_override = function_override.copy()
+        self.submodel_by_nc = dict()
 
         self.fit_done = False
 
@@ -791,6 +806,7 @@ class PTAModel(AnalyticModel):
 
             self.pelt = PELT(**pelt)
             self.find_substates()
+            print(self.submodel_by_nc)
         else:
             self.pelt = None
 
@@ -801,6 +817,11 @@ class PTAModel(AnalyticModel):
         np.seterr("raise")
         self.pta = pta
         self.ignore_trace_indexes = ignore_trace_indexes
+
+    def __repr__(self):
+        states = ", ".join(self.states())
+        transitions = ", ".join(self.transitions())
+        return f"PTAModel<states=[{states}], transitions=[{transitions}]>"
 
     def _aggregate_to_ndarray(self, aggregate):
         for elem in aggregate.values():
@@ -923,8 +944,6 @@ class PTAModel(AnalyticModel):
                 substate_counts_by_name[k[0]] = set()
             substate_counts_by_name[k[0]].add(num_substates)
 
-        print(substate_counts_by_name)
-
         for name in self.names:
             for substate_count in substate_counts_by_name[name]:
                 data = list()
@@ -961,40 +980,30 @@ class PTAModel(AnalyticModel):
     # ...
     def mk_submodel(self, name, substate_count, data):
         paramstats = ParallelParamStats()
+        by_name = dict()
         sub_states = list()
         for substate_index in range(substate_count):
-            sub_name = f"{name}.{substate_index}"
+            sub_name = f"{name}.{substate_index+1}({substate_count})"
             durations = list()
             powers = list()
             param_values = list()
             for param, run in data:
-                durations.extend(run[substate_index]["duration"])
-                powers.extend(run[substate_index]["power"])
+                # data units are s / W, models use µs / µW
+                durations.extend(np.array(run[substate_index]["duration"]) * 1e6)
+                powers.extend(np.array(run[substate_index]["power"]) * 1e6)
                 param_values.extend([param for i in run[substate_index]["duration"]])
-            power_attr = ModelAttribute(
-                sub_name, "power", powers, param_values, self.parameters, 0
-            )
-            duration_attr = ModelAttribute(
-                sub_name, "duration", durations, param_values, self.parameters, 0
-            )
-            sub_states.append((duration_attr, power_attr))
-            print(f"{sub_name} mean power: {power_attr.get_static()}")
-            print(f"{sub_name} mean duration: {duration_attr.get_static()}")
-            paramstats.enqueue((sub_name, "power"), power_attr)
-            paramstats.enqueue((sub_name, "duration"), duration_attr)
 
-        paramstats.compute()
+            by_name[sub_name] = {
+                "isa": "state",
+                "param": param_values,
+                "attributes": ["duration", "power"],
+                "duration": durations,
+                "power": powers,
+            }
 
-        for substate_index in range(substate_count):
-            sub_name = f"{name}.{substate_index}"
-            duration_attr, power_attr = sub_states[substate_index]
-            for param in self.parameters:
-                print(
-                    f"{sub_name:16s} duration dependence on {param:15s}: {duration_attr.stats.param_dependence_ratio(param):.2f}"
-                )
-                print(
-                    f"{sub_name:16s} power    dependence on {param:15s}: {power_attr.stats.param_dependence_ratio(param):.2f}"
-                )
+        self.submodel_by_nc[(name, substate_count)] = PTAModel(
+            by_name, self.parameters, dict()
+        )
 
     def get_substates(self):
         states = self.states()
