@@ -815,6 +815,7 @@ if __name__ == "__main__":
     if len(show_models):
         print("--- param model ---")
 
+    # get_fitted_sub -> with sub-state detection and modeling
     param_model, param_info = model.get_fitted(
         safe_functions_enabled=safe_functions_enabled
     )
@@ -903,6 +904,30 @@ if __name__ == "__main__":
                             param_info(trans, attribute)["function"].model_args,
                         )
                     )
+        if args.with_substates:
+            for submodel in model.submodel_by_nc.values():
+                sub_param_model, sub_param_info = submodel.get_fitted()
+                for substate in submodel.states():
+                    for subattribute in submodel.attributes(substate):
+                        if sub_param_info(substate, subattribute):
+                            print(
+                                "{:10s} {:15s}: {}".format(
+                                    substate,
+                                    subattribute,
+                                    sub_param_info(substate, subattribute)[
+                                        "function"
+                                    ].model_function,
+                                )
+                            )
+                            print(
+                                "{:10s} {:15s}  {}".format(
+                                    "",
+                                    "",
+                                    sub_param_info(substate, subattribute)[
+                                        "function"
+                                    ].model_args,
+                                )
+                            )
 
     if xv_method == "montecarlo":
         analytic_quality = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
@@ -940,6 +965,18 @@ if __name__ == "__main__":
         model_quality_table(
             [static_quality, analytic_quality, lut_quality], [None, param_info, None]
         )
+        if args.with_substates:
+            for submodel in model.submodel_by_nc.values():
+                sub_static_model = submodel.get_static()
+                sub_static_quality = submodel.assess(sub_static_model)
+                sub_lut_model = submodel.get_param_lut()
+                sub_lut_quality = submodel.assess(sub_lut_model)
+                sub_param_model, sub_param_info = submodel.get_fitted()
+                sub_analytic_quality = submodel.assess(sub_param_model)
+                model_quality_table(
+                    [sub_static_quality, sub_analytic_quality, sub_lut_quality],
+                    [None, sub_param_info, None],
+                )
 
     if "overall" in show_quality or "all" in show_quality:
         print("overall state static/param/lut MAE assuming equal state distribution:")

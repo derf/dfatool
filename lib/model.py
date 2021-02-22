@@ -806,7 +806,6 @@ class PTAModel(AnalyticModel):
 
             self.pelt = PELT(**pelt)
             self.find_substates()
-            print(self.submodel_by_nc)
         else:
             self.pelt = None
 
@@ -827,6 +826,37 @@ class PTAModel(AnalyticModel):
         for elem in aggregate.values():
             for key in elem["attributes"]:
                 elem[key] = np.array(elem[key])
+
+    def get_fitted_sub(self, use_mean=False, safe_functions_enabled=False):
+
+        param_model_getter, param_info_getter = self.get_fitted(
+            use_mean=use_mean, safe_functions_enabled=safe_functions_enabled
+        )
+
+        def model_getter(name, key, **kwargs):
+            if key != "power":
+                return param_model_getter(name, key, **kwargs)
+
+            try:
+                substate_count = round(param_model_getter(name, "substate_count"))
+            except KeyError:
+                return param_model_getter(name, key, **kwargs)
+            if substate_count == 1:
+                return param_model_getter(name, key, **kwargs)
+
+            cumulative_energy = 0
+            total_duration = 0
+            substate_model, _ = self.submodel_by_nc[(name, substate_count)].get_fitted()
+            for i in range(substate_count):
+                sub_name = f"{name}.{i+1}({substate_count})"
+                cumulative_energy += substate_model(
+                    sub_name, "duration", **kwargs
+                ) * substate_model(sub_name, "power", **kwargs)
+                total_duration += substate_model(sub_name, "duration", **kwargs)
+
+            return cumulative_energy / total_duration
+
+        return model_getter, param_info_getter
 
     # This heuristic is very similar to the "function is not much better than
     # median" checks in get_fitted. So far, doing it here as well is mostly
@@ -991,7 +1021,9 @@ class PTAModel(AnalyticModel):
                 # data units are s / W, models use µs / µW
                 durations.extend(np.array(run[substate_index]["duration"]) * 1e6)
                 powers.extend(np.array(run[substate_index]["power"]) * 1e6)
-                param_values.extend([param for i in run[substate_index]["duration"]])
+                param_values.extend(
+                    [list(param) for i in run[substate_index]["duration"]]
+                )
 
             by_name[sub_name] = {
                 "isa": "state",
