@@ -839,10 +839,11 @@ class PTAModel(AnalyticModel):
         num_changepoints_by_trace = list()
         changepoints_by_trace = list()
 
-        for power_values in self.by_param[by_param_key]["power_traces"]:
-            penalty, changepoints_by_penalty = self.pelt.get_penalty_and_changepoints(
-                power_values
-            )
+        pelt_results = self.pelt.get_penalty_and_changepoints(
+            self.by_param[by_param_key]["power_traces"]
+        )
+
+        for penalty, changepoints_by_penalty in pelt_results:
             penalty_by_trace.append(penalty)
             changepoints_by_penalty_by_trace.append(changepoints_by_penalty)
             num_changepoints_by_trace.append(len(changepoints_by_penalty[penalty]))
@@ -867,11 +868,14 @@ class PTAModel(AnalyticModel):
         logger.debug(
             f"    we found {num_changepoints} changepoints {num_changepoints_by_trace} with penalties {penalty_by_trace}"
         )
-        return num_changepoints + 1, self.pelt.calc_raw_states(
-            self.by_param[by_param_key]["timestamps"],
-            self.by_param[by_param_key]["power_traces"],
-            changepoints_by_trace,
-            num_changepoints,
+        return (
+            num_changepoints + 1,
+            self.pelt.calc_raw_states(
+                self.by_param[by_param_key]["timestamps"],
+                self.by_param[by_param_key]["power_traces"],
+                changepoints_by_trace,
+                num_changepoints,
+            ),
         )
 
     def find_substates(self):
