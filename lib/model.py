@@ -856,7 +856,21 @@ class PTAModel(AnalyticModel):
 
             return cumulative_energy / total_duration
 
-        return model_getter, param_info_getter
+        def info_getter(name, key, **kwargs):
+            if key != "power":
+                return None
+
+            try:
+                substate_count = round(param_model_getter(name, "substate_count"))
+            except KeyError:
+                return None
+            if substate_count == 1:
+                return None
+
+            # TODO
+            return True
+
+        return model_getter, info_getter
 
     # This heuristic is very similar to the "function is not much better than
     # median" checks in get_fitted. So far, doing it here as well is mostly

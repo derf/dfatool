@@ -71,14 +71,14 @@ def format_quality_measures(result):
         return "{:6}    {:9.0f}".format("", result["mae"])
 
 
-def model_quality_table(result_lists, info_list):
+def model_quality_table(header, result_lists, info_list):
     print(
         "{:20s} {:15s}       {:19s}       {:19s}       {:19s}".format(
             "key",
             "attribute",
-            "static".center(19),
-            "parameterized".center(19),
-            "LUT".center(19),
+            header[0].center(19),
+            header[1].center(19),
+            header[2].center(19),
         )
     )
     for state_or_tran in result_lists[0]["by_name"].keys():
@@ -820,6 +820,11 @@ if __name__ == "__main__":
         safe_functions_enabled=safe_functions_enabled
     )
 
+    if args.with_substates:
+        sub_model, sub_info = model.get_fitted_sub(
+            safe_functions_enabled=safe_functions_enabled
+        )
+
     # substate_model = model.get_substates()
     # print(model.assess(substate_model, ref=model.sc_by_name))
 
@@ -936,6 +941,9 @@ if __name__ == "__main__":
     else:
         analytic_quality = model.assess(param_model)
 
+    if args.with_substates:
+        sub_quality = model.assess(sub_model)
+
     if "tex" in show_models or "tex" in show_quality:
         print_text_model_data(
             model,
@@ -963,7 +971,9 @@ if __name__ == "__main__":
 
     if "table" in show_quality or "all" in show_quality:
         model_quality_table(
-            [static_quality, analytic_quality, lut_quality], [None, param_info, None]
+            ["static", "parameterized", "LUT"],
+            [static_quality, analytic_quality, lut_quality],
+            [None, param_info, None],
         )
         if args.with_substates:
             for submodel in model.submodel_by_nc.values():
@@ -974,9 +984,17 @@ if __name__ == "__main__":
                 sub_param_model, sub_param_info = submodel.get_fitted()
                 sub_analytic_quality = submodel.assess(sub_param_model)
                 model_quality_table(
+                    ["static", "parameterized", "LUT"],
                     [sub_static_quality, sub_analytic_quality, sub_lut_quality],
                     [None, sub_param_info, None],
                 )
+
+    if ("table" in show_quality or "all" in show_quality) and args.with_substates:
+        model_quality_table(
+            ["parameterized", "sub-states", "LUT"],
+            [analytic_quality, sub_quality, lut_quality],
+            [param_info, sub_info, None],
+        )
 
     if "overall" in show_quality or "all" in show_quality:
         print("overall state static/param/lut MAE assuming equal state distribution:")
