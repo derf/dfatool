@@ -216,9 +216,7 @@ class DataProcessor:
         """Use ruptures (e.g. Pelt, Dynp) to determine transition timestamps."""
         from dfatool.pelt import PELT
 
-        # TODO die Anzahl Changepoints ist a priori bekannt, es könnte mit ruptures.Dynp statt ruptures.Pelt besser funktionieren.
-        # Vielleicht sollte man auch "rbf" statt "l1" nutzen.
-        # "rbf" und "l2" scheinen ähnlich gut zu funktionieren, l2 ist schneller.
+        # "rbf" und "l2" scheinen ähnlich gut zu funktionieren, l2 ist schneller. l1 ist wohl noch besser.
         # PELT does not find changepoints for transitions which span just four or five data points (i.e., transitions shorter than ~2ms).
         # Workaround: Double the data rate passed to PELT by interpolation ("stretch=2")
         pelt = PELT(with_multiprocessing=False, stretch=2, min_dist=1)
@@ -228,6 +226,10 @@ class DataProcessor:
 
         # TODO auch Kandidatenbestimmung per Ableitung probieren
         # (-> Umgebungsvariable zur Auswahl)
+
+        pelt_traces = list()
+        timestamps = list()
+        candidate_weights = list()
 
         for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
             expected_end_ts = sync_timestamps[2 * i + 1]
@@ -239,30 +241,34 @@ class DataProcessor:
             et_timestamps_end = bisect_right(
                 self.et_timestamps, expected_end_ts + 10e-3
             )
-            timestamps = self.et_timestamps[et_timestamps_start : et_timestamps_end + 1]
-            energy_data = self.et_power_values[
-                et_timestamps_start : et_timestamps_end + 1
-            ]
-            candidate_weight = dict()
+            timestamps.append(
+                self.et_timestamps[et_timestamps_start : et_timestamps_end + 1]
+            )
+            pelt_traces.append(
+                self.et_power_values[et_timestamps_start : et_timestamps_end + 1]
+            )
 
             # TODO for greedy mode, perform changepoint detection between greedy steps
             # (-> the expected changepoint area is well-known, Dynp with 1/2 changepoints
             # should work much better than "somewhere in these 20ms there should be a transition")
 
-            if 0:
-                penalties = (None,)
-            elif os.getenv("DFATOOL_DRIFT_COMPENSATION_PENALTY"):
-                penalties = (int(os.getenv("DFATOOL_DRIFT_COMPENSATION_PENALTY")),)
-            else:
-                penalties = (1, 2, 5, 10, 15, 20)
-            for penalty in penalties:
-                for changepoint in pelt.get_changepoints(
-                    energy_data, penalty=penalty, num_changepoints=1
-                ):
-                    if changepoint in candidate_weight:
-                        candidate_weight[changepoint] += 1
+        if os.getenv("DFATOOL_DRIFT_COMPENSATION_PENALTY"):
+            penalties = (int(os.getenv("DFATOOL_DRIFT_COMPENSATION_PENALTY")),)
+        else:
+            penalties = (1, 2, 5, 10, 15, 20)
+        for penalty in penalties:
+            changepoints_by_transition = pelt.get_changepoints(
+                pelt_traces, penalty=penalty
+            )
+            for i in range(len(expected_transition_start_timestamps)):
+                candidate_weights.append(dict())
+                for changepoint in changepoints_by_transition[i]:
+                    if changepoint in candidate_weights[i]:
+                        candidate_weights[i][changepoint] += 1
                     else:
-                        candidate_weight[changepoint] = 1
+                        candidate_weights[i][changepoint] = 1
+
+        for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
 
             # TODO ist expected_start_ts wirklich eine gute Referenz? Wenn vor einer Transition ein UART-Dump
             # liegt, dürfte expected_end_ts besser sein, dann muss allerdings bei der compensation wieder auf
@@ -271,11 +277,11 @@ class DataProcessor:
                 list(
                     map(
                         lambda k: (
-                            timestamps[k] - expected_start_ts,
-                            timestamps[k] - expected_end_ts,
-                            candidate_weight[k],
+                            timestamps[i][k] - expected_start_ts,
+                            timestamps[i][k] - expected_end_ts,
+                            candidate_weights[i][k],
                         ),
-                        sorted(candidate_weight.keys()),
+                        sorted(candidate_weights[i].keys()),
                     )
                 )
             )
