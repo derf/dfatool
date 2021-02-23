@@ -698,7 +698,7 @@ if __name__ == "__main__":
             for attribute in model.attributes(state):
                 print_static(model, static_model, state, attribute)
         if args.with_substates:
-            for submodel in model.submodel_by_nc.values():
+            for submodel in model.submodel_by_name.values():
                 for substate in submodel.states():
                     for subattribute in submodel.attributes(substate):
                         print_static(
@@ -910,7 +910,7 @@ if __name__ == "__main__":
                         )
                     )
         if args.with_substates:
-            for submodel in model.submodel_by_nc.values():
+            for submodel in model.submodel_by_name.values():
                 sub_param_model, sub_param_info = submodel.get_fitted()
                 for substate in submodel.states():
                     for subattribute in submodel.attributes(substate):
@@ -976,7 +976,7 @@ if __name__ == "__main__":
             [None, param_info, None],
         )
         if args.with_substates:
-            for submodel in model.submodel_by_nc.values():
+            for submodel in model.submodel_by_name.values():
                 sub_static_model = submodel.get_static()
                 sub_static_quality = submodel.assess(sub_static_model)
                 sub_lut_model = submodel.get_param_lut()

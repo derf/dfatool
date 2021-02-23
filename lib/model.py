@@ -797,7 +797,7 @@ class PTAModel(AnalyticModel):
         self._use_corrcoef = use_corrcoef
         self.traces = traces
         self.function_override = function_override.copy()
-        self.submodel_by_nc = dict()
+        self.submodel_by_name = dict()
 
         self.fit_done = False
 
@@ -846,7 +846,7 @@ class PTAModel(AnalyticModel):
 
             cumulative_energy = 0
             total_duration = 0
-            substate_model, _ = self.submodel_by_nc[(name, substate_count)].get_fitted()
+            substate_model, _ = self.submodel_by_name[name].get_fitted()
             for i in range(substate_count):
                 sub_name = f"{name}.{i+1}({substate_count})"
                 cumulative_energy += substate_model(
@@ -989,17 +989,85 @@ class PTAModel(AnalyticModel):
             substate_counts_by_name[k[0]].add(num_substates)
 
         for name in self.names:
+            data = dict()
+            substate_counts = list()
             for substate_count in substate_counts_by_name[name]:
-                data = list()
+                sub_data = list()
                 for k, (num_substates, _, substate_data) in substates_by_param.items():
                     if (
                         k[0] == name
                         and substate_count > 1
                         and num_substates == substate_count
                     ):
-                        data.append((k[1], substate_data))
-                if len(data):
-                    self.mk_submodel(name, substate_count, data)
+                        sub_data.append((k[1], substate_data))
+                if len(sub_data):
+                    data[substate_count] = sub_data
+                    substate_counts.append(substate_count)
+            if len(data):
+                self.mk_submodel(name, substate_counts, data)
+
+        self.cluster_substates()
+
+    def cluster_substates(self):
+        # Für nicht parameterabhängige Teilzustände:
+        # - Dauer ± max(1%, 20µs) -> merge OK
+        # - Leistung ± max(5%, 10 µW) -> merge OK
+        # Besser in zwei Schritten oder besser gemeinsam? Das Problem ist, dass die distance_threshold nicht nach
+        # Dimensionen unterscheidet.
+        for p_name, submodel in self.submodel_by_name.items():
+            sub_attr_by_function = dict()
+            static = submodel.get_static()
+            param, param_info = submodel.get_fitted()
+            for name in submodel.names:
+                d_info = param_info(name, "duration")
+                p_info = param_info(name, "power")
+                if d_info:
+                    d_info = d_info["function"].model_function
+                if p_info:
+                    p_info = p_info["function"].model_function
+                key = (d_info, p_info)
+                if key not in sub_attr_by_function:
+                    sub_attr_by_function[key] = list()
+                sub_attr_by_function[key].append(name)
+
+            print(sub_attr_by_function)
+
+            if (None, None) in sub_attr_by_function:
+                from sklearn.cluster import AgglomerativeClustering
+
+                values_to_cluster = np.zeros(
+                    (len(sub_attr_by_function[(None, None)]), 1)
+                )
+                for i, name in enumerate(sub_attr_by_function[(None, None)]):
+                    values_to_cluster[i, 0] = static(name, "duration")
+
+                cluster = AgglomerativeClustering(
+                    n_clusters=None,
+                    compute_full_tree=True,
+                    affinity="euclidean",
+                    linkage="ward",
+                    distance_threshold=50,
+                )
+                cluster.fit_predict(values_to_cluster)
+                for i, name in enumerate(sub_attr_by_function[(None, None)]):
+                    print(i, cluster.labels_[i], values_to_cluster[i])
+
+                values_to_cluster = np.zeros(
+                    (len(sub_attr_by_function[(None, None)]), 1)
+                )
+                for i, name in enumerate(sub_attr_by_function[(None, None)]):
+                    values_to_cluster[i, 0] = static(name, "power")
+
+                cluster = AgglomerativeClustering(
+                    n_clusters=None,
+                    compute_full_tree=True,
+                    affinity="euclidean",
+                    linkage="ward",
+                    distance_threshold=200,
+                )
+                cluster.fit_predict(values_to_cluster)
+                for i, name in enumerate(sub_attr_by_function[(None, None)]):
+                    print(i, cluster.labels_[i], values_to_cluster[i])
 
         #    substate_counts = dict()
         #    for k, (num_substates, _, substate_data) in substates_by_param.items():
@@ -1022,97 +1090,34 @@ class PTAModel(AnalyticModel):
     # data[0] = [first sub-state, second sub-state, ...]
     # data[1] = [first sub-state, second sub-state, ...]
     # ...
-    def mk_submodel(self, name, substate_count, data):
+    def mk_submodel(self, name, substate_counts, data):
         paramstats = ParallelParamStats()
         by_name = dict()
         sub_states = list()
-        for substate_index in range(substate_count):
-            sub_name = f"{name}.{substate_index+1}({substate_count})"
-            durations = list()
-            powers = list()
-            param_values = list()
-            for param, run in data:
-                # data units are s / W, models use µs / µW
-                durations.extend(np.array(run[substate_index]["duration"]) * 1e6)
-                powers.extend(np.array(run[substate_index]["power"]) * 1e6)
-                param_values.extend(
-                    [list(param) for i in run[substate_index]["duration"]]
-                )
 
-            by_name[sub_name] = {
-                "isa": "state",
-                "param": param_values,
-                "attributes": ["duration", "power"],
-                "duration": durations,
-                "power": powers,
-            }
+        for substate_count in substate_counts:
+            for substate_index in range(substate_count):
+                sub_name = f"{name}.{substate_index+1}({substate_count})"
+                durations = list()
+                powers = list()
+                param_values = list()
+                for param, run in data[substate_count]:
+                    # data units are s / W, models use µs / µW
+                    durations.extend(np.array(run[substate_index]["duration"]) * 1e6)
+                    powers.extend(np.array(run[substate_index]["power"]) * 1e6)
+                    param_values.extend(
+                        [list(param) for i in run[substate_index]["duration"]]
+                    )
 
-        self.submodel_by_nc[(name, substate_count)] = PTAModel(
-            by_name, self.parameters, dict()
-        )
+                by_name[sub_name] = {
+                    "isa": "state",
+                    "param": param_values,
+                    "attributes": ["duration", "power"],
+                    "duration": durations,
+                    "power": powers,
+                }
 
-    def get_substates(self):
-        states = self.states()
-
-        substates_by_param = dict()
-        for k in self.by_param.keys():
-            if k[0] in states:
-                state_name = k[0]
-                if self.pelt.needs_refinement(self.by_param[k]["power_traces"]):
-                    substates_by_param[k] = self.pelt_refine(k)
-                else:
-                    substate_counts = [1 for i in self.by_param[k]["param"]]
-                    substate_data = {
-                        "duration": self.by_param[k]["duration"],
-                        "power": self.by_param[k]["power"],
-                        "power_std": self.by_param[k]["power_std"],
-                    }
-                    substates_by_param[k] = (substate_counts, substate_data)
-
-        # suitable for AEMR modeling
-        sc_by_param = dict()
-        for param_key, (substate_counts, _) in substates_by_param.items():
-            sc_by_param[param_key] = {
-                "attributes": ["substate_count"],
-                "isa": "state",
-                "substate_count": substate_counts,
-                "param": self.by_param[param_key]["param"],
-            }
-
-        sc_by_name = by_param_to_by_name(sc_by_param)
-        self.sc_by_name = sc_by_name
-        self.sc_by_param = sc_by_param
-        static_model = self._get_model_from_dict(self.sc_by_name, np.median)
-
-        def static_model_getter(name, key, **kwargs):
-            return static_model[name][key]
-
-        return static_model_getter
-
-        """
-        for k in self.by_param.keys():
-            if k[0] in states:
-                state_name = k[0]
-                if state_name not in pelt_by_name:
-                    pelt_by_name[state_name] = dict()
-                if self.pelt.needs_refinement(self.by_param[k]["power_traces"]):
-                    res = self.pelt_refine(k)
-                    for substate_index, substate in enumerate(res):
-                        if substate_index not in pelt_by_name[state_name]:
-                            pelt_by_name[state_name][substate_index] = {
-                                "attribute": ["power", "duration"],
-                                "isa": "state",
-                                "param": list(),
-                                "power": list(),
-                                "duration": list()
-                            }
-                        pelt_by_name[state_name][substate_index]["param"].extend(self.by_param[k]["param"][:len(substate["power"])])
-                        pelt_by_name[state_name][substate_index]["power"].extend(substate["power"])
-                        pelt_by_name[state_name][substate_index]["duration"].extend(substate["duration"])
-        print(pelt_by_name)
-        """
-
-        return None, None
+        self.submodel_by_name[name] = PTAModel(by_name, self.parameters, dict())
 
     def to_json(self):
         static_model = self.get_static()
