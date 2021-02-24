@@ -798,6 +798,9 @@ class PTAModel(AnalyticModel):
         self.traces = traces
         self.function_override = function_override.copy()
         self.submodel_by_name = dict()
+        self.substate_sequence_by_nc = dict()
+        self.pta = pta
+        self.ignore_trace_indexes = ignore_trace_indexes
 
         self.fit_done = False
 
@@ -814,8 +817,6 @@ class PTAModel(AnalyticModel):
         self._compute_stats(by_name)
 
         np.seterr("raise")
-        self.pta = pta
-        self.ignore_trace_indexes = ignore_trace_indexes
 
     def __repr__(self):
         states = ", ".join(self.states())
@@ -849,16 +850,16 @@ class PTAModel(AnalyticModel):
             cumulative_energy = 0
             total_duration = 0
             substate_model, _ = self.submodel_by_name[name].get_fitted()
-            for i in range(1, substate_count + 1):
-                sub_name = f"{name}.{i}({substate_count})"
+            substate_sequence = self.substate_sequence_by_nc[(name, substate_count)]
+            for i, sub_name in enumerate(substate_sequence):
                 sub_duration = substate_model(sub_name, "duration", **kwargs)
                 sub_power = substate_model(sub_name, "power", **kwargs)
 
-                if i == substate_count:
-                    if state_duration is not None:
-                        sub_duration = state_duration - total_duration
-                    elif "duration" in kwargs:
+                if i == substate_count - 1:
+                    if "duration" in kwargs:
                         sub_duration = kwargs["duration"] - total_duration
+                    elif name in self.states() and state_duration is not None:
+                        sub_duration = state_duration - total_duration
 
                 cumulative_energy += sub_power * sub_duration
                 total_duration += sub_duration
@@ -1105,8 +1106,10 @@ class PTAModel(AnalyticModel):
         sub_states = list()
 
         for substate_count in substate_counts:
+            self.substate_sequence_by_nc[(name, substate_count)] = list()
             for substate_index in range(substate_count):
                 sub_name = f"{name}.{substate_index+1}({substate_count})"
+                self.substate_sequence_by_nc[(name, substate_count)].append(sub_name)
                 durations = list()
                 powers = list()
                 param_values = list()
