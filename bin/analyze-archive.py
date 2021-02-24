@@ -822,7 +822,8 @@ if __name__ == "__main__":
 
     if args.with_substates:
         sub_model, sub_info = model.get_fitted_sub(
-            safe_functions_enabled=safe_functions_enabled
+            safe_functions_enabled=safe_functions_enabled,
+            state_duration=raw_data.setup_by_fileno[0]["state_duration"] * 1e3,
         )
 
     # substate_model = model.get_substates()

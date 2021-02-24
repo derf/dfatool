@@ -827,7 +827,9 @@ class PTAModel(AnalyticModel):
             for key in elem["attributes"]:
                 elem[key] = np.array(elem[key])
 
-    def get_fitted_sub(self, use_mean=False, safe_functions_enabled=False):
+    def get_fitted_sub(
+        self, use_mean=False, safe_functions_enabled=False, state_duration=None
+    ):
 
         param_model_getter, param_info_getter = self.get_fitted(
             use_mean=use_mean, safe_functions_enabled=safe_functions_enabled
@@ -847,12 +849,19 @@ class PTAModel(AnalyticModel):
             cumulative_energy = 0
             total_duration = 0
             substate_model, _ = self.submodel_by_name[name].get_fitted()
-            for i in range(substate_count):
-                sub_name = f"{name}.{i+1}({substate_count})"
-                cumulative_energy += substate_model(
-                    sub_name, "duration", **kwargs
-                ) * substate_model(sub_name, "power", **kwargs)
-                total_duration += substate_model(sub_name, "duration", **kwargs)
+            for i in range(1, substate_count + 1):
+                sub_name = f"{name}.{i}({substate_count})"
+                sub_duration = substate_model(sub_name, "duration", **kwargs)
+                sub_power = substate_model(sub_name, "power", **kwargs)
+
+                if i == substate_count:
+                    if state_duration is not None:
+                        sub_duration = state_duration - total_duration
+                    elif "duration" in kwargs:
+                        sub_duration = kwargs["duration"] - total_duration
+
+                cumulative_energy += sub_power * sub_duration
+                total_duration += sub_duration
 
             return cumulative_energy / total_duration
 
