@@ -598,7 +598,10 @@ class AnalyticModel:
                     lut_model[name][k][param] = v.get_lut(param, use_mean=use_mean)
 
         def lut_median_getter(name, key, param, arg=list(), **kwargs):
-            param.extend(map(soft_cast_int, arg))
+            if arg:
+                if type(param) is tuple:
+                    param = list(param)
+                param.extend(map(soft_cast_int, arg))
             param = tuple(param)
             try:
                 return lut_model[name][key][param]
