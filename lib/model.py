@@ -819,6 +819,12 @@ class PTAModel(AnalyticModel):
 
         self._compute_stats(by_name)
 
+        if self.pelt is not None:
+            # cluster_substates alters submodel_by_name, so we cannot use its keys() iterator.
+            names_with_submodel = list(self.submodel_by_name.keys())
+            for name in names_with_submodel:
+                self.cluster_substates(name)
+
         np.seterr("raise")
 
     def __repr__(self):
@@ -1019,86 +1025,99 @@ class PTAModel(AnalyticModel):
             if len(data):
                 self.mk_submodel(name, substate_counts, data)
 
-        self.cluster_substates()
+    def cluster_substates(self, p_name):
+        from sklearn.cluster import AgglomerativeClustering
 
-    def cluster_substates(self):
+        submodel = self.submodel_by_name[p_name]
         # Für nicht parameterabhängige Teilzustände:
         # - Dauer ± max(1%, 20µs) -> merge OK
         # - Leistung ± max(5%, 10 µW) -> merge OK
         # Besser in zwei Schritten oder besser gemeinsam? Das Problem ist, dass die distance_threshold nicht nach
         # Dimensionen unterscheidet.
-        for p_name, submodel in self.submodel_by_name.items():
-            sub_attr_by_function = dict()
-            static = submodel.get_static()
-            param, param_info = submodel.get_fitted()
-            for name in submodel.names:
-                d_info = param_info(name, "duration")
-                p_info = param_info(name, "power")
-                if d_info:
-                    d_info = d_info["function"].model_function
-                if p_info:
-                    p_info = p_info["function"].model_function
-                key = (d_info, p_info)
-                if key not in sub_attr_by_function:
-                    sub_attr_by_function[key] = list()
-                sub_attr_by_function[key].append(name)
+        # Für parameterabhängige / allgemein: param_lut statt static nutzen.
+        # values_to_cluster[i, 0] = duration für paramvektor 1 (fallback static duration)
+        # values_to_cluster[i, 1] = duration für paramvektor 2 (fallback static duration)
+        # etc. -> wenn die lut für alle Parameter ähnlich ist, wird gemerged. Das funktioniert auch bei geringfügigen
+        # Schwankungen, die beim separaten Fitting zu unterschiedlichen Funktionen führen würden.
+        p_attr = self.attr_by_name[p_name]["power"]
+        p_params = list(set(map(tuple, p_attr.param_values)))
+        p_param_index = dict()
+        for i, p_param in enumerate(p_params):
+            p_param_index[p_param] = i
+        sub_attr_by_function = dict()
+        static = submodel.get_static()
+        lut = submodel.get_param_lut(fallback=True)
+        values_to_cluster = np.zeros((len(submodel.names), len(p_param_index)))
+        for i, name in enumerate(submodel.names):
+            for j, param in enumerate(p_params):
+                values_to_cluster[i, j] = lut(name, "duration", param=param)
 
-            print(sub_attr_by_function)
+        clusters = list()
 
-            if (None, None) in sub_attr_by_function:
-                from sklearn.cluster import AgglomerativeClustering
+        d_cluster = AgglomerativeClustering(
+            n_clusters=None,
+            compute_full_tree=True,
+            affinity="euclidean",
+            linkage="ward",
+            distance_threshold=50,
+        )
+        d_cluster.fit_predict(values_to_cluster)
 
-                values_to_cluster = np.zeros(
-                    (len(sub_attr_by_function[(None, None)]), 1)
+        for d_cluster_i in range(d_cluster.n_clusters_):
+            cl_substates = list()
+            for i, name in enumerate(submodel.names):
+                if d_cluster.labels_[i] == d_cluster_i:
+                    cl_substates.append(name)
+            if len(cl_substates) == 1:
+                clusters.append(cl_substates)
+                continue
+            values_to_cluster = np.zeros((len(cl_substates), len(p_param_index)))
+            for i, name in enumerate(cl_substates):
+                for j, param in enumerate(p_params):
+                    values_to_cluster[i, j] = lut(name, "power", param=param)
+            p_cluster = AgglomerativeClustering(
+                n_clusters=None,
+                compute_full_tree=True,
+                affinity="euclidean",
+                linkage="ward",
+                distance_threshold=500,
+            )
+            p_cluster.fit_predict(values_to_cluster)
+            for p_cluster_i in range(p_cluster.n_clusters_):
+                cluster = list()
+                for i, name in enumerate(cl_substates):
+                    if p_cluster.labels_[i] == p_cluster_i:
+                        cluster.append(name)
+                clusters.append(cluster)
+
+        logger.debug(f"sub-state clusters = {clusters}")
+
+        by_name = dict()
+        new_subname_by_old = dict()
+        for i, cluster in enumerate(clusters):
+            sub_name = f"{p_name}.{i}"
+            durations = list()
+            powers = list()
+            param_values = list()
+            for substate in cluster:
+                new_subname_by_old[substate] = sub_name
+                durations.extend(submodel.attr_by_name[substate]["duration"].data)
+                powers.extend(submodel.attr_by_name[substate]["power"].data)
+                param_values.extend(
+                    submodel.attr_by_name[substate]["power"].param_values
                 )
-                for i, name in enumerate(sub_attr_by_function[(None, None)]):
-                    values_to_cluster[i, 0] = static(name, "duration")
-
-                cluster = AgglomerativeClustering(
-                    n_clusters=None,
-                    compute_full_tree=True,
-                    affinity="euclidean",
-                    linkage="ward",
-                    distance_threshold=50,
-                )
-                cluster.fit_predict(values_to_cluster)
-                for i, name in enumerate(sub_attr_by_function[(None, None)]):
-                    print(i, cluster.labels_[i], values_to_cluster[i])
-
-                values_to_cluster = np.zeros(
-                    (len(sub_attr_by_function[(None, None)]), 1)
-                )
-                for i, name in enumerate(sub_attr_by_function[(None, None)]):
-                    values_to_cluster[i, 0] = static(name, "power")
-
-                cluster = AgglomerativeClustering(
-                    n_clusters=None,
-                    compute_full_tree=True,
-                    affinity="euclidean",
-                    linkage="ward",
-                    distance_threshold=200,
-                )
-                cluster.fit_predict(values_to_cluster)
-                for i, name in enumerate(sub_attr_by_function[(None, None)]):
-                    print(i, cluster.labels_[i], values_to_cluster[i])
-
-        #    substate_counts = dict()
-        #    for k, (num_substates, _, substate_data) in substates_by_param.items():
-        #        if k[0] == name and num_substates > 1:
-        #            for datapoint in substates_by_param[k][2]:
-        #            for i, sc in enumerate(substates_by_param[k][0]):
-        #                if sc not in substate_counts:
-        #                    substate_counts[sc] = list()
-        #                if sc > 1:
-        #                    # substates_by_param[k][substate index]["power"] = [mean power of substate in first iteration, ...]
-        #                    substate_counts[sc].append((k[1], substates_by_param[k][1][1][i], substates_by_param[k][1][2][i]))
-        #    for substate_count in substate_counts.keys():
-        #        self.mk_submodel(name, substate_count, substate_counts[substate_count])
-
-        # TODO Für alle n>1 mit "Es gibt Parameterkombinationen mit n Teilzuständen":
-        # Für jeden Teilzustand ein neues ModelAttribute erzeugen, das nur aus den
-        # Teilzuständen von Parameterkombinationen mit n Teilzuständen erzeugt wird.
-        # Dann diese jeweils fitten.
+            by_name[sub_name] = {
+                "isa": "state",
+                "param": param_values,
+                "attributes": ["duration", "power"],
+                "duration": durations,
+                "power": powers,
+            }
+        self.submodel_by_name[p_name] = PTAModel(by_name, self.parameters, dict())
+        for k in self.substate_sequence_by_nc.keys():
+            self.substate_sequence_by_nc[k] = list(
+                map(lambda x: new_subname_by_old[x], self.substate_sequence_by_nc[k])
+            )
 
     # data[0] = [first sub-state, second sub-state, ...]
     # data[1] = [first sub-state, second sub-state, ...]
