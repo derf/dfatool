@@ -170,7 +170,7 @@ class PELT:
         # long as --pelt isn't active.
         import ruptures
 
-        if self.stretch != 1:
+        if self.stretch > 1:
             traces = list(
                 map(
                     lambda trace: np.interp(
@@ -183,6 +183,20 @@ class PELT:
                     traces,
                 )
             )
+        elif self.stretch < -1:
+            ds_factor = -self.stretch
+            new_traces = list()
+            for trace in traces:
+                if trace.shape[0] % ds_factor:
+                    trace = np.array(
+                        list(trace)
+                        + [
+                            trace[-1]
+                            for i in range(ds_factor - (trace.shape[0] % ds_factor))
+                        ]
+                    )
+                new_traces.append(trace.reshape(-1, ds_factor).mean(axis=1))
+            traces = new_traces
 
         algos = list()
         queue = list()
@@ -224,10 +238,17 @@ class PELT:
                 changepoints.pop()
             if len(changepoints) and changepoints[0] == 0:
                 changepoints.pop(0)
-            if self.stretch != 1:
+            if self.stretch > 1:
                 changepoints = list(
                     np.array(
                         np.around(np.array(changepoints) / self.stretch), dtype=np.int
+                    )
+                )
+            elif self.stretch < -1:
+                ds_factor = -self.stretch
+                changepoints = list(
+                    np.array(
+                        np.around(np.array(changepoints) * ds_factor), dtype=np.int
                     )
                 )
             changepoints_by_penalty_by_trace[i][range_penalty] = changepoints
