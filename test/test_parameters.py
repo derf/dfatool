@@ -57,10 +57,10 @@ class TestModels(unittest.TestCase):
         # Fit individual functions for each parameter (only "p_linear" in this case)
 
         paramfit = ParallelParamFit()
-        paramfit.enqueue(("TX", "power", "p_linear"), (stats.by_param, 1, False))
+        paramfit.enqueue(("TX", "power"), "p_linear", (stats.by_param, 1, False))
         paramfit.fit()
 
-        fit_result = paramfit.get_result("TX", "power")
+        fit_result = paramfit.get_result(("TX", "power"))
         self.assertEqual(fit_result["p_linear"]["best"], "linear")
         self.assertEqual("p_mod5" not in fit_result, True)
 
@@ -147,16 +147,16 @@ class TestModels(unittest.TestCase):
         self.assertEqual(ll_stats.depends_on_param("square_none"), False)
 
         paramfit = ParallelParamFit()
-        paramfit.enqueue(("someKey", "lls", "lin_lin"), (lls_stats.by_param, 0, False))
-        paramfit.enqueue(("someKey", "lls", "log_inv"), (lls_stats.by_param, 1, False))
+        paramfit.enqueue(("someKey", "lls"), "lin_lin", (lls_stats.by_param, 0, False))
+        paramfit.enqueue(("someKey", "lls"), "log_inv", (lls_stats.by_param, 1, False))
         paramfit.enqueue(
-            ("someKey", "lls", "square_none"), (lls_stats.by_param, 2, False)
+            ("someKey", "lls"), "square_none", (lls_stats.by_param, 2, False)
         )
-        paramfit.enqueue(("someKey", "ll", "lin_lin"), (ll_stats.by_param, 0, False))
-        paramfit.enqueue(("someKey", "ll", "log_inv"), (ll_stats.by_param, 1, False))
+        paramfit.enqueue(("someKey", "ll"), "lin_lin", (ll_stats.by_param, 0, False))
+        paramfit.enqueue(("someKey", "ll"), "log_inv", (ll_stats.by_param, 1, False))
         paramfit.fit()
 
-        fit_lls = paramfit.get_result("someKey", "lls")
+        fit_lls = paramfit.get_result(("someKey", "lls"))
         self.assertEqual(fit_lls["lin_lin"]["best"], "linear")
         self.assertEqual(fit_lls["log_inv"]["best"], "logarithmic")
         self.assertEqual(fit_lls["square_none"]["best"], "square")
@@ -201,7 +201,7 @@ class TestModels(unittest.TestCase):
         for i, x in enumerate(X):
             self.assertAlmostEqual(combined_fit_lls.eval(x), f_lls(x), places=0)
 
-        fit_ll = paramfit.get_result("someKey", "ll")
+        fit_ll = paramfit.get_result(("someKey", "ll"))
         self.assertEqual(fit_ll["lin_lin"]["best"], "linear")
         self.assertEqual(fit_ll["log_inv"]["best"], "inverse")
         self.assertEqual("quare_none" not in fit_ll, True)

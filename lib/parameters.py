@@ -439,6 +439,18 @@ class ParamStats:
     def __init__(self, data):
         self.__dict__.update(data)
 
+    @classmethod
+    def compute_for_attr(cls, attr, use_corrcoef=False):
+        res = _compute_param_statistics(
+            attr.data,
+            attr.param_names,
+            attr.param_values,
+            arg_count=attr.arg_count,
+            use_corrcoef=use_corrcoef,
+        )
+        attr.by_param = res.pop("by_param")
+        attr.stats = cls(res)
+
     def can_be_fitted(self) -> bool:
         """
         Return whether a sufficient amount of distinct numeric parameter values is available, allowing a parameter-aware model to be generated.
