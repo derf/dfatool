@@ -678,6 +678,17 @@ if __name__ == "__main__":
                         ].stats.distinct_values_by_param_name[param],
                     )
                 )
+            for i in range(model._num_args[transition]):
+                print(
+                    "    Argument  {} ∈ {}".format(
+                        i,
+                        model.attr_by_name[transition][
+                            "duration"
+                        ].stats.distinct_values_by_param_index[
+                            len(model.parameters) + i
+                        ],
+                    )
+                )
 
     if args.plot_unparam:
         for kv in args.plot_unparam.split(";"):
