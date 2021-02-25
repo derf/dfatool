@@ -1088,7 +1088,7 @@ class PTAModel(AnalyticModel):
                     "power_std": self.by_param[by_param_key]["power_std"],
                 }
             ]
-            return (substate_counts, substate_data)
+            return 1, (substate_counts, substate_data)
 
         num_changepoints = np.argmax(np.bincount(num_changepoints_by_trace))
 
