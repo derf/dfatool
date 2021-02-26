@@ -34,21 +34,21 @@ class TestModels(unittest.TestCase):
         self.assertEqual(param_info("setRetries", "duration"), None)
         self.assertEqual(param_info("setup", "duration"), None)
         self.assertEqual(
-            param_info("write", "duration")["function"].model_function,
+            param_info("write", "duration").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * parameter(max_retry_count) * parameter(retry_delay)",
         )
 
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[0], 1163, places=0
+            param_info("write", "duration").function.model_args[0], 1163, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[1], 464, places=0
+            param_info("write", "duration").function.model_args[1], 464, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[2], 1, places=0
+            param_info("write", "duration").function.model_args[2], 1, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[3], 1, places=0
+            param_info("write", "duration").function.model_args[3], 1, places=0
         )
 
     def test_dependent_parameter_pruning(self):
@@ -82,21 +82,21 @@ class TestModels(unittest.TestCase):
         self.assertEqual(param_info("setRetries", "duration"), None)
         self.assertEqual(param_info("setup", "duration"), None)
         self.assertEqual(
-            param_info("write", "duration")["function"].model_function,
+            param_info("write", "duration").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * parameter(max_retry_count) * parameter(retry_delay)",
         )
 
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[0], 1163, places=0
+            param_info("write", "duration").function.model_args[0], 1163, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[1], 464, places=0
+            param_info("write", "duration").function.model_args[1], 464, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[2], 1, places=0
+            param_info("write", "duration").function.model_args[2], 1, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[3], 1, places=0
+            param_info("write", "duration").function.model_args[3], 1, places=0
         )
 
     def test_function_override(self):
@@ -140,24 +140,24 @@ class TestModels(unittest.TestCase):
         self.assertEqual(param_info("setRetries", "duration"), None)
         self.assertEqual(param_info("setup", "duration"), None)
         self.assertEqual(
-            param_info("write", "duration")["function"].model_function,
+            param_info("write", "duration").function.model_function,
             "(parameter(auto_ack!) * (regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * parameter(max_retry_count) * parameter(retry_delay))) + ((1 - parameter(auto_ack!)) * regression_arg(4))",
         )
 
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[0], 1162, places=0
+            param_info("write", "duration").function.model_args[0], 1162, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[1], 464, places=0
+            param_info("write", "duration").function.model_args[1], 464, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[2], 1, places=0
+            param_info("write", "duration").function.model_args[2], 1, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[3], 1, places=0
+            param_info("write", "duration").function.model_args[3], 1, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration")["function"].model_args[4], 1086, places=0
+            param_info("write", "duration").function.model_args[4], 1086, places=0
         )
         os.environ.pop("DFATOOL_NO_DECISIONTREES")
 

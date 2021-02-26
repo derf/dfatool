@@ -640,26 +640,26 @@ class TestFromFile(unittest.TestCase):
         param_model, param_info = model.get_fitted()
         self.assertEqual(param_info("POWERDOWN", "power"), None)
         self.assertEqual(
-            param_info("RX", "power")["function"].model_function,
+            param_info("RX", "power").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * np.sqrt(parameter(datarate))",
         )
         self.assertAlmostEqual(
-            param_info("RX", "power")["function"].model_args[0], 48530.7, places=0
+            param_info("RX", "power").function.model_args[0], 48530.7, places=0
         )
         self.assertAlmostEqual(
-            param_info("RX", "power")["function"].model_args[1], 117, places=0
+            param_info("RX", "power").function.model_args[1], 117, places=0
         )
         self.assertEqual(param_info("STANDBY1", "power"), None)
         self.assertEqual(
-            param_info("TX", "power")["function"].model_function,
+            param_info("TX", "power").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate)) + regression_arg(2) * parameter(txpower) + regression_arg(3) * 1/(parameter(datarate)) * parameter(txpower)",
         )
         self.assertEqual(
-            param_info("epilogue", "timeout")["function"].model_function,
+            param_info("epilogue", "timeout").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate))",
         )
         self.assertEqual(
-            param_info("stopListening", "duration")["function"].model_function,
+            param_info("stopListening", "duration").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate))",
         )
 
@@ -1825,7 +1825,7 @@ class TestFromFile(unittest.TestCase):
         param_model, param_info = model.get_fitted()
         self.assertEqual(param_info("IDLE", "power"), None)
         self.assertEqual(
-            param_info("RX", "power")["function"].model_function,
+            param_info("RX", "power").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * np.log(parameter(symbolrate) + 1)",
         )
         self.assertEqual(param_info("SLEEP", "power"), None)
@@ -1834,10 +1834,10 @@ class TestFromFile(unittest.TestCase):
         self.assertEqual(param_info("XOFF", "power"), None)
 
         self.assertAlmostEqual(
-            param_info("RX", "power")["function"].model_args[0], 84415, places=0
+            param_info("RX", "power").function.model_args[0], 84415, places=0
         )
         self.assertAlmostEqual(
-            param_info("RX", "power")["function"].model_args[1], 206, places=0
+            param_info("RX", "power").function.model_args[1], 206, places=0
         )
 
 

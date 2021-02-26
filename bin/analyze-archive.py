@@ -43,7 +43,7 @@ import random
 import sys
 from dfatool import plotter
 from dfatool.loader import RawData, pta_trace_to_aggregate
-from dfatool.functions import gplearn_to_function
+from dfatool.functions import gplearn_to_function, SplitInfo, AnalyticInfo
 from dfatool.model import PTAModel
 from dfatool.validation import CrossValidator
 from dfatool.utils import filter_aggregate_by_param, detect_outliers_in_aggregate
@@ -363,6 +363,24 @@ def print_static(model, static_model, name, attribute):
                 model.attr_by_name[name][attribute].stats.param_dependence_ratio(param),
             )
         )
+
+
+def print_analyticinfo(prefix, info):
+    empty = ""
+    print(f"{prefix}: {info.function.model_function}")
+    print(f"{empty:{len(prefix)}s}  {info.function.model_args}")
+
+
+def print_splitinfo(param_names, info, prefix=""):
+    if type(info) is SplitInfo:
+        for k, v in info.child.items():
+            print_splitinfo(
+                param_names, v, f"{prefix} {param_names[info.param_index]}={k}"
+            )
+    elif type(info) is AnalyticInfo:
+        print(f"{prefix} = analytic")
+    else:
+        print(f"{prefix} = static")
 
 
 if __name__ == "__main__":
@@ -871,9 +889,9 @@ if __name__ == "__main__":
                             ],
                         )
                     )
-                if info is not None:
-                    for param_name in sorted(info["fit_result"].keys(), key=str):
-                        param_fit = info["fit_result"][param_name]["results"]
+                if type(info) is AnalyticInfo:
+                    for param_name in sorted(info.fit_result.keys(), key=str):
+                        param_fit = info.fit_result[param_name]["results"]
                         for function_type in sorted(param_fit.keys()):
                             function_rmsd = param_fit[function_type]["rmsd"]
                             print(
@@ -889,60 +907,37 @@ if __name__ == "__main__":
     if "param" in show_models or "all" in show_models:
         for state in model.states():
             for attribute in model.attributes(state):
-                if param_info(state, attribute):
-                    print(
-                        "{:10s} {:15s}: {}".format(
-                            state,
-                            attribute,
-                            param_info(state, attribute)["function"].model_function,
-                        )
-                    )
-                    print(
-                        "{:10s} {:15s}  {}".format(
-                            "", "", param_info(state, attribute)["function"].model_args
-                        )
+                info = param_info(state, attribute)
+                if type(info) is AnalyticInfo:
+                    print_analyticinfo(f"{state:10s} {attribute:15s}", info)
+                elif type(info) is SplitInfo:
+                    print_splitinfo(
+                        model.parameters, info, f"{state:10s} {attribute:15s}"
                     )
         for trans in model.transitions():
             for attribute in model.attributes(trans):
-                if param_info(trans, attribute):
-                    print(
-                        "{:10s} {:15s}: {:10s}: {}".format(
-                            trans,
-                            attribute,
-                            attribute,
-                            param_info(trans, attribute)["function"].model_function,
-                        )
-                    )
-                    print(
-                        "{:10s} {:15s}  {:10s}  {}".format(
-                            "",
-                            "",
-                            "",
-                            param_info(trans, attribute)["function"].model_args,
-                        )
+                info = param_info(trans, attribute)
+                if type(info) is AnalyticInfo:
+                    print_analyticinfo(f"{trans:10s} {attribute:15s}", info)
+                elif type(info) is SplitInfo:
+                    print_splitinfo(
+                        model.parameters, info, f"{trans:10s} {attribute:15s}"
                     )
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
                 sub_param_model, sub_param_info = submodel.get_fitted()
                 for substate in submodel.states():
                     for subattribute in submodel.attributes(substate):
-                        if sub_param_info(substate, subattribute):
+                        info = sub_param_info(substate, subattribute)
+                        if type(info) is AnalyticInfo:
                             print(
                                 "{:10s} {:15s}: {}".format(
-                                    substate,
-                                    subattribute,
-                                    sub_param_info(substate, subattribute)[
-                                        "function"
-                                    ].model_function,
+                                    substate, subattribute, info.function.model_function
                                 )
                             )
                             print(
                                 "{:10s} {:15s}  {}".format(
-                                    "",
-                                    "",
-                                    sub_param_info(substate, subattribute)[
-                                        "function"
-                                    ].model_args,
+                                    "", "", info.function.model_args
                                 )
                             )
 

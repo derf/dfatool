@@ -80,7 +80,7 @@ import re
 import sys
 from dfatool import plotter
 from dfatool.loader import TimingData, pta_trace_to_aggregate
-from dfatool.functions import gplearn_to_function
+from dfatool.functions import gplearn_to_function, SplitInfo, AnalyticInfo
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 from dfatool.utils import filter_aggregate_by_param
@@ -387,9 +387,9 @@ if __name__ == "__main__":
                             ].stats.arg_dependence_ratio(i),
                         )
                     )
-                if info is not None:
-                    for param_name in sorted(info["fit_result"].keys(), key=str):
-                        param_fit = info["fit_result"][param_name]["results"]
+                if type(info) is AnalyticInfo:
+                    for param_name in sorted(info.fit_result.keys(), key=str):
+                        param_fit = info.fit_result[param_name]["results"]
                         for function_type in sorted(param_fit.keys()):
                             function_rmsd = param_fit[function_type]["rmsd"]
                             print(
@@ -405,19 +405,14 @@ if __name__ == "__main__":
     if "param" in show_models or "all" in show_models:
         for trans in model.names:
             for attribute in ["duration"]:
-                if param_info(trans, attribute):
+                info = param_info(trans, attribute)
+                if type(info) is AnalyticInfo:
                     print(
                         "{:10s}: {:10s}: {}".format(
-                            trans,
-                            attribute,
-                            param_info(trans, attribute)["function"].model_function,
+                            trans, attribute, info.function.model_function
                         )
                     )
-                    print(
-                        "{:10s}  {:10s}  {}".format(
-                            "", "", param_info(trans, attribute)["function"].model_args
-                        )
-                    )
+                    print("{:10s}  {:10s}  {}".format("", "", info.function.model_args))
 
     if xv_method == "montecarlo":
         analytic_quality = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)

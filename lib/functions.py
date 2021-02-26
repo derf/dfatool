@@ -152,7 +152,82 @@ class NormalizationFunction:
         return self._function(param_value)
 
 
-class AnalyticFunction:
+class ModelInfo:
+    def __init__(self):
+        pass
+
+
+class AnalyticInfo(ModelInfo):
+    def __init__(self, fit_result, function):
+        self.fit_result = fit_result
+        self.function = function
+
+
+class SplitInfo(ModelInfo):
+    def __init__(self, param_index, child):
+        self.param_index = param_index
+        self.child = child
+
+
+class ModelFunction:
+    def __init__(self):
+        pass
+
+    def is_predictable(self, param_list):
+        raise NotImplementedError
+
+    def eval(self, param_list, arg_list):
+        raise NotImplementedError
+
+
+class StaticFunction(ModelFunction):
+    def __init__(self, value):
+        self.value = value
+
+    def is_predictable(self, param_list=None):
+        """
+        Return whether the model function can be evaluated on the given parameter values.
+
+        For a StaticFunction, this is always the case (i.e., this function always returns true).
+        """
+        return True
+
+    def eval(self, param_list=None, arg_list=None):
+        """
+        Evaluate model function with specified param/arg values.
+
+        Far a Staticfunction, this is just the static value
+
+        """
+        return self.value
+
+
+class SplitFunction(ModelFunction):
+    def __init__(self, param_index, child):
+        self.param_index = param_index
+        self.child = child
+
+    def is_predictable(self, param_list):
+        """
+        Return whether the model function can be evaluated on the given parameter values.
+
+        The first value corresponds to the lexically first model parameter, etc.
+        All parameters must be set, not just the ones this function depends on.
+
+        Returns False iff a parameter the function depends on is not numeric
+        (e.g. None).
+        """
+        param_value = param_list[self.param_index]
+        if param_value not in self.child:
+            return False
+        return self.child[param_value].is_predictable(param_list)
+
+    def eval(self, param_list, arg_list=list()):
+        param_value = param_list[self.param_index]
+        return self.child[param_value].eval(param_list, arg_list)
+
+
+class AnalyticFunction(ModelFunction):
     """
     A multi-dimensional model function, generated from a string, which can be optimized using regression.
 
