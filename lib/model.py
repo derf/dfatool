@@ -422,7 +422,7 @@ class ModelAttribute:
         # )
 
     # None -> kein split notwendig
-    # andernfalls: Parameter, anhand dessen eine Decision Tree-Ebene aufgespannt wird
+    # andernfalls: Parameter-Index, anhand dessen eine Decision Tree-Ebene aufgespannt wird
     # (Kinder sind wiederum ModelAttributes, in denen dieser Parameter konstant ist)
     def get_split_param_index(self):
         if not self.param_names:
