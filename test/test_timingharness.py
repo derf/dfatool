@@ -3,6 +3,7 @@
 from dfatool.loader import TimingData, pta_trace_to_aggregate
 from dfatool.model import AnalyticModel
 from dfatool.parameters import prune_dependent_parameters
+import os
 import unittest
 
 
@@ -99,6 +100,7 @@ class TestModels(unittest.TestCase):
         )
 
     def test_function_override(self):
+        os.environ["DFATOOL_NO_DECISIONTREES"] = "1"
         raw_data = TimingData(["test-data/20190815_122531_nRF24_no-rx.json"])
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
@@ -157,6 +159,7 @@ class TestModels(unittest.TestCase):
         self.assertAlmostEqual(
             param_info("write", "duration")["function"].model_args[4], 1086, places=0
         )
+        os.environ.pop("DFATOOL_NO_DECISIONTREES")
 
 
 if __name__ == "__main__":
