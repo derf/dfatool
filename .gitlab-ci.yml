@@ -20,6 +20,8 @@ run_tests:
   - wget -qO test-data/20190815_103347_nRF24_no-rx.json https://lib.finalrewind.org/energy-models/20190815_103347_nRF24_no-rx.json
   - wget -qO test-data/20190815_111745_nRF24_no-rx.json https://lib.finalrewind.org/energy-models/20190815_111745_nRF24_no-rx.json
   - wget -qO test-data/20190815_122531_nRF24_no-rx.json https://lib.finalrewind.org/energy-models/20190815_122531_nRF24_no-rx.json
+  - wget -qO test-data/20191024-150723-nrf24l01.tar https://lib.finalrewind.org/energy-models/20191024-150723-nrf24l01.tar
+  - wget -qO test-data/20191024-152648-nrf24l01.tar https://lib.finalrewind.org/energy-models/20191024-152648-nrf24l01.tar
   - wget -qO test-data/20200722-113624-timedResistiveLoad.tar https://lib.finalrewind.org/energy-models/20200722-113624-timedResistiveLoad.tar
   - wget -qO test-data/20201203-112341-et_la_dco.tar https://lib.finalrewind.org/energy-models/20201203-112341-et_la_dco.tar
   - wget -qO test-data/20201203-110526-et_timer_dco.tar https://lib.finalrewind.org/energy-models/20201203-110526-et_timer_dco.tar
