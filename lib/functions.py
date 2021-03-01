@@ -157,6 +157,13 @@ class ModelInfo:
         pass
 
 
+class StaticInfo:
+    def __init__(self, data):
+        self.mean = np.mean(data)
+        self.median = np.median(data)
+        self.std = np.std(data)
+
+
 class AnalyticInfo(ModelInfo):
     def __init__(self, fit_result, function):
         self.fit_result = fit_result

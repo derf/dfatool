@@ -543,7 +543,10 @@ class ModelAttribute:
 
     def set_data_from_paramfit_this(self, paramfit, prefix):
         fit_result = paramfit.get_result((self.name, self.attr) + prefix)
-        param_model = (df.StaticFunction(np.median(self.data)), None)
+        param_model = (
+            df.StaticFunction(np.median(self.data)),
+            df.StaticInfo(self.data),
+        )
         if self.function_override is not None:
             function_str = self.function_override
             x = df.AnalyticFunction(function_str, self.param_names, self.arg_count)
@@ -811,7 +814,7 @@ class AnalyticModel:
         def model_getter(name, key, **kwargs):
             param_function, param_info = self.attr_by_name[name][key].get_fitted()
 
-            if param_info is None:
+            if type(param_info) is df.StaticInfo:
                 return static_model[name][key]
 
             if "arg" in kwargs and "param" in kwargs:

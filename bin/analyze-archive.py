@@ -43,7 +43,7 @@ import random
 import sys
 from dfatool import plotter
 from dfatool.loader import RawData, pta_trace_to_aggregate
-from dfatool.functions import gplearn_to_function, SplitInfo, AnalyticInfo
+from dfatool.functions import gplearn_to_function, SplitInfo, AnalyticInfo, StaticInfo
 from dfatool.model import PTAModel
 from dfatool.validation import CrossValidator
 from dfatool.utils import filter_aggregate_by_param, detect_outliers_in_aggregate
@@ -89,12 +89,15 @@ def model_quality_table(header, result_lists, info_list):
                 buf += "  |||  "
                 if (
                     info is None
-                    or info(state_or_tran, key)
+                    or (
+                        key != "energy_Pt"
+                        and type(info(state_or_tran, key)) is not StaticInfo
+                    )
                     or (
                         key == "energy_Pt"
                         and (
-                            info(state_or_tran, "power")
-                            or info(state_or_tran, "duration")
+                            type(info(state_or_tran, "power")) is not StaticInfo
+                            or type(info(state_or_tran, "duration")) is not StaticInfo
                         )
                     )
                 ):
@@ -380,9 +383,11 @@ def print_splitinfo(param_names, info, prefix=""):
                 param_name = f"arg{info.param_index - len(param_names)}"
             print_splitinfo(param_names, v, f"{prefix} {param_name}={k}")
     elif type(info) is AnalyticInfo:
-        print(f"{prefix} = analytic")
+        print_analyticinfo(prefix, info)
+    elif type(info) is StaticInfo:
+        print(f"{prefix}: {info.median}")
     else:
-        print(f"{prefix} = static")
+        print(f"{prefix}: UNKNOWN")
 
 
 if __name__ == "__main__":
