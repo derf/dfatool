@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from dfatool.functions import StaticInfo
 from dfatool.loader import RawData, pta_trace_to_aggregate
 from dfatool.model import PTAModel
 from dfatool.utils import by_name_to_by_param
@@ -638,7 +639,7 @@ class TestFromFile(unittest.TestCase):
         )
 
         param_model, param_info = model.get_fitted()
-        self.assertEqual(param_info("POWERDOWN", "power"), None)
+        self.assertIsInstance(param_info("POWERDOWN", "power"), StaticInfo)
         self.assertEqual(
             param_info("RX", "power").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * np.sqrt(parameter(datarate))",
@@ -649,7 +650,7 @@ class TestFromFile(unittest.TestCase):
         self.assertAlmostEqual(
             param_info("RX", "power").function.model_args[1], 117, places=0
         )
-        self.assertEqual(param_info("STANDBY1", "power"), None)
+        self.assertIsInstance(param_info("STANDBY1", "power"), StaticInfo)
         self.assertEqual(
             param_info("TX", "power").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * 1/(parameter(datarate)) + regression_arg(2) * parameter(txpower) + regression_arg(3) * 1/(parameter(datarate)) * parameter(txpower)",
@@ -1823,15 +1824,15 @@ class TestFromFile(unittest.TestCase):
         """
 
         param_model, param_info = model.get_fitted()
-        self.assertEqual(param_info("IDLE", "power"), None)
+        self.assertIsInstance(param_info("IDLE", "power"), StaticInfo)
         self.assertEqual(
             param_info("RX", "power").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * np.log(parameter(symbolrate) + 1)",
         )
-        self.assertEqual(param_info("SLEEP", "power"), None)
-        self.assertEqual(param_info("SLEEP_EWOR", "power"), None)
-        self.assertEqual(param_info("SYNTH_ON", "power"), None)
-        self.assertEqual(param_info("XOFF", "power"), None)
+        self.assertIsInstance(param_info("SLEEP", "power"), StaticInfo)
+        self.assertIsInstance(param_info("SLEEP_EWOR", "power"), StaticInfo)
+        self.assertIsInstance(param_info("SYNTH_ON", "power"), StaticInfo)
+        self.assertIsInstance(param_info("XOFF", "power"), StaticInfo)
 
         self.assertAlmostEqual(
             param_info("RX", "power").function.model_args[0], 84415, places=0

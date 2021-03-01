@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from dfatool.functions import StaticInfo
 from dfatool.loader import TimingData, pta_trace_to_aggregate
 from dfatool.model import AnalyticModel
 from dfatool.parameters import prune_dependent_parameters
@@ -30,9 +31,9 @@ class TestModels(unittest.TestCase):
             )
 
         param_model, param_info = model.get_fitted()
-        self.assertEqual(param_info("setPALevel", "duration"), None)
-        self.assertEqual(param_info("setRetries", "duration"), None)
-        self.assertEqual(param_info("setup", "duration"), None)
+        self.assertIsInstance(param_info("setPALevel", "duration"), StaticInfo)
+        self.assertIsInstance(param_info("setRetries", "duration"), StaticInfo)
+        self.assertIsInstance(param_info("setup", "duration"), StaticInfo)
         self.assertEqual(
             param_info("write", "duration").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * parameter(max_retry_count) * parameter(retry_delay)",
@@ -77,10 +78,10 @@ class TestModels(unittest.TestCase):
             )
 
         param_model, param_info = model.get_fitted()
-        self.assertEqual(param_info("getObserveTx", "duration"), None)
-        self.assertEqual(param_info("setPALevel", "duration"), None)
-        self.assertEqual(param_info("setRetries", "duration"), None)
-        self.assertEqual(param_info("setup", "duration"), None)
+        self.assertIsInstance(param_info("getObserveTx", "duration"), StaticInfo)
+        self.assertIsInstance(param_info("setPALevel", "duration"), StaticInfo)
+        self.assertIsInstance(param_info("setRetries", "duration"), StaticInfo)
+        self.assertIsInstance(param_info("setup", "duration"), StaticInfo)
         self.assertEqual(
             param_info("write", "duration").function.model_function,
             "0 + regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * parameter(max_retry_count) * parameter(retry_delay)",
@@ -135,10 +136,10 @@ class TestModels(unittest.TestCase):
             )
 
         param_model, param_info = model.get_fitted()
-        self.assertEqual(param_info("setAutoAck", "duration"), None)
-        self.assertEqual(param_info("setPALevel", "duration"), None)
-        self.assertEqual(param_info("setRetries", "duration"), None)
-        self.assertEqual(param_info("setup", "duration"), None)
+        self.assertIsInstance(param_info("setAutoAck", "duration"), StaticInfo)
+        self.assertIsInstance(param_info("setPALevel", "duration"), StaticInfo)
+        self.assertIsInstance(param_info("setRetries", "duration"), StaticInfo)
+        self.assertIsInstance(param_info("setup", "duration"), StaticInfo)
         self.assertEqual(
             param_info("write", "duration").function.model_function,
             "(parameter(auto_ack!) * (regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * parameter(max_retry_count) * parameter(retry_delay))) + ((1 - parameter(auto_ack!)) * regression_arg(4))",
