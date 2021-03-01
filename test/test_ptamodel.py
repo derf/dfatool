@@ -668,7 +668,7 @@ class TestFromFile(unittest.TestCase):
         )
 
     def test_decisiontrees_rf24(self):
-        raw_data = RawData(["test-data/20191024-152648-nrf24l01.tar"])
+        raw_data = RawData(["test-data/20191024-152648-nrf24l01-var-ack.tar"])
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
@@ -791,7 +791,7 @@ class TestFromFile(unittest.TestCase):
         )
 
     def test_decisiontrees_more_rf24(self):
-        raw_data = RawData(["test-data/20191024-150723-nrf24l01.tar"])
+        raw_data = RawData(["test-data/20191024-150723-nrf24l01-var-ack-retry.tar"])
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
