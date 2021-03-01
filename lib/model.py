@@ -553,6 +553,8 @@ class ModelAttribute:
             x.fit(self.by_param)
             if x.fit_success:
                 param_model = (x, df.AnalyticInfo(fit_result, x))
+        elif os.getenv("DFATOOL_NO_PARAM"):
+            pass
         elif len(fit_result.keys()):
             x = df.analytic.function_powerset(
                 fit_result, self.param_names, self.arg_count
