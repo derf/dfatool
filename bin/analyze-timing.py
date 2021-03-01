@@ -21,7 +21,7 @@ Options:
     parameters. Also plots the corresponding measurements.
     If gplearn function is set, it is plotted using dashed lines.
 
---param-info
+--info
     Show parameter names and values
 
 --show-models=<static|paramdetection|param|all|tex>
@@ -188,7 +188,7 @@ if __name__ == "__main__":
             "filter-param= "
             "log-level= "
             "cross-validate= "
-            "corrcoef param-info "
+            "corrcoef info "
             "with-safe-functions hwmodel= export-energymodel="
         )
         raw_opts, args = getopt.getopt(sys.argv[1:], "", optspec.split(" "))
@@ -269,7 +269,7 @@ if __name__ == "__main__":
     if xv_method:
         xv = CrossValidator(AnalyticModel, by_name, parameters, arg_count)
 
-    if "param-info" in opt:
+    if "info" in opt:
         for state in model.names:
             print("{}:".format(state))
             for param in model.parameters:
