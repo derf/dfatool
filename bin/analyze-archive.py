@@ -374,9 +374,11 @@ def print_analyticinfo(prefix, info):
 def print_splitinfo(param_names, info, prefix=""):
     if type(info) is SplitInfo:
         for k, v in info.child.items():
-            print_splitinfo(
-                param_names, v, f"{prefix} {param_names[info.param_index]}={k}"
-            )
+            if info.param_index < len(param_names):
+                param_name = param_names[info.param_index]
+            else:
+                param_name = f"arg{info.param_index - len(param_names)}"
+            print_splitinfo(param_names, v, f"{prefix} {param_name}={k}")
     elif type(info) is AnalyticInfo:
         print(f"{prefix} = analytic")
     else:
