@@ -311,9 +311,20 @@ class AnalyticModel:
 
         return {"by_name": detailed_results}
 
-    def to_json(self):
-        # TODO
-        pass
+    def to_json(self) -> dict:
+        """
+        Return JSON encoding of this AnalyticModel.
+        """
+        ret = {
+            "parameters": self.parameters,
+            "name": dict([[name, dict()] for name in self.names]),
+        }
+
+        for name in self.names:
+            for attr_name, attr in self.attr_by_name[name].items():
+                ret["name"][name][attr_name] = attr.to_json()
+
+        return ret
 
     def predict(self, trace, with_fitted=True, wth_lut=False):
         pass

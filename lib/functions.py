@@ -190,6 +190,9 @@ class StaticFunction(ModelFunction):
         """
         return self.value
 
+    def to_json(self):
+        return {"type": "static", "value": self.value}
+
 
 class StaticInfo(ModelInfo):
     def __init__(self, data):
@@ -197,6 +200,9 @@ class StaticInfo(ModelInfo):
         self.mean = np.mean(data)
         self.median = np.median(data)
         self.std = np.std(data)
+
+    def to_json(self):
+        return "FIXME"
 
 
 class SplitFunction(ModelFunction):
@@ -223,12 +229,22 @@ class SplitFunction(ModelFunction):
         param_value = param_list[self.param_index]
         return self.child[param_value].eval(param_list, arg_list)
 
+    def to_json(self):
+        return {
+            "type": "split",
+            "paramIndex": self.param_index,
+            "child": dict([[k, v.to_json()] for k, v in self.child.items()]),
+        }
+
 
 class SplitInfo(ModelInfo):
     def __init__(self, param_index, child):
         super()
         self.param_index = param_index
         self.child = child
+
+    def to_json(self):
+        return "FIXME"
 
 
 class AnalyticFunction(ModelFunction):
@@ -415,12 +431,23 @@ class AnalyticFunction(ModelFunction):
             return self._function(param_list, arg_list)
         return self._function(self.model_args, param_list)
 
+    def to_json(self):
+        return {
+            "type": "analytic",
+            "functionStr": self.model_function,
+            "dependsOnParam": self._dependson,
+            "regressionModel": list(self.model_args),
+        }
+
 
 class AnalyticInfo(ModelInfo):
     def __init__(self, fit_result, function):
         super()
         self.fit_result = fit_result
         self.function = function
+
+    def to_json(self):
+        return "FIXME"
 
 
 class analytic:

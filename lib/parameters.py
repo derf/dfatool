@@ -600,6 +600,15 @@ class ModelAttribute:
         mean = np.mean(self.data)
         return f"ModelAttribute<{self.name}, {self.attr}, mean={mean}>"
 
+    def to_json(self):
+        ret = {
+            "paramNames": self.param_names,
+            "argCount": self.arg_count,
+            "modelFunction": self.model_function.to_json(),
+            "modelInfo": self.model_info.to_json(),
+        }
+        return ret
+
     def get_static(self, use_mean=False):
         if use_mean:
             return self.mean
