@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Utilities for analytic description of parameter-dependent model attributes.
 

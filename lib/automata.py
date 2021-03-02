@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Classes and helper functions for PTA and other automata."""
 
 from .functions import AnalyticFunction, NormalizationFunction
