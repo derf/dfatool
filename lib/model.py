@@ -394,7 +394,23 @@ class PTAModel(AnalyticModel):
         self.by_name = by_name
         self.attr_by_name = dict()
         self.by_param = by_name_to_by_param(by_name)
+
         self.names = sorted(by_name.keys())
+        self.states = sorted(
+            list(
+                filter(lambda k: self.by_name[k]["isa"] == "state", self.by_name.keys())
+            )
+        )
+        self.transitions = sorted(
+            list(
+                filter(
+                    lambda k: self.by_name[k]["isa"] == "transition",
+                    self.by_name.keys(),
+                )
+            )
+        )
+        self.states_and_transitions = self.states + self.transitions
+
         self._parameter_names = sorted(parameters)
         self.parameters = sorted(parameters)
         self._num_args = arg_count
@@ -429,8 +445,8 @@ class PTAModel(AnalyticModel):
         np.seterr("raise")
 
     def __repr__(self):
-        states = ", ".join(self.states())
-        transitions = ", ".join(self.transitions())
+        states = ", ".join(self.states)
+        transitions = ", ".join(self.transitions)
         return f"PTAModel<states=[{states}], transitions=[{transitions}]>"
 
     def _aggregate_to_ndarray(self, aggregate):
@@ -468,7 +484,7 @@ class PTAModel(AnalyticModel):
                 if i == substate_count - 1:
                     if "duration" in kwargs:
                         sub_duration = kwargs["duration"] - total_duration
-                    elif name in self.states() and state_duration is not None:
+                    elif name in self.states and state_duration is not None:
                         sub_duration = state_duration - total_duration
 
                 cumulative_energy += sub_power * sub_duration
@@ -761,7 +777,7 @@ class PTAModel(AnalyticModel):
         analytic_quality = self.assess(param_model)
         pta = self.pta
         if pta is None:
-            pta = PTA(self.states(), parameters=self._parameter_names)
+            pta = PTA(self.states, parameters=self._parameter_names)
         pta.update(
             static_model,
             param_info,
@@ -769,31 +785,6 @@ class PTAModel(AnalyticModel):
             analytic_error=analytic_quality["by_name"],
         )
         return pta.to_json()
-
-    def states(self):
-        """Return sorted list of state names."""
-        return sorted(
-            list(
-                filter(lambda k: self.by_name[k]["isa"] == "state", self.by_name.keys())
-            )
-        )
-
-    def transitions(self):
-        """Return sorted list of transition names."""
-        return sorted(
-            list(
-                filter(
-                    lambda k: self.by_name[k]["isa"] == "transition",
-                    self.by_name.keys(),
-                )
-            )
-        )
-
-    def states_and_transitions(self):
-        """Return list of states and transition names."""
-        ret = self.states()
-        ret.extend(self.transitions())
-        return ret
 
     def assess(self, model_function, ref=None):
         """
@@ -840,9 +831,9 @@ class PTAModel(AnalyticModel):
         # TODO calculate mean power draw for distribution and use it to
         # calculate relative error from MAE combination
         model_quality = self.assess(model_function)
-        num_states = len(self.states())
+        num_states = len(self.states)
         if distribution is None:
-            distribution = dict(map(lambda x: [x, 1 / num_states], self.states()))
+            distribution = dict(map(lambda x: [x, 1 / num_states], self.states))
 
         if not np.isclose(sum(distribution.values()), 1):
             raise ValueError(
@@ -851,7 +842,7 @@ class PTAModel(AnalyticModel):
 
         # total_value = None
         # try:
-        #     total_value = sum(map(lambda x: model_function(x, model_attribute) * distribution[x], self.states()))
+        #     total_value = sum(map(lambda x: model_function(x, model_attribute) * distribution[x], self.states))
         # except KeyError:
         #     pass
 
@@ -862,7 +853,7 @@ class PTAModel(AnalyticModel):
                         model_quality["by_name"][x][model_attribute]["mae"]
                         * distribution[x]
                     ),
-                    self.states(),
+                    self.states,
                 )
             )
         )

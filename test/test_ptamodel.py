@@ -463,9 +463,9 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "POWERDOWN RX STANDBY1 TX".split(" "))
+        self.assertEqual(model.states, "POWERDOWN RX STANDBY1 TX".split(" "))
         self.assertEqual(
-            model.transitions(),
+            model.transitions,
             "begin epilogue powerDown powerUp setDataRate_num setPALevel_num startListening stopListening write_nb".split(
                 " "
             ),
@@ -673,9 +673,9 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "RX STANDBY1".split(" "))
+        self.assertEqual(model.states, "RX STANDBY1".split(" "))
         self.assertEqual(
-            model.transitions(),
+            model.transitions,
             "setAutoAck setDataRate setPALevel setup startListening stopListening write".split(
                 " "
             ),
@@ -796,10 +796,9 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "STANDBY1".split(" "))
+        self.assertEqual(model.states, "STANDBY1".split(" "))
         self.assertEqual(
-            model.transitions(),
-            "setAutoAck setPALevel setRetries setup write".split(" "),
+            model.transitions, "setAutoAck setPALevel setRetries setup write".split(" ")
         )
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("STANDBY1", "power"), 130, places=0)
@@ -1395,8 +1394,8 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "OFF ON".split(" "))
-        self.assertEqual(model.transitions(), "off setBrightness".split(" "))
+        self.assertEqual(model.states, "OFF ON".split(" "))
+        self.assertEqual(model.transitions, "off setBrightness".split(" "))
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("OFF", "power"), 7124, places=0)
         self.assertAlmostEqual(static_model("ON", "power"), 17866, places=0)
@@ -1442,9 +1441,9 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "P14MW P235UW P3_4MW SLEEP".split(" "))
+        self.assertEqual(model.states, "P14MW P235UW P3_4MW SLEEP".split(" "))
         self.assertEqual(
-            model.transitions(),
+            model.transitions,
             "nop10K nop1K0 nop3K3 setup switchTo3K3 switchTo47K switchTo750 switchToNone".split(
                 " "
             ),
@@ -1476,9 +1475,9 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "IDLE".split(" "))
+        self.assertEqual(model.states, "IDLE".split(" "))
         self.assertEqual(
-            model.transitions(),
+            model.transitions,
             "setup trans100u trans10m trans1m trans2m trans5m".split(" "),
         )
         static_model = model.get_static()
@@ -1501,9 +1500,9 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "IDLE".split(" "))
+        self.assertEqual(model.states, "IDLE".split(" "))
         self.assertEqual(
-            model.transitions(),
+            model.transitions,
             "setup trans100u trans10m trans1m trans2m trans5m".split(" "),
         )
         static_model = model.get_static()
@@ -1526,9 +1525,9 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "IDLE".split(" "))
+        self.assertEqual(model.states, "IDLE".split(" "))
         self.assertEqual(
-            model.transitions(),
+            model.transitions,
             "setup trans100u trans10m trans1m trans2m trans5m".split(" "),
         )
         static_model = model.get_static()
@@ -1551,9 +1550,9 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "IDLE".split(" "))
+        self.assertEqual(model.states, "IDLE".split(" "))
         self.assertEqual(
-            model.transitions(),
+            model.transitions,
             "setup trans100u trans10m trans1m trans2m trans5m".split(" "),
         )
         static_model = model.get_static()
@@ -1580,9 +1579,9 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "ACTIVE POWEROFF".split(" "))
+        self.assertEqual(model.states, "ACTIVE POWEROFF".split(" "))
         self.assertEqual(
-            model.transitions(), "getTemp setHyst setOS shutdown start".split(" ")
+            model.transitions, "getTemp setHyst setOS shutdown start".split(" ")
         )
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("ACTIVE", "power"), 332, places=0)
@@ -1640,9 +1639,9 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "DISABLED ENABLED".split(" "))
+        self.assertEqual(model.states, "DISABLED ENABLED".split(" "))
         self.assertEqual(
-            model.transitions(),
+            model.transitions,
             "clear disable enable ioInit sendLine toggleVCOM".split(" "),
         )
         static_model = model.get_static()
@@ -1702,8 +1701,8 @@ class TestFromFile(unittest.TestCase):
         preprocessed_data = raw_data.get_preprocessed_data()
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
-        self.assertEqual(model.states(), "B G OFF R".split(" "))
-        self.assertEqual(model.transitions(), "blue green off red".split(" "))
+        self.assertEqual(model.states, "B G OFF R".split(" "))
+        self.assertEqual(model.transitions, "blue green off red".split(" "))
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("B", "power"), 29443, places=0)
         self.assertAlmostEqual(static_model("G", "power"), 29432, places=0)
@@ -1757,10 +1756,10 @@ class TestFromFile(unittest.TestCase):
         by_name, parameters, arg_count = pta_trace_to_aggregate(preprocessed_data)
         model = PTAModel(by_name, parameters, arg_count)
         self.assertEqual(
-            model.states(), "IDLE RX SLEEP SLEEP_EWOR SYNTH_ON TX XOFF".split(" ")
+            model.states, "IDLE RX SLEEP SLEEP_EWOR SYNTH_ON TX XOFF".split(" ")
         )
         self.assertEqual(
-            model.transitions(),
+            model.transitions,
             "crystal_off eWOR idle init prepare_xmit receive send setSymbolRate setTxPower sleep txDone".split(
                 " "
             ),

@@ -186,8 +186,8 @@ def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
 
 
 def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
-    state_attributes = model.attributes(model.states()[0])
-    trans_attributes = model.attributes(model.transitions()[0])
+    state_attributes = model.attributes(model.states[0])
+    trans_attributes = model.attributes(model.transitions[0])
 
     print("# Setup")
     print("* Input files: `", " ".join(raw_data.filenames), "`")
@@ -198,7 +198,7 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
     print()
     print("# States")
 
-    for state in model.states():
+    for state in model.states:
         print()
         print(f"## {state}")
         print()
@@ -231,7 +231,7 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
     print()
     print("# Transitions")
 
-    for trans in model.transitions():
+    for trans in model.transitions:
         print()
         print(f"## {trans}")
         print()
@@ -268,7 +268,7 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
         + "</th><th>".join(state_attributes)
         + "</th></tr>"
     )
-    for state in model.states():
+    for state in model.states:
         print("<tr>", end="")
         print("<td>{}</td>".format(state), end="")
         for attribute in state_attributes:
@@ -284,7 +284,7 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
         print("</tr>")
     print("</table>")
 
-    trans_attributes = model.attributes(model.transitions()[0])
+    trans_attributes = model.attributes(model.transitions[0])
     if "rel_energy_prev" in trans_attributes:
         trans_attributes.remove("rel_energy_next")
 
@@ -293,7 +293,7 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
         + "</th><th>".join(trans_attributes)
         + "</th></tr>"
     )
-    for trans in model.transitions():
+    for trans in model.transitions:
         print("<tr>", end="")
         print("<td>{}</td>".format(trans), end="")
         for attribute in trans_attributes:
@@ -677,7 +677,7 @@ if __name__ == "__main__":
         xv = CrossValidator(PTAModel, by_name, parameters, arg_count)
 
     if args.info:
-        for state in model.states():
+        for state in model.states:
             print("{}:".format(state))
             print(f"""    Number of Measurements: {len(by_name[state]["power"])}""")
             for param in model.parameters:
@@ -689,7 +689,7 @@ if __name__ == "__main__":
                         ].stats.distinct_values_by_param_name[param],
                     )
                 )
-        for transition in model.transitions():
+        for transition in model.transitions:
             print("{}:".format(transition))
             print(
                 f"""    Number of Measurements: {len(by_name[transition]["duration"])}"""
@@ -730,18 +730,18 @@ if __name__ == "__main__":
         print("--- simple static model ---")
     static_model = model.get_static()
     if "static" in show_models or "all" in show_models:
-        for state in model.states():
+        for state in model.states:
             for attribute in model.attributes(state):
                 print_static(model, static_model, state, attribute)
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
-                for substate in submodel.states():
+                for substate in submodel.states:
                     for subattribute in submodel.attributes(substate):
                         print_static(
                             submodel, submodel.get_static(), substate, subattribute
                         )
 
-        for trans in model.transitions():
+        for trans in model.transitions:
             if "energy" in model.attributes(trans):
                 try:
                     print(
@@ -866,7 +866,7 @@ if __name__ == "__main__":
     # print(model.assess(substate_model, ref=model.sc_by_name))
 
     if "paramdetection" in show_models or "all" in show_models:
-        for state in model.states_and_transitions():
+        for state in model.states_and_transitions:
             for attribute in model.attributes(state):
                 info = param_info(state, attribute)
                 print(
@@ -912,7 +912,7 @@ if __name__ == "__main__":
                             )
 
     if "param" in show_models or "all" in show_models:
-        for state in model.states():
+        for state in model.states:
             for attribute in model.attributes(state):
                 info = param_info(state, attribute)
                 if type(info) is AnalyticInfo:
@@ -921,7 +921,7 @@ if __name__ == "__main__":
                     print_splitinfo(
                         model.parameters, info, f"{state:10s} {attribute:15s}"
                     )
-        for trans in model.transitions():
+        for trans in model.transitions:
             for attribute in model.attributes(trans):
                 info = param_info(trans, attribute)
                 if type(info) is AnalyticInfo:
@@ -933,7 +933,7 @@ if __name__ == "__main__":
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
                 sub_param_model, sub_param_info = submodel.get_fitted()
-                for substate in submodel.states():
+                for substate in submodel.states:
                     for subattribute in submodel.attributes(substate):
                         info = sub_param_info(substate, subattribute)
                         if type(info) is AnalyticInfo:
@@ -1020,14 +1020,14 @@ if __name__ == "__main__":
             )
         )
         distrib = dict()
-        num_states = len(model.states())
+        num_states = len(model.states)
         p95_state = None
-        for state in model.states():
+        for state in model.states:
             distrib[state] = 1.0 / num_states
 
-        if "STANDBY1" in model.states():
+        if "STANDBY1" in model.states:
             p95_state = "STANDBY1"
-        elif "SLEEP" in model.states():
+        elif "SLEEP" in model.states:
             p95_state = "SLEEP"
 
         if p95_state is not None:

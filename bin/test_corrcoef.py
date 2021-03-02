@@ -189,7 +189,7 @@ if __name__ == "__main__":
     static_model = model.get_static()
     ref_static_model = ref_model.get_static()
     if "static" in show_models or "all" in show_models:
-        for state in model.states():
+        for state in model.states:
             print(
                 "{:10s}: {:.0f} µW  ({:.2f})".format(
                     state,
@@ -203,7 +203,7 @@ if __name__ == "__main__":
                         "", param, model.param_dependence_ratio(state, "power", param)
                     )
                 )
-        for trans in model.transitions():
+        for trans in model.transitions:
             print(
                 "{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  ({:.2f} / {:.2f} / {:.2f})".format(
                     trans,
@@ -237,7 +237,7 @@ if __name__ == "__main__":
     print("")
     print("")
     print("state_or_trans attribute param stddev_ratio corrcoef")
-    for state in model.states():
+    for state in model.states:
         for attribute in model.attributes(state):
             for param in model.parameters:
                 print(
@@ -249,7 +249,7 @@ if __name__ == "__main__":
                         model.param_dependence_ratio(state, attribute, param),
                     )
                 )
-    for trans in model.transitions():
+    for trans in model.transitions:
         for attribute in model.attributes(trans):
             for param in model.parameters:
                 print(

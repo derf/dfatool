@@ -105,7 +105,7 @@ if __name__ == "__main__":
     print("--- simple static model ---")
     static_m1 = m1.get_static()
     static_m2 = m2.get_static()
-    # for state in model.states():
+    # for state in model.states:
     #    print('{:10s}: {:.0f} µW  ({:.2f})'.format(
     #        state,
     #        static_model(state, 'power'),
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     #            '',
     #            param,
     #            model.param_dependence_ratio(state, 'power', param)))
-    # for trans in model.transitions():
+    # for trans in model.transitions:
     #    print('{:10s}: {:.0f} / {:.0f} / {:.0f} pJ  ({:.2f} / {:.2f} / {:.2f})'.format(
     #        trans, static_model(trans, 'energy'),
     #        static_model(trans, 'rel_energy_prev'),
@@ -137,7 +137,7 @@ if __name__ == "__main__":
 
     print("--- param model ---")
     param_m1, param_i1 = m1.get_fitted()
-    for state in m1.states():
+    for state in m1.states:
         for attribute in ["power"]:
             if param_i1(state, attribute):
                 print(
@@ -150,7 +150,7 @@ if __name__ == "__main__":
                         "", param_i1(state, attribute)["function"].model_args
                     )
                 )
-    for trans in m1.transitions():
+    for trans in m1.transitions:
         for attribute in [
             "energy",
             "rel_energy_prev",
@@ -172,7 +172,7 @@ if __name__ == "__main__":
                     )
                 )
     param_m2, param_i2 = m2.get_fitted()
-    for state in m2.states():
+    for state in m2.states:
         for attribute in ["power"]:
             if param_i2(state, attribute):
                 print(
@@ -185,7 +185,7 @@ if __name__ == "__main__":
                         "", param_i2(state, attribute)["function"].model_args
                     )
                 )
-    for trans in m2.transitions():
+    for trans in m2.transitions:
         for attribute in [
             "energy",
             "rel_energy_prev",
