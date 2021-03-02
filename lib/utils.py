@@ -1,7 +1,10 @@
+#!/usr/bin/env python3
+
 import json
 import numpy as np
 import re
 import logging
+from sklearn.metrics import r2_score
 
 arg_support_enabled = True
 logger = logging.getLogger(__name__)
@@ -316,6 +319,77 @@ def detect_outliers_in_aggregate(aggregate, z_limit=10, remove_outliers=False):
                     ),
                 )
             )
+
+
+def aggregate_measures(aggregate: float, actual: list) -> dict:
+    """
+    Calculate error measures for model value on data list.
+
+    arguments:
+    aggregate -- model value (float or int)
+    actual -- real-world / reference values (list of float or int)
+
+    return value:
+    See regression_measures
+    """
+    aggregate_array = np.array([aggregate] * len(actual))
+    return regression_measures(aggregate_array, np.array(actual))
+
+
+def regression_measures(predicted: np.ndarray, actual: np.ndarray):
+    """
+    Calculate error measures by comparing model values to reference values.
+
+    arguments:
+    predicted -- model values (np.ndarray)
+    actual -- real-world / reference values (np.ndarray)
+
+    Returns a dict containing the following measures:
+    mae -- Mean Absolute Error
+    mape -- Mean Absolute Percentage Error,
+            if all items in actual are non-zero (NaN otherwise)
+    smape -- Symmetric Mean Absolute Percentage Error,
+             if no 0,0-pairs are present in actual and predicted (NaN otherwise)
+    msd -- Mean Square Deviation
+    rmsd -- Root Mean Square Deviation
+    ssr -- Sum of Squared Residuals
+    rsq -- R^2 measure, see sklearn.metrics.r2_score
+    count -- Number of values
+    """
+    if type(predicted) != np.ndarray:
+        raise ValueError("first arg must be ndarray, is {}".format(type(predicted)))
+    if type(actual) != np.ndarray:
+        raise ValueError("second arg must be ndarray, is {}".format(type(actual)))
+    deviations = predicted - actual
+    # mean = np.mean(actual)
+    if len(deviations) == 0:
+        return {}
+    measures = {
+        "mae": np.mean(np.abs(deviations), dtype=np.float64),
+        "msd": np.mean(deviations ** 2, dtype=np.float64),
+        "rmsd": np.sqrt(np.mean(deviations ** 2), dtype=np.float64),
+        "ssr": np.sum(deviations ** 2, dtype=np.float64),
+        "rsq": r2_score(actual, predicted),
+        "count": len(actual),
+    }
+
+    # rsq_quotient = np.sum((actual - mean)**2, dtype=np.float64) * np.sum((predicted - mean)**2, dtype=np.float64)
+
+    if np.all(actual != 0):
+        measures["mape"] = np.mean(np.abs(deviations / actual)) * 100  # bad measure
+    else:
+        measures["mape"] = np.nan
+    if np.all(np.abs(predicted) + np.abs(actual) != 0):
+        measures["smape"] = (
+            np.mean(np.abs(deviations) / ((np.abs(predicted) + np.abs(actual)) / 2))
+            * 100
+        )
+    else:
+        measures["smape"] = np.nan
+    # if np.all(rsq_quotient != 0):
+    #    measures['rsq'] = (np.sum((actual - mean) * (predicted - mean), dtype=np.float64)**2) / rsq_quotient
+
+    return measures
 
 
 class OptionalTimingAnalysis:
