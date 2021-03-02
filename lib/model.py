@@ -254,25 +254,26 @@ class AnalyticModel:
                 static_model[name][k] = v.get_static(use_mean=use_mean)
 
         def model_getter(name, key, **kwargs):
-            param_function, param_info = self.attr_by_name[name][key].get_fitted()
+            model_function = self.attr_by_name[name][key].model_function
+            model_info = self.attr_by_name[name][key].model_info
 
-            if type(param_info) is StaticInfo:
+            # shortcut
+            if type(model_info) is StaticInfo:
                 return static_model[name][key]
 
             if "arg" in kwargs and "param" in kwargs:
                 kwargs["param"].extend(map(soft_cast_int, kwargs["arg"]))
 
-            if param_function.is_predictable(kwargs["param"]):
-                return param_function.eval(kwargs["param"])
+            if model_function.is_predictable(kwargs["param"]):
+                return model_function.eval(kwargs["param"])
 
             return static_model[name][key]
 
         def info_getter(name, key):
             try:
-                model_function, model_info = self.attr_by_name[name][key].get_fitted()
+                return self.attr_by_name[name][key].model_info
             except KeyError:
                 return None
-            return model_info
 
         return model_getter, info_getter
 

@@ -568,16 +568,33 @@ class ParamStats:
 
 class ModelAttribute:
     def __init__(self, name, attr, data, param_values, param_names, arg_count=0):
+
+        # Data for model generation
+        self.data = np.array(data)
+
+        # Meta data
         self.name = name
         self.attr = attr
-        self.data = np.array(data)
         self.param_values = param_values
         self.param_names = sorted(param_names)
         self.arg_count = arg_count
+
+        # Static model used as lower bound of model accuracy
+        self.mean = np.mean(data)
+        self.median = np.median(data)
+
+        # LUT model used as upper bound of model accuracy
         self.by_param = None  # set via ParallelParamStats
-        self.function_override = None
-        self.param_model = None
+
+        # Split (decision tree) information
         self.split = None
+
+        # param model override
+        self.function_override = None
+
+        # The best model we have. May be Static, Split, or Param (and later perhaps Substate)
+        self.model_function = None
+        self.model_info = None
 
     def __repr__(self):
         mean = np.mean(self.data)
@@ -585,8 +602,8 @@ class ModelAttribute:
 
     def get_static(self, use_mean=False):
         if use_mean:
-            return np.mean(self.data)
-        return np.median(self.data)
+            return self.mean
+        return self.median
 
     def get_lut(self, param, use_mean=False):
         if use_mean:
@@ -757,24 +774,22 @@ class ModelAttribute:
         info_child = dict()
         for param_value, child in child_by_param_value.items():
             child.set_data_from_paramfit(paramfit, prefix + (param_value,))
-            function_child[param_value], info_child[param_value] = child.get_fitted()
-        function_map = df.SplitFunction(split_param_index, function_child)
-        info_map = df.SplitInfo(split_param_index, info_child)
-
-        self.param_model = function_map, info_map
+            function_child[param_value] = child.model_function
+            info_child[param_value] = child.model_info
+        self.model_function = df.SplitFunction(split_param_index, function_child)
+        self.model_info = df.SplitInfo(split_param_index, info_child)
 
     def set_data_from_paramfit_this(self, paramfit, prefix):
         fit_result = paramfit.get_result((self.name, self.attr) + prefix)
-        param_model = (
-            df.StaticFunction(np.median(self.data)),
-            df.StaticInfo(self.data),
-        )
+        self.model_function = df.StaticFunction(self.median)
+        self.model_info = df.StaticInfo(self.data)
         if self.function_override is not None:
             function_str = self.function_override
             x = df.AnalyticFunction(function_str, self.param_names, self.arg_count)
             x.fit(self.by_param)
             if x.fit_success:
-                param_model = (x, df.AnalyticInfo(fit_result, x))
+                self.model_function = x
+                self.model_info = df.AnalyticInfo(fit_result, x)
         elif os.getenv("DFATOOL_NO_PARAM"):
             pass
         elif len(fit_result.keys()):
@@ -784,19 +799,5 @@ class ModelAttribute:
             x.fit(self.by_param)
 
             if x.fit_success:
-                param_model = (x, df.AnalyticInfo(fit_result, x))
-
-        self.param_model = param_model
-
-    def get_fitted(self):
-        """
-        Get paramete-aware model function and model information function.
-        They must have been set via get_data_for_paramfit -> ParallelParamFit -> set-data_from_paramfit first.
-
-        Returns a tuple (function, info):
-        function -> AnalyticFunction for model. function(param=parameter values) -> model value.
-        info -> {'fit_result' : ..., 'function' : ... }
-
-        Returns (None, None) if fitting failed. Returns None if ParamFit has not been performed yet.
-        """
-        return self.param_model
+                self.model_function = x
+                self.model_info = df.AnalyticInfo(fit_result, x)

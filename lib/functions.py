@@ -155,26 +155,7 @@ class NormalizationFunction:
 
 class ModelInfo:
     def __init__(self):
-        pass
-
-
-class StaticInfo:
-    def __init__(self, data):
-        self.mean = np.mean(data)
-        self.median = np.median(data)
-        self.std = np.std(data)
-
-
-class AnalyticInfo(ModelInfo):
-    def __init__(self, fit_result, function):
-        self.fit_result = fit_result
-        self.function = function
-
-
-class SplitInfo(ModelInfo):
-    def __init__(self, param_index, child):
-        self.param_index = param_index
-        self.child = child
+        self.error = None
 
 
 class ModelFunction:
@@ -210,6 +191,14 @@ class StaticFunction(ModelFunction):
         return self.value
 
 
+class StaticInfo(ModelInfo):
+    def __init__(self, data):
+        super()
+        self.mean = np.mean(data)
+        self.median = np.median(data)
+        self.std = np.std(data)
+
+
 class SplitFunction(ModelFunction):
     def __init__(self, param_index, child):
         self.param_index = param_index
@@ -233,6 +222,13 @@ class SplitFunction(ModelFunction):
     def eval(self, param_list, arg_list=list()):
         param_value = param_list[self.param_index]
         return self.child[param_value].eval(param_list, arg_list)
+
+
+class SplitInfo(ModelInfo):
+    def __init__(self, param_index, child):
+        super()
+        self.param_index = param_index
+        self.child = child
 
 
 class AnalyticFunction(ModelFunction):
@@ -418,6 +414,13 @@ class AnalyticFunction(ModelFunction):
         if len(self.model_args) == 0:
             return self._function(param_list, arg_list)
         return self._function(self.model_args, param_list)
+
+
+class AnalyticInfo(ModelInfo):
+    def __init__(self, fit_result, function):
+        super()
+        self.fit_result = fit_result
+        self.function = function
 
 
 class analytic:
