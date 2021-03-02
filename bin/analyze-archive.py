@@ -526,7 +526,7 @@ if __name__ == "__main__":
         "--export-energymodel",
         metavar="FILE",
         type=str,
-        help="Export JSON energy modle to FILE. Works out of the box for v1 and v2, requires --hwmodel for v0",
+        help="Export JSON energy model to FILE. Works out of the box for v1 and v2, requires --hwmodel for v0",
     )
     parser.add_argument(
         "--with-substates",

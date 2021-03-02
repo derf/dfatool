@@ -1,6 +1,7 @@
 """Classes and helper functions for PTA and other automata."""
 
 from .functions import AnalyticFunction, NormalizationFunction
+from .parameters import ModelAttribute
 from .utils import is_numeric
 import itertools
 import logging
@@ -131,10 +132,7 @@ class PTAAttribute:
         return self.value_error["mae"]
 
     def to_json(self):
-        ret = {
-            "static": self.value,
-            "static_error": self.value_error,
-        }
+        ret = {"static": self.value, "static_error": self.value_error}
         if self.function:
             ret["function"] = {
                 "raw": self.function.model_function,
@@ -752,10 +750,7 @@ class PTA:
 
         Compatible with the legacy dfatool/perl format.
         """
-        kwargs = {
-            "parameters": list(),
-            "initial_param_values": list(),
-        }
+        kwargs = {"parameters": list(), "initial_param_values": list()}
 
         for param in sorted(json_input["parameter"].keys()):
             kwargs["parameters"].append(param)
