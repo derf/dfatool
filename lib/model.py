@@ -4,7 +4,7 @@ import logging
 import numpy as np
 import os
 from .automata import PTA, ModelAttribute
-from .functions import StaticInfo
+from .functions import StaticFunction
 from .parameters import ParallelParamStats
 from .paramfit import ParallelParamFit
 from .utils import soft_cast_int, by_name_to_by_param, regression_measures
@@ -255,10 +255,10 @@ class AnalyticModel:
 
         def model_getter(name, key, **kwargs):
             model_function = self.attr_by_name[name][key].model_function
-            model_info = self.attr_by_name[name][key].model_info
+            model_info = self.attr_by_name[name][key].model_function
 
             # shortcut
-            if type(model_info) is StaticInfo:
+            if type(model_info) is StaticFunction:
                 return static_model[name][key]
 
             if "arg" in kwargs and "param" in kwargs:
@@ -271,7 +271,7 @@ class AnalyticModel:
 
         def info_getter(name, key):
             try:
-                return self.attr_by_name[name][key].model_info
+                return self.attr_by_name[name][key].model_function
             except KeyError:
                 return None
 

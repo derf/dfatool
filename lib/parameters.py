@@ -594,7 +594,6 @@ class ModelAttribute:
 
         # The best model we have. May be Static, Split, or Param (and later perhaps Substate)
         self.model_function = None
-        self.model_info = None
 
     def __repr__(self):
         mean = np.mean(self.data)
@@ -605,7 +604,6 @@ class ModelAttribute:
             "paramNames": self.param_names,
             "argCount": self.arg_count,
             "modelFunction": self.model_function.to_json(),
-            "modelInfo": self.model_info.to_json(),
         }
         return ret
 
@@ -784,21 +782,19 @@ class ModelAttribute:
         for param_value, child in child_by_param_value.items():
             child.set_data_from_paramfit(paramfit, prefix + (param_value,))
             function_child[param_value] = child.model_function
-            info_child[param_value] = child.model_info
         self.model_function = df.SplitFunction(split_param_index, function_child)
-        self.model_info = df.SplitInfo(split_param_index, info_child)
 
     def set_data_from_paramfit_this(self, paramfit, prefix):
         fit_result = paramfit.get_result((self.name, self.attr) + prefix)
         self.model_function = df.StaticFunction(self.median)
-        self.model_info = df.StaticInfo(self.data)
         if self.function_override is not None:
             function_str = self.function_override
-            x = df.AnalyticFunction(function_str, self.param_names, self.arg_count)
+            x = df.AnalyticFunction(
+                function_str, self.param_names, self.arg_count, fit_by_param=fit_result
+            )
             x.fit(self.by_param)
             if x.fit_success:
                 self.model_function = x
-                self.model_info = df.AnalyticInfo(fit_result, x)
         elif os.getenv("DFATOOL_NO_PARAM"):
             pass
         elif len(fit_result.keys()):
@@ -809,4 +805,3 @@ class ModelAttribute:
 
             if x.fit_success:
                 self.model_function = x
-                self.model_info = df.AnalyticInfo(fit_result, x)

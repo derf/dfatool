@@ -80,10 +80,10 @@ import re
 import sys
 from dfatool import plotter
 from dfatool.loader import TimingData, pta_trace_to_aggregate
-from dfatool.functions import gplearn_to_function, SplitInfo, AnalyticInfo
+from dfatool.functions import gplearn_to_function, StaticFunction, AnalyticFunction
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
-from dfatool.utils import filter_aggregate_by_param
+from dfatool.utils import filter_aggregate_by_param, NpEncoder
 from dfatool.parameters import prune_dependent_parameters
 
 opt = dict()
@@ -117,7 +117,7 @@ def model_quality_table(result_lists, info_list):
             for i, results in enumerate(result_lists):
                 info = info_list[i]
                 buf += "  |||  "
-                if info is None or info(state_or_tran, key):
+                if info is None or type(info(state_or_tran, key)) is not StaticFunction:
                     result = results["by_name"][state_or_tran][key]
                     buf += format_quality_measures(result)
                 else:
@@ -387,9 +387,9 @@ if __name__ == "__main__":
                             ].stats.arg_dependence_ratio(i),
                         )
                     )
-                if type(info) is AnalyticInfo:
-                    for param_name in sorted(info.fit_result.keys(), key=str):
-                        param_fit = info.fit_result[param_name]["results"]
+                if type(info) is AnalyticFunction:
+                    for param_name in sorted(info.fit_by_param.keys(), key=str):
+                        param_fit = info.fit_by_param[param_name]["results"]
                         for function_type in sorted(param_fit.keys()):
                             function_rmsd = param_fit[function_type]["rmsd"]
                             print(
@@ -406,13 +406,13 @@ if __name__ == "__main__":
         for trans in model.names:
             for attribute in ["duration"]:
                 info = param_info(trans, attribute)
-                if type(info) is AnalyticInfo:
+                if type(info) is AnalyticFunction:
                     print(
                         "{:10s}: {:10s}: {}".format(
-                            trans, attribute, info.function.model_function
+                            trans, attribute, info.model_function
                         )
                     )
-                    print("{:10s}  {:10s}  {}".format("", "", info.function.model_args))
+                    print("{:10s}  {:10s}  {}".format("", "", info.model_args))
 
     if xv_method == "montecarlo":
         analytic_quality = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
@@ -450,5 +450,7 @@ if __name__ == "__main__":
                 model.param_index(param_name),
                 extra_function=function,
             )
+
+    # print(json.dumps(model.to_json(), cls=NpEncoder, indent=2))
 
     sys.exit(0)

@@ -153,11 +153,6 @@ class NormalizationFunction:
         return self._function(param_value)
 
 
-class ModelInfo:
-    def __init__(self):
-        self.error = None
-
-
 class ModelFunction:
     def __init__(self):
         pass
@@ -194,17 +189,6 @@ class StaticFunction(ModelFunction):
         return {"type": "static", "value": self.value}
 
 
-class StaticInfo(ModelInfo):
-    def __init__(self, data):
-        super()
-        self.mean = np.mean(data)
-        self.median = np.median(data)
-        self.std = np.std(data)
-
-    def to_json(self):
-        return "FIXME"
-
-
 class SplitFunction(ModelFunction):
     def __init__(self, param_index, child):
         self.param_index = param_index
@@ -237,16 +221,6 @@ class SplitFunction(ModelFunction):
         }
 
 
-class SplitInfo(ModelInfo):
-    def __init__(self, param_index, child):
-        super()
-        self.param_index = param_index
-        self.child = child
-
-    def to_json(self):
-        return "FIXME"
-
-
 class AnalyticFunction(ModelFunction):
     """
     A multi-dimensional model function, generated from a string, which can be optimized using regression.
@@ -256,7 +230,14 @@ class AnalyticFunction(ModelFunction):
     packet length.
     """
 
-    def __init__(self, function_str, parameters, num_args, regression_args=None):
+    def __init__(
+        self,
+        function_str,
+        parameters,
+        num_args,
+        regression_args=None,
+        fit_by_param=None,
+    ):
         """
         Create a new AnalyticFunction object from a function string.
 
@@ -281,6 +262,7 @@ class AnalyticFunction(ModelFunction):
         rawfunction = function_str
         self._dependson = [False] * (len(parameters) + num_args)
         self.fit_success = False
+        self.fit_by_param = fit_by_param
 
         if type(function_str) == str:
             num_vars_re = re.compile(r"regression_arg\(([0-9]+)\)")
@@ -438,16 +420,6 @@ class AnalyticFunction(ModelFunction):
             "dependsOnParam": self._dependson,
             "regressionModel": list(self.model_args),
         }
-
-
-class AnalyticInfo(ModelInfo):
-    def __init__(self, fit_result, function):
-        super()
-        self.fit_result = fit_result
-        self.function = function
-
-    def to_json(self):
-        return "FIXME"
 
 
 class analytic:
@@ -644,4 +616,6 @@ class analytic:
                             "parameter", function_item[0], function_item[1]["best"]
                         )
                     )
-        return AnalyticFunction(buf, parameter_names, num_args)
+        return AnalyticFunction(
+            buf, parameter_names, num_args, fit_by_param=fit_results
+        )
