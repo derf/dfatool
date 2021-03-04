@@ -66,7 +66,8 @@ class Mod:
         return self  # The unary plus operator does nothing.
 
     def __abs__(self):
-        return self  # The value is always kept non-negative, so the abs function should do nothing.
+        # The value is always kept non-negative, so the abs function should do nothing.
+        return self
 
 
 # Helper functions to build common operands based on a template.

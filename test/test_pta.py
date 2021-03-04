@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from dfatool.automata import PTA
+from dfatool.functions import AnalyticFunction
 import unittest
 import yaml
 
@@ -8,15 +9,15 @@ example_json_1 = {
     "parameters": ["datarate", "txbytes", "txpower"],
     "initial_param_values": [None, None, None],
     "state": {
-        "IDLE": {"power": {"static": 5,}},
+        "IDLE": {"power": {"type": "static", "value": 5}},
         "TX": {
             "power": {
-                "static": 10000,
-                "function": {
-                    "raw": "regression_arg(0) + regression_arg(1)"
-                    " * parameter(txpower)",
-                    "regression_args": [10000, 2],
-                },
+                "type": "analytic",
+                "value": 100,
+                "functionStr": "regression_arg(0) + regression_arg(1) * parameter(txpower)",
+                "parameterNames": ["datarate", "txbytes", "txpower"],
+                "argCount": 0,
+                "regressionModel": [10000, 2],
             }
         },
     },
@@ -25,15 +26,15 @@ example_json_1 = {
             "name": "init",
             "origin": ["UNINITIALIZED", "IDLE"],
             "destination": "IDLE",
-            "duration": {"static": 50000,},
+            "duration": {"type": "static", "value": 50000},
             "set_param": {"txpower": 10},
         },
         {
             "name": "setTxPower",
             "origin": "IDLE",
             "destination": "IDLE",
-            "duration": {"static": 120},
-            "energy ": {"static": 10000},
+            "duration": {"type": "static", "value": 120},
+            "energy ": {"type": "static", "value": 10000},
             "arg_to_param_map": {0: "txpower"},
             "argument_values": [[10, 20, 30]],
         },
@@ -42,18 +43,22 @@ example_json_1 = {
             "origin": "IDLE",
             "destination": "TX",
             "duration": {
-                "static": 10,
-                "function": {
-                    "raw": "regression_arg(0) + regression_arg(1)" " * function_arg(1)",
-                    "regression_args": [48, 8],
-                },
+                "type": "analytic",
+                "value": 10,
+                "functionStr": "regression_arg(0) + regression_arg(1)"
+                " * function_arg(1)",
+                "parameterNames": ["datarate", "txbytes", "txpower"],
+                "argCount": 0,
+                "regressionModel": [48, 8],
             },
             "energy": {
-                "static": 3,
-                "function": {
-                    "raw": "regression_arg(0) + regression_arg(1)" " * function_arg(1)",
-                    "regression_args": [3, 5],
-                },
+                "type": "analytic",
+                "value": 3,
+                "functionStr": "regression_arg(0) + regression_arg(1)"
+                " * function_arg(1)",
+                "parameterNames": ["datarate", "txbytes", "txpower"],
+                "argCount": 0,
+                "regressionModel": [3, 5],
             },
             "arg_to_param_map": {1: "txbytes"},
             "argument_values": [['"foo"', '"hodor"'], [3, 5]],
@@ -65,12 +70,13 @@ example_json_1 = {
             "destination": "IDLE",
             "is_interrupt": 1,
             "timeout": {
-                "static": 2000,
-                "function": {
-                    "raw": "regression_arg(0) + regression_arg(1)"
-                    " * parameter(txbytes)",
-                    "regression_args": [500, 16],
-                },
+                "type": "analytic",
+                "value": 2000,
+                "functionStr": "regression_arg(0) + regression_arg(1)"
+                " * parameter(txbytes)",
+                "parameterNames": ["datarate", "txbytes", "txpower"],
+                "argCount": 0,
+                "regressionModel": [500, 16],
             },
         },
     ],
@@ -470,36 +476,12 @@ class TestPTA(unittest.TestCase):
 
     def test_from_json_dfs_param(self):
         pta = PTA.from_json(example_json_1)
-        no_param = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": 10,
-        }
-        param_tx3 = {
-            "datarate": None,
-            "txbytes": 3,
-            "txpower": 10,
-        }
-        param_tx5 = {
-            "datarate": None,
-            "txbytes": 5,
-            "txpower": 10,
-        }
-        param_txp10 = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": 10,
-        }
-        param_txp20 = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": 20,
-        }
-        param_txp30 = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": 30,
-        }
+        no_param = {"datarate": None, "txbytes": None, "txpower": 10}
+        param_tx3 = {"datarate": None, "txbytes": 3, "txpower": 10}
+        param_tx5 = {"datarate": None, "txbytes": 5, "txpower": 10}
+        param_txp10 = {"datarate": None, "txbytes": None, "txpower": 10}
+        param_txp20 = {"datarate": None, "txbytes": None, "txpower": 20}
+        param_txp30 = {"datarate": None, "txbytes": None, "txpower": 30}
         self.assertEqual(
             sorted(
                 dfs_tran_to_name(
@@ -533,36 +515,12 @@ class TestPTA(unittest.TestCase):
 
     def test_from_yaml_dfs_param(self):
         pta = PTA.from_yaml(example_yaml_1)
-        no_param = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": None,
-        }
-        param_tx3 = {
-            "datarate": None,
-            "txbytes": 3,
-            "txpower": None,
-        }
-        param_tx5 = {
-            "datarate": None,
-            "txbytes": 5,
-            "txpower": None,
-        }
-        param_txp10 = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": 10,
-        }
-        param_txp20 = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": 20,
-        }
-        param_txp30 = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": 30,
-        }
+        no_param = {"datarate": None, "txbytes": None, "txpower": None}
+        param_tx3 = {"datarate": None, "txbytes": 3, "txpower": None}
+        param_tx5 = {"datarate": None, "txbytes": 5, "txpower": None}
+        param_txp10 = {"datarate": None, "txbytes": None, "txpower": 10}
+        param_txp20 = {"datarate": None, "txbytes": None, "txpower": 20}
+        param_txp30 = {"datarate": None, "txbytes": None, "txpower": 30}
         self.assertEqual(
             sorted(
                 dfs_tran_to_name(
@@ -581,36 +539,12 @@ class TestPTA(unittest.TestCase):
 
     def test_normalization(self):
         pta = PTA.from_yaml(example_yaml_2)
-        no_param = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": None,
-        }
-        param_tx3 = {
-            "datarate": None,
-            "txbytes": 3,
-            "txpower": None,
-        }
-        param_tx6 = {
-            "datarate": None,
-            "txbytes": 6,
-            "txpower": None,
-        }
-        param_txp10 = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": -6,
-        }
-        param_txp20 = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": 4,
-        }
-        param_txp30 = {
-            "datarate": None,
-            "txbytes": None,
-            "txpower": 14,
-        }
+        no_param = {"datarate": None, "txbytes": None, "txpower": None}
+        param_tx3 = {"datarate": None, "txbytes": 3, "txpower": None}
+        param_tx6 = {"datarate": None, "txbytes": 6, "txpower": None}
+        param_txp10 = {"datarate": None, "txbytes": None, "txpower": -6}
+        param_txp20 = {"datarate": None, "txbytes": None, "txpower": 4}
+        param_txp30 = {"datarate": None, "txbytes": None, "txpower": 14}
         self.assertEqual(
             sorted(
                 dfs_tran_to_name(
@@ -690,9 +624,7 @@ class TestPTA(unittest.TestCase):
         )
         pta.add_transition("IDLE", "TX", "send", energy=3, duration=10)
         pta.add_transition("TX", "IDLE", "txComplete", timeout=2000, is_interrupt=True)
-        trace = [
-            ["init"],
-        ]
+        trace = [["init"]]
         expected_energy = 500000
         expected_duration = 50000
         result = pta.simulate(trace)
@@ -765,9 +697,7 @@ class TestPTA(unittest.TestCase):
             duration=50000,
             set_param={"txpower": 10},
         )
-        trace = [
-            ["init"],
-        ]
+        trace = [["init"]]
         expected_energy = 500000
         expected_duration = 50000
         result = pta.simulate(trace)
@@ -795,17 +725,23 @@ class TestPTA(unittest.TestCase):
             "IDLE",
             "TX",
             "send",
-            energy=3,
-            duration=10,
-            energy_function=lambda param, arg: 3 + 5 * arg[1],
-            duration_function=lambda param, arg: 48 + 8 * arg[1],
+            energy=AnalyticFunction(
+                3,
+                "regression_arg(0) + regression_arg(1) * function_arg(1)",
+                ["txpower", "length"],
+                regression_args=[3.0, 5],
+                num_args=2,
+            ),
+            duration=AnalyticFunction(
+                10,
+                "regression_arg(0) + regression_arg(1) * function_arg(1)",
+                ["txpower", "length"],
+                regression_args=[48, 8],
+                num_args=2,
+            ),
         )
         pta.add_transition("TX", "IDLE", "txComplete", timeout=2000, is_interrupt=True)
-        trace = [
-            ["init"],
-            ["setTxPower", 10],
-            ["send", "foo", 3],
-        ]
+        trace = [["init"], ["setTxPower", 10], ["send", "foo", 3]]
         expected_energy = 500000 + 10000 + (3 + 5 * 3) + (2000 * 100)
         expected_duration = 50000 + 120 + (48 + 8 * 3) + 2000
         result = pta.simulate(trace)
@@ -832,17 +768,23 @@ class TestPTA(unittest.TestCase):
             "IDLE",
             "TX",
             "send",
-            energy=3,
-            duration=10,
-            energy_function=lambda param, arg: 3 + 5 * arg[1],
-            duration_function=lambda param, arg: 48 + 8 * arg[1],
+            energy=AnalyticFunction(
+                3,
+                "regression_arg(0) + regression_arg(1) * function_arg(1)",
+                ["txpower", "length"],
+                regression_args=[3, 5],
+                num_args=2,
+            ),
+            duration=AnalyticFunction(
+                10,
+                "regression_arg(0) + regression_arg(1) * function_arg(1)",
+                ["txpower", "length"],
+                regression_args=[48, 8],
+                num_args=2,
+            ),
         )
         pta.add_transition("TX", "IDLE", "txComplete", timeout=2000, is_interrupt=True)
-        trace = [
-            ["init"],
-            ["setTxPower", 10],
-            ["send", "foobar", 6],
-        ]
+        trace = [["init"], ["setTxPower", 10], ["send", "foobar", 6]]
         expected_energy = 500000 + 10000 + (3 + 5 * 6) + (2000 * 100)
         expected_duration = 50000 + 120 + (48 + 8 * 6) + 2000
         result = pta.simulate(trace)
@@ -855,7 +797,13 @@ class TestPTA(unittest.TestCase):
         pta = PTA(parameters=["length", "txpower"])
         pta.add_state("IDLE", power=5)
         pta.add_state(
-            "TX", power=100, power_function=lambda param, arg: 1000 + 2 * param[1]
+            "TX",
+            power=AnalyticFunction(
+                100,
+                "regression_arg(0) + regression_arg(1) * parameter(txpower)",
+                ["length", "txpower"],
+                regression_args=[1000, 2],
+            ),
         )
         pta.add_transition(
             "UNINITIALIZED", "IDLE", "init", energy=500000, duration=50000
@@ -872,24 +820,29 @@ class TestPTA(unittest.TestCase):
             "IDLE",
             "TX",
             "send",
-            energy=3,
+            energy=AnalyticFunction(
+                3,
+                "regression_arg(0) + regression_arg(1) * function_arg(1)",
+                ["length", "txpower"],
+                regression_args=[3, 5],
+                num_args=2,
+            ),
             duration=10,
-            energy_function=lambda param, arg: 3 + 5 * arg[1],
             param_update_function=lambda param, arg: {**param, "length": arg[1]},
         )
         pta.add_transition(
             "TX",
             "IDLE",
             "txComplete",
-            timeout=2000,
             is_interrupt=True,
-            timeout_function=lambda param, arg: 500 + 16 * param[0],
+            timeout=AnalyticFunction(
+                2000,
+                "regression_arg(0) + regression_arg(1) * parameter(length)",
+                ["length", "txpower"],
+                regression_args=[500, 16],
+            ),
         )
-        trace = [
-            ["init"],
-            ["setTxPower", 10],
-            ["send", "foo", 3],
-        ]
+        trace = [["init"], ["setTxPower", 10], ["send", "foo", 3]]
         expected_energy = (
             500000 + 10000 + (3 + 5 * 3) + (1000 + 2 * 10) * (500 + 16 * 3)
         )

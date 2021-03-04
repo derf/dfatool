@@ -40,10 +40,7 @@ class CC1200tx:
         "txbytes": [],
         "txpower": [10, 20, 30, 40, 47],  # dBm = f(txpower)
     }
-    default_params = {
-        "symbolrate": 100,
-        "txpower": 47,
-    }
+    default_params = {"symbolrate": 100, "txpower": 47}
 
     @staticmethod
     def get_energy(params: dict):
@@ -137,10 +134,7 @@ class CC1200rx:
         "txbytes": [],
         "txpower": [10, 20, 30, 40, 47],  # dBm = f(txpower)
     }
-    default_params = {
-        "symbolrate": 100,
-        "txpower": 47,
-    }
+    default_params = {"symbolrate": 100, "txpower": 47}
 
     @staticmethod
     def get_energy(params):
@@ -171,11 +165,7 @@ class NRF24L01rx:
         "txpower": [-18, -12, -6, 0],  # dBm
         "voltage": [1.9, 3.6],
     }
-    default_params = {
-        "datarate": 1000,
-        "txpower": -6,
-        "voltage": 3,
-    }
+    default_params = {"datarate": 1000, "txpower": -6, "voltage": 3}
 
     @staticmethod
     def get_energy_per_byte(params):
@@ -202,11 +192,7 @@ class NRF24L01tx:
         "txpower": [-18, -12, -6, 0],  # dBm
         "voltage": [1.9, 3.6],
     }
-    default_params = {
-        "datarate": 1000,
-        "txpower": -6,
-        "voltage": 3,
-    }
+    default_params = {"datarate": 1000, "txpower": -6, "voltage": 3}
 
     # AEMR:
     # TX power / energy:
@@ -270,11 +256,7 @@ class NRF24L01dtx:
         "txpower": [-18, -12, -6, 0],  # dBm
         "voltage": [1.9, 3.6],
     }
-    default_params = {
-        "datarate": 1000,
-        "txpower": -6,
-        "voltage": 3,
-    }
+    default_params = {"datarate": 1000, "txpower": -6, "voltage": 3}
 
     # 130 us RX settling: 8.9 mE
     # 130 us TX settling: 8 mA

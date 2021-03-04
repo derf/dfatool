@@ -8,15 +8,15 @@ example_json_1 = {
     "parameters": ["datarate", "txbytes", "txpower"],
     "initial_param_values": [None, None, None],
     "state": {
-        "IDLE": {"power": {"static": 5,}},
+        "IDLE": {"power": {"type": "static", "value": 5}},
         "TX": {
             "power": {
-                "static": 100,
-                "function": {
-                    "raw": "regression_arg(0) + regression_arg(1)"
-                    " * parameter(txpower)",
-                    "regression_args": [100, 2],
-                },
+                "type": "analytic",
+                "value": 100,
+                "functionStr": "regression_arg(0) + regression_arg(1) * parameter(txpower)",
+                "parameterNames": ["datarate", "txbytes", "txpower"],
+                "argCount": 0,
+                "regressionModel": [100, 2],
             }
         },
     },
@@ -25,15 +25,15 @@ example_json_1 = {
             "name": "init",
             "origin": ["UNINITIALIZED", "IDLE"],
             "destination": "IDLE",
-            "duration": {"static": 50000,},
+            "duration": {"type": "static", "value": 50000},
             "set_param": {"txpower": 10},
         },
         {
             "name": "setTxPower",
             "origin": "IDLE",
             "destination": "IDLE",
-            "duration": {"static": 120},
-            "energy ": {"static": 10000},
+            "duration": {"type": "static", "value": 120},
+            "energy ": {"type": "static", "value": 10000},
             "arg_to_param_map": {0: "txpower"},
             "argument_values": [[10, 20, 30]],
         },
@@ -42,18 +42,22 @@ example_json_1 = {
             "origin": "IDLE",
             "destination": "TX",
             "duration": {
-                "static": 10,
-                "function": {
-                    "raw": "regression_arg(0) + regression_arg(1)" " * function_arg(1)",
-                    "regression_args": [48, 8],
-                },
+                "type": "analytic",
+                "value": 10,
+                "functionStr": "regression_arg(0) + regression_arg(1)"
+                " * function_arg(1)",
+                "parameterNames": ["datarate", "txbytes", "txpower"],
+                "argCount": 0,
+                "regressionModel": [48, 8],
             },
             "energy": {
-                "static": 3,
-                "function": {
-                    "raw": "regression_arg(0) + regression_arg(1)" " * function_arg(1)",
-                    "regression_args": [3, 5],
-                },
+                "type": "analytic",
+                "value": 3,
+                "functionStr": "regression_arg(0) + regression_arg(1)"
+                " * function_arg(1)",
+                "parameterNames": ["datarate", "txbytes", "txpower"],
+                "argCount": 0,
+                "regressionModel": [3, 5],
             },
             "arg_to_param_map": {1: "txbytes"},
             "argument_values": [['"foo"', '"hodor"'], [3, 5]],
@@ -65,12 +69,13 @@ example_json_1 = {
             "destination": "IDLE",
             "is_interrupt": 1,
             "timeout": {
-                "static": 2000,
-                "function": {
-                    "raw": "regression_arg(0) + regression_arg(1)"
-                    " * parameter(txbytes)",
-                    "regression_args": [500, 16],
-                },
+                "type": "analytic",
+                "value": 2000,
+                "functionStr": "regression_arg(0) + regression_arg(1)"
+                " * parameter(txbytes)",
+                "parameterNames": ["datarate", "txbytes", "txpower"],
+                "argCount": 0,
+                "regressionModel": [500, 16],
             },
         },
     ],

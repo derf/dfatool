@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Code generators for multipass dummy drivers for online model evaluation."""
 
 from .automata import PTA, Transition
@@ -227,11 +228,8 @@ class SimulatedStaticAccountingImmediateCalculation(SimulatedAccountingMethod):
 
     def sleep(self, duration_us):
         time = self._sleep_duration(duration_us)
-        print("sleep duration is {}".format(time))
         power = int(self.current_state.power.value)
-        print("power is {}".format(power))
         energy = self._energy_from_power_and_time(time, power)
-        print("energy is {}".format(energy))
         self.energy += energy
 
     def pass_transition(self, transition: Transition):

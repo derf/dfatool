@@ -607,6 +607,17 @@ class ModelAttribute:
         }
         return ret
 
+    @staticmethod
+    def from_json(cls, name, attr, data):
+        param_names = data["paramNames"]
+        arg_count = data["argCount"]
+
+        self = cls(name, attr, None, None, param_names, arg_count)
+
+        self.model_function = df.ModelFunction.from_json(data["modelFunction"])
+
+        return self
+
     def get_static(self, use_mean=False):
         if use_mean:
             return self.mean
@@ -782,7 +793,9 @@ class ModelAttribute:
         for param_value, child in child_by_param_value.items():
             child.set_data_from_paramfit(paramfit, prefix + (param_value,))
             function_child[param_value] = child.model_function
-        self.model_function = df.SplitFunction(split_param_index, function_child)
+        self.model_function = df.SplitFunction(
+            self.median, split_param_index, function_child
+        )
 
     def set_data_from_paramfit_this(self, paramfit, prefix):
         fit_result = paramfit.get_result((self.name, self.attr) + prefix)
@@ -790,7 +803,11 @@ class ModelAttribute:
         if self.function_override is not None:
             function_str = self.function_override
             x = df.AnalyticFunction(
-                function_str, self.param_names, self.arg_count, fit_by_param=fit_result
+                self.median,
+                function_str,
+                self.param_names,
+                self.arg_count,
+                fit_by_param=fit_result,
             )
             x.fit(self.by_param)
             if x.fit_success:
@@ -801,6 +818,7 @@ class ModelAttribute:
             x = df.analytic.function_powerset(
                 fit_result, self.param_names, self.arg_count
             )
+            x.value = self.median
             x.fit(self.by_param)
 
             if x.fit_success:

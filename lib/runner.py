@@ -206,8 +206,7 @@ class EnergyTraceLogicAnalyzerMonitor(EnergyTraceMonitor):
 
         # Initialization of Interfaces
         self.sig = SigrokCLIInterface(
-            sample_rate=options["sample_rate"],
-            fake=options["fake"],
+            sample_rate=options["sample_rate"], fake=options["fake"]
         )
 
         # Start Measurements
@@ -482,7 +481,7 @@ class Arch:
                 match = re.match(r"CPU\s+Freq:\s+(.*)\s+Hz", line)
                 if match:
                     cpu_freq = int(match.group(1))
-            if cpu_freq is not None and cpu_freq > 8000000:
+            if cpu_freq is not None and cpu_freq > 8_000_000:
                 max_sleep = 250
             else:
                 max_sleep = 500
@@ -509,5 +508,9 @@ class Arch:
                 overflow_value = int(match.group(1))
                 max_overflow = int(match.group(2))
         if cpu_freq and overflow_value:
-            return 1000000 / cpu_freq, overflow_value * 1000000 / cpu_freq, max_overflow
+            return (
+                1_000_000 / cpu_freq,
+                overflow_value * 1_000_000 / cpu_freq,
+                max_overflow,
+            )
         raise RuntimeError("Did not find Counter Overflow limits")
