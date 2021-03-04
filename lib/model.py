@@ -790,10 +790,9 @@ class PTAModel(AnalyticModel):
         if pta is None:
             pta = PTA(self.states, parameters=self._parameter_names)
         pta.update(
-            static_model,
             param_info,
             static_error=static_quality["by_name"],
-            analytic_error=analytic_quality["by_name"],
+            function_error=analytic_quality["by_name"],
         )
         return pta.to_json()
 
