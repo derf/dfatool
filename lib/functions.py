@@ -187,6 +187,16 @@ class ModelFunction:
     def from_json_maybe(cls, json_wrapped: dict, attribute: str):
         # Legacy Code for PTA / tests. Do not use.
         if type(json_wrapped) is dict and attribute in json_wrapped:
+            # benchmark data obtained before 2021-03-04 uses {"power": {"static": 0}}
+            # benchmark data obtained after  2021-03-04 uses {"power": {"type": "static", "value": 0}}
+            # from_json expects the latter.
+            if (
+                "static" in json_wrapped[attribute]
+                and "type" not in json_wrapped[attribute]
+            ):
+                json_wrapped[attribute]["type"] = "static"
+                json_wrapped[attribute]["value"] = json_wrapped[attribute]["static"]
+                json_wrapped[attribute].pop("static")
             return cls.from_json(json_wrapped[attribute])
         return StaticFunction(0)
 
