@@ -51,7 +51,11 @@ from dfatool.functions import (
 )
 from dfatool.model import PTAModel
 from dfatool.validation import CrossValidator
-from dfatool.utils import filter_aggregate_by_param, detect_outliers_in_aggregate
+from dfatool.utils import (
+    filter_aggregate_by_param,
+    detect_outliers_in_aggregate,
+    NpEncoder,
+)
 from dfatool.automata import PTA
 
 
@@ -1089,6 +1093,6 @@ if __name__ == "__main__":
             sys.exit(1)
         json_model = model.to_json()
         with open(args.export_energymodel, "w") as f:
-            json.dump(json_model, f, indent=2, sort_keys=True)
+            json.dump(json_model, f, indent=2, sort_keys=True, cls=NpEncoder)
 
     sys.exit(0)
