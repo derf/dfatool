@@ -179,8 +179,8 @@ class ModelFunction:
     def to_json(self):
         ret = {
             "value": self.value,
-            "value_error": self.value_error,
-            "function_error": self.function_error,
+            "valueError": self.value_error,
+            "functionError": self.function_error,
         }
         return ret
 
@@ -195,10 +195,10 @@ class ModelFunction:
         else:
             raise ValueError("Unknown ModelFunction type: " + data["type"])
 
-        if "value_error" in data:
-            mf.value_error = data["value_error"]
-        if "function_error" in data:
-            mf.function_error = data["function_error"]
+        if "valueError" in data:
+            mf.value_error = data["valueError"]
+        if "functionError" in data:
+            mf.function_error = data["functionError"]
 
         return mf
 
