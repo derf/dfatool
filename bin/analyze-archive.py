@@ -47,6 +47,7 @@ from dfatool.functions import (
     gplearn_to_function,
     SplitFunction,
     AnalyticFunction,
+    SubstateFunction,
     StaticFunction,
 )
 from dfatool.model import PTAModel
@@ -866,15 +867,6 @@ if __name__ == "__main__":
         safe_functions_enabled=safe_functions_enabled
     )
 
-    if args.with_substates:
-        sub_model, sub_info = model.get_fitted_sub(
-            safe_functions_enabled=safe_functions_enabled,
-            state_duration=raw_data.setup_by_fileno[0]["state_duration"] * 1e3,
-        )
-
-    # substate_model = model.get_substates()
-    # print(model.assess(substate_model, ref=model.sc_by_name))
-
     if "paramdetection" in show_models or "all" in show_models:
         for state in model.states_and_transitions:
             for attribute in model.attributes(state):
@@ -931,6 +923,8 @@ if __name__ == "__main__":
                     print_splitinfo(
                         model.parameters, info, f"{state:10s} {attribute:15s}"
                     )
+                elif type(info) is SubstateFunction:
+                    print(f"{state:10s} {attribute:15s}: Substate (TODO)")
         for trans in model.transitions:
             for attribute in model.attributes(trans):
                 info = param_info(trans, attribute)
@@ -940,6 +934,8 @@ if __name__ == "__main__":
                     print_splitinfo(
                         model.parameters, info, f"{trans:10s} {attribute:15s}"
                     )
+                elif type(info) is SubstateFunction:
+                    print(f"{state:10s} {attribute:15s}: Substate (TODO)")
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
                 sub_param_model, sub_param_info = submodel.get_fitted()
@@ -949,14 +945,21 @@ if __name__ == "__main__":
                         if type(info) is AnalyticFunction:
                             print(
                                 "{:10s} {:15s}: {}".format(
-                                    substate, subattribute, info.function.model_function
+                                    substate, subattribute, info.model_function
                                 )
                             )
-                            print(
-                                "{:10s} {:15s}  {}".format(
-                                    "", "", info.function.model_args
-                                )
-                            )
+                            print("{:10s} {:15s}  {}".format("", "", info.model_args))
+
+    if args.with_substates:
+        for state in model.states:
+            if (
+                type(model.attr_by_name[state]["power"].model_function)
+                is SubstateFunction
+            ):
+                # sub-state models need to know the duration of the state / transition. only needed for eval.
+                model.attr_by_name[state]["power"].model_function.static_duration = (
+                    raw_data.setup_by_fileno[0]["state_duration"] * 1e3
+                )
 
     if xv_method == "montecarlo":
         analytic_quality = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
@@ -964,9 +967,6 @@ if __name__ == "__main__":
         analytic_quality = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
     else:
         analytic_quality = model.assess(param_model)
-
-    if args.with_substates:
-        sub_quality = model.assess(sub_model)
 
     if "tex" in show_models or "tex" in show_quality:
         print_text_model_data(
@@ -1012,13 +1012,6 @@ if __name__ == "__main__":
                     [sub_static_quality, sub_analytic_quality, sub_lut_quality],
                     [None, sub_param_info, None],
                 )
-
-    if ("table" in show_quality or "all" in show_quality) and args.with_substates:
-        model_quality_table(
-            ["parameterized", "sub-states", "LUT"],
-            [analytic_quality, sub_quality, lut_quality],
-            [param_info, sub_info, None],
-        )
 
     if "overall" in show_quality or "all" in show_quality:
         print("overall state static/param/lut MAE assuming equal state distribution:")

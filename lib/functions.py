@@ -284,7 +284,6 @@ class SplitFunction(ModelFunction):
         ret.update(
             {
                 "type": "split",
-                "value": self.value,
                 "paramIndex": self.param_index,
                 "child": dict([[k, v.to_json()] for k, v in self.child.items()]),
             }
@@ -301,6 +300,62 @@ class SplitFunction(ModelFunction):
 
     def __repr__(self):
         return f"SplitFunction<{self.value}, param_index={self.param_index}>"
+
+
+class SubstateFunction(ModelFunction):
+    def __init__(self, value, sequence_by_count, count_model, sub_model):
+        super().__init__(value)
+        self.sequence_by_count = sequence_by_count
+        self.count_model = count_model
+        self.sub_model = sub_model
+
+        # only used by analyze-archive model quality evaluation. Not serialized.
+        self.static_duration = None
+
+    def is_predictable(self, param_list):
+        substate_count = round(self.count_model.eval(param_list))
+        return substate_count in self.sequence_by_count
+
+    def eval(self, param_list, duration=None):
+        substate_count = round(self.count_model.eval(param_list))
+        cumulative_energy = 0
+        total_duration = 0
+        substate_model, _ = self.sub_model.get_fitted()
+        substate_sequence = self.sequence_by_count[substate_count]
+        for i, sub_name in enumerate(substate_sequence):
+            sub_duration = substate_model(sub_name, "duration", param=param_list)
+            sub_power = substate_model(sub_name, "power", param=param_list)
+
+            if i == substate_count - 1:
+                if duration is not None:
+                    sub_duration = duration - total_duration
+                elif self.static_duration is not None:
+                    sub_duration = self.static_duration - total_duration
+
+            cumulative_energy += sub_power * sub_duration
+            total_duration += sub_duration
+
+        return cumulative_energy / total_duration
+
+    def to_json(self):
+        ret = super().to_json()
+        ret.update(
+            {
+                "type": "substate",
+                "sequence": self.sequence_by_count,
+                "countModel": self.count_model.to_json(),
+                "subModel": self.sub_model.to_json(),
+            }
+        )
+        return ret
+
+    @classmethod
+    def from_json(cls, data):
+        assert data["type"] == "substate"
+        raise NotImplementedError
+
+    def __repr__(self):
+        return "SubstateFunction"
 
 
 class AnalyticFunction(ModelFunction):
@@ -500,7 +555,6 @@ class AnalyticFunction(ModelFunction):
         ret.update(
             {
                 "type": "analytic",
-                "value": self.value,
                 "functionStr": self.model_function,
                 "argCount": self._num_args,
                 "parameterNames": self._parameter_names,
