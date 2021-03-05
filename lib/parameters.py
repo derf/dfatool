@@ -567,6 +567,15 @@ class ParamStats:
 
 
 class ModelAttribute:
+    """
+    A ModelAttribute instance handles a single model attribute, e.g. TX state power or something() function call duration, and corresponding benchmark data.
+
+    It provides three models:
+    - a static model (`mean`, `median`) as lower bound of model accuracy
+    - a LUT model (`by_param`) as upper bound of model accuracy
+    - a fitted model (`model_function`, a `ModelFunction` instance)
+    """
+
     def __init__(self, name, attr, data, param_values, param_names, arg_count=0):
 
         # Data for model generation

@@ -1108,6 +1108,7 @@ class PTA:
                     for i in range(len(self.parameters))
                 ]
             )
+        param_list = dict_to_list(param_dict)
         for function in trace:
             if isinstance(function[0], Transition):
                 function_name = function[0].name
@@ -1120,7 +1121,7 @@ class PTA:
                 total_energy += state.get_energy(duration, param_dict)
                 if state.power.value_error is not None:
                     total_energy_error += (
-                        duration * state.power.eval_mae(param_dict, function_args)
+                        duration * state.power.eval_mae(param_list + function_args)
                     ) ** 2
                 total_duration += duration
                 # assumption: sleep is near-exact and does not contribute to the duration error
@@ -1128,17 +1129,15 @@ class PTA:
                     accounting.sleep(duration)
             else:
                 transition = state.get_transition(function_name)
-                total_duration += transition.duration.eval(
-                    dict_to_list(param_dict) + function_args
-                )
+                total_duration += transition.duration.eval(param_list + function_args)
                 if transition.duration.value_error is not None:
                     total_duration_mae += (
-                        transition.duration.eval_mae(param_dict, function_args) ** 2
+                        transition.duration.eval_mae(param_list + function_args) ** 2
                     )
                 total_energy += transition.get_energy(param_dict, function_args)
                 if transition.energy.value_error is not None:
                     total_energy_error += (
-                        transition.energy.eval_mae(param_dict, function_args) ** 2
+                        transition.energy.eval_mae(param_list + function_args) ** 2
                     )
                 param_dict = transition.get_params_after_transition(
                     param_dict, function_args

@@ -168,10 +168,10 @@ class ModelFunction:
     def is_predictable(self, param_list):
         raise NotImplementedError
 
-    def eval(self, param_list, arg_list):
+    def eval(self, param_list):
         raise NotImplementedError
 
-    def eval_mae(self, param_list, arg_list):
+    def eval_mae(self, param_list):
         if self.is_predictable(param_list):
             return self.function_error["mae"]
         return self.value_error["mae"]
@@ -231,7 +231,7 @@ class StaticFunction(ModelFunction):
         """
         return True
 
-    def eval(self, param_list=None, arg_list=None):
+    def eval(self, param_list=None):
         """
         Evaluate model function with specified param/arg values.
 
@@ -275,9 +275,9 @@ class SplitFunction(ModelFunction):
             return False
         return self.child[param_value].is_predictable(param_list)
 
-    def eval(self, param_list, arg_list=list()):
+    def eval(self, param_list):
         param_value = param_list[self.param_index]
-        return self.child[param_value].eval(param_list, arg_list)
+        return self.child[param_value].eval(param_list)
 
     def to_json(self):
         ret = super().to_json()
@@ -485,7 +485,7 @@ class AnalyticFunction(ModelFunction):
                 return False
         return True
 
-    def eval(self, param_list, arg_list=[]):
+    def eval(self, param_list):
         """
         Evaluate model function with specified param/arg values.
 
@@ -493,8 +493,6 @@ class AnalyticFunction(ModelFunction):
             corresponds to lexically first parameter, etc.
         :param arg_list: argument values (list of float), if arguments are used.
         """
-        if len(self.model_args) == 0:
-            return self._function(param_list, arg_list)
         return self._function(self.model_args, param_list)
 
     def to_json(self):
