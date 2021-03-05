@@ -171,6 +171,11 @@ class ModelFunction:
     def eval(self, param_list, arg_list):
         raise NotImplementedError
 
+    def eval_mae(self, param_list, arg_list):
+        if self.is_predictable(param_list):
+            return self.function_error["mae"]
+        return self.value_error["mae"]
+
     def to_json(self):
         ret = {
             "value": self.value,
@@ -201,9 +206,11 @@ class ModelFunction:
     def from_json_maybe(cls, json_wrapped: dict, attribute: str):
         # Legacy Code for PTA / tests. Do not use.
         if type(json_wrapped) is dict and attribute in json_wrapped:
-            # benchmark data obtained before 2021-03-04 uses {"power": {"static": 0}}
-            # benchmark data obtained after  2021-03-04 uses {"power": {"type": "static", "value": 0}}
+            # benchmark data obtained before 2021-03-04 uses {"attr": {"static": 0}}
+            # benchmark data obtained after  2021-03-04 uses {"attr": {"type": "static", "value": 0}} or {"attr": None}
             # from_json expects the latter.
+            if json_wrapped[attribute] is None:
+                return None
             if (
                 "static" in json_wrapped[attribute]
                 and "type" not in json_wrapped[attribute]

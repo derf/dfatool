@@ -435,11 +435,11 @@ class Transition:
             "timeout": None,
         }
         if self.duration is not None:
-            ret["duration"] = (self.duration.to_json(),)
+            ret["duration"] = self.duration.to_json()
         if self.energy is not None:
-            ret["energy"] = (self.energy.to_json(),)
+            ret["energy"] = self.energy.to_json()
         if self.timeout is not None:
-            ret["timeout"] = (self.timeout.to_json(),)
+            ret["timeout"] = self.timeout.to_json()
         return ret
 
 
@@ -1111,10 +1111,10 @@ class PTA:
         for function in trace:
             if isinstance(function[0], Transition):
                 function_name = function[0].name
-                function_args = function[1]
+                function_args = list(function[1])
             else:
                 function_name = function[0]
-                function_args = function[1:]
+                function_args = list(function[1:])
             if function_name is None or function_name == "_":
                 duration = function_args[0]
                 total_energy += state.get_energy(duration, param_dict)
