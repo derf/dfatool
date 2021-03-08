@@ -311,6 +311,48 @@ class AnalyticModel:
 
         return {"by_name": detailed_results}
 
+    def to_dref(self, static_quality, lut_quality, model_quality) -> dict:
+        ret = dict()
+        for name in self.names:
+            for attr_name, attr in self.attr_by_name[name].items():
+                e_static = static_quality["by_name"][name][attr_name]
+                e_lut = lut_quality["by_name"][name][attr_name]
+                e_model = model_quality["by_name"][name][attr_name]
+                unit = None
+                if "power" in attr.attr:
+                    unit = r"\micro\watt"
+                elif "energy" in attr.attr:
+                    unit = r"\pico\joule"
+                elif attr.attr == "duration":
+                    unit = r"\micro\second"
+                for k, v in attr.to_dref(unit).items():
+                    ret[f"data/{name}/{attr_name}/{k}"] = v
+                ret[f"error/static/{name}/{attr_name}/mae"] = (e_static["mae"], unit)
+                ret[f"error/lut/{name}/{attr_name}/mae"] = (e_lut["mae"], unit)
+                ret[f"error/model/{name}/{attr_name}/mae"] = (e_model["mae"], unit)
+                ret[f"error/static/{name}/{attr_name}/smape"] = (
+                    e_static["smape"],
+                    r"\percent",
+                )
+                ret[f"error/lut/{name}/{attr_name}/smape"] = (
+                    e_lut["smape"],
+                    r"\percent",
+                )
+                ret[f"error/model/{name}/{attr_name}/smape"] = (
+                    e_model["smape"],
+                    r"\percent",
+                )
+                ret[f"error/static/{name}/{attr_name}/mape"] = (
+                    e_static["mape"],
+                    r"\percent",
+                )
+                ret[f"error/lut/{name}/{attr_name}/mape"] = (e_lut["mape"], r"\percent")
+                ret[f"error/model/{name}/{attr_name}/mape"] = (
+                    e_model["mape"],
+                    r"\percent",
+                )
+        return ret
+
     def to_json(self) -> dict:
         """
         Return JSON encoding of this AnalyticModel.

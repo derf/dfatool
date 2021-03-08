@@ -500,6 +500,12 @@ if __name__ == "__main__":
         "Creates a JSON file for each state and transition.",
     )
     parser.add_argument(
+        "--export-dref",
+        metavar="FILE",
+        type=str,
+        help="Export model and model quality to LaTeX dataref file",
+    )
+    parser.add_argument(
         "--filter-param",
         metavar="<parameter name>=<parameter value>[,<parameter name>=<parameter value>...]",
         type=str,
@@ -1077,6 +1083,19 @@ if __name__ == "__main__":
                 model.param_index(param_name),
                 extra_function=function,
             )
+
+    if args.export_dref:
+        dref = raw_data.to_dref()
+        dref.update(model.to_dref(static_quality, lut_quality, analytic_quality))
+        with open(args.export_dref, "w") as f:
+            for k, v in dref.items():
+                if type(v) is not tuple:
+                    v = (v, None)
+                if v[1] is None:
+                    prefix = r"\drefset{"
+                else:
+                    prefix = r"\drefset" + f"[unit={v[1]}]" + "{"
+                print(f"{prefix}{k}" + "}{" + str(v[0]) + "}", file=f)
 
     if args.export_energymodel:
         if not pta:

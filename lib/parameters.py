@@ -616,6 +616,10 @@ class ModelAttribute:
         }
         return ret
 
+    def to_dref(self, unit=None):
+        ret = {"mean": (self.mean, unit), "median": (self.median, unit)}
+        return ret
+
     @staticmethod
     def from_json(cls, name, attr, data):
         param_names = data["paramNames"]

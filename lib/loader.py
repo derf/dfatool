@@ -372,6 +372,16 @@ class RawData:
             }
             json.dump(cache_data, f)
 
+    def to_dref(self) -> dict:
+        return {
+            "raw measurements/valid": self.preprocessing_stats["num_valid"],
+            "raw measurements/total": self.preprocessing_stats["num_runs"],
+            "static state duration/mean": (
+                np.mean(list(map(lambda x: x["state_duration"], self.setup_by_fileno))),
+                r"\milli\second",
+            ),
+        }
+
     def _state_is_too_short(self, online, offline, state_duration, next_transition):
         # We cannot control when an interrupt causes a state to be left
         if next_transition["plan"]["level"] == "epilogue":
