@@ -309,15 +309,15 @@ class AnalyticModel:
                 measures = regression_measures(predicted_data, elem[attribute])
                 detailed_results[name][attribute] = measures
 
-        return {"by_name": detailed_results}
+        return detailed_results
 
     def to_dref(self, static_quality, lut_quality, model_quality) -> dict:
         ret = dict()
         for name in self.names:
             for attr_name, attr in self.attr_by_name[name].items():
-                e_static = static_quality["by_name"][name][attr_name]
-                e_lut = lut_quality["by_name"][name][attr_name]
-                e_model = model_quality["by_name"][name][attr_name]
+                e_static = static_quality[name][attr_name]
+                e_lut = lut_quality[name][attr_name]
+                e_model = model_quality[name][attr_name]
                 unit = None
                 if "power" in attr.attr:
                     unit = r"\micro\watt"
@@ -791,9 +791,7 @@ class PTAModel(AnalyticModel):
         if pta is None:
             pta = PTA(self.states, parameters=self._parameter_names)
         pta.update(
-            param_info,
-            static_error=static_quality["by_name"],
-            function_error=analytic_quality["by_name"],
+            param_info, static_error=static_quality, function_error=analytic_quality
         )
         return pta.to_json()
 
@@ -812,7 +810,7 @@ class PTAModel(AnalyticModel):
         """
         if ref is None:
             ref = self.by_name
-        detailed_results = super().assess(model_function, ref=ref)["by_name"]
+        detailed_results = super().assess(model_function, ref=ref)
         for name, elem in sorted(ref.items()):
             if elem["isa"] == "transition":
                 predicted_data = np.array(
@@ -831,7 +829,7 @@ class PTAModel(AnalyticModel):
                 )
                 detailed_results[name]["energy_Pt"] = measures
 
-        return {"by_name": detailed_results}
+        return detailed_results
 
     def assess_states(
         self, model_function, model_attribute="power", distribution: dict = None
@@ -861,8 +859,7 @@ class PTAModel(AnalyticModel):
             sum(
                 map(
                     lambda x: np.square(
-                        model_quality["by_name"][x][model_attribute]["mae"]
-                        * distribution[x]
+                        model_quality[x][model_attribute]["mae"] * distribution[x]
                     ),
                     self.states,
                 )

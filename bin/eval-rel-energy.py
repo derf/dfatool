@@ -92,8 +92,8 @@ if __name__ == "__main__":
         lut_quality = model.assess(model.get_param_lut())
 
         for trans in model.transitions:
-            absolute_quality = lut_quality["by_name"][trans]["energy"]
-            relative_quality = lut_quality["by_name"][trans]["rel_energy_prev"]
+            absolute_quality = lut_quality[trans]["energy"]
+            relative_quality = lut_quality[trans]["rel_energy_prev"]
             if absolute_quality["mae"] < relative_quality["mae"]:
                 best = "absolute"
                 score_absolute += 1

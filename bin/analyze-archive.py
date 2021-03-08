@@ -91,8 +91,8 @@ def model_quality_table(header, result_lists, info_list):
             header[2].center(19),
         )
     )
-    for state_or_tran in result_lists[0]["by_name"].keys():
-        for key in result_lists[0]["by_name"][state_or_tran].keys():
+    for state_or_tran in result_lists[0].keys():
+        for key in result_lists[0][state_or_tran].keys():
             buf = "{:20s} {:15s}".format(state_or_tran, key)
             for i, results in enumerate(result_lists):
                 info = info_list[i]
@@ -112,7 +112,7 @@ def model_quality_table(header, result_lists, info_list):
                         )
                     )
                 ):
-                    result = results["by_name"][state_or_tran][key]
+                    result = results[state_or_tran][key]
                     buf += format_quality_measures(result)
                 else:
                     buf += "{:7}----{:8}".format("", "")
@@ -226,12 +226,12 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
             unit = ""
             if attribute == "power":
                 unit = "µW"
-            static_quality = pq["by_name"][state][attribute]["smape"]
+            static_quality = pq[state][attribute]["smape"]
             print(
                 f"* {attribute} mean: {pm(state, attribute):.0f} {unit} (± {static_quality:.1f}%)"
             )
             if ai(state, attribute):
-                analytic_quality = aq["by_name"][state][attribute]["smape"]
+                analytic_quality = aq[state][attribute]["smape"]
                 fstr = ai(state, attribute)["function"].model_function
                 fstr = fstr.replace("0 + ", "", 1)
                 for i, marg in enumerate(ai(state, attribute)["function"].model_args):
@@ -261,12 +261,12 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
                 unit = "µs"
             elif attribute in ["energy", "rel_energy_prev"]:
                 unit = "pJ"
-            static_quality = pq["by_name"][trans][attribute]["smape"]
+            static_quality = pq[trans][attribute]["smape"]
             print(
                 f"* {attribute} mean: {pm(trans, attribute):.0f} {unit} (± {static_quality:.1f}%)"
             )
             if ai(trans, attribute):
-                analytic_quality = aq["by_name"][trans][attribute]["smape"]
+                analytic_quality = aq[trans][attribute]["smape"]
                 fstr = ai(trans, attribute)["function"].model_function
                 fstr = fstr.replace("0 + ", "", 1)
                 for i, marg in enumerate(ai(trans, attribute)["function"].model_args):
@@ -288,7 +288,7 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
                 unit = "µW"
             print(
                 "<td>{:.0f} {} ({:.1f}%)</td>".format(
-                    pm(state, attribute), unit, pq["by_name"][state][attribute]["smape"]
+                    pm(state, attribute), unit, pq[state][attribute]["smape"]
                 ),
                 end="",
             )
@@ -315,7 +315,7 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
                 unit = "pJ"
             print(
                 "<td>{:.0f} {} ({:.1f}%)</td>".format(
-                    pm(trans, attribute), unit, pq["by_name"][trans][attribute]["smape"]
+                    pm(trans, attribute), unit, pq[trans][attribute]["smape"]
                 ),
                 end="",
             )

@@ -142,24 +142,18 @@ class TestSynthetic(unittest.TestCase):
 
         # the Root Mean Square Deviation must not be greater the scale (i.e., standard deviation) of the normal distribution
         # Low Mean Absolute Error (< 2)
-        self.assertTrue(static_quality["by_name"]["raw_state_1"]["duration"]["mae"] < 2)
+        self.assertTrue(static_quality["raw_state_1"]["duration"]["mae"] < 2)
         # Low Root Mean Square Deviation (< scale == 2)
-        self.assertTrue(
-            static_quality["by_name"]["raw_state_1"]["duration"]["rmsd"] < 2
-        )
+        self.assertTrue(static_quality["raw_state_1"]["duration"]["rmsd"] < 2)
         # Relatively low error percentage (~~ MAE * 100% / s1_duration_base)
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_1"]["duration"]["mape"],
-            static_quality["by_name"]["raw_state_1"]["duration"]["mae"]
-            * 100
-            / s1_duration_base,
+            static_quality["raw_state_1"]["duration"]["mape"],
+            static_quality["raw_state_1"]["duration"]["mae"] * 100 / s1_duration_base,
             places=1,
         )
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_1"]["duration"]["smape"],
-            static_quality["by_name"]["raw_state_1"]["duration"]["mae"]
-            * 100
-            / s1_duration_base,
+            static_quality["raw_state_1"]["duration"]["smape"],
+            static_quality["raw_state_1"]["duration"]["mae"] * 100 / s1_duration_base,
             places=1,
         )
 
@@ -168,129 +162,121 @@ class TestSynthetic(unittest.TestCase):
         # MAE == mean(abs(actual value - model value))
         # parameter range is [0, 50) -> mean 25, deviation range is [0, 25) -> mean deviation is 12.5 ± gauss scale
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_1"]["power"]["mae"], 12.5, delta=1
+            static_quality["raw_state_1"]["power"]["mae"], 12.5, delta=1
         )
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_1"]["power"]["rmsd"], 16, delta=2
+            static_quality["raw_state_1"]["power"]["rmsd"], 16, delta=2
         )
         # high percentage error due to low s1_power_base
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_1"]["power"]["mape"], 19, delta=2
+            static_quality["raw_state_1"]["power"]["mape"], 19, delta=2
         )
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_1"]["power"]["smape"], 19, delta=2
+            static_quality["raw_state_1"]["power"]["smape"], 19, delta=2
         )
 
         # parameter range is [0, 100) -> mean deviation is 25 ± gauss scale
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["duration"]["mae"], 25, delta=2
+            static_quality["raw_state_2"]["duration"]["mae"], 25, delta=2
         )
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["duration"]["rmsd"], 30, delta=2
+            static_quality["raw_state_2"]["duration"]["rmsd"], 30, delta=2
         )
 
         # low percentage error due to high s2_duration_base (~~ 3.5 %)
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["duration"]["mape"],
+            static_quality["raw_state_2"]["duration"]["mape"],
             25 * 100 / s2_duration_base,
             delta=1,
         )
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["duration"]["smape"],
+            static_quality["raw_state_2"]["duration"]["smape"],
             25 * 100 / s2_duration_base,
             delta=1,
         )
 
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["power"]["mae"], 12.5, delta=2
+            static_quality["raw_state_2"]["power"]["mae"], 12.5, delta=2
         )
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["power"]["rmsd"], 17, delta=2
+            static_quality["raw_state_2"]["power"]["rmsd"], 17, delta=2
         )
 
         # low percentage error due to high s2_power_base (~~ 1.7 %)
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["power"]["mape"],
+            static_quality["raw_state_2"]["power"]["mape"],
             25 * 100 / s2_power_base,
             delta=1,
         )
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["power"]["smape"],
+            static_quality["raw_state_2"]["power"]["smape"],
             25 * 100 / s2_power_base,
             delta=1,
         )
 
         # raw_state_1/duration does not depend on parameters and delegates to the static model
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_1"]["duration"]["mae"],
-            static_quality["by_name"]["raw_state_1"]["duration"]["mae"],
+            param_quality["raw_state_1"]["duration"]["mae"],
+            static_quality["raw_state_1"]["duration"]["mae"],
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_1"]["duration"]["rmsd"],
-            static_quality["by_name"]["raw_state_1"]["duration"]["rmsd"],
+            param_quality["raw_state_1"]["duration"]["rmsd"],
+            static_quality["raw_state_1"]["duration"]["rmsd"],
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_1"]["duration"]["mape"],
-            static_quality["by_name"]["raw_state_1"]["duration"]["mape"],
+            param_quality["raw_state_1"]["duration"]["mape"],
+            static_quality["raw_state_1"]["duration"]["mape"],
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_1"]["duration"]["smape"],
-            static_quality["by_name"]["raw_state_1"]["duration"]["smape"],
+            param_quality["raw_state_1"]["duration"]["smape"],
+            static_quality["raw_state_1"]["duration"]["smape"],
         )
 
         # fitted param-model quality reflects normal distribution scale for all data
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["power"]["mape"], 0.9, places=1
+            param_quality["raw_state_2"]["power"]["mape"], 0.9, places=1
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["power"]["smape"], 0.9, places=1
+            param_quality["raw_state_2"]["power"]["smape"], 0.9, places=1
         )
 
-        self.assertTrue(
-            param_quality["by_name"]["raw_state_1"]["power"]["mae"] < s1_power_scale
-        )
-        self.assertTrue(
-            param_quality["by_name"]["raw_state_1"]["power"]["rmsd"] < s1_power_scale
+        self.assertTrue(param_quality["raw_state_1"]["power"]["mae"] < s1_power_scale)
+        self.assertTrue(param_quality["raw_state_1"]["power"]["rmsd"] < s1_power_scale)
+        self.assertAlmostEqual(
+            param_quality["raw_state_1"]["power"]["mape"], 7.5, delta=1
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_1"]["power"]["mape"], 7.5, delta=1
-        )
-        self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_1"]["power"]["smape"], 7.5, delta=1
+            param_quality["raw_state_1"]["power"]["smape"], 7.5, delta=1
         )
 
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["duration"]["mae"],
+            param_quality["raw_state_2"]["duration"]["mae"],
             s2_duration_scale,
             delta=0.2,
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["duration"]["rmsd"],
+            param_quality["raw_state_2"]["duration"]["rmsd"],
             s2_duration_scale,
             delta=0.2,
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["duration"]["mape"],
-            0.12,
-            delta=0.01,
+            param_quality["raw_state_2"]["duration"]["mape"], 0.12, delta=0.01
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["duration"]["smape"],
-            0.12,
-            delta=0.01,
+            param_quality["raw_state_2"]["duration"]["smape"], 0.12, delta=0.01
         )
 
         # ... unless the signal-to-noise ratio (parameter range = [0 .. 50] vs. scale = 10) is bad, leading to
         # increased regression errors
-        self.assertTrue(param_quality["by_name"]["raw_state_2"]["power"]["mae"] < 15)
-        self.assertTrue(param_quality["by_name"]["raw_state_2"]["power"]["rmsd"] < 18)
+        self.assertTrue(param_quality["raw_state_2"]["power"]["mae"] < 15)
+        self.assertTrue(param_quality["raw_state_2"]["power"]["rmsd"] < 18)
 
         # still: low percentage error due to high s2_power_base
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["power"]["mape"], 0.9, places=1
+            param_quality["raw_state_2"]["power"]["mape"], 0.9, places=1
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["power"]["smape"], 0.9, places=1
+            param_quality["raw_state_2"]["power"]["smape"], 0.9, places=1
         )
 
     def test_model_crossvalidation_10fold(self):
@@ -343,17 +329,13 @@ class TestSynthetic(unittest.TestCase):
 
         # the Root Mean Square Deviation must not be greater the scale (i.e., standard deviation) of the normal distribution
         # Low Mean Absolute Error (< 2)
-        self.assertTrue(static_quality["by_name"]["raw_state_1"]["duration"]["mae"] < 2)
+        self.assertTrue(static_quality["raw_state_1"]["duration"]["mae"] < 2)
         # Low Root Mean Square Deviation (< scale == 2)
-        self.assertTrue(
-            static_quality["by_name"]["raw_state_1"]["duration"]["rmsd"] < 2
-        )
+        self.assertTrue(static_quality["raw_state_1"]["duration"]["rmsd"] < 2)
         # Relatively low error percentage (~~ MAE * 100% / s1_duration_base)
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_1"]["duration"]["smape"],
-            static_quality["by_name"]["raw_state_1"]["duration"]["mae"]
-            * 100
-            / s1_duration_base,
+            static_quality["raw_state_1"]["duration"]["smape"],
+            static_quality["raw_state_1"]["duration"]["mae"] * 100 / s1_duration_base,
             places=1,
         )
 
@@ -362,98 +344,92 @@ class TestSynthetic(unittest.TestCase):
         # MAE == mean(abs(actual value - model value))
         # parameter range is [0, 50) -> mean 25, deviation range is [0, 25) -> mean deviation is 12.5 ± gauss scale
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_1"]["power"]["mae"], 12.5, delta=1
+            static_quality["raw_state_1"]["power"]["mae"], 12.5, delta=1
         )
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_1"]["power"]["rmsd"], 16, delta=2
+            static_quality["raw_state_1"]["power"]["rmsd"], 16, delta=2
         )
         # high percentage error due to low s1_power_base
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_1"]["power"]["smape"], 19, delta=2
+            static_quality["raw_state_1"]["power"]["smape"], 19, delta=2
         )
 
         # parameter range is [0, 100) -> mean deviation is 25 ± gauss scale
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["duration"]["mae"], 25, delta=2
+            static_quality["raw_state_2"]["duration"]["mae"], 25, delta=2
         )
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["duration"]["rmsd"], 30, delta=2
+            static_quality["raw_state_2"]["duration"]["rmsd"], 30, delta=2
         )
 
         # low percentage error due to high s2_duration_base (~~ 3.5 %)
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["duration"]["smape"],
+            static_quality["raw_state_2"]["duration"]["smape"],
             25 * 100 / s2_duration_base,
             delta=1,
         )
 
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["power"]["mae"], 12.5, delta=2
+            static_quality["raw_state_2"]["power"]["mae"], 12.5, delta=2
         )
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["power"]["rmsd"], 17, delta=2
+            static_quality["raw_state_2"]["power"]["rmsd"], 17, delta=2
         )
 
         # low percentage error due to high s2_power_base (~~ 1.7 %)
         self.assertAlmostEqual(
-            static_quality["by_name"]["raw_state_2"]["power"]["smape"],
+            static_quality["raw_state_2"]["power"]["smape"],
             25 * 100 / s2_power_base,
             delta=1,
         )
 
         # raw_state_1/duration does not depend on parameters and delegates to the static model
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_1"]["duration"]["mae"],
-            static_quality["by_name"]["raw_state_1"]["duration"]["mae"],
+            param_quality["raw_state_1"]["duration"]["mae"],
+            static_quality["raw_state_1"]["duration"]["mae"],
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_1"]["duration"]["rmsd"],
-            static_quality["by_name"]["raw_state_1"]["duration"]["rmsd"],
+            param_quality["raw_state_1"]["duration"]["rmsd"],
+            static_quality["raw_state_1"]["duration"]["rmsd"],
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_1"]["duration"]["smape"],
-            static_quality["by_name"]["raw_state_1"]["duration"]["smape"],
+            param_quality["raw_state_1"]["duration"]["smape"],
+            static_quality["raw_state_1"]["duration"]["smape"],
         )
 
         # fitted param-model quality reflects normal distribution scale for all data
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["power"]["smape"], 0.9, places=1
+            param_quality["raw_state_2"]["power"]["smape"], 0.9, places=1
         )
 
-        self.assertTrue(
-            param_quality["by_name"]["raw_state_1"]["power"]["mae"] < s1_power_scale
-        )
-        self.assertTrue(
-            param_quality["by_name"]["raw_state_1"]["power"]["rmsd"] < s1_power_scale
-        )
+        self.assertTrue(param_quality["raw_state_1"]["power"]["mae"] < s1_power_scale)
+        self.assertTrue(param_quality["raw_state_1"]["power"]["rmsd"] < s1_power_scale)
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_1"]["power"]["smape"], 7.5, delta=1
+            param_quality["raw_state_1"]["power"]["smape"], 7.5, delta=1
         )
 
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["duration"]["mae"],
+            param_quality["raw_state_2"]["duration"]["mae"],
             s2_duration_scale,
             delta=0.2,
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["duration"]["rmsd"],
+            param_quality["raw_state_2"]["duration"]["rmsd"],
             s2_duration_scale,
             delta=0.2,
         )
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["duration"]["smape"],
-            0.12,
-            delta=0.01,
+            param_quality["raw_state_2"]["duration"]["smape"], 0.12, delta=0.01
         )
 
         # ... unless the signal-to-noise ratio (parameter range = [0 .. 50] vs. scale = 10) is bad, leading to
         # increased regression errors
-        self.assertTrue(param_quality["by_name"]["raw_state_2"]["power"]["mae"] < 15)
-        self.assertTrue(param_quality["by_name"]["raw_state_2"]["power"]["rmsd"] < 18)
+        self.assertTrue(param_quality["raw_state_2"]["power"]["mae"] < 15)
+        self.assertTrue(param_quality["raw_state_2"]["power"]["rmsd"] < 18)
 
         # still: low percentage error due to high s2_power_base
         self.assertAlmostEqual(
-            param_quality["by_name"]["raw_state_2"]["power"]["smape"], 0.9, places=1
+            param_quality["raw_state_2"]["power"]["smape"], 0.9, places=1
         )
 
 

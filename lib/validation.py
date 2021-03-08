@@ -172,12 +172,12 @@ class CrossValidator:
         return self._generic_xv(model_getter, training_and_validation_sets)
 
     def _generic_xv(self, model_getter, training_and_validation_sets):
-        ret = {"by_name": dict()}
+        ret = dict()
 
         for name in self.names:
-            ret["by_name"][name] = dict()
+            ret[name] = dict()
             for attribute in self.by_name[name]["attributes"]:
-                ret["by_name"][name][attribute] = {
+                ret[name][attribute] = {
                     "mae_list": list(),
                     "rmsd_list": list(),
                     "smape_list": list(),
@@ -188,15 +188,15 @@ class CrossValidator:
             for name in self.names:
                 for attribute in self.by_name[name]["attributes"]:
                     for measure in ("mae", "rmsd", "smape"):
-                        ret["by_name"][name][attribute][f"{measure}_list"].append(
-                            res["by_name"][name][attribute][measure]
+                        ret[name][attribute][f"{measure}_list"].append(
+                            res[name][attribute][measure]
                         )
 
         for name in self.names:
             for attribute in self.by_name[name]["attributes"]:
                 for measure in ("mae", "rmsd", "smape"):
-                    ret["by_name"][name][attribute][measure] = np.mean(
-                        ret["by_name"][name][attribute][f"{measure}_list"]
+                    ret[name][attribute][measure] = np.mean(
+                        ret[name][attribute][f"{measure}_list"]
                     )
 
         return ret

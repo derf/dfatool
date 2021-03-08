@@ -111,14 +111,14 @@ def format_quality_measures(result):
 
 
 def model_quality_table(result_lists, info_list):
-    for state_or_tran in result_lists[0]["by_name"].keys():
-        for key in result_lists[0]["by_name"][state_or_tran].keys():
+    for state_or_tran in result_lists[0].keys():
+        for key in result_lists[0][state_or_tran].keys():
             buf = "{:20s} {:15s}".format(state_or_tran, key)
             for i, results in enumerate(result_lists):
                 info = info_list[i]
                 buf += "  |||  "
                 if info is None or type(info(state_or_tran, key)) is not StaticFunction:
-                    result = results["by_name"][state_or_tran][key]
+                    result = results[state_or_tran][key]
                     buf += format_quality_measures(result)
                 else:
                     buf += "{:6}----{:9}".format("", "")
