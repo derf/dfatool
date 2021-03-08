@@ -331,6 +331,14 @@ class RawData:
                 self.ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
                 self.pta = self.ptalog["pta"]
 
+        if self.ptalog and len(filenames) > 1:
+            for filename in filenames[1:]:
+                with tarfile.open(filename) as tf:
+                    # TODO check compatibility
+                    self.ptalog["files"].extend(
+                        json.load(tf.extractfile(tf.getmember("ptalog.json")))["files"]
+                    )
+
         self.set_cache_file()
         if not with_traces and not skip_cache:
             self.load_cache()
@@ -954,7 +962,7 @@ class RawData:
 
                 new_filenames = list()
                 with tarfile.open(filename) as tf:
-                    ptalog = self.ptalog
+                    ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
 
                     # Benchmark code may be too large to be executed in a single
                     # run, so benchmarks (a benchmark is basically a list of DFA runs)
@@ -1000,9 +1008,9 @@ class RawData:
                             offline_data.append(
                                 {
                                     "content": tf.extractfile(member).read(),
-                                    "fileno": j,
+                                    "fileno": len(self.traces_by_fileno) - 1,
                                     "info": member,
-                                    "setup": self.setup_by_fileno[j],
+                                    "setup": self.setup_by_fileno[-1],
                                     "repeat_id": repeat_id,
                                     "expected_trace": ptalog["traces"][j],
                                     "with_traces": self.with_traces,
@@ -1014,7 +1022,7 @@ class RawData:
 
                 new_filenames = list()
                 with tarfile.open(filename) as tf:
-                    ptalog = self.ptalog
+                    ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
                     if "sync" in ptalog["opt"]["energytrace"]:
                         sync_mode = ptalog["opt"]["energytrace"]["sync"]
                     else:
@@ -1084,9 +1092,9 @@ class RawData:
                                         map(lambda f: tf.extractfile(f).read(), members)
                                     ),
                                     "sync_mode": sync_mode,
-                                    "fileno": j,
+                                    "fileno": len(self.traces_by_fileno) - 1,
                                     "info": members[0],
-                                    "setup": self.setup_by_fileno[j],
+                                    "setup": self.setup_by_fileno[-1],
                                     "repeat_id": repeat_id,
                                     "expected_trace": traces,
                                     "with_traces": self.with_traces,
