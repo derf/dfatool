@@ -48,6 +48,7 @@ class PELT:
         self.stretch = 1
         self.with_multiprocessing = True
         self.cache_dir = "cache"
+        self.tail_state_only = False
         self.__dict__.update(kwargs)
 
         self.jump = int(self.jump)
@@ -149,6 +150,10 @@ class PELT:
                     str_keys = list(res[1].keys())
                     for k in str_keys:
                         res[1][int(k)] = res[1].pop(k)
+            if self.tail_state_only:
+                for entry in data:
+                    for penalty in entry[1]:
+                        entry[1][penalty] = entry[1][penalty][-1:]
             if list_of_lists:
                 return data
             return data[0]
@@ -158,6 +163,11 @@ class PELT:
         )
         self.save_cache(traces, penalty, num_changepoints, data)
 
+        if self.tail_state_only:
+            for entry in data:
+                for penalty in entry[1]:
+                    entry[1][penalty] = entry[1][penalty][-1:]
+
         if list_of_lists:
             return data
         return data[0]
@@ -165,6 +175,17 @@ class PELT:
     def calculate_penalty_and_changepoints(
         self, traces, penalty=None, num_changepoints=None
     ):
+        """
+        foo.
+
+        :param traces: list of data traces for changepoint detection. traces[i] = [data value, data value, data value, ...]
+        :param penalty: return changepoints for given penalty instead of attempting to find one
+        :param num_changepoints: perform Dynp instead of Pelt with num_changepoints changepoints
+
+        :returns: [changepoints for traces[0], changespoints for traces[1], ...]
+            changespoints for traces[i] := (penalty, changepoint_dict)
+            changepoint_dict[penalty] := [traces[i] index of first changepoint, traces[i] index of second changepoint, ...]
+        """
         # imported here as ruptures is only used for changepoint detection.
         # This way, dfatool can be used without having ruptures installed as
         # long as --pelt isn't active.
