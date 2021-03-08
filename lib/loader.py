@@ -343,16 +343,19 @@ class RawData:
     def load_cache(self):
         if os.path.exists(self.cache_file):
             with open(self.cache_file, "r") as f:
-                cache_data = json.load(f)
-                self.filenames = cache_data["filenames"]
-                self.traces = cache_data["traces"]
-                self.preprocessing_stats = cache_data["preprocessing_stats"]
-                if "pta" in cache_data:
-                    self.pta = cache_data["pta"]
-                if "ptalog" in cache_data:
-                    self.ptalog = cache_data["ptalog"]
-                self.setup_by_fileno = cache_data["setup_by_fileno"]
-                self.preprocessed = True
+                try:
+                    cache_data = json.load(f)
+                    self.filenames = cache_data["filenames"]
+                    self.traces = cache_data["traces"]
+                    self.preprocessing_stats = cache_data["preprocessing_stats"]
+                    if "pta" in cache_data:
+                        self.pta = cache_data["pta"]
+                    if "ptalog" in cache_data:
+                        self.ptalog = cache_data["ptalog"]
+                    self.setup_by_fileno = cache_data["setup_by_fileno"]
+                    self.preprocessed = True
+                except json.decoder.JSONDecodeError as e:
+                    logger.info(f"Skipping cache entry {self.cache_file}: {e}")
 
     def save_cache(self):
         if self.with_traces:
@@ -914,12 +917,10 @@ class RawData:
         """
         if self.preprocessed:
             return self.traces
-        if self.version == 0:
-            self._preprocess_012(0)
-        elif self.version == 1:
-            self._preprocess_012(1)
-        elif self.version == 2:
-            self._preprocess_012(2)
+        if self.version <= 2:
+            self._preprocess_012(self.version)
+        else:
+            raise ValueError(f"Unsupported raw data version: {self.version}")
         self.preprocessed = True
         self.save_cache()
         return self.traces
@@ -1168,9 +1169,6 @@ class RawData:
         if version == 0:
             self.traces = self._concatenate_traces(self.traces_by_fileno)
         elif version == 1:
-            self.traces = self._concatenate_traces(
-                map(lambda x: x["expected_trace"], measurements)
-            )
             self.traces = self._concatenate_traces(self.traces_by_fileno)
         elif version == 2:
             self.traces = self._concatenate_traces(self.traces_by_fileno)
