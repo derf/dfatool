@@ -37,6 +37,24 @@ def PELT_get_raw_states(num_measurement, algo, penalty):
 
 class PELT:
     def __init__(self, **kwargs):
+        """
+        Create PELT instance for changepoint detection using Pelt or Dynp.
+
+        See <https://centre-borelli.github.io/ruptures-docs/user-guide/> for configuration details.
+
+        :param algo: Algorithm to use, either "pelt" or "dynp". Default: "pelt"
+        :param model: Distance / Optimization metric. Default: "l1"
+        :param jump: step size for changepoint detection, higher values give coarser results. Default: 1
+        :param min_dist: minimum number of data samples between two changepoints. Default: 10
+        :param name_filter: Unused
+        :param refinement_threshold: perform changepoint detection if p1 and median / p99 and median differ by more than `refinement_threshold`
+            for at least 1/3 of traces
+        :param range_min: Minimum penalty for penalty detection, inclusive. Default: 1
+        :param range_max: Maximum penalty for penalty detection, exclusive. default: 89
+        :param with_multiprocessing: Use multiprocessing to parallelize changepoint detection.
+            Set to False when calling PELT From within a parallelized function. Default: True
+        :param tail_state_only: Only report tail states (i.e., only report the last detected changepoint).
+        """
         self.algo = "pelt"
         self.model = "l1"
         self.jump = 1
@@ -106,6 +124,14 @@ class PELT:
         return cache_key
 
     def save_cache(self, traces, penalty, num_changepoints, data):
+        """
+        Save changepoint detection results (data) for given configuration (self, penalty, num_changepoints) and traces.
+
+        :param traces: List of traces
+        :param penalty: fixed penalty, may be None
+        :param num_changepoints: fixed number of changepoints, may be None
+        :param data: data returned by calculate_penalty_and_changepoints
+        """
         if self.cache_dir is None:
             return
         cache_key = self.cache_key(traces, penalty, num_changepoints)
@@ -124,6 +150,14 @@ class PELT:
             json.dump(data, f, cls=NpEncoder)
 
     def load_cache(self, traces, penalty, num_changepoints):
+        """
+        Return cached changepoints for given configuration (self, penalty, num_changepoints) and data (traces).
+
+        :param traces: List of traces
+        :param penalty: fixed penalty, may be None
+        :param num_changepoints: fixed number of changepoints, may be None
+        :returns: [changepoints for traces[0], changepoints for traces[1], ...] if cache data is present, None otherwise
+        """
         cache_key = self.cache_key(traces, penalty, num_changepoints)
         try:
             with open(
@@ -139,6 +173,19 @@ class PELT:
             return None
 
     def get_penalty_and_changepoints(self, traces, penalty=None, num_changepoints=None):
+        """
+        Return penalties and changepoints for a list of traces (of e.g. power over time), with caching.
+
+        :param traces: single data trace or list of data traces for changepoint detection.
+            Either traces = [data value, data value, data value, ...]
+            or traces[i] = [data value, data value, data value, ...]
+        :param penalty: return changepoints for given penalty instead of attempting to find one
+        :param num_changepoints: perform Dynp instead of Pelt with num_changepoints changepoints
+
+        :returns: Either [changepoints for traces[0], changespoints for traces[1], ...] or changepoints for traces
+            changespoints for traces := (penalty, changepoint_dict)
+            changepoint_dict[penalty] := [traces[i] index of first changepoint, traces[i] index of second changepoint, ...]
+        """
         list_of_lists = type(traces[0]) is list or type(traces[0]) is np.ndarray
         if not list_of_lists:
             traces = [traces]
@@ -176,7 +223,7 @@ class PELT:
         self, traces, penalty=None, num_changepoints=None
     ):
         """
-        foo.
+        Return penalties and changepoints for a list of traces (of e.g. power over time), without cache.
 
         :param traces: list of data traces for changepoint detection. traces[i] = [data value, data value, data value, ...]
         :param penalty: return changepoints for given penalty instead of attempting to find one
