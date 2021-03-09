@@ -24,15 +24,6 @@ from .mimosa import MIMOSA
 
 logger = logging.getLogger(__name__)
 
-try:
-    from .pubcode import Code128
-    import zbar
-
-    zbar_available = True
-except ImportError:
-    zbar_available = False
-
-
 arg_support_enabled = True
 
 
