@@ -243,17 +243,25 @@ def sanity_check_aggregate(aggregate):
                 )
 
 
-def ptalogs_are_compatible(pl1, pl2):
-    assert pl1["pta"]["parameters"] == pl2["pta"]["parameters"]
-    if list(sorted(pl1["pta"]["state"].keys())) != list(
-        sorted(pl2["pta"]["state"].keys())
-    ):
-        return False
-    if list(sorted(map(lambda t: t["name"], pl1["pta"]["transitions"]))) != list(
-        sorted(map(lambda t: t["name"], pl1["pta"]["transitions"]))
-    ):
-        return False
-    return True
+def assert_ptalog_compatibility(f1, pl1, f2, pl2):
+    param1 = pl1["pta"]["parameters"]
+    param2 = pl2["pta"]["parameters"]
+    if param1 != param2:
+        err = f"parameters in {f1} and {f2} are incompatible: {param1} ≠ {param2}"
+        logger.error(err)
+        raise ValueError(err)
+
+    states1 = list(sorted(pl1["pta"]["state"].keys()))
+    states2 = list(sorted(pl2["pta"]["state"].keys()))
+    if states1 != states2:
+        err = f"states in {f1} and {f2} differ: {states1} ≠ {states2}"
+        logger.warning(err)
+
+    transitions1 = list(sorted(map(lambda t: t["name"], pl1["pta"]["transitions"])))
+    transitions2 = list(sorted(map(lambda t: t["name"], pl1["pta"]["transitions"])))
+    if transitions1 != transitions2:
+        err = f"transitions in {f1} and {f2} differ: {transitions1} ≠ {transitions2}"
+        logger.warning(err)
 
 
 class RawData:
@@ -349,10 +357,9 @@ class RawData:
             for filename in filenames[1:]:
                 with tarfile.open(filename) as tf:
                     new_ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
-                    if not ptalogs_are_compatible(self.ptalog, new_ptalog):
-                        logger.warning(
-                            f"Benchmarks {filenames[0]} and {filename} may be incompatible"
-                        )
+                    assert_ptalog_compatibility(
+                        filenames[0], self.ptalog, filename, new_ptalog
+                    )
                     self.ptalog["files"].extend(new_ptalog["files"])
 
         self.set_cache_file()
