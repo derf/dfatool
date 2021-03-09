@@ -11,7 +11,7 @@ from dfatool.utils import NpEncoder, soft_cast_int
 logger = logging.getLogger(__name__)
 
 try:
-    from .pubcode import Code128
+    from dfatool.pubcode import Code128
     import zbar
 
     zbar_available = True
