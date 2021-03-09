@@ -76,9 +76,9 @@ def _preprocess_mimosa(measurement):
         return {
             "fileno": measurement["fileno"],
             "info": measurement["info"],
-            "has_datasource_error": len(mim.errors) > 0,
-            "datasource_errors": mim.errors,
+            "errors": mim.errors,
             "repeat_id": measurement["repeat_id"],
+            "valid": False,
         }
 
     cal_edges = mim.calibration_edges(
@@ -86,6 +86,14 @@ def _preprocess_mimosa(measurement):
     )
     calfunc, caldata = mim.calibration_function(charges, cal_edges)
     vcalfunc = np.vectorize(calfunc, otypes=[np.float64])
+    traces = mim.analyze_states(charges, trigidx, vcalfunc)
+
+    # the last (v0) / first (v1) state is not part of the benchmark
+    traces.pop(measurement["pop"])
+
+    mim.validate(
+        len(trigidx), traces, measurement["expected_trace"], setup["state_duration"]
+    )
 
     processed_data = {
         "fileno": measurement["fileno"],
@@ -93,9 +101,9 @@ def _preprocess_mimosa(measurement):
         "triggers": len(trigidx),
         "first_trig": trigidx[0] * 10,
         "calibration": caldata,
-        "energy_trace": mim.analyze_states(charges, trigidx, vcalfunc),
-        "has_datasource_error": len(mim.errors) > 0,
-        "datasource_errors": mim.errors,
+        "energy_trace": traces,
+        "errors": mim.errors,
+        "valid": len(mim.errors) == 0,
     }
 
     for key in ["repeat_id"]:
@@ -136,8 +144,8 @@ def _preprocess_etlog(measurement):
         "repeat_id": measurement["repeat_id"],
         "info": measurement["info"],
         "energy_trace": states_and_transitions,
-        "has_datasource_error": len(etlog.errors) > 0,
-        "datasource_errors": etlog.errors,
+        "valid": len(etlog.errors) == 0,
+        "errors": etlog.errors,
     }
 
     return processed_data
@@ -164,7 +172,6 @@ class TimingData:
         self.traces_by_fileno = []
         self.setup_by_fileno = []
         self.preprocessed = False
-        self._parameter_names = None
         self.version = 0
 
     def _concatenate_analyzed_traces(self):
@@ -242,6 +249,19 @@ def sanity_check_aggregate(aggregate):
                         key, param_len, key, attribute, attr_len
                     )
                 )
+
+
+def assert_legacy_compatibility(f1, t1, f2, t2):
+    expected_param_names = sorted(
+        t1["expected_trace"][0]["trace"][0]["parameter"].keys()
+    )
+    for run in t2["expected_trace"]:
+        for state_or_trans in run["trace"]:
+            actual_param_names = sorted(state_or_trans["parameter"].keys())
+            if actual_param_names != expected_param_names:
+                err = f"parameters in {f1} and {f2} are incompatible: {expected_param_names} ≠ {actual_param_names}"
+                logger.error(err)
+                raise ValueError(err)
 
 
 def assert_ptalog_compatibility(f1, pl1, f2, pl2):
@@ -417,210 +437,6 @@ class RawData:
             ),
         }
 
-    def _state_is_too_short(self, online, offline, state_duration, next_transition):
-        # We cannot control when an interrupt causes a state to be left
-        if next_transition["plan"]["level"] == "epilogue":
-            return False
-
-        # Note: state_duration is stored as ms, not us
-        return offline["us"] < state_duration * 500
-
-    def _state_is_too_long(self, online, offline, state_duration, prev_transition):
-        # If the previous state was left by an interrupt, we may have some
-        # waiting time left over. So it's okay if the current state is longer
-        # than expected.
-        if prev_transition["plan"]["level"] == "epilogue":
-            return False
-        # state_duration is stored as ms, not us
-        return offline["us"] > state_duration * 1500
-
-    def _measurement_is_valid_2(self, processed_data):
-        """
-        Check if a dfatool v2 measurement is valid.
-
-        processed_data layout:
-        'fileno' : measurement['fileno'],
-        'info' : measurement['info'],
-        'energy_trace' : etlog.analyze_states()
-            A sequence of unnamed, unparameterized states and transitions with
-            power and timing data
-        etlog.analyze_states returns a list of (alternating) states and transitions.
-        Each element is a dict containing:
-            - isa: 'state' oder 'transition'
-            - W_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
-            - W_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
-            - s: duration
-
-            if isa == 'transition':
-            - W_mean_delta_prev: Differenz zwischen W_mean und W_mean des vorherigen Zustands
-            - W_mean_delta_next: Differenz zwischen W_mean und W_mean des Folgezustands
-        """
-
-        # Check for low-level parser errors
-        if processed_data["has_datasource_error"]:
-            processed_data["error"] = "; ".join(processed_data["datasource_errors"])
-            return False
-
-        # Note that the low-level parser (EnergyTraceWithBarcode) already checks
-        # whether the transition count is correct
-
-        return True
-
-    def _measurement_is_valid_01(self, processed_data):
-        """
-        Check if a dfatool v0 or v1 measurement is valid.
-
-        processed_data layout:
-        'fileno' : measurement['fileno'],
-        'info' : measurement['info'],
-        'triggers' : len(trigidx),
-        'first_trig' : trigidx[0] * 10,
-        'calibration' : caldata,
-        'energy_trace' : mim.analyze_states(charges, trigidx, vcalfunc)
-            A sequence of unnamed, unparameterized states and transitions with
-            power and timing data
-        mim.analyze_states returns a list of (alternating) states and transitions.
-        Each element is a dict containing:
-            - isa: 'state' oder 'transition'
-            - clip_rate: range(0..1) Anteil an Clipping im Energieverbrauch
-            - raw_mean: Mittelwert der Rohwerte
-            - raw_std: Standardabweichung der Rohwerte
-            - uW_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
-            - uW_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
-            - us: Dauer
-
-            Nur falls isa == 'transition':
-            - timeout: Dauer des vorherigen Zustands
-            - uW_mean_delta_prev: Differenz zwischen uW_mean und uW_mean des vorherigen Zustands
-            - uW_mean_delta_next: Differenz zwischen uW_mean und uW_mean des Folgezustands
-        """
-        setup = self.setup_by_fileno[processed_data["fileno"]]
-        traces = self.traces_by_fileno[processed_data["fileno"]]
-        state_duration = setup["state_duration"]
-
-        # Check MIMOSA error
-        if processed_data["has_datasource_error"]:
-            processed_data["error"] = "; ".join(processed_data["datasource_errors"])
-            return False
-
-        # Check trigger count
-        sched_trigger_count = 0
-        for run in traces:
-            sched_trigger_count += len(run["trace"])
-        if sched_trigger_count != processed_data["triggers"]:
-            processed_data[
-                "error"
-            ] = "got {got:d} trigger edges, expected {exp:d}".format(
-                got=processed_data["triggers"], exp=sched_trigger_count
-            )
-            return False
-        # Check state durations. Very short or long states can indicate a
-        # missed trigger signal which wasn't detected due to duplicate
-        # triggers elsewhere
-        online_datapoints = []
-        for run_idx, run in enumerate(traces):
-            for trace_part_idx in range(len(run["trace"])):
-                online_datapoints.append((run_idx, trace_part_idx))
-        for offline_idx, online_ref in enumerate(online_datapoints):
-            online_run_idx, online_trace_part_idx = online_ref
-            offline_trace_part = processed_data["energy_trace"][offline_idx]
-            online_trace_part = traces[online_run_idx]["trace"][online_trace_part_idx]
-
-            if self._parameter_names is None:
-                self._parameter_names = sorted(online_trace_part["parameter"].keys())
-
-            if sorted(online_trace_part["parameter"].keys()) != self._parameter_names:
-                processed_data[
-                    "error"
-                ] = "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) has inconsistent parameter set: should be {param_want}, is {param_is}".format(
-                    off_idx=offline_idx,
-                    on_idx=online_run_idx,
-                    on_sub=online_trace_part_idx,
-                    on_name=online_trace_part["name"],
-                    param_want=self._parameter_names,
-                    param_is=sorted(online_trace_part["parameter"].keys()),
-                )
-
-            if online_trace_part["isa"] != offline_trace_part["isa"]:
-                processed_data[
-                    "error"
-                ] = "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) claims to be {off_isa:s}, but should be {on_isa:s}".format(
-                    off_idx=offline_idx,
-                    on_idx=online_run_idx,
-                    on_sub=online_trace_part_idx,
-                    on_name=online_trace_part["name"],
-                    off_isa=offline_trace_part["isa"],
-                    on_isa=online_trace_part["isa"],
-                )
-                return False
-
-            # Clipping in UNINITIALIZED (offline_idx == 0) can happen during
-            # calibration and is handled by MIMOSA
-            if (
-                offline_idx != 0
-                and offline_trace_part["clip_rate"] != 0
-                and not self.ignore_clipping
-            ):
-                processed_data[
-                    "error"
-                ] = "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) was clipping {clip:f}% of the time".format(
-                    off_idx=offline_idx,
-                    on_idx=online_run_idx,
-                    on_sub=online_trace_part_idx,
-                    on_name=online_trace_part["name"],
-                    clip=offline_trace_part["clip_rate"] * 100,
-                )
-                return False
-
-            if (
-                online_trace_part["isa"] == "state"
-                and online_trace_part["name"] != "UNINITIALIZED"
-                and len(traces[online_run_idx]["trace"]) > online_trace_part_idx + 1
-            ):
-                online_prev_transition = traces[online_run_idx]["trace"][
-                    online_trace_part_idx - 1
-                ]
-                online_next_transition = traces[online_run_idx]["trace"][
-                    online_trace_part_idx + 1
-                ]
-                try:
-                    if self._state_is_too_short(
-                        online_trace_part,
-                        offline_trace_part,
-                        state_duration,
-                        online_next_transition,
-                    ):
-                        processed_data[
-                            "error"
-                        ] = "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too short (duration = {dur:d} us)".format(
-                            off_idx=offline_idx,
-                            on_idx=online_run_idx,
-                            on_sub=online_trace_part_idx,
-                            on_name=online_trace_part["name"],
-                            dur=offline_trace_part["us"],
-                        )
-                        return False
-                    if self._state_is_too_long(
-                        online_trace_part,
-                        offline_trace_part,
-                        state_duration,
-                        online_prev_transition,
-                    ):
-                        processed_data[
-                            "error"
-                        ] = "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too long (duration = {dur:d} us)".format(
-                            off_idx=offline_idx,
-                            on_idx=online_run_idx,
-                            on_sub=online_trace_part_idx,
-                            on_name=online_trace_part["name"],
-                            dur=offline_trace_part["us"],
-                        )
-                        return False
-                except KeyError:
-                    pass
-                    # TODO es gibt next_transitions ohne 'plan'
-        return True
-
     def _merge_online_and_mimosa(self, measurement):
         # Edits self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline']
         # and self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline_aggregates'] in place
@@ -631,8 +447,9 @@ class RawData:
         for run_idx, run in enumerate(traces):
             for trace_part_idx in range(len(run["trace"])):
                 online_datapoints.append((run_idx, trace_part_idx))
-        for offline_idx, online_ref in enumerate(online_datapoints):
-            online_run_idx, online_trace_part_idx = online_ref
+        for offline_idx, (online_run_idx, online_trace_part_idx) in enumerate(
+            online_datapoints
+        ):
             offline_trace_part = measurement["energy_trace"][offline_idx]
             online_trace_part = traces[online_run_idx]["trace"][online_trace_part_idx]
 
@@ -757,8 +574,9 @@ class RawData:
         for run_idx, run in enumerate(traces):
             for trace_part_idx in range(len(run["trace"])):
                 online_datapoints.append((run_idx, trace_part_idx))
-        for offline_idx, online_ref in enumerate(online_datapoints):
-            online_run_idx, online_trace_part_idx = online_ref
+        for offline_idx, (online_run_idx, online_trace_part_idx) in enumerate(
+            online_datapoints
+        ):
             try:
                 offline_trace_part = measurement["energy_trace"][offline_idx]
             except IndexError:
@@ -967,9 +785,13 @@ class RawData:
                             offline_data.append(
                                 {
                                     "content": tf.extractfile(member).read(),
+                                    # only for validation
+                                    "expected_trace": traces,
                                     "fileno": i,
                                     # For debug output and warnings
                                     "info": member,
+                                    # Strip the last state (it is not part of the scheduled measurement)
+                                    "pop": -1,
                                     "setup": self.setup_by_fileno[i],
                                     "with_traces": self.with_traces,
                                 }
@@ -1024,9 +846,14 @@ class RawData:
                             offline_data.append(
                                 {
                                     "content": tf.extractfile(member).read(),
+                                    # only for validation
+                                    "expected_trace": traces,
                                     "fileno": len(self.traces_by_fileno) - 1,
                                     # For debug output and warnings
                                     "info": member,
+                                    # The first online measurement is the UNINITIALIZED state. In v1,
+                                    # it is not part of the expected PTA trace -> remove it.
+                                    "pop": 0,
                                     "setup": self.setup_by_fileno[-1],
                                     "repeat_id": repeat_id,  # needed to add runtime "return_value.apply_from" parameters to offline_aggregates.
                                     "with_traces": self.with_traces,
@@ -1131,6 +958,15 @@ class RawData:
                 # will not linger in 'offline_aggregates' and confuse the hell
                 # out of other code paths
 
+        if self.version == 0 and len(self.input_filenames) > 1:
+            for entry in offline_data:
+                assert_legacy_compatibility(
+                    self.input_filenames[0],
+                    offline_data[0],
+                    self.input_filenames[entry["fileno"]],
+                    entry,
+                )
+
         with Pool() as pool:
             if self.version <= 1:
                 measurements = pool.map(_preprocess_mimosa, offline_data)
@@ -1145,21 +981,13 @@ class RawData:
                     "Skipping {ar:s}/{m:s}: {e:s}".format(
                         ar=self.filenames[measurement["fileno"]],
                         m=measurement["info"].name,
-                        e="; ".join(measurement["datasource_errors"]),
+                        e="; ".join(measurement["errors"]),
                     )
                 )
                 continue
 
-            if version == 0:
-                # Strip the last state (it is not part of the scheduled measurement)
-                measurement["energy_trace"].pop()
-            elif version == 1:
-                # The first online measurement is the UNINITIALIZED state. In v1,
-                # it is not part of the expected PTA trace -> remove it.
-                measurement["energy_trace"].pop(0)
-
             if version == 0 or version == 1:
-                if self._measurement_is_valid_01(measurement):
+                if measurement["valid"]:
                     self._merge_online_and_mimosa(measurement)
                     num_valid += 1
                 else:
@@ -1167,11 +995,11 @@ class RawData:
                         "Skipping {ar:s}/{m:s}: {e:s}".format(
                             ar=self.filenames[measurement["fileno"]],
                             m=measurement["info"].name,
-                            e=measurement["error"],
+                            e="; ".join(measurement["errors"]),
                         )
                     )
             elif version == 2:
-                if self._measurement_is_valid_2(measurement):
+                if measurement["valid"]:
                     try:
                         self._merge_online_and_etlog(measurement)
                         num_valid += 1
@@ -1184,7 +1012,7 @@ class RawData:
                         "Skipping {ar:s}/{m:s}: {e:s}".format(
                             ar=self.filenames[measurement["fileno"]],
                             m=measurement["info"].name,
-                            e=measurement["error"],
+                            e="; ".join(measurement["errors"]),
                         )
                     )
         logger.info(
@@ -1224,8 +1052,6 @@ def _add_trace_data_to_aggregate(aggregate, key, element):
                 "rel_energy_prev",
                 "rel_energy_next",
             ]
-            # Uncomment this line if you also want to analyze mean transition power
-            # aggregate[key]['attributes'].append('power')
             if "plan" in element and element["plan"]["level"] == "epilogue":
                 aggregate[key]["attributes"].insert(0, "timeout")
         attributes = aggregate[key]["attributes"].copy()
@@ -2031,6 +1857,23 @@ class MIMOSA:
         ua_step = ua_max / 65535
         return charge * ua_step
 
+    def _state_is_too_short(self, online, offline, state_duration, next_transition):
+        # We cannot control when an interrupt causes a state to be left
+        if next_transition["plan"]["level"] == "epilogue":
+            return False
+
+        # Note: state_duration is stored as ms, not us
+        return offline["us"] < state_duration * 500
+
+    def _state_is_too_long(self, online, offline, state_duration, prev_transition):
+        # If the previous state was left by an interrupt, we may have some
+        # waiting time left over. So it's okay if the current state is longer
+        # than expected.
+        if prev_transition["plan"]["level"] == "epilogue":
+            return False
+        # state_duration is stored as ms, not us
+        return offline["us"] > state_duration * 1500
+
     def _load_tf(self, tf):
         """
         Load MIMOSA log data from an open `tarfile` instance.
@@ -2280,6 +2123,8 @@ class MIMOSA:
             * `timeout`: Dauer des vorherigen Zustands
             * `uW_mean_delta_prev`: Differenz zwischen uW_mean und uW_mean des vorherigen Zustands
             * `uW_mean_delta_next`: Differenz zwischen uW_mean und uW_mean des Folgezustands
+            if `self.with_traces` is true, it also contains:
+            * `plot`: (timestamps [s], power readings [W])
         """
         previdx = 0
         is_state = True
@@ -2333,3 +2178,141 @@ class MIMOSA:
             previdx = idx
             is_state = not is_state
         return iterdata
+
+    def validate(self, num_triggers, observed_trace, expected_traces, state_duration):
+        """
+        Check if a dfatool v0 or v1 measurement is valid.
+
+        processed_data layout:
+        'fileno' : measurement['fileno'],
+        'info' : measurement['info'],
+        'triggers' : len(trigidx),
+        'first_trig' : trigidx[0] * 10,
+        'calibration' : caldata,
+        'energy_trace' : mim.analyze_states(charges, trigidx, vcalfunc)
+            A sequence of unnamed, unparameterized states and transitions with
+            power and timing data
+        mim.analyze_states returns a list of (alternating) states and transitions.
+        Each element is a dict containing:
+            - isa: 'state' oder 'transition'
+            - clip_rate: range(0..1) Anteil an Clipping im Energieverbrauch
+            - raw_mean: Mittelwert der Rohwerte
+            - raw_std: Standardabweichung der Rohwerte
+            - uW_mean: Mittelwert der (kalibrierten) Leistungsaufnahme
+            - uW_std: Standardabweichung der (kalibrierten) Leistungsaufnahme
+            - us: Dauer
+
+            Nur falls isa == 'transition':
+            - timeout: Dauer des vorherigen Zustands
+            - uW_mean_delta_prev: Differenz zwischen uW_mean und uW_mean des vorherigen Zustands
+            - uW_mean_delta_next: Differenz zwischen uW_mean und uW_mean des Folgezustands
+        """
+        if len(self.errors):
+            return False
+
+        # Check trigger count
+        sched_trigger_count = 0
+        for run in expected_traces:
+            sched_trigger_count += len(run["trace"])
+        if sched_trigger_count != num_triggers:
+            self.errors.append(
+                "got {got:d} trigger edges, expected {exp:d}".format(
+                    got=num_triggers, exp=sched_trigger_count
+                )
+            )
+            return False
+        # Check state durations. Very short or long states can indicate a
+        # missed trigger signal which wasn't detected due to duplicate
+        # triggers elsewhere
+        online_datapoints = []
+        for run_idx, run in enumerate(expected_traces):
+            for trace_part_idx in range(len(run["trace"])):
+                online_datapoints.append((run_idx, trace_part_idx))
+        for offline_idx, (online_run_idx, online_trace_part_idx) in enumerate(
+            online_datapoints
+        ):
+            offline_trace_part = observed_trace[offline_idx]
+            online_trace_part = expected_traces[online_run_idx]["trace"][
+                online_trace_part_idx
+            ]
+
+            if online_trace_part["isa"] != offline_trace_part["isa"]:
+                self.errors.append(
+                    "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) claims to be {off_isa:s}, but should be {on_isa:s}".format(
+                        off_idx=offline_idx,
+                        on_idx=online_run_idx,
+                        on_sub=online_trace_part_idx,
+                        on_name=online_trace_part["name"],
+                        off_isa=offline_trace_part["isa"],
+                        on_isa=online_trace_part["isa"],
+                    )
+                )
+                return False
+
+            # Clipping in UNINITIALIZED (offline_idx == 0) can happen during
+            # calibration and is handled by MIMOSA
+            if (
+                offline_idx != 0
+                and offline_trace_part["clip_rate"] != 0
+                and not self.ignore_clipping
+            ):
+                self.errors.append(
+                    "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) was clipping {clip:f}% of the time".format(
+                        off_idx=offline_idx,
+                        on_idx=online_run_idx,
+                        on_sub=online_trace_part_idx,
+                        on_name=online_trace_part["name"],
+                        clip=offline_trace_part["clip_rate"] * 100,
+                    )
+                )
+                return False
+
+            if (
+                online_trace_part["isa"] == "state"
+                and online_trace_part["name"] != "UNINITIALIZED"
+                and len(expected_traces[online_run_idx]["trace"])
+                > online_trace_part_idx + 1
+            ):
+                online_prev_transition = expected_traces[online_run_idx]["trace"][
+                    online_trace_part_idx - 1
+                ]
+                online_next_transition = expected_traces[online_run_idx]["trace"][
+                    online_trace_part_idx + 1
+                ]
+                try:
+                    if self._state_is_too_short(
+                        online_trace_part,
+                        offline_trace_part,
+                        state_duration,
+                        online_next_transition,
+                    ):
+                        self.errors.append(
+                            "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too short (duration = {dur:d} us)".format(
+                                off_idx=offline_idx,
+                                on_idx=online_run_idx,
+                                on_sub=online_trace_part_idx,
+                                on_name=online_trace_part["name"],
+                                dur=offline_trace_part["us"],
+                            )
+                        )
+                        return False
+                    if self._state_is_too_long(
+                        online_trace_part,
+                        offline_trace_part,
+                        state_duration,
+                        online_prev_transition,
+                    ):
+                        self.errors.append(
+                            "Offline #{off_idx:d} (online {on_name:s} @ {on_idx:d}/{on_sub:d}) is too long (duration = {dur:d} us)".format(
+                                off_idx=offline_idx,
+                                on_idx=online_run_idx,
+                                on_sub=online_trace_part_idx,
+                                on_name=online_trace_part["name"],
+                                dur=offline_trace_part["us"],
+                            )
+                        )
+                        return False
+                except KeyError:
+                    pass
+                    # TODO es gibt next_transitions ohne 'plan'
+        return True
