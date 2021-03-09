@@ -968,6 +968,7 @@ class RawData:
                                 {
                                     "content": tf.extractfile(member).read(),
                                     "fileno": i,
+                                    # For debug output and warnings
                                     "info": member,
                                     "setup": self.setup_by_fileno[i],
                                     "with_traces": self.with_traces,
@@ -1024,9 +1025,10 @@ class RawData:
                                 {
                                     "content": tf.extractfile(member).read(),
                                     "fileno": len(self.traces_by_fileno) - 1,
+                                    # For debug output and warnings
                                     "info": member,
                                     "setup": self.setup_by_fileno[-1],
-                                    "repeat_id": repeat_id,
+                                    "repeat_id": repeat_id,  # needed to add runtime "return_value.apply_from" parameters to offline_aggregates.
                                     "with_traces": self.with_traces,
                                 }
                             )
@@ -1103,13 +1105,18 @@ class RawData:
                                     "content": list(
                                         map(lambda f: tf.extractfile(f).read(), members)
                                     ),
+                                    # used to determine EnergyTrace class for analysis
                                     "sync_mode": sync_mode,
                                     "fileno": len(self.traces_by_fileno) - 1,
+                                    # For debug output and warnings
                                     "info": members[0],
                                     "setup": self.setup_by_fileno[-1],
+                                    # needed to add runtime "return_value.apply_from" parameters to offline_aggregates, also for EnergyTraceWithBarcode
                                     "repeat_id": repeat_id,
-                                    "expected_trace": traces,  # only for validation
+                                    # only for validation
+                                    "expected_trace": traces,
                                     "with_traces": self.with_traces,
+                                    # only for EnergyTraceWithBarcode
                                     "transition_names": list(
                                         map(
                                             lambda x: x["name"],
