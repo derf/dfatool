@@ -243,6 +243,19 @@ def sanity_check_aggregate(aggregate):
                 )
 
 
+def ptalogs_are_compatible(pl1, pl2):
+    assert pl1["pta"]["parameters"] == pl2["pta"]["parameters"]
+    if list(sorted(pl1["pta"]["state"].keys())) != list(
+        sorted(pl2["pta"]["state"].keys())
+    ):
+        return False
+    if list(sorted(map(lambda t: t["name"], pl1["pta"]["transitions"]))) != list(
+        sorted(map(lambda t: t["name"], pl1["pta"]["transitions"]))
+    ):
+        return False
+    return True
+
+
 class RawData:
     """
     Loader for hardware model traces measured with MIMOSA.
@@ -335,10 +348,12 @@ class RawData:
         if self.ptalog and len(filenames) > 1:
             for filename in filenames[1:]:
                 with tarfile.open(filename) as tf:
-                    # TODO check compatibility
-                    self.ptalog["files"].extend(
-                        json.load(tf.extractfile(tf.getmember("ptalog.json")))["files"]
-                    )
+                    new_ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
+                    if not ptalogs_are_compatible(self.ptalog, new_ptalog):
+                        logger.warning(
+                            f"Benchmarks {filenames[0]} and {filename} may be incompatible"
+                        )
+                    self.ptalog["files"].extend(new_ptalog["files"])
 
         self.set_cache_file()
         if not with_traces and not skip_cache:
