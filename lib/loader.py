@@ -78,7 +78,6 @@ def _preprocess_mimosa(measurement):
             "info": measurement["info"],
             "has_datasource_error": len(mim.errors) > 0,
             "datasource_errors": mim.errors,
-            "expected_trace": measurement["expected_trace"],
             "repeat_id": measurement["repeat_id"],
         }
 
@@ -99,7 +98,7 @@ def _preprocess_mimosa(measurement):
         "datasource_errors": mim.errors,
     }
 
-    for key in ["expected_trace", "repeat_id"]:
+    for key in ["repeat_id"]:
         if key in measurement:
             processed_data[key] = measurement[key]
 
@@ -136,7 +135,6 @@ def _preprocess_etlog(measurement):
         "fileno": measurement["fileno"],
         "repeat_id": measurement["repeat_id"],
         "info": measurement["info"],
-        "expected_trace": measurement["expected_trace"],
         "energy_trace": states_and_transitions,
         "has_datasource_error": len(etlog.errors) > 0,
         "datasource_errors": etlog.errors,
@@ -160,6 +158,9 @@ class TimingData:
         Each filenames element corresponds to a measurement run.
         """
         self.filenames = filenames.copy()
+        # holds the benchmark plan (dfa traces) for each series of benchmark runs.
+        # Note that a single entry typically has more than one corresponding mimosa/energytrace benchmark files,
+        # as benchmarks are run repeatedly to distinguish between random and parameter-dependent measurement effects.
         self.traces_by_fileno = []
         self.setup_by_fileno = []
         self.preprocessed = False
@@ -443,7 +444,6 @@ class RawData:
         'energy_trace' : etlog.analyze_states()
             A sequence of unnamed, unparameterized states and transitions with
             power and timing data
-        'expected_trace' : trace from PTA DFS (with parameter data)
         etlog.analyze_states returns a list of (alternating) states and transitions.
         Each element is a dict containing:
             - isa: 'state' oder 'transition'
@@ -479,7 +479,6 @@ class RawData:
         'energy_trace' : mim.analyze_states(charges, trigidx, vcalfunc)
             A sequence of unnamed, unparameterized states and transitions with
             power and timing data
-        'expected_trace' : trace from PTA DFS (with parameter data)
         mim.analyze_states returns a list of (alternating) states and transitions.
         Each element is a dict containing:
             - isa: 'state' oder 'transition'
@@ -496,10 +495,7 @@ class RawData:
             - uW_mean_delta_next: Differenz zwischen uW_mean und uW_mean des Folgezustands
         """
         setup = self.setup_by_fileno[processed_data["fileno"]]
-        if "expected_trace" in processed_data:
-            traces = processed_data["expected_trace"]
-        else:
-            traces = self.traces_by_fileno[processed_data["fileno"]]
+        traces = self.traces_by_fileno[processed_data["fileno"]]
         state_duration = setup["state_duration"]
 
         # Check MIMOSA error
@@ -629,14 +625,9 @@ class RawData:
         # Edits self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline']
         # and self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline_aggregates'] in place
         # (appends data from measurement['energy_trace'])
-        # If measurement['expected_trace'] exists, it is edited in place instead
         # "offline_aggregates" is the only data used later on by model.py's by_name / by_param dicts
         online_datapoints = []
-        if "expected_trace" in measurement:
-            traces = measurement["expected_trace"]
-            traces = self.traces_by_fileno[measurement["fileno"]]
-        else:
-            traces = self.traces_by_fileno[measurement["fileno"]]
+        traces = self.traces_by_fileno[measurement["fileno"]]
         for run_idx, run in enumerate(traces):
             for trace_part_idx in range(len(run["trace"])):
                 online_datapoints.append((run_idx, trace_part_idx))
@@ -966,9 +957,10 @@ class RawData:
                 self.filenames = self.input_filenames
                 with tarfile.open(filename) as tf:
                     self.setup_by_fileno.append(json.load(tf.extractfile("setup.json")))
-                    self.traces_by_fileno.append(
-                        json.load(tf.extractfile("src/apps/DriverEval/DriverLog.json"))
+                    traces = json.load(
+                        tf.extractfile("src/apps/DriverEval/DriverLog.json")
                     )
+                    self.traces_by_fileno.append(traces)
                     for member in tf.getmembers():
                         _, extension = os.path.splitext(member.name)
                         if extension == ".mim":
@@ -1035,7 +1027,6 @@ class RawData:
                                     "info": member,
                                     "setup": self.setup_by_fileno[-1],
                                     "repeat_id": repeat_id,
-                                    "expected_trace": ptalog["traces"][j],
                                     "with_traces": self.with_traces,
                                 }
                             )
@@ -1117,7 +1108,7 @@ class RawData:
                                     "info": members[0],
                                     "setup": self.setup_by_fileno[-1],
                                     "repeat_id": repeat_id,
-                                    "expected_trace": traces,
+                                    "expected_trace": traces,  # only for validation
                                     "with_traces": self.with_traces,
                                     "transition_names": list(
                                         map(
