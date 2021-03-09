@@ -96,8 +96,6 @@ def _preprocess_mimosa(measurement):
     )
 
     processed_data = {
-        "fileno": measurement["fileno"],
-        "info": measurement["info"],
         "triggers": len(trigidx),
         "first_trig": trigidx[0] * 10,
         "calibration": caldata,
@@ -106,9 +104,8 @@ def _preprocess_mimosa(measurement):
         "valid": len(mim.errors) == 0,
     }
 
-    for key in ["repeat_id"]:
-        if key in measurement:
-            processed_data[key] = measurement[key]
+    for key in ["fileno", "info", "repeat_id"]:
+        processed_data[key] = measurement[key]
 
     return processed_data
 
@@ -437,253 +434,6 @@ class RawData:
             ),
         }
 
-    def _merge_online_and_mimosa(self, measurement):
-        # Edits self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline']
-        # and self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline_aggregates'] in place
-        # (appends data from measurement['energy_trace'])
-        # "offline_aggregates" is the only data used later on by model.py's by_name / by_param dicts
-        online_datapoints = []
-        traces = self.traces_by_fileno[measurement["fileno"]]
-        for run_idx, run in enumerate(traces):
-            for trace_part_idx in range(len(run["trace"])):
-                online_datapoints.append((run_idx, trace_part_idx))
-        for offline_idx, (online_run_idx, online_trace_part_idx) in enumerate(
-            online_datapoints
-        ):
-            offline_trace_part = measurement["energy_trace"][offline_idx]
-            online_trace_part = traces[online_run_idx]["trace"][online_trace_part_idx]
-
-            if "offline" not in online_trace_part:
-                online_trace_part["offline"] = [offline_trace_part]
-            else:
-                online_trace_part["offline"].append(offline_trace_part)
-
-            paramkeys = sorted(online_trace_part["parameter"].keys())
-
-            paramvalues = list()
-
-            for paramkey in paramkeys:
-                if type(online_trace_part["parameter"][paramkey]) is list:
-                    paramvalues.append(
-                        soft_cast_int(
-                            online_trace_part["parameter"][paramkey][
-                                measurement["repeat_id"]
-                            ]
-                        )
-                    )
-                else:
-                    paramvalues.append(
-                        soft_cast_int(online_trace_part["parameter"][paramkey])
-                    )
-
-            # NB: Unscheduled transitions do not have an 'args' field set.
-            # However, they should only be caused by interrupts, and
-            # interrupts don't have args anyways.
-            if arg_support_enabled and "args" in online_trace_part:
-                paramvalues.extend(map(soft_cast_int, online_trace_part["args"]))
-
-            # TODO rename offline_aggregates to make it clear that this is what ends up in by_name / by_param and model.py
-            if "offline_aggregates" not in online_trace_part:
-                online_trace_part["offline_attributes"] = [
-                    "power",
-                    "duration",
-                    "energy",
-                ]
-                # this is what ends up in by_name / by_param and is used by model.py
-                online_trace_part["offline_aggregates"] = {
-                    "power": [],
-                    "duration": [],
-                    "power_std": [],
-                    "energy": [],
-                    "paramkeys": [],
-                    "param": [],
-                }
-                if online_trace_part["isa"] == "transition":
-                    online_trace_part["offline_attributes"].extend(
-                        [
-                            "rel_energy_prev",
-                            "rel_energy_next",
-                            "rel_power_prev",
-                            "rel_power_next",
-                            "timeout",
-                        ]
-                    )
-                    online_trace_part["offline_aggregates"]["rel_energy_prev"] = []
-                    online_trace_part["offline_aggregates"]["rel_energy_next"] = []
-                    online_trace_part["offline_aggregates"]["rel_power_prev"] = []
-                    online_trace_part["offline_aggregates"]["rel_power_next"] = []
-                    online_trace_part["offline_aggregates"]["timeout"] = []
-                if "plot" in offline_trace_part:
-                    online_trace_part["offline_support"] = [
-                        "power_traces",
-                        "timestamps",
-                    ]
-                    online_trace_part["offline_aggregates"]["power_traces"] = list()
-                    online_trace_part["offline_aggregates"]["timestamps"] = list()
-
-            # Note: All state/transitions are 20us "too long" due to injected
-            # active wait states. These are needed to work around MIMOSA's
-            # relatively low sample rate of 100 kHz (10us) and removed here.
-            online_trace_part["offline_aggregates"]["power"].append(
-                offline_trace_part["uW_mean"]
-            )
-            online_trace_part["offline_aggregates"]["duration"].append(
-                offline_trace_part["us"] - 20
-            )
-            online_trace_part["offline_aggregates"]["power_std"].append(
-                offline_trace_part["uW_std"]
-            )
-            online_trace_part["offline_aggregates"]["energy"].append(
-                offline_trace_part["uW_mean"] * (offline_trace_part["us"] - 20)
-            )
-            online_trace_part["offline_aggregates"]["paramkeys"].append(paramkeys)
-            online_trace_part["offline_aggregates"]["param"].append(paramvalues)
-            if online_trace_part["isa"] == "transition":
-                online_trace_part["offline_aggregates"]["rel_energy_prev"].append(
-                    offline_trace_part["uW_mean_delta_prev"]
-                    * (offline_trace_part["us"] - 20)
-                )
-                online_trace_part["offline_aggregates"]["rel_energy_next"].append(
-                    offline_trace_part["uW_mean_delta_next"]
-                    * (offline_trace_part["us"] - 20)
-                )
-                online_trace_part["offline_aggregates"]["rel_power_prev"].append(
-                    offline_trace_part["uW_mean_delta_prev"]
-                )
-                online_trace_part["offline_aggregates"]["rel_power_next"].append(
-                    offline_trace_part["uW_mean_delta_next"]
-                )
-                online_trace_part["offline_aggregates"]["timeout"].append(
-                    offline_trace_part["timeout"]
-                )
-
-            if "plot" in offline_trace_part:
-                online_trace_part["offline_aggregates"]["power_traces"].append(
-                    offline_trace_part["plot"][1]
-                )
-                online_trace_part["offline_aggregates"]["timestamps"].append(
-                    offline_trace_part["plot"][0]
-                )
-
-    def _merge_online_and_etlog(self, measurement):
-        # Edits self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline']
-        # and self.traces_by_fileno[measurement['fileno']][*]['trace'][*]['offline_aggregates'] in place
-        # (appends data from measurement['energy_trace'])
-        online_datapoints = []
-        traces = self.traces_by_fileno[measurement["fileno"]]
-        for run_idx, run in enumerate(traces):
-            for trace_part_idx in range(len(run["trace"])):
-                online_datapoints.append((run_idx, trace_part_idx))
-        for offline_idx, (online_run_idx, online_trace_part_idx) in enumerate(
-            online_datapoints
-        ):
-            try:
-                offline_trace_part = measurement["energy_trace"][offline_idx]
-            except IndexError:
-                logger.error(
-                    f"While handling file #{measurement['fileno']} {measurement['info']}:"
-                )
-                logger.error(f"  offline energy_trace data is shorter than online data")
-                logger.error(f"  len(online_datapoints) == {len(online_datapoints)}")
-                logger.error(
-                    f"  len(energy_trace) == {len(measurement['energy_trace'])}"
-                )
-                raise
-            online_trace_part = traces[online_run_idx]["trace"][online_trace_part_idx]
-
-            if "offline" not in online_trace_part:
-                online_trace_part["offline"] = [offline_trace_part]
-            else:
-                online_trace_part["offline"].append(offline_trace_part)
-
-            paramkeys = sorted(online_trace_part["parameter"].keys())
-
-            paramvalues = list()
-
-            for paramkey in paramkeys:
-                if type(online_trace_part["parameter"][paramkey]) is list:
-                    paramvalues.append(
-                        soft_cast_int(
-                            online_trace_part["parameter"][paramkey][
-                                measurement["repeat_id"]
-                            ]
-                        )
-                    )
-                else:
-                    paramvalues.append(
-                        soft_cast_int(online_trace_part["parameter"][paramkey])
-                    )
-
-            # NB: Unscheduled transitions do not have an 'args' field set.
-            # However, they should only be caused by interrupts, and
-            # interrupts don't have args anyways.
-            if arg_support_enabled and "args" in online_trace_part:
-                paramvalues.extend(map(soft_cast_int, online_trace_part["args"]))
-
-            if "offline_aggregates" not in online_trace_part:
-                online_trace_part["offline_aggregates"] = {
-                    "offline_attributes": ["power", "duration", "energy"],
-                    "duration": list(),
-                    "power": list(),
-                    "power_std": list(),
-                    "energy": list(),
-                    "paramkeys": list(),
-                    "param": list(),
-                }
-                if "plot" in offline_trace_part:
-                    online_trace_part["offline_support"] = [
-                        "power_traces",
-                        "timestamps",
-                    ]
-                    online_trace_part["offline_aggregates"]["power_traces"] = list()
-                    online_trace_part["offline_aggregates"]["timestamps"] = list()
-                if online_trace_part["isa"] == "transition":
-                    online_trace_part["offline_aggregates"][
-                        "offline_attributes"
-                    ].extend(["rel_power_prev", "rel_power_next"])
-                    online_trace_part["offline_aggregates"]["rel_energy_prev"] = list()
-                    online_trace_part["offline_aggregates"]["rel_energy_next"] = list()
-                    online_trace_part["offline_aggregates"]["rel_power_prev"] = list()
-                    online_trace_part["offline_aggregates"]["rel_power_next"] = list()
-
-            offline_aggregates = online_trace_part["offline_aggregates"]
-
-            # if online_trace_part['isa'] == 'transitions':
-            #    online_trace_part['offline_attributes'].extend(['rel_energy_prev', 'rel_energy_next'])
-            #    offline_aggregates['rel_energy_prev'] = list()
-            #    offline_aggregates['rel_energy_next'] = list()
-
-            offline_aggregates["duration"].append(offline_trace_part["s"] * 1e6)
-            offline_aggregates["power"].append(offline_trace_part["W_mean"] * 1e6)
-            offline_aggregates["power_std"].append(offline_trace_part["W_std"] * 1e6)
-            offline_aggregates["energy"].append(
-                offline_trace_part["W_mean"] * offline_trace_part["s"] * 1e12
-            )
-            offline_aggregates["paramkeys"].append(paramkeys)
-            offline_aggregates["param"].append(paramvalues)
-
-            if "plot" in offline_trace_part:
-                offline_aggregates["power_traces"].append(offline_trace_part["plot"][1])
-                offline_aggregates["timestamps"].append(offline_trace_part["plot"][0])
-
-            if online_trace_part["isa"] == "transition":
-                offline_aggregates["rel_energy_prev"].append(
-                    offline_trace_part["W_mean_delta_prev"]
-                    * offline_trace_part["s"]
-                    * 1e12
-                )
-                offline_aggregates["rel_energy_next"].append(
-                    offline_trace_part["W_mean_delta_next"]
-                    * offline_trace_part["s"]
-                    * 1e12
-                )
-                offline_aggregates["rel_power_prev"].append(
-                    offline_trace_part["W_mean_delta_prev"] * 1e6
-                )
-                offline_aggregates["rel_power_next"].append(
-                    offline_trace_part["W_mean_delta_next"] * 1e6
-                )
-
     def _concatenate_traces(self, list_of_traces):
         """
         Concatenate `list_of_traces` (list of lists) into a single trace while adjusting trace IDs.
@@ -792,6 +542,7 @@ class RawData:
                                     "info": member,
                                     # Strip the last state (it is not part of the scheduled measurement)
                                     "pop": -1,
+                                    "repeat_id": 0,  # needed to add runtime "return_value.apply_from" parameters to offline_aggregates. Irrelevant in v0.
                                     "setup": self.setup_by_fileno[i],
                                     "with_traces": self.with_traces,
                                 }
@@ -988,7 +739,11 @@ class RawData:
 
             if version == 0 or version == 1:
                 if measurement["valid"]:
-                    self._merge_online_and_mimosa(measurement)
+                    MIMOSA.add_offline_aggregates(
+                        self.traces_by_fileno[measurement["fileno"]],
+                        measurement["energy_trace"],
+                        measurement["repeat_id"],
+                    )
                     num_valid += 1
                 else:
                     logger.warning(
@@ -1001,11 +756,15 @@ class RawData:
             elif version == 2:
                 if measurement["valid"]:
                     try:
-                        self._merge_online_and_etlog(measurement)
+                        EnergyTrace.add_offline_aggregates(
+                            self.traces_by_fileno[measurement["fileno"]],
+                            measurement["energy_trace"],
+                            measurement["repeat_id"],
+                        )
                         num_valid += 1
                     except Exception as e:
                         logger.warning(
-                            f"Skipping #{measurement['fileno']} {measurement['info']}: {e}"
+                            f"Skipping #{measurement['fileno']} {measurement['info']}:\n{e}"
                         )
                 else:
                     logger.warning(
@@ -1200,6 +959,122 @@ def _load_energytrace(data_string):
         sample_rate,
         hardware_state_changes,
     )
+
+
+class EnergyTrace:
+    @staticmethod
+    def add_offline_aggregates(online_traces, offline_trace, repeat_id):
+        # Edits online_traces[*]['trace'][*]['offline']
+        # and online_traces[*]['trace'][*]['offline_aggregates'] in place
+        # (appends data from offline_trace)
+        online_datapoints = []
+        for run_idx, run in enumerate(online_traces):
+            for trace_part_idx in range(len(run["trace"])):
+                online_datapoints.append((run_idx, trace_part_idx))
+        for offline_idx, (online_run_idx, online_trace_part_idx) in enumerate(
+            online_datapoints
+        ):
+            try:
+                offline_trace_part = offline_trace[offline_idx]
+            except IndexError:
+                logger.error(f"  offline energy_trace data is shorter than online data")
+                logger.error(f"  len(online_datapoints) == {len(online_datapoints)}")
+                logger.error(f"  len(energy_trace) == {len(offline_trace)}")
+                raise
+            online_trace_part = online_traces[online_run_idx]["trace"][
+                online_trace_part_idx
+            ]
+
+            if "offline" not in online_trace_part:
+                online_trace_part["offline"] = [offline_trace_part]
+            else:
+                online_trace_part["offline"].append(offline_trace_part)
+
+            paramkeys = sorted(online_trace_part["parameter"].keys())
+
+            paramvalues = list()
+
+            for paramkey in paramkeys:
+                if type(online_trace_part["parameter"][paramkey]) is list:
+                    paramvalues.append(
+                        soft_cast_int(
+                            online_trace_part["parameter"][paramkey][repeat_id]
+                        )
+                    )
+                else:
+                    paramvalues.append(
+                        soft_cast_int(online_trace_part["parameter"][paramkey])
+                    )
+
+            # NB: Unscheduled transitions do not have an 'args' field set.
+            # However, they should only be caused by interrupts, and
+            # interrupts don't have args anyways.
+            if arg_support_enabled and "args" in online_trace_part:
+                paramvalues.extend(map(soft_cast_int, online_trace_part["args"]))
+
+            if "offline_aggregates" not in online_trace_part:
+                online_trace_part["offline_aggregates"] = {
+                    "offline_attributes": ["power", "duration", "energy"],
+                    "duration": list(),
+                    "power": list(),
+                    "power_std": list(),
+                    "energy": list(),
+                    "paramkeys": list(),
+                    "param": list(),
+                }
+                if "plot" in offline_trace_part:
+                    online_trace_part["offline_support"] = [
+                        "power_traces",
+                        "timestamps",
+                    ]
+                    online_trace_part["offline_aggregates"]["power_traces"] = list()
+                    online_trace_part["offline_aggregates"]["timestamps"] = list()
+                if online_trace_part["isa"] == "transition":
+                    online_trace_part["offline_aggregates"][
+                        "offline_attributes"
+                    ].extend(["rel_power_prev", "rel_power_next"])
+                    online_trace_part["offline_aggregates"]["rel_energy_prev"] = list()
+                    online_trace_part["offline_aggregates"]["rel_energy_next"] = list()
+                    online_trace_part["offline_aggregates"]["rel_power_prev"] = list()
+                    online_trace_part["offline_aggregates"]["rel_power_next"] = list()
+
+            offline_aggregates = online_trace_part["offline_aggregates"]
+
+            # if online_trace_part['isa'] == 'transitions':
+            #    online_trace_part['offline_attributes'].extend(['rel_energy_prev', 'rel_energy_next'])
+            #    offline_aggregates['rel_energy_prev'] = list()
+            #    offline_aggregates['rel_energy_next'] = list()
+
+            offline_aggregates["duration"].append(offline_trace_part["s"] * 1e6)
+            offline_aggregates["power"].append(offline_trace_part["W_mean"] * 1e6)
+            offline_aggregates["power_std"].append(offline_trace_part["W_std"] * 1e6)
+            offline_aggregates["energy"].append(
+                offline_trace_part["W_mean"] * offline_trace_part["s"] * 1e12
+            )
+            offline_aggregates["paramkeys"].append(paramkeys)
+            offline_aggregates["param"].append(paramvalues)
+
+            if "plot" in offline_trace_part:
+                offline_aggregates["power_traces"].append(offline_trace_part["plot"][1])
+                offline_aggregates["timestamps"].append(offline_trace_part["plot"][0])
+
+            if online_trace_part["isa"] == "transition":
+                offline_aggregates["rel_energy_prev"].append(
+                    offline_trace_part["W_mean_delta_prev"]
+                    * offline_trace_part["s"]
+                    * 1e12
+                )
+                offline_aggregates["rel_energy_next"].append(
+                    offline_trace_part["W_mean_delta_next"]
+                    * offline_trace_part["s"]
+                    * 1e12
+                )
+                offline_aggregates["rel_power_prev"].append(
+                    offline_trace_part["W_mean_delta_prev"] * 1e6
+                )
+                offline_aggregates["rel_power_next"].append(
+                    offline_trace_part["W_mean_delta_next"] * 1e6
+                )
 
 
 class EnergyTraceWithBarcode:
@@ -2316,3 +2191,131 @@ class MIMOSA:
                     pass
                     # TODO es gibt next_transitions ohne 'plan'
         return True
+
+    @staticmethod
+    def add_offline_aggregates(online_traces, offline_trace, repeat_id):
+        # Edits online_traces[*]['trace'][*]['offline']
+        # and online_traces[*]['trace'][*]['offline_aggregates'] in place
+        # (appends data from offline_trace)
+        # "offline_aggregates" is the only data used later on by model.py's by_name / by_param dicts
+        online_datapoints = []
+        for run_idx, run in enumerate(online_traces):
+            for trace_part_idx in range(len(run["trace"])):
+                online_datapoints.append((run_idx, trace_part_idx))
+        for offline_idx, (online_run_idx, online_trace_part_idx) in enumerate(
+            online_datapoints
+        ):
+            offline_trace_part = offline_trace[offline_idx]
+            online_trace_part = online_traces[online_run_idx]["trace"][
+                online_trace_part_idx
+            ]
+
+            if "offline" not in online_trace_part:
+                online_trace_part["offline"] = [offline_trace_part]
+            else:
+                online_trace_part["offline"].append(offline_trace_part)
+
+            paramkeys = sorted(online_trace_part["parameter"].keys())
+
+            paramvalues = list()
+
+            for paramkey in paramkeys:
+                if type(online_trace_part["parameter"][paramkey]) is list:
+                    paramvalues.append(
+                        soft_cast_int(
+                            online_trace_part["parameter"][paramkey][repeat_id]
+                        )
+                    )
+                else:
+                    paramvalues.append(
+                        soft_cast_int(online_trace_part["parameter"][paramkey])
+                    )
+
+            # NB: Unscheduled transitions do not have an 'args' field set.
+            # However, they should only be caused by interrupts, and
+            # interrupts don't have args anyways.
+            if arg_support_enabled and "args" in online_trace_part:
+                paramvalues.extend(map(soft_cast_int, online_trace_part["args"]))
+
+            # TODO rename offline_aggregates to make it clear that this is what ends up in by_name / by_param and model.py
+            if "offline_aggregates" not in online_trace_part:
+                online_trace_part["offline_attributes"] = [
+                    "power",
+                    "duration",
+                    "energy",
+                ]
+                # this is what ends up in by_name / by_param and is used by model.py
+                online_trace_part["offline_aggregates"] = {
+                    "power": [],
+                    "duration": [],
+                    "power_std": [],
+                    "energy": [],
+                    "paramkeys": [],
+                    "param": [],
+                }
+                if online_trace_part["isa"] == "transition":
+                    online_trace_part["offline_attributes"].extend(
+                        [
+                            "rel_energy_prev",
+                            "rel_energy_next",
+                            "rel_power_prev",
+                            "rel_power_next",
+                            "timeout",
+                        ]
+                    )
+                    online_trace_part["offline_aggregates"]["rel_energy_prev"] = []
+                    online_trace_part["offline_aggregates"]["rel_energy_next"] = []
+                    online_trace_part["offline_aggregates"]["rel_power_prev"] = []
+                    online_trace_part["offline_aggregates"]["rel_power_next"] = []
+                    online_trace_part["offline_aggregates"]["timeout"] = []
+                if "plot" in offline_trace_part:
+                    online_trace_part["offline_support"] = [
+                        "power_traces",
+                        "timestamps",
+                    ]
+                    online_trace_part["offline_aggregates"]["power_traces"] = list()
+                    online_trace_part["offline_aggregates"]["timestamps"] = list()
+
+            # Note: All state/transitions are 20us "too long" due to injected
+            # active wait states. These are needed to work around MIMOSA's
+            # relatively low sample rate of 100 kHz (10us) and removed here.
+            online_trace_part["offline_aggregates"]["power"].append(
+                offline_trace_part["uW_mean"]
+            )
+            online_trace_part["offline_aggregates"]["duration"].append(
+                offline_trace_part["us"] - 20
+            )
+            online_trace_part["offline_aggregates"]["power_std"].append(
+                offline_trace_part["uW_std"]
+            )
+            online_trace_part["offline_aggregates"]["energy"].append(
+                offline_trace_part["uW_mean"] * (offline_trace_part["us"] - 20)
+            )
+            online_trace_part["offline_aggregates"]["paramkeys"].append(paramkeys)
+            online_trace_part["offline_aggregates"]["param"].append(paramvalues)
+            if online_trace_part["isa"] == "transition":
+                online_trace_part["offline_aggregates"]["rel_energy_prev"].append(
+                    offline_trace_part["uW_mean_delta_prev"]
+                    * (offline_trace_part["us"] - 20)
+                )
+                online_trace_part["offline_aggregates"]["rel_energy_next"].append(
+                    offline_trace_part["uW_mean_delta_next"]
+                    * (offline_trace_part["us"] - 20)
+                )
+                online_trace_part["offline_aggregates"]["rel_power_prev"].append(
+                    offline_trace_part["uW_mean_delta_prev"]
+                )
+                online_trace_part["offline_aggregates"]["rel_power_next"].append(
+                    offline_trace_part["uW_mean_delta_next"]
+                )
+                online_trace_part["offline_aggregates"]["timeout"].append(
+                    offline_trace_part["timeout"]
+                )
+
+            if "plot" in offline_trace_part:
+                online_trace_part["offline_aggregates"]["power_traces"].append(
+                    offline_trace_part["plot"][1]
+                )
+                online_trace_part["offline_aggregates"]["timestamps"].append(
+                    offline_trace_part["plot"][0]
+                )
