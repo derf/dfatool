@@ -308,9 +308,10 @@ class RawData:
         tbd
         """
         self.with_traces = with_traces
-        self.filenames = filenames.copy()
-        self.traces_by_fileno = []
-        self.setup_by_fileno = []
+        self.input_filenames = filenames.copy()
+        self.filenames = list()
+        self.traces_by_fileno = list()
+        self.setup_by_fileno = list()
         self.version = 0
         self.preprocessed = False
         self._parameter_names = None
@@ -344,8 +345,8 @@ class RawData:
             self.load_cache()
 
     def set_cache_file(self):
-        cache_key = hashlib.sha256("!".join(self.filenames).encode()).hexdigest()
-        self.cache_dir = os.path.dirname(self.filenames[0]) + "/cache"
+        cache_key = hashlib.sha256("!".join(self.input_filenames).encode()).hexdigest()
+        self.cache_dir = os.path.dirname(self.input_filenames[0]) + "/cache"
         self.cache_file = "{}/{}.json".format(self.cache_dir, cache_key)
 
     def load_cache(self):
@@ -936,10 +937,11 @@ class RawData:
     def _preprocess_012(self, version):
         """Load raw MIMOSA data and turn it into measurements which are ready to be analyzed."""
         offline_data = []
-        for i, filename in enumerate(self.filenames):
+        for i, filename in enumerate(self.input_filenames):
 
             if version == 0:
 
+                self.filenames = self.input_filenames
                 with tarfile.open(filename) as tf:
                     self.setup_by_fileno.append(json.load(tf.extractfile("setup.json")))
                     self.traces_by_fileno.append(
@@ -960,7 +962,6 @@ class RawData:
 
             elif version == 1:
 
-                new_filenames = list()
                 with tarfile.open(filename) as tf:
                     ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
 
@@ -988,7 +989,7 @@ class RawData:
                     # ptalog['files'][0][1] the second, etc.
 
                     for j, traces in enumerate(ptalog["traces"]):
-                        new_filenames.append("{}#{}".format(filename, j))
+                        self.filenames.append("{}#{}".format(filename, j))
                         self.traces_by_fileno.append(traces)
                         self.setup_by_fileno.append(
                             {
@@ -1016,11 +1017,9 @@ class RawData:
                                     "with_traces": self.with_traces,
                                 }
                             )
-                self.filenames = new_filenames
 
             elif version == 2:
 
-                new_filenames = list()
                 with tarfile.open(filename) as tf:
                     ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
                     if "sync" in ptalog["opt"]["energytrace"]:
@@ -1073,7 +1072,7 @@ class RawData:
                                         ] = offline_aggregates
 
                     for j, traces in enumerate(ptalog["traces"]):
-                        new_filenames.append("{}#{}".format(filename, j))
+                        self.filenames.append("{}#{}".format(filename, j))
                         self.traces_by_fileno.append(traces)
                         self.setup_by_fileno.append(
                             {
@@ -1106,7 +1105,6 @@ class RawData:
                                     ),
                                 }
                             )
-                self.filenames = new_filenames
                 # TODO remove 'offline_aggregates' from pre-parse data and place
                 # it under 'online_aggregates' or similar instead. This way, if
                 # a .etlog file fails to parse, its corresponding duration data
