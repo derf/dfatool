@@ -10,8 +10,6 @@ from dfatool.utils import soft_cast_int
 
 logger = logging.getLogger(__name__)
 
-arg_support_enabled = True
-
 
 class MIMOSA:
     """
@@ -557,7 +555,7 @@ class MIMOSA:
             # NB: Unscheduled transitions do not have an 'args' field set.
             # However, they should only be caused by interrupts, and
             # interrupts don't have args anyways.
-            if arg_support_enabled and "args" in online_trace_part:
+            if "args" in online_trace_part:
                 paramvalues.extend(map(soft_cast_int, online_trace_part["args"]))
 
             # TODO rename offline_aggregates to make it clear that this is what ends up in by_name / by_param and model.py

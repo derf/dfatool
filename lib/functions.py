@@ -12,7 +12,6 @@ import re
 from scipy import optimize
 from .utils import is_numeric
 
-arg_support_enabled = True
 logger = logging.getLogger(__name__)
 
 
@@ -761,7 +760,7 @@ class analytic:
             buf += " + regression_arg({:d})".format(arg_idx)
             arg_idx += 1
             for function_item in combination:
-                if arg_support_enabled and is_numeric(function_item[0]):
+                if is_numeric(function_item[0]):
                     buf += " * {}".format(
                         analytic._fmap(
                             "function_arg", function_item[0], function_item[1]["best"]

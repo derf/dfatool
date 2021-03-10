@@ -24,8 +24,6 @@ from .mimosa import MIMOSA
 
 logger = logging.getLogger(__name__)
 
-arg_support_enabled = True
-
 
 def _preprocess_mimosa(measurement):
     setup = measurement["setup"]
@@ -169,7 +167,7 @@ class TimingData:
                                 paramvalues.append(
                                     soft_cast_int(log_entry["parameter"][paramkey])
                                 )
-                        if arg_support_enabled and "args" in log_entry:
+                        if "args" in log_entry:
                             paramvalues.extend(map(soft_cast_int, log_entry["args"]))
                         log_entry["offline_aggregates"]["param"].append(paramvalues)
 

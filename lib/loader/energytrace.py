@@ -18,8 +18,6 @@ try:
 except ImportError:
     zbar_available = False
 
-arg_support_enabled = True
-
 
 def _load_energytrace(data_string):
     """
@@ -131,7 +129,7 @@ class EnergyTrace:
             # NB: Unscheduled transitions do not have an 'args' field set.
             # However, they should only be caused by interrupts, and
             # interrupts don't have args anyways.
-            if arg_support_enabled and "args" in online_trace_part:
+            if "args" in online_trace_part:
                 paramvalues.extend(map(soft_cast_int, online_trace_part["args"]))
 
             if "offline_aggregates" not in online_trace_part:

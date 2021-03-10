@@ -6,7 +6,6 @@ import re
 import logging
 from sklearn.metrics import r2_score
 
-arg_support_enabled = True
 logger = logging.getLogger(__name__)
 
 
