@@ -95,7 +95,7 @@ def _std_by_param(n_by_param, all_param_values, param_index):
     :param param_index: index of variable parameter
     :returns: (stddev matrix, mean stddev, LUT matrix)
         *stddev matrix* is an ((number of parameters)-1)-dimensional matrix giving the standard deviation of each individual parameter variation partition.
-        E.g. for param_index == 2 and 4 parameters, stddev matrix[a][b][d] is the stddev of
+        E.g. for param_index == 2 and 4 parameters, stddev matrix[a, b, d] is the stddev of
         measurements with param0 == all_param_values[0][a],
         param1 == all_param_values[1][b], param2 variable, and
         param3 == all_param_values[3][d].
@@ -261,6 +261,8 @@ def _compute_param_statistics(
     ret["_depends_on_param"] = dict()
     ret["_depends_on_arg"] = list()
 
+    ret["codependent_param_pair"] = _codepenent_param_pair(param_tuples)
+
     np.seterr("raise")
 
     for param_idx, param in enumerate(param_names):
@@ -302,6 +304,51 @@ def _compute_param_statistics(
                 ret["_depends_on_arg"].append(
                     ret["std_param_lut"] / ret["std_by_arg"][arg_index] < 0.5
                 )
+
+    return ret
+
+
+def _codepenent_param_pair(param_values):
+    lut = [dict() for i in param_values[0]]
+    for param_index in range(len(param_values[0])):
+        uniqs = set(map(lambda param_tuple: param_tuple[param_index], param_values))
+        for uniq_index, uniq in enumerate(uniqs):
+            lut[param_index][uniq] = uniq_index
+
+    normed_param_values = list()
+    for param_tuple in param_values:
+        normed_param_values.append(
+            tuple(map(lambda ipv: lut[ipv[0]][ipv[1]], enumerate(param_tuple)))
+        )
+
+    normed_param_values = np.array(normed_param_values)
+
+    std_by_param = list()
+    std_by_param_pair = dict()
+
+    ret = dict()
+
+    for param1_i in range(len(lut)):
+        std_by_param.append(np.std(normed_param_values[:, param1_i]))
+        for param2_i in range(param1_i + 1, len(lut)):
+            stds = list()
+            for param1_value in range(len(lut[param1_i])):
+                tt = normed_param_values[:, param1_i] == param1_value
+                values = normed_param_values[tt, param2_i]
+                if len(values) <= 1:
+                    stds.append(0.0)
+                else:
+                    stds.append(np.std(values))
+            std_by_param_pair[(param1_i, param2_i)] = np.mean(stds)
+
+    for param1_i in range(len(lut)):
+        for param2_i in range(param1_i + 1, len(lut)):
+            if std_by_param[param1_i] > 0 and std_by_param[param2_i] > 0:
+                if std_by_param_pair[(param1_i, param2_i)] == 0:
+                    ret[(param1_i, param2_i)] = True
+                    logger.warning(
+                        f"parameters ({param1_i}, {param2_i}) are codependent"
+                    )
 
     return ret
 
