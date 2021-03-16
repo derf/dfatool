@@ -5,7 +5,7 @@ import numpy as np
 import os
 from .automata import PTA, ModelAttribute
 from .functions import StaticFunction, SubstateFunction
-from .parameters import ParallelParamStats
+from .parameters import ParallelParamStats, codependent_param_dict
 from .paramfit import ParallelParamFit
 from .utils import soft_cast_int, by_name_to_by_param, regression_measures
 
@@ -126,10 +126,12 @@ class AnalyticModel:
         return f"AnalyticModel<names=[{names}]>"
 
     def _compute_stats(self, by_name):
+
         paramstats = ParallelParamStats()
 
         for name, data in by_name.items():
             self.attr_by_name[name] = dict()
+            codependent_param = codependent_param_dict(data["param"])
             for attr in data["attributes"]:
                 model_attr = ModelAttribute(
                     name,
@@ -138,6 +140,7 @@ class AnalyticModel:
                     data["param"],
                     self.parameters,
                     self._num_args.get(name, 0),
+                    codependent_param=codependent_param,
                 )
                 self.attr_by_name[name][attr] = model_attr
                 paramstats.enqueue((name, attr), model_attr)
