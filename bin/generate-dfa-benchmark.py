@@ -68,6 +68,11 @@ Options:
     plusplus = 0 (default, EnergyTrace measurements with about 3.7 kHz sample rate, energy only)
     plusplus = 1 (EnergyTrace++ measurements with about 1 kHz sample rate, energy and cpu state)
 
+--external=<gpio|timer>
+    Perform energy measurements using an external device unknown to dfatool.
+    With --external=gpio: Assume the device has a trigger input connected to timer-pin and toggle it when starting/topping a transition
+    With --external=timer: Assume the device does not have a trigger input. Perform in-band signaling using board LEDs instead.
+
 --trace-filter=<transition,transition,transition,...>[ <transition,transition,transition,...> ...]
     Only consider traces whose beginning matches one of the provided transition sequences.
     E.g. --trace-filter='init,foo init,bar' will only consider traces with init as first and foo or bar as second transition,
@@ -349,6 +354,8 @@ def run_benchmark(
                 monitor = target.get_monitor(
                     callback=harness.parser_cb, energytrace=opt["energytrace"]
                 )
+            else:
+                monitor = target.get_monitor(callback=harness.parser_cb)
 
             sync_error = False
             try:
@@ -438,6 +445,7 @@ if __name__ == "__main__":
             "depth= "
             "dummy= "
             "energytrace= "
+            "external= "
             "instance= "
             "log-level= "
             "mimosa= "
@@ -514,6 +522,9 @@ if __name__ == "__main__":
             opt.pop("timing", None)
             if opt["repeat"] == 0:
                 opt["repeat"] = 1
+
+        if "external" not in opt:
+            opt["external"] = None
 
         if "data" not in opt:
             opt["data"] = "../data"
@@ -676,6 +687,21 @@ if __name__ == "__main__":
             counter_limits=target.get_counter_limits_us(run_flags),
             log_return_values=need_return_values,
             repeat=opt["repeat"],
+        )
+    elif opt["external"] == "gpio":
+        harness = TransitionHarness(
+            gpio_pin=timer_pin, pta=pta, log_return_values=need_return_values, repeat=1
+        )
+    elif opt["external"] == "timer":
+        harness = OnboardTimerHarness(
+            gpio_pin=timer_pin,
+            gpio_mode="around",
+            pta=pta,
+            counter_limits=target.get_counter_limits_us(run_flags),
+            log_return_values=need_return_values,
+            repeat=1,
+            energytrace_sync="led",
+            remove_nop_from_timings=False,  # kein einfluss auf ungenauigkeiten
         )
 
     if len(args) > 1:
