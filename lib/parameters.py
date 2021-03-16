@@ -49,40 +49,6 @@ def _depends_on_param(corr_param, std_param, std_lut):
     return std_lut / std_param < 0.5
 
 
-def _reduce_param_matrix(matrix: np.ndarray, parameter_names: list) -> list:
-    """
-    :param matrix: parameter dependence matrix, M[(...)] == 1 iff (model attribute) is influenced by (parameter) for other parameter value indxe == (...)
-    :param parameter_names: names of parameters in the order in which they appear in the matrix index. The first entry corresponds to the first axis, etc.
-    :returns: parameters which determine whether (parameter) has an effect on (model attribute). If a parameter is not part of this list, its value does not
-        affect (parameter)'s influence on (model attribute) -- it either always or never has an influence
-    """
-    if np.all(matrix == True) or np.all(matrix == False):
-        return list()
-
-    # Diese Abbruchbedingung scheint noch nicht so schlau zu sein...
-    # Mit wird zu viel rausgefiltert (z.B. auto_ack! -> max_retry_count in "bin/analyze-timing.py ../data/20190815_122531_nRF24_no-rx.json" nicht erkannt)
-    # Ohne wird zu wenig rausgefiltert (auch ganz viele Abhängigkeiten erkannt, bei denen eine Parameter-Abhängigketi immer unabhängig vom Wert der anderen Parameter besteht)
-    # if not is_power_of_two(np.count_nonzero(matrix)):
-    #    # cannot be reliably reduced to a list of parameters
-    #    return list()
-
-    if np.count_nonzero(matrix) == 1:
-        influential_parameters = list()
-        for i, parameter_name in enumerate(parameter_names):
-            if matrix.shape[i] > 1:
-                influential_parameters.append(parameter_name)
-        return influential_parameters
-
-    for axis in range(matrix.ndim):
-        candidate = _reduce_param_matrix(
-            np.all(matrix, axis=axis), remove_index_from_tuple(parameter_names, axis)
-        )
-        if len(candidate):
-            return candidate
-
-    return list()
-
-
 def _std_by_param(n_by_param, all_param_values, param_index):
     """
     Calculate standard deviations for a static model where all parameters but `param_index` are constant.
