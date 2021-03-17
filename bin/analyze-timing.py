@@ -84,7 +84,6 @@ from dfatool.functions import gplearn_to_function, StaticFunction, AnalyticFunct
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 from dfatool.utils import filter_aggregate_by_param, NpEncoder
-from dfatool.parameters import prune_dependent_parameters
 
 opt = dict()
 
@@ -253,8 +252,6 @@ if __name__ == "__main__":
     by_name, parameters, arg_count = pta_trace_to_aggregate(
         preprocessed_data, ignored_trace_indexes
     )
-
-    prune_dependent_parameters(by_name, parameters)
 
     filter_aggregate_by_param(by_name, parameters, opt["filter-param"])
 

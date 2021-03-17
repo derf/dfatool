@@ -3,7 +3,6 @@ import itertools
 import logging
 import numpy as np
 import os
-import warnings
 from collections import OrderedDict
 from copy import deepcopy
 from multiprocessing import Pool
@@ -109,12 +108,10 @@ def _std_by_param(n_by_param, all_param_values, param_index):
         #    vprint(verbose, '[W] parameter value partition for {} is empty'.format(param_value))
 
     if np.all(np.isnan(stddev_matrix)):
-        warnings.warn(
-            "parameter #{} has no data partitions. stddev_matrix = {}".format(
-                param_index, stddev_matrix
-            )
+        logger.warning(
+            f"parameter #{param_index} has no data partitions. All stddev_matrix entries are NaN."
         )
-        return stddev_matrix, 0.0
+        return stddev_matrix, 0.0, lut_matrix
 
     return (
         stddev_matrix,
@@ -159,7 +156,12 @@ def _corr_by_param(attribute_data, param_values, param_index):
 
 
 def _compute_param_statistics(
-    data, param_names, param_tuples, arg_count=None, use_corrcoef=False
+    data,
+    param_names,
+    param_tuples,
+    arg_count=None,
+    use_corrcoef=False,
+    codependent_params=list(),
 ):
     """
     Compute standard deviation and correlation coefficient on parameterized data partitions.
@@ -230,8 +232,18 @@ def _compute_param_statistics(
     np.seterr("raise")
 
     for param_idx, param in enumerate(param_names):
+        if param_idx < len(codependent_params) and codependent_params[param_idx]:
+            by_param = partition_by_param(
+                data, param_tuples, ignore_parameters=codependent_params[param_idx]
+            )
+            distinct_values = ret["distinct_values_by_param_index"].copy()
+            for codependent_param_index in codependent_params[param_idx]:
+                distinct_values[codependent_param_index] = [None]
+        else:
+            by_param = ret["by_param"]
+            distinct_values = ret["distinct_values_by_param_index"]
         std_matrix, mean_std, lut_matrix = _std_by_param(
-            by_param, ret["distinct_values_by_param_index"], param_idx
+            by_param, distinct_values, param_idx
         )
         ret["std_by_param"][param] = mean_std
         ret["std_by_param_values"][param] = std_matrix
@@ -246,17 +258,26 @@ def _compute_param_statistics(
 
     if arg_count:
         for arg_index in range(arg_count):
+            param_idx = len(param_names) + arg_index
+            if param_idx < len(codependent_params) and codependent_params[param_idx]:
+                by_param = partition_by_param(
+                    data, param_tuples, ignore_parameters=codependent_params[param_idx]
+                )
+                distinct_values = ret["distinct_values_by_param_index"].copy()
+                for codependent_param_index in codependent_params[param_idx]:
+                    distinct_values[codependent_param_index] = [None]
+            else:
+                by_param = ret["by_param"]
+                distinct_values = ret["distinct_values_by_param_index"]
             std_matrix, mean_std, lut_matrix = _std_by_param(
                 by_param,
-                ret["distinct_values_by_param_index"],
-                len(param_names) + arg_index,
+                distinct_values,
+                param_idx,
             )
             ret["std_by_arg"].append(mean_std)
             ret["std_by_arg_values"].append(std_matrix)
             ret["lut_by_arg_values"].append(lut_matrix)
-            ret["corr_by_arg"].append(
-                _corr_by_param(data, param_tuples, len(param_names) + arg_index)
-            )
+            ret["corr_by_arg"].append(_corr_by_param(data, param_tuples, param_idx))
 
             if False:
                 ret["_depends_on_arg"].append(ret["corr_by_arg"][arg_index] > 0.1)
@@ -326,91 +347,6 @@ def _all_params_are_numeric(data, param_idx):
     return False
 
 
-def prune_dependent_parameters(by_name, parameter_names, correlation_threshold=0.5):
-    """
-    Remove dependent parameters from aggregate.
-
-    :param by_name: measurements partitioned by state/transition/... name and attribute, edited in-place.
-        by_name[name][attribute] must be a list or 1-D numpy array.
-        by_name[stanamete_or_trans]['param'] must be a list of parameter values.
-        Other dict members are left as-is
-    :param parameter_names: List of parameter names in the order they are used in by_name[name]['param'], edited in-place.
-    :param correlation_threshold: Remove parameter if absolute correlation exceeds this threshold (default: 0.5)
-
-    Model generation (and its components, such as relevant parameter detection and least squares optimization) only works if input variables (i.e., parameters)
-    are independent of each other. This function computes the correlation coefficient for each pair of parameters and removes those which depend on each other.
-    For each pair of dependent parameters, the lexically greater one is removed (e.g. "a" and "b" -> "b" is removed).
-    """
-
-    parameter_indices_to_remove = list()
-    for parameter_combination in itertools.product(
-        range(len(parameter_names)), range(len(parameter_names))
-    ):
-        index_1, index_2 = parameter_combination
-        if index_1 >= index_2:
-            continue
-        parameter_values = [list(), list()]  # both parameters have a value
-        parameter_values_1 = list()  # parameter 1 has a value
-        parameter_values_2 = list()  # parameter 2 has a value
-        for name in by_name:
-            for measurement in by_name[name]["param"]:
-                value_1 = measurement[index_1]
-                value_2 = measurement[index_2]
-                if is_numeric(value_1):
-                    parameter_values_1.append(value_1)
-                if is_numeric(value_2):
-                    parameter_values_2.append(value_2)
-                if is_numeric(value_1) and is_numeric(value_2):
-                    parameter_values[0].append(value_1)
-                    parameter_values[1].append(value_2)
-        if len(parameter_values[0]):
-            # Calculating the correlation coefficient only makes sense when neither value is constant
-            if np.std(parameter_values_1) != 0 and np.std(parameter_values_2) != 0:
-                correlation = np.corrcoef(parameter_values)[0][1]
-                if (
-                    correlation != np.nan
-                    and np.abs(correlation) > correlation_threshold
-                ):
-                    logger.debug(
-                        "Parameters {} <-> {} are correlated with coefficcient {}".format(
-                            parameter_names[index_1],
-                            parameter_names[index_2],
-                            correlation,
-                        )
-                    )
-                    if len(parameter_values_1) < len(parameter_values_2):
-                        index_to_remove = index_1
-                    else:
-                        index_to_remove = index_2
-                    logger.debug(
-                        "    Removing parameter {}".format(
-                            parameter_names[index_to_remove]
-                        )
-                    )
-                    parameter_indices_to_remove.append(index_to_remove)
-    remove_parameters_by_indices(by_name, parameter_names, parameter_indices_to_remove)
-
-
-def remove_parameters_by_indices(by_name, parameter_names, parameter_indices_to_remove):
-    """
-    Remove parameters listed in `parameter_indices` from aggregate `by_name` and `parameter_names`.
-
-    :param by_name: measurements partitioned by state/transition/... name and attribute, edited in-place.
-        by_name[name][attribute] must be a list or 1-D numpy array.
-        by_name[stanamete_or_trans]['param'] must be a list of parameter values.
-        Other dict members are left as-is
-    :param parameter_names: List of parameter names in the order they are used in by_name[name]['param'], edited in-place.
-    :param parameter_indices_to_remove: List of parameter indices to be removed
-    """
-
-    # Start removal from the end of the list to avoid renumbering of list elemenets
-    for parameter_index in sorted(parameter_indices_to_remove, reverse=True):
-        for name in by_name:
-            for measurement in by_name[name]["param"]:
-                measurement.pop(parameter_index)
-        parameter_names.pop(parameter_index)
-
-
 class ParallelParamStats:
     def __init__(self):
         self.queue = list()
@@ -425,6 +361,8 @@ class ParallelParamStats:
                     attr.param_names,
                     attr.param_values,
                     attr.arg_count,
+                    False,
+                    attr.codependent_params,
                 ],
             }
         )
@@ -458,6 +396,7 @@ class ParamStats:
             attr.param_values,
             arg_count=attr.arg_count,
             use_corrcoef=use_corrcoef,
+            codependent_params=attr.codependent_params,
         )
         attr.by_param = res.pop("by_param")
         attr.stats = cls(res)
@@ -609,9 +548,10 @@ class ModelAttribute:
             map(lambda i: f"arg{i}", range(arg_count))
         )
 
-        # Co-dependent parameters. If (paam1_index, param2_index) in codependent_param, they are codependent.
+        # Co-dependent parameters. If (param1_index, param2_index) in codependent_param, they are codependent.
         # In this case, only one of them must be used for parameter-dependent model attribute detection and modeling
-        self.codependent_param = codependent_param
+        self.codependent_param_pair = codependent_param
+        self.codependent_params = [list() for x in self.log_param_names]
         self.ignore_param = dict()
 
         # Static model used as lower bound of model accuracy
@@ -663,7 +603,7 @@ class ModelAttribute:
         for (
             param1_index,
             param2_index,
-        ), is_codependent in self.codependent_param.items():
+        ), is_codependent in self.codependent_param_pair.items():
             if not is_codependent:
                 continue
             param1_values = map(lambda pv: pv[param1_index], self.param_values)
@@ -672,12 +612,14 @@ class ModelAttribute:
             param2_numeric_count = sum(map(is_numeric, param2_values))
             if param1_numeric_count >= param2_numeric_count:
                 self.ignore_param[param2_index] = True
-                logger.warning(
+                self.codependent_params[param1_index].append(param2_index)
+                logger.info(
                     f"{self.name} {self.attr}: parameters ({self.log_param_names[param1_index]}, {self.log_param_names[param2_index]}) are codependent. Ignoring {self.log_param_names[param2_index]}"
                 )
             else:
                 self.ignore_param[param1_index] = True
-                logger.warning(
+                self.codependent_params[param2_index].append(param1_index)
+                logger.info(
                     f"{self.name} {self.attr}: parameters ({self.log_param_names[param1_index]}, {self.log_param_names[param2_index]}) are codependent. Ignoring {self.log_param_names[param1_index]}"
                 )
 
@@ -719,10 +661,22 @@ class ModelAttribute:
         # )
 
         child1 = ModelAttribute(
-            self.name, self.attr, self.data[tt1], pv1, self.param_names, self.arg_count
+            self.name,
+            self.attr,
+            self.data[tt1],
+            pv1,
+            self.param_names,
+            self.arg_count,
+            codependent_param_dict(pv1),
         )
         child2 = ModelAttribute(
-            self.name, self.attr, self.data[tt2], pv2, self.param_names, self.arg_count
+            self.name,
+            self.attr,
+            self.data[tt2],
+            pv2,
+            self.param_names,
+            self.arg_count,
+            codependent_param_dict(pv2),
         )
 
         ParamStats.compute_for_attr(child1)
@@ -814,9 +768,19 @@ class ModelAttribute:
             child_ret = child.get_data_for_paramfit(
                 safe_functions_enabled=safe_functions_enabled
             )
-            for key, param, val in child_ret:
-                ret.append((key[:2] + (param_value,) + key[2:], param, val))
+            for key, param, args, kwargs in child_ret:
+                ret.append((key[:2] + (param_value,) + key[2:], param, args, kwargs))
         return ret
+
+    def _by_param_for_index(self, param_index):
+        if not self.codependent_params[param_index]:
+            return self.by_param
+        new_param_values = list()
+        for param_tuple in self.param_values:
+            for i in self.codependent_params[param_index]:
+                param_tuple[i] = None
+            new_param_values.append(param_tuple)
+        return partition_by_param(self.data, new_param_values)
 
     def get_data_for_paramfit_this(self, safe_functions_enabled=False):
         ret = list()
@@ -825,28 +789,33 @@ class ModelAttribute:
                 self.stats.depends_on_param(param_name)
                 and not param_index in self.ignore_param
             ):
+                by_param = self._by_param_for_index(param_index)
                 ret.append(
                     (
                         (self.name, self.attr),
                         param_name,
-                        (self.by_param, param_index, safe_functions_enabled),
+                        (by_param, param_index, safe_functions_enabled),
+                        dict(),
                     )
                 )
         if self.arg_count:
             for arg_index in range(self.arg_count):
+                param_index = len(self.param_names) + arg_index
                 if (
                     self.stats.depends_on_arg(arg_index)
-                    and not arg_index + len(self.param_names) in self.ignore_param
+                    and not param_index in self.ignore_param
                 ):
+                    by_param = self._by_param_for_index(param_index)
                     ret.append(
                         (
                             (self.name, self.attr),
                             arg_index,
                             (
-                                self.by_param,
-                                len(self.param_names) + arg_index,
+                                by_param,
+                                param_index,
                                 safe_functions_enabled,
                             ),
+                            dict(),
                         )
                     )
 

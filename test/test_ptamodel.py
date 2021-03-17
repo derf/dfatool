@@ -694,74 +694,162 @@ class TestFromFile(unittest.TestCase):
 
         self.assertAlmostEqual(
             param_model(
-                "write", "duration", param=[0, 76, 1000, 0, 10, None, None, 1500, 0]
+                "write",
+                "duration",
+                param=[0, 76, 1000, 0, 10, None, None, 1500, 0, None, 9, None, None],
             ),
-            1090,
+            1133,
             places=0,
         )
 
-        # only bitrate is relevant
+        # only bitrate and packet length are relevant
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "duration",
-                param=[0, None, 1000, None, None, None, None, None, None],
+                param=[
+                    0,
+                    None,
+                    1000,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    9,
+                    None,
+                    None,
+                ],
             ),
-            1090,
+            1133,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "duration",
-                param=[0, None, 250, None, None, None, None, None, None],
+                param=[
+                    0,
+                    None,
+                    250,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    9,
+                    None,
+                    None,
+                ],
             ),
-            2057,
+            2100,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "duration",
-                param=[0, None, 2000, None, None, None, None, None, None],
+                param=[
+                    0,
+                    None,
+                    2000,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    9,
+                    None,
+                    None,
+                ],
             ),
-            929,
+            972,
             places=0,
         )
 
-        # auto_ack == 1 has a different write duration, still only bitrate is relevant
+        # auto_ack == 1 has a different write duration, still only bitrate and packet length are relevant
         self.assertAlmostEqual(
             param_model(
-                "write", "duration", param=[1, 76, 1000, 0, 10, None, None, 1500, 0]
+                "write",
+                "duration",
+                param=[1, 76, 1000, 0, 10, None, None, 1500, 0, None, 9, None, None],
             ),
-            22284,
+            22327,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "duration",
-                param=[1, None, 1000, None, None, None, None, None, None],
+                param=[
+                    1,
+                    None,
+                    1000,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    9,
+                    None,
+                    None,
+                ],
             ),
-            22284,
+            22327,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "duration",
-                param=[1, None, 250, None, None, None, None, None, None],
+                param=[
+                    1,
+                    None,
+                    250,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    9,
+                    None,
+                    None,
+                ],
             ),
-            33229,
+            33273,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "duration",
-                param=[1, None, 2000, None, None, None, None, None, None],
+                param=[
+                    1,
+                    None,
+                    2000,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    9,
+                    None,
+                    None,
+                ],
             ),
-            20459,
+            20503,
             places=0,
         )
 
@@ -864,12 +952,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            1150,
+            1148,
             places=0,
         )
         self.assertAlmostEqual(
@@ -887,12 +975,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            1150,
+            1148,
             places=0,
         )
         self.assertAlmostEqual(
@@ -910,12 +998,12 @@ class TestFromFile(unittest.TestCase):
                     2750,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            1150,
+            1148,
             places=0,
         )
         self.assertAlmostEqual(
@@ -933,12 +1021,12 @@ class TestFromFile(unittest.TestCase):
                     2750,
                     15,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            1150,
+            1148,
             places=0,
         )
 
@@ -958,12 +1046,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            1425,
+            1473,
             places=0,
         )
         self.assertAlmostEqual(
@@ -981,12 +1069,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     12,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            1425,
+            1473,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1004,12 +1092,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            4982,
+            5030,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1027,12 +1115,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     16,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            4982,
+            5030,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1050,12 +1138,12 @@ class TestFromFile(unittest.TestCase):
                     2750,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            19982,
+            20029,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1073,12 +1161,12 @@ class TestFromFile(unittest.TestCase):
                     2750,
                     15,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            19982,
+            20029,
             places=0,
         )
 
@@ -1099,12 +1187,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            12989,
+            12420,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1122,12 +1210,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     12,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            20055,
+            19172,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1145,12 +1233,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            12989,
+            12420,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1168,12 +1256,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     12,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            20055,
+            19172,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1191,12 +1279,12 @@ class TestFromFile(unittest.TestCase):
                     2750,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            12989,
+            12420,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1214,12 +1302,12 @@ class TestFromFile(unittest.TestCase):
                     2750,
                     12,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            20055,
+            19172,
             places=0,
         )
 
@@ -1239,12 +1327,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            17255,
+            16692,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1262,12 +1350,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     12,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            23074,
+            22317,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1285,12 +1373,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            26633,
+            26361,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1308,12 +1396,12 @@ class TestFromFile(unittest.TestCase):
                     250,
                     12,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            35656,
+            35292,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1331,12 +1419,12 @@ class TestFromFile(unittest.TestCase):
                     2750,
                     0,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            7964,
+            7931,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1354,12 +1442,12 @@ class TestFromFile(unittest.TestCase):
                     2750,
                     12,
                     None,
-                    None,
+                    9,
                     None,
                     None,
                 ],
             ),
-            10400,
+            10356,
             places=0,
         )
 

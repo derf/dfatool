@@ -235,12 +235,12 @@ class AnalyticModel:
 
             for name in self.names:
                 for attr in self.attr_by_name[name].keys():
-                    for key, param, args in self.attr_by_name[name][
+                    for key, param, args, kwargs in self.attr_by_name[name][
                         attr
                     ].get_data_for_paramfit(
                         safe_functions_enabled=safe_functions_enabled
                     ):
-                        paramfit.enqueue(key, param, args)
+                        paramfit.enqueue(key, param, args, kwargs)
 
             paramfit.fit()
 

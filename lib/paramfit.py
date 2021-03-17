@@ -29,7 +29,7 @@ class ParallelParamFit:
         """Create a new ParallelParamFit object."""
         self.fit_queue = list()
 
-    def enqueue(self, key, param, args):
+    def enqueue(self, key, param, args, kwargs=dict()):
         """
         Add state_or_tran/attribute/param_name to fit queue.
 
@@ -41,7 +41,7 @@ class ParallelParamFit:
         :param args: [by_param, param_index, safe_functions_enabled, param_filter]
             by_param[(param 1, param2, ...)] holds measurements.
         """
-        self.fit_queue.append({"key": (key, param), "args": args})
+        self.fit_queue.append({"key": (key, param), "args": args, "kwargs": kwargs})
 
     def fit(self):
         """
@@ -102,11 +102,11 @@ class ParallelParamFit:
 
 def _try_fits_parallel(arg):
     """
-    Call _try_fits(*arg['args']) and return arg['key'] and the _try_fits result.
+    Call _try_fits(*arg['args'], **arg["kwargs"]) and return arg['key'] and the _try_fits result.
 
     Must be a global function as it is called from a multiprocessing Pool.
     """
-    return {"key": arg["key"], "result": _try_fits(*arg["args"])}
+    return {"key": arg["key"], "result": _try_fits(*arg["args"], **arg["kwargs"])}
 
 
 def _try_fits(

@@ -175,9 +175,13 @@ def match_parameter_values(input_param: dict, match_param: dict):
     return True
 
 
-def partition_by_param(data, param_values):
+def partition_by_param(data, param_values, ignore_parameters=list()):
     ret = dict()
     for i, parameters in enumerate(param_values):
+        # ensure that parameters[param_index] = None does not affect the "param_values" entries passed to this function
+        parameters = list(parameters)
+        for param_index in ignore_parameters:
+            parameters[param_index] = None
         param_key = tuple(parameters)
         if param_key not in ret:
             ret[param_key] = list()
