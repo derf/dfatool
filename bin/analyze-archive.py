@@ -462,6 +462,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--show-models",
         choices=["static", "paramdetection", "param", "all", "tex", "html"],
+        action="append",
+        default=list(),
         help="static: show static model values as well as parameter detection heuristic.\n"
         "paramdetection: show stddev of static/lut/fitted model\n"
         "param: show parameterized model functions and regression variable values\n"
@@ -472,6 +474,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--show-quality",
         choices=["table", "summary", "all", "tex", "html"],
+        action="append",
+        default=list(),
         help="table: show static/fitted/lut SMAPE and MAE for each name and attribute.\n"
         "summary: show static/fitted/lut SMAPE and MAE for each attribute, averaged over all states/transitions.\n"
         "all: all of the above.\n"
@@ -572,11 +576,8 @@ if __name__ == "__main__":
             state_or_tran, attribute, *function_str = function_desc.split(" ")
             function_override[(state_or_tran, attribute)] = " ".join(function_str)
 
-    if args.show_models:
-        show_models = args.show_models.split(",")
-
-    if args.show_quality:
-        show_quality = args.show_quality.split(",")
+    show_models = args.show_models
+    show_quality = args.show_quality
 
     if args.cross_validate:
         xv_method, xv_count = args.cross_validate.split(":")
