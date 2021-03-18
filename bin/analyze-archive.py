@@ -608,6 +608,7 @@ if __name__ == "__main__":
 
     if args.info:
         print(" ".join(raw_data.filenames) + ":")
+        data_source = "???"
         if raw_data.ptalog:
             options = " --".join(
                 map(lambda kv: f"{kv[0]}={str(kv[1])}", raw_data.ptalog["opt"].items())

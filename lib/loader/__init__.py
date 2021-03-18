@@ -19,6 +19,7 @@ from .energytrace import (
     EnergyTraceWithLogicAnalyzer,
     EnergyTraceWithTimer,
 )
+from .dlog import DLog
 from .keysight import KeysightCSV
 from .mimosa import MIMOSA
 
@@ -111,6 +112,37 @@ def _preprocess_etlog(measurement):
         "energy_trace": states_and_transitions,
         "valid": len(etlog.errors) == 0,
         "errors": etlog.errors,
+    }
+
+    return processed_data
+
+
+def _preprocess_dlog(measurement):
+    setup = measurement["setup"]
+    dlog = DLog(
+        float(setup["voltage"]),
+        int(setup["state_duration"]),
+        with_traces=measurement["with_traces"],
+    )
+
+    states_and_transitions = list()
+    try:
+        dlog.load_data(measurement["content"])
+        states_and_transitions = dlog.analyze_states(
+            measurement["expected_trace"], measurement["repeat_id"]
+        )
+    except EOFError as e:
+        dlog.errors.append("DLog file error: {}".format(e))
+    except RuntimeError as e:
+        dlog.errors.append("DLog loader error: {}".format(e))
+
+    processed_data = {
+        "fileno": measurement["fileno"],
+        "repeat_id": measurement["repeat_id"],
+        "info": measurement["info"],
+        "energy_trace": states_and_transitions,
+        "valid": len(dlog.errors) == 0,
+        "errors": dlog.errors,
     }
 
     return processed_data
@@ -330,10 +362,12 @@ class RawData:
             for member in tf.getmembers():
                 if member.name == "ptalog.json" and self.version == 0:
                     self.version = 1
-                    # might also be version 2
-                    # depends on whether *.etlog exists or not
+                    # or greater, if *.etlog / *.dlog exist
                 elif ".etlog" in member.name:
                     self.version = 2
+                    break
+                elif ".dlog" in member.name:
+                    self.version = 3
                     break
             if self.version >= 1:
                 self.ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
@@ -390,7 +424,7 @@ class RawData:
                 "ptalog": self.ptalog,
                 "setup_by_fileno": self.setup_by_fileno,
             }
-            json.dump(cache_data, f)
+            json.dump(cache_data, f, cls=NpEncoder)
 
     def to_dref(self) -> dict:
         return {
@@ -475,15 +509,15 @@ class RawData:
         """
         if self.preprocessed:
             return self.traces
-        if self.version <= 2:
-            self._preprocess_012(self.version)
+        if self.version <= 3:
+            self._preprocess(self.version)
         else:
             raise ValueError(f"Unsupported raw data version: {self.version}")
         self.preprocessed = True
         self.save_cache()
         return self.traces
 
-    def _preprocess_012(self, version):
+    def _preprocess(self, version):
         """Load raw MIMOSA data and turn it into measurements which are ready to be analyzed."""
         offline_data = []
         for i, filename in enumerate(self.input_filenames):
@@ -677,6 +711,55 @@ class RawData:
                 # will not linger in 'offline_aggregates' and confuse the hell
                 # out of other code paths
 
+            elif self.version == 3:
+                with tarfile.open(filename) as tf:
+                    ptalog = json.load(tf.extractfile(tf.getmember("ptalog.json")))
+                    # generate-dfa-benchmark uses TimingHarness to obtain timing data.
+                    # Data is placed in 'offline_aggregates', which is also
+                    # where we are going to store power/energy data.
+                    # In case of invalid measurements, this can lead to a
+                    # mismatch between duration and power/energy data, e.g.
+                    # where duration = [A, B, C], power = [a, b], B belonging
+                    # to an invalid measurement and thus power[b] corresponding
+                    # to duration[C]. At the moment, this is harmless, but in the
+                    # future it might not be.
+                    if "offline_aggregates" in ptalog["traces"][0][0]["trace"][0]:
+                        for trace_group in ptalog["traces"]:
+                            for trace in trace_group:
+                                for state_or_transition in trace["trace"]:
+                                    offline_aggregates = state_or_transition.pop(
+                                        "offline_aggregates", None
+                                    )
+                                    if offline_aggregates:
+                                        state_or_transition[
+                                            "online_aggregates"
+                                        ] = offline_aggregates
+                    for j, traces in enumerate(ptalog["traces"]):
+                        self.filenames.append("{}#{}".format(filename, j))
+                        self.traces_by_fileno.append(traces)
+                        self.setup_by_fileno.append(
+                            {
+                                "voltage": ptalog["configs"][j]["voltage"],
+                                "state_duration": ptalog["opt"]["sleep"],
+                            }
+                        )
+                        for repeat_id, dlog_file in enumerate(ptalog["files"][j]):
+                            member = tf.getmember(dlog_file)
+                            offline_data.append(
+                                {
+                                    "content": tf.extractfile(member).read(),
+                                    "fileno": len(self.traces_by_fileno) - 1,
+                                    # For debug output and warnings
+                                    "info": member,
+                                    "setup": self.setup_by_fileno[-1],
+                                    # needed to add runtime "return_value.apply_from" parameters to offline_aggregates
+                                    "repeat_id": repeat_id,
+                                    # only for validation
+                                    "expected_trace": traces,
+                                    "with_traces": self.with_traces,
+                                }
+                            )
+
         if self.version == 0 and len(self.input_filenames) > 1:
             for entry in offline_data:
                 assert_legacy_compatibility(
@@ -691,6 +774,8 @@ class RawData:
                 measurements = pool.map(_preprocess_mimosa, offline_data)
             elif self.version == 2:
                 measurements = pool.map(_preprocess_etlog, offline_data)
+            elif self.version == 3:
+                measurements = pool.map(_preprocess_dlog, offline_data)
 
         num_valid = 0
         for measurement in measurements:
@@ -721,7 +806,7 @@ class RawData:
                             e="; ".join(measurement["errors"]),
                         )
                     )
-            elif version == 2:
+            elif version == 2 or version == 3:
                 if measurement["valid"]:
                     try:
                         EnergyTrace.add_offline_aggregates(
@@ -747,12 +832,7 @@ class RawData:
                 num_valid=num_valid, num_total=len(measurements)
             )
         )
-        if version == 0:
-            self.traces = self._concatenate_traces(self.traces_by_fileno)
-        elif version == 1:
-            self.traces = self._concatenate_traces(self.traces_by_fileno)
-        elif version == 2:
-            self.traces = self._concatenate_traces(self.traces_by_fileno)
+        self.traces = self._concatenate_traces(self.traces_by_fileno)
         self.preprocessing_stats = {
             "num_runs": len(measurements),
             "num_valid": num_valid,

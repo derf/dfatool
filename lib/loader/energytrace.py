@@ -721,21 +721,6 @@ class EnergyTraceWithLogicAnalyzer:
         energy_trace = list()
         expected_transitions = list()
 
-        # Print for debug purposes
-        # for number, name in enumerate(names):
-        #    if "P15_8MW" in name:
-        #        print(name, energy_trace_new[number]["W_mean"])
-
-        # st = ""
-        # for i, x in enumerate(energy_trace_new[-10:]):
-        #    #st += "(%s|%s|%s)" % (energy_trace[i-10]["name"],x['W_mean'],x['s'])
-        #    st += "(%s|%s|%s)\n" % (energy_trace[i-10]["s"], x['s'], x['W_mean'])
-
-        # print(st, "\n_______________________")
-        # print(len(self.sync_data.timestamps), " - ", len(energy_trace_new), " - ", len(energy_trace), " - ", ",".join([str(x["s"]) for x in energy_trace_new[-6:]]), " - ", ",".join([str(x["s"]) for x in energy_trace[-6:]]))
-        # if len(energy_trace_new) < len(energy_trace):
-        #    return None
-
         return energy_trace_new
 
 
@@ -795,8 +780,6 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
                         f"""offline_index {offline_index} missing in trace {tr["id"]}"""
                     )
                     return list()
-
-        # print(timestamps)
 
         # Stop "Synchronization pulses". The first one has already started.
         timestamps.extend(np.array([10, 1e6, 1e6 + 10]) + timestamps[-1])
