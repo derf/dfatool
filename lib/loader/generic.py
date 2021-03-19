@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import os
 from bisect import bisect_right
 
 
@@ -160,4 +161,92 @@ class ExternalTimerSync:
             energy_trace.append(transition)
             energy_trace.append(state)
 
+        if os.getenv("DFATOOL_PLOT_SYNC") is not None and repeat_id == int(
+            os.getenv("DFATOOL_PLOT_SYNC")
+        ):
+            self.plot_sync(online_timestamps)  # <- plot traces with sync annotatons
+            # self.plot_sync(names) # <- plot annotated traces (with state/transition names)
+
         return energy_trace
+
+    def plot_sync(self, event_timestamps, annotateData=None):
+        """
+        Plots the power usage and the timestamps by logic analyzer
+
+        :param annotateData: List of Strings with labels, only needed if annotated plots are wished
+        :return: None
+        """
+
+        def calculateRectangleCurve(timestamps, min_value=0, max_value=0.160):
+            import numpy as np
+
+            data = []
+            for ts in timestamps:
+                data.append(ts)
+                data.append(ts)
+
+            a = np.empty((len(data),))
+            a[0::4] = min_value
+            a[1::4] = max_value
+            a[2::4] = max_value
+            a[3::4] = min_value
+            return data, a  # plotting by columns
+
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+
+        if annotateData:
+            annot = ax.annotate(
+                "",
+                xy=(0, 0),
+                xytext=(20, 20),
+                textcoords="offset points",
+                bbox=dict(boxstyle="round", fc="w"),
+                arrowprops=dict(arrowstyle="->"),
+            )
+            annot.set_visible(True)
+
+        rectCurve_with_drift = calculateRectangleCurve(
+            event_timestamps, max_value=max(self.data)
+        )
+
+        plt.plot(self.timestamps, self.data, label="Leistung")
+        plt.plot(self.timestamps, np.gradient(self.data), label="dP/dt")
+
+        plt.plot(
+            rectCurve_with_drift[0],
+            rectCurve_with_drift[1],
+            "-g",
+            label="Events",
+        )
+
+        plt.xlabel("Zeit [s]")
+        plt.ylabel("Leistung [W]")
+        leg = plt.legend()
+
+        def getDataText(x):
+            # print(x)
+            dl = len(annotateData)
+            for i, xt in enumerate(event_timestamps):
+                if xt > x and 0 <= i < dl:
+                    return f"SoT: {annotateData[i]}"
+
+        def update_annot(x, y, name):
+            annot.xy = (x, y)
+            text = name
+
+            annot.set_text(text)
+            annot.get_bbox_patch().set_alpha(0.4)
+
+        def hover(event):
+            if event.xdata and event.ydata:
+                annot.set_visible(False)
+                update_annot(event.xdata, event.ydata, getDataText(event.xdata))
+                annot.set_visible(True)
+                fig.canvas.draw_idle()
+
+        if annotateData:
+            fig.canvas.mpl_connect("motion_notify_event", hover)
+
+        plt.show()
