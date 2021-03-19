@@ -1,5 +1,6 @@
 /lib/__pycache__/
 *.pyc
+*.swp
 /htmlcov/
 /.coverage*
 .idea/
