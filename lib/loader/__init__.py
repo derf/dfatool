@@ -19,8 +19,7 @@ from .energytrace import (
     EnergyTraceWithLogicAnalyzer,
     EnergyTraceWithTimer,
 )
-from .dlog import DLog
-from .keysight import KeysightCSV
+from .keysight import DLog, KeysightCSV
 from .mimosa import MIMOSA
 
 logger = logging.getLogger(__name__)

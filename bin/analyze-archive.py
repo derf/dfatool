@@ -623,6 +623,8 @@ if __name__ == "__main__":
                 )
             else:
                 data_source = "MSP430 EnergyTrace"
+        elif raw_data.version == 3:
+            data_source = "Keysight"
         print(f"    Data source ID: {raw_data.version} ({data_source})")
 
     preprocessed_data = raw_data.get_preprocessed_data()
