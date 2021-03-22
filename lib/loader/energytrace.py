@@ -6,6 +6,7 @@ import numpy as np
 import os
 import re
 
+from dfatool.loader.generic import ExternalTimerSync
 from dfatool.utils import NpEncoder, soft_cast_int
 
 logger = logging.getLogger(__name__)
@@ -724,7 +725,7 @@ class EnergyTraceWithLogicAnalyzer:
         return energy_trace_new
 
 
-class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
+class EnergyTraceWithTimer(ExternalTimerSync):
     def __init__(
         self,
         voltage: float,
@@ -748,7 +749,10 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
         self.with_traces = with_traces
         self.errors = list()
 
-        super().__init__(voltage, state_duration, transition_names, with_traces)
+        self.sync_min_duration = 0.7
+        self.sync_min_low_count = 3
+        self.sync_min_high_count = 1
+        self.sync_power = 0.011
 
     def load_data(self, log_data):
         self.sync_data = None
@@ -760,34 +764,6 @@ class EnergyTraceWithTimer(EnergyTraceWithLogicAnalyzer):
             self.hw_statechange_indexes,
         ) = _load_energytrace(log_data[0])
 
-    def analyze_states(self, traces, offline_index: int):
-
-        # Start "Synchronization pulse"
-        timestamps = [0, 10, 1e6, 1e6 + 10]
-
-        # The first trace doesn't start immediately, append offset saved by OnboarTimerHarness
-        timestamps.append(timestamps[-1] + traces[0]["start_offset"][offline_index])
-        for tr in traces:
-            for t in tr["trace"]:
-                # print(t["online_aggregates"]["duration"][offline_index])
-                try:
-                    timestamps.append(
-                        timestamps[-1]
-                        + t["online_aggregates"]["duration"][offline_index]
-                    )
-                except IndexError:
-                    self.errors.append(
-                        f"""offline_index {offline_index} missing in trace {tr["id"]}"""
-                    )
-                    return list()
-
-        # Stop "Synchronization pulses". The first one has already started.
-        timestamps.extend(np.array([10, 1e6, 1e6 + 10]) + timestamps[-1])
-        timestamps.extend(np.array([0, 10, 1e6, 1e6 + 10]) + 250e3 + timestamps[-1])
-
-        timestamps = list(np.array(timestamps) * 1e-6)
-
-        from dfatool.lennart.SigrokInterface import SigrokResult
-
-        self.sync_data = SigrokResult(timestamps, False)
-        return super().analyze_states(traces, offline_index)
+        # for analyze_states
+        self.timestamps = self.interval_start_timestamp
+        self.data = self.interval_power

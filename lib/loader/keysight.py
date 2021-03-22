@@ -66,6 +66,9 @@ class DLog(ExternalTimerSync):
         self.errors = list()
 
         self.sync_min_duration = 0.7
+        self.sync_min_low_count = 3
+        self.sync_min_high_count = 3
+
         # TODO auto-detect
         self.sync_power = 10e-3
 

@@ -284,6 +284,7 @@ class SplitFunction(ModelFunction):
             {
                 "type": "split",
                 "paramIndex": self.param_index,
+                # TODO zusätzlich paramName
                 "child": dict([[k, v.to_json()] for k, v in self.child.items()]),
             }
         )

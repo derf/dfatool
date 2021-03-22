@@ -1,39 +1,71 @@
 #!/usr/bin/env python3
 
+import json
+import logging
 import numpy as np
 import os
 from bisect import bisect_right
+from dfatool.utils import NpEncoder
+
+logger = logging.getLogger(__name__)
 
 
 class ExternalTimerSync:
     def __init__(self):
         raise NotImplementedError("must be implemented in sub-class")
 
+    def assert_sync_areas(self, sync_areas):
+        # may be implemented in sub-class
+        pass
+
+    def compensate_drift(self, data, timestamps, event_timestamps, offline_index=None):
+        # adjust intermediate timestamps. There is a small error between consecutive measurements,
+        # again due to drift caused by random temperature fluctuation. The error increases with
+        # increased distance from synchronization points: It is negligible at the start and end
+        # of the measurement and may be quite high around the middle. That's just the bounds, though --
+        # you may also have a low error in the middle and error peaks elsewhere.
+        # As the start and stop timestamps have already been synchronized, we only adjust
+        # actual transition timestamps here.
+        if os.getenv("DFATOOL_COMPENSATE_DRIFT"):
+            import dfatool.drift
+
+            return dfatool.drift.compensate(
+                data, timestamps, event_timestamps, offline_index=offline_index
+            )
+        return event_timestamps
+
     # very similar to DataProcessor.getStatesdfatool
     # requires:
     # * self.data (e.g. power readings)
     # * self.timestamps (timstamps in seconds)
+    # * self.sync_min_high_count, self.sync_min_low_count: outlier handling in synchronization pulse detection
     # * self.sync_power, self.sync_min_duration: synchronization pulse parameters. one pulse before the measurement, two pulses afterwards
     # expected_trace must contain online timestamps
     def analyze_states(self, expected_trace, repeat_id):
         sync_start = None
         sync_timestamps = list()
-        above_count = 0
-        below_count = 0
+        high_count = 0
+        low_count = 0
+        high_ts = None
+        low_ts = None
         for i, timestamp in enumerate(self.timestamps):
             power = self.data[i]
             if power > self.sync_power:
-                above_count += 1
-                below_count = 0
+                if high_count == 0:
+                    high_ts = timestamp
+                high_count += 1
+                low_count = 0
             else:
-                above_count = 0
-                below_count += 1
+                if low_count == 0:
+                    low_ts = timestamp
+                high_count = 0
+                low_count += 1
 
-            if above_count > 2 and sync_start is None:
-                sync_start = timestamp
-            elif below_count > 2 and sync_start is not None:
-                if timestamp - sync_start > self.sync_min_duration:
-                    sync_end = timestamp
+            if high_count >= self.sync_min_high_count and sync_start is None:
+                sync_start = high_ts
+            elif low_count >= self.sync_min_low_count and sync_start is not None:
+                if low_ts - sync_start > self.sync_min_duration:
+                    sync_end = low_ts
                     sync_timestamps.append((sync_start, sync_end))
                 sync_start = None
         print(sync_timestamps)
@@ -45,6 +77,8 @@ class ExternalTimerSync:
             self.errors.append(f"Synchronization pulses == {sync_timestamps}")
             return list()
 
+        self.assert_sync_areas(sync_timestamps)
+
         start_ts = sync_timestamps[0][1]
         end_ts = sync_timestamps[1][0]
 
@@ -52,16 +86,30 @@ class ExternalTimerSync:
         online_timestamps = [0, expected_trace[0]["start_offset"][repeat_id]]
 
         # remaining events from the end of the first transition (start of second state) to the end of the last observed state
-        for trace in expected_trace:
-            for word in trace["trace"]:
-                online_timestamps.append(
-                    online_timestamps[-1]
-                    + word["online_aggregates"]["duration"][repeat_id]
-                )
+        try:
+            for trace in expected_trace:
+                for word in trace["trace"]:
+                    online_timestamps.append(
+                        online_timestamps[-1]
+                        + word["online_aggregates"]["duration"][repeat_id]
+                    )
+        except IndexError:
+            self.errors.append(
+                f"""offline_index {repeat_id} missing in trace {trace["id"]}"""
+            )
+            return list()
 
         online_timestamps = np.array(online_timestamps) * 1e-6
         online_timestamps = (
-            online_timestamps * ((end_ts - start_ts) / online_timestamps[-1]) + start_ts
+            online_timestamps
+            * ((end_ts - start_ts) / (online_timestamps[-1] - online_timestamps[0]))
+            + start_ts
+        )
+
+        # drift compensation works on transition boundaries. Exclude start of first state and end of last state.
+        # Those are defined to have zero drift anyways.
+        online_timestamps[1:-1] = self.compensate_drift(
+            self.data, self.timestamps, online_timestamps[1:-1], repeat_id
         )
 
         trigger_edges = list()
@@ -166,8 +214,30 @@ class ExternalTimerSync:
         ):
             self.plot_sync(online_timestamps)  # <- plot traces with sync annotatons
             # self.plot_sync(names) # <- plot annotated traces (with state/transition names)
+        # TODO LASYNC -> SYNC
+        if os.getenv("DFATOOL_EXPORT_LASYNC") is not None:
+            filename = os.getenv("DFATOOL_EXPORT_LASYNC") + f"_{repeat_id}.json"
+            with open(filename, "w") as f:
+                json.dump(self._export_sync(online_timestamps), f, cls=NpEncoder)
+            logger.info("Exported sync timestamps to {filename}")
 
         return energy_trace
+
+    def _export_sync(self, online_timestamps):
+        # [(1st trans start, 1st trans stop), (2nd trans start, 2nd trans stop), ...]
+        sync_timestamps = list()
+
+        for i in range(1, len(online_timestamps) - 1, 2):
+            sync_timestamps.append((online_timestamps[i], online_timestamps[i + 1]))
+
+        # input timestamps
+        timestamps = self.timestamps
+
+        # input data, e.g. power
+        data = self.data
+
+        # TODO "power" -> "data"
+        return {"sync": sync_timestamps, "timestamps": timestamps, "power": data}
 
     def plot_sync(self, event_timestamps, annotateData=None):
         """
@@ -214,12 +284,7 @@ class ExternalTimerSync:
         plt.plot(self.timestamps, self.data, label="Leistung")
         plt.plot(self.timestamps, np.gradient(self.data), label="dP/dt")
 
-        plt.plot(
-            rectCurve_with_drift[0],
-            rectCurve_with_drift[1],
-            "-g",
-            label="Events",
-        )
+        plt.plot(rectCurve_with_drift[0], rectCurve_with_drift[1], "-g", label="Events")
 
         plt.xlabel("Zeit [s]")
         plt.ylabel("Leistung [W]")
