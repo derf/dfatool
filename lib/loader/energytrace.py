@@ -627,7 +627,7 @@ class EnergyTraceWithBarcode:
             return None, None, None, None
 
 
-class EnergyTraceWithLogicAnalyzer:
+class EnergyTraceWithLogicAnalyzer(ExternalTimerSync):
     def __init__(
         self,
         voltage: float,
@@ -650,12 +650,15 @@ class EnergyTraceWithLogicAnalyzer:
         self.with_traces = with_traces
         self.errors = list()
 
-    def load_data(self, log_data):
-        from dfatool.lennart.SigrokInterface import SigrokResult
-        from dfatool.lennart.EnergyInterface import EnergyInterface
+        self.sync_min_duration = 0.7
+        self.sync_min_low_count = 3
+        self.sync_min_high_count = 1
+        self.sync_power = 0.011
 
-        # Daten laden
-        self.sync_data = SigrokResult.fromString(log_data[0])
+    def load_data(self, log_data):
+        la_data = json.loads(log_data[0])
+        self.sync_data = la_data["timestamps"]
+
         (
             self.interval_start_timestamp,
             self.interval_duration,
@@ -664,65 +667,26 @@ class EnergyTraceWithLogicAnalyzer:
             self.hw_statechange_indexes,
         ) = _load_energytrace(log_data[1])
 
-    def analyze_states(self, traces, offline_index: int):
-        """
-        Split log data into states and transitions and return duration, energy, and mean power for each element.
+        self.timestamps = self.interval_start_timestamp
+        self.data = self.interval_power
 
-        :param traces: expected traces, needed to synchronize with the measurement.
-            traces is a list of runs, traces[*]['trace'] is a single run
-            (i.e. a list of states and transitions, starting with a transition
-            and ending with a state).
-        :param offline_index: This function uses traces[*]['trace'][*]['online_aggregates']['duration'][offline_index] to find sync codes
+        for x in range(1, len(self.sync_data)):
+            if self.sync_data[x] - self.sync_data[x - 1] > 1.3:
+                self.sync_data = self.sync_data[x:]
+                break
 
-        :param charges: raw charges (each element describes the charge in pJ transferred during 10 µs)
-        :param trigidx: "charges" indexes corresponding to a trigger edge, see `trigger_edges`
-        :param ua_func: charge(pJ) -> current(µA) function as returned by `calibration_function`
+        for x in reversed(range(1, len(self.sync_data))):
+            if self.sync_data[x] - self.sync_data[x - 1] > 1.3:
+                self.sync_data = self.sync_data[:x]
+                break
 
-        :returns: returns list of states and transitions, starting with a transition and ending with astate
-            Each element is a dict containing:
-            * `isa`: 'state' or 'transition'
-            * `W_mean`: Mittelwert der Leistungsaufnahme
-            * `W_std`: Standardabweichung der Leistungsaufnahme
-            * `s`: Dauer
-            if isa == 'transition, it also contains:
-            * `W_mean_delta_prev`: Differenz zwischen W_mean und W_mean des vorherigen Zustands
-            * `W_mean_delta_next`: Differenz zwischen W_mean und W_mean des Folgezustands
-        """
-
-        names = []
-        for trace_number, trace in enumerate(traces):
-            for state_or_transition in trace["trace"]:
-                names.append(state_or_transition["name"])
-        # print(names[:15])
-        from dfatool.lennart.DataProcessor import DataProcessor
-
-        dp = DataProcessor(
-            sync_data=self.sync_data,
-            et_timestamps=self.interval_start_timestamp,
-            et_power=self.interval_power,
-            hw_statechange_indexes=self.hw_statechange_indexes,
-            offline_index=offline_index,
+        self.online_timestamps = self.sync_data[2:3] + self.sync_data[4:-7]
+        self.online_timestamps = (
+            np.array(self.online_timestamps) - self.online_timestamps[0]
         )
-        dp.run()
-        energy_trace_new = dp.getStatesdfatool(
-            state_sleep=self.state_duration, with_traces=self.with_traces
-        )
-        # Uncomment to plot traces
-        if os.getenv("DFATOOL_PLOT_LASYNC") is not None and offline_index == int(
-            os.getenv("DFATOOL_PLOT_LASYNC")
-        ):
-            dp.plot()  # <- plot traces with sync annotatons
-            # dp.plot(names) # <- plot annotated traces (with state/transition names)
-        if os.getenv("DFATOOL_EXPORT_LASYNC") is not None:
-            filename = os.getenv("DFATOOL_EXPORT_LASYNC") + f"_{offline_index}.json"
-            with open(filename, "w") as f:
-                json.dump(dp.export_sync(), f, cls=NpEncoder)
-            logger.info("Exported data and LA sync timestamps to {filename}")
 
-        energy_trace = list()
-        expected_transitions = list()
-
-        return energy_trace_new
+    def analyze_states(self, expected_trace, repeat_id):
+        return super().analyze_states(expected_trace, repeat_id, self.online_timestamps)
 
 
 class EnergyTraceWithTimer(ExternalTimerSync):

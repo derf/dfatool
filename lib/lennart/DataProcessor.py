@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+
+# XXX deprecated and unused
 import numpy as np
 import logging
 import os
@@ -49,7 +51,7 @@ class DataProcessor:
 
         # Remove bogus data before / after the measurement
 
-        time_stamp_data = self.sync_data.timestamps
+        time_stamp_data = self.sync_data
         for x in range(1, len(time_stamp_data)):
             if time_stamp_data[x] - time_stamp_data[x - 1] > 1.3:
                 time_stamp_data = time_stamp_data[x:]

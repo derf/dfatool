@@ -153,6 +153,21 @@ class NormalizationFunction:
 
 
 class ModelFunction:
+    """
+    Encapsulates the behaviour of a single model attribute, e.g. TX power or write duration.
+
+    The behaviour may be constant or depend on a number of factors. Modelfunction is a virtual base class,
+    individuel decendents describe actual behaviour.
+
+    Common attributes:
+    :param value: median data value
+    :type value: float
+    :param value_error: static model value error
+    :type value_error: dict, optional
+    :param function_error: model error
+    :type value_error: dict, optional
+    """
+
     def __init__(self, value):
         # a model always has a static (median/mean) value. For StaticFunction, it's the only data point.
         # For more complex models, it's usede both as fallback in case the model cannot predict the current
@@ -171,11 +186,13 @@ class ModelFunction:
         raise NotImplementedError
 
     def eval_mae(self, param_list):
+        """Return model Mean Absolute Error (MAE) for `param_list`."""
         if self.is_predictable(param_list):
             return self.function_error["mae"]
         return self.value_error["mae"]
 
     def to_json(self):
+        """Convert model to JSON."""
         ret = {
             "value": self.value,
             "valueError": self.value_error,
@@ -185,6 +202,11 @@ class ModelFunction:
 
     @classmethod
     def from_json(cls, data):
+        """
+        Create ModelFunction instance from JSON.
+
+        Delegates to StaticFunction, SplitFunction, etc. as appropriate.
+        """
         if data["type"] == "static":
             mf = StaticFunction.from_json(data)
         elif data["type"] == "split":

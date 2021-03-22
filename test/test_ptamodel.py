@@ -941,21 +941,7 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "duration",
-                param=[
-                    0,
-                    None,
-                    1000,
-                    None,
-                    0,
-                    None,
-                    None,
-                    250,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[0, None, 1000, None, 0, None, None, 250, 0, None, 9, None, None],
             ),
             1148,
             places=0,
@@ -964,21 +950,7 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "duration",
-                param=[
-                    0,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    250,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[0, None, 1000, None, 5, None, None, 250, 0, None, 9, None, None],
             ),
             1148,
             places=0,
@@ -1035,21 +1007,7 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "duration",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    0,
-                    None,
-                    None,
-                    250,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[1, None, 1000, None, 0, None, None, 250, 0, None, 9, None, None],
             ),
             1473,
             places=0,
@@ -1081,21 +1039,7 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "duration",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    250,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[1, None, 1000, None, 5, None, None, 250, 0, None, 9, None, None],
             ),
             5030,
             places=0,
@@ -1176,21 +1120,7 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "power",
-                param=[
-                    0,
-                    None,
-                    1000,
-                    None,
-                    0,
-                    None,
-                    None,
-                    250,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[0, None, 1000, None, 0, None, None, 250, 0, None, 9, None, None],
             ),
             12420,
             places=0,
@@ -1222,21 +1152,7 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "power",
-                param=[
-                    0,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    250,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[0, None, 1000, None, 5, None, None, 250, 0, None, 9, None, None],
             ),
             12420,
             places=0,
@@ -1316,21 +1232,7 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "power",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    0,
-                    None,
-                    None,
-                    250,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[1, None, 1000, None, 0, None, None, 250, 0, None, 9, None, None],
             ),
             16692,
             places=0,
@@ -1362,21 +1264,7 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "power",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    250,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[1, None, 1000, None, 5, None, None, 250, 0, None, 9, None, None],
             ),
             26361,
             places=0,
@@ -1545,17 +1433,17 @@ class TestFromFile(unittest.TestCase):
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("IDLE", "power"), 766, places=0)
         self.assertAlmostEqual(static_model("setup", "duration"), 15, places=0)
-        self.assertAlmostEqual(static_model("setup", "power"), 935, places=0)
+        self.assertAlmostEqual(static_model("setup", "power"), 939, places=0)
         self.assertAlmostEqual(static_model("trans100u", "duration"), 146, places=0)
         self.assertAlmostEqual(static_model("trans100u", "power"), 939, places=0)
         self.assertAlmostEqual(static_model("trans10m", "duration"), 10084, places=0)
-        self.assertAlmostEqual(static_model("trans10m", "power"), 6227, places=0)
+        self.assertAlmostEqual(static_model("trans10m", "power"), 6236, places=0)
         self.assertAlmostEqual(static_model("trans1m", "duration"), 1025, places=0)
-        self.assertAlmostEqual(static_model("trans1m", "power"), 3691, places=0)
+        self.assertAlmostEqual(static_model("trans1m", "power"), 3878, places=0)
         self.assertAlmostEqual(static_model("trans2m", "duration"), 2031, places=0)
-        self.assertAlmostEqual(static_model("trans2m", "power"), 5169, places=0)
+        self.assertAlmostEqual(static_model("trans2m", "power"), 5194, places=0)
         self.assertAlmostEqual(static_model("trans5m", "duration"), 5049, places=0)
-        self.assertAlmostEqual(static_model("trans5m", "power"), 6045, places=0)
+        self.assertAlmostEqual(static_model("trans5m", "power"), 6013, places=0)
 
     def test_et_timer_dco(self):
         raw_data = RawData(["test-data/20201203-110526-et_timer_dco.tar"])

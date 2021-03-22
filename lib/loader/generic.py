@@ -41,7 +41,10 @@ class ExternalTimerSync:
     # * self.sync_min_high_count, self.sync_min_low_count: outlier handling in synchronization pulse detection
     # * self.sync_power, self.sync_min_duration: synchronization pulse parameters. one pulse before the measurement, two pulses afterwards
     # expected_trace must contain online timestamps
-    def analyze_states(self, expected_trace, repeat_id):
+    def analyze_states(self, expected_trace, repeat_id, online_timestamps=None):
+        """
+        :param online_timestamps: must start at 0, if set
+        """
         sync_start = None
         sync_timestamps = list()
         high_count = 0
@@ -81,24 +84,28 @@ class ExternalTimerSync:
         start_ts = sync_timestamps[0][1]
         end_ts = sync_timestamps[1][0]
 
-        # start and end of first state
-        online_timestamps = [0, expected_trace[0]["start_offset"][repeat_id]]
+        if online_timestamps is None:
+            # start and end of first state
+            online_timestamps = [0, expected_trace[0]["start_offset"][repeat_id]]
 
-        # remaining events from the end of the first transition (start of second state) to the end of the last observed state
-        try:
-            for trace in expected_trace:
-                for word in trace["trace"]:
-                    online_timestamps.append(
-                        online_timestamps[-1]
-                        + word["online_aggregates"]["duration"][repeat_id]
-                    )
-        except IndexError:
-            self.errors.append(
-                f"""offline_index {repeat_id} missing in trace {trace["id"]}"""
-            )
-            return list()
+            # remaining events from the end of the first transition (start of second state) to the end of the last observed state
+            try:
+                for trace in expected_trace:
+                    for word in trace["trace"]:
+                        online_timestamps.append(
+                            online_timestamps[-1]
+                            + word["online_aggregates"]["duration"][repeat_id]
+                        )
+            except IndexError:
+                self.errors.append(
+                    f"""offline_index {repeat_id} missing in trace {trace["id"]}"""
+                )
+                return list()
 
-        online_timestamps = np.array(online_timestamps) * 1e-6
+            online_timestamps = np.array(online_timestamps) * 1e-6
+        else:
+            online_timestamps = np.array(online_timestamps)
+
         online_timestamps = (
             online_timestamps
             * ((end_ts - start_ts) / (online_timestamps[-1] - online_timestamps[0]))
