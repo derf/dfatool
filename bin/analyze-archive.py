@@ -40,6 +40,7 @@ import argparse
 import json
 import logging
 import random
+import re
 import sys
 from dfatool import plotter
 from dfatool.loader import RawData, pta_trace_to_aggregate
@@ -401,6 +402,38 @@ def print_splitinfo(param_names, info, prefix=""):
         print(f"{prefix}: UNKNOWN")
 
 
+def _mogrify(function_str, parameter_names, regression_args):
+    for i in range(len(regression_args)):
+        function_str = function_str.replace(
+            f"regression_arg({i})", str(regression_args[i])
+        )
+    for parameter_name in parameter_names:
+        function_str = function_str.replace(
+            f"parameter({parameter_name})", f"""param["{parameter_name}"]"""
+        )
+    for arg_num in range(10):
+        function_str = function_str.replace(
+            f"function_arg({arg_num})", f"args[{arg_num}]"
+        )
+    function_str = function_str.replace("np.", "Math.")
+    return "#![modelfunction]" + function_str
+
+
+def mogrify(model):
+    if type(model) is dict:
+        if "functionStr" in model:
+            model["function"] = _mogrify(
+                model["functionStr"], model["parameterNames"], model["regressionModel"]
+            )
+        else:
+            for k, v in model.items():
+                model[k] = mogrify(v)
+    elif type(model) is list:
+        for i, elem in enumerate(model):
+            model[i] = mogrify(model[i])
+    return model
+
+
 if __name__ == "__main__":
 
     ignored_trace_indexes = []
@@ -547,7 +580,13 @@ if __name__ == "__main__":
         "--export-energymodel",
         metavar="FILE",
         type=str,
-        help="Export JSON energy model to FILE. Works out of the box for v1 and v2, requires --hwmodel for v0",
+        help="Export JSON energy model to FILE. Works out of the box for v1+, requires --hwmodel for v0",
+    )
+    parser.add_argument(
+        "--export-webconf",
+        metavar="FILE",
+        type=str,
+        help="Export KConfig model to FILE.Kconfig and energy model to FILE.js. Works out of the box for v1+, requires --hwmodel for v0",
     )
     parser.add_argument(
         "--with-substates",
@@ -1111,6 +1150,28 @@ if __name__ == "__main__":
                 else:
                     prefix = r"\drefset" + f"[unit={v[1]}]" + "{"
                 print(f"{prefix}{k}" + "}{" + str(v[0]) + "}", file=f)
+
+    if args.export_webconf:
+        if not pta:
+            print(
+                "[E] --export-energymodel requires --hwmodel to be set", file=sys.stderr
+            )
+            sys.exit(1)
+        json_model = model.to_json()
+        mogrify(json_model)
+        json_model_str = json.dumps(json_model, indent=2, sort_keys=True, cls=NpEncoder)
+        json_model_out = ""
+        for line in json_model_str.split("\n"):
+            match = re.fullmatch(r"(.*)\"#!\[modelfunction\](.*\")(.*)", line)
+            if match:
+                line = (
+                    match.group(1)
+                    + "(param, args) => "
+                    + json.loads('"' + match.group(2))
+                    + match.group(3)
+                )
+            json_model_out += line + "\n"
+        print(json_model_out)
 
     if args.export_energymodel:
         if not pta:
