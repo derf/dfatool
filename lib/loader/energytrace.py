@@ -680,6 +680,15 @@ class EnergyTraceWithLogicAnalyzer(ExternalTimerSync):
                 self.sync_data = self.sync_data[:x]
                 break
 
+        # Each synchronization pulse consists of two LogicAnalyzer pulses, so four
+        # entries in time_stamp_data (rising edge, falling edge, rising edge, falling edge).
+        # If we have less then twelve entries, we observed no transitions and don't even have
+        # valid synchronization data. In this case, we bail out.
+        if len(self.sync_data) < 12:
+            raise RuntimeError(
+                f"LogicAnalyzer sync data has length {len(time_stamp_data)}, expected >= 12"
+            )
+
         self.online_timestamps = self.sync_data[2:3] + self.sync_data[4:-7]
         self.online_timestamps = (
             np.array(self.online_timestamps) - self.online_timestamps[0]

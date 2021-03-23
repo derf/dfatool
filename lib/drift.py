@@ -337,3 +337,29 @@ def compensate_drift_greedy(event_timestamps, transition_start_candidate_weights
             )
 
     return compensated_timestamps
+
+
+def compensate_etplusplus(
+    data, timestamps, event_timestamps, statechange_indexes, offline_index=None
+):
+    """Use hardware state changes reported by EnergyTrace++ to determine transition timestamps."""
+    expected_transition_start_timestamps = event_timestamps[::2]
+    compensated_timestamps = list()
+    drift = 0
+    for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
+        expected_end_ts = event_timestamps[i * 2 + 1]
+        et_timestamps_start = bisect_left(timestamps, expected_start_ts - 10e-3)
+        et_timestamps_end = bisect_right(timestamps, expected_start_ts + 10e-3)
+
+        candidate_indexes = list()
+        for index in statechange_indexes:
+            if et_timestamps_start <= index <= et_timestamps_end:
+                candidate_indexes.append(index)
+
+        if len(candidate_indexes) == 2:
+            drift = timestamps[candidate_indexes[0]] - expected_start_ts
+
+        compensated_timestamps.append(expected_start_ts + drift)
+        compensated_timestamps.append(expected_end_ts + drift)
+
+    return compensated_timestamps

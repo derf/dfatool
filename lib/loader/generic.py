@@ -29,6 +29,17 @@ class ExternalTimerSync:
         if os.getenv("DFATOOL_COMPENSATE_DRIFT"):
             import dfatool.drift
 
+            if len(self.hw_statechange_indexes):
+                # measurement was performed with EnergyTrace++
+                # (i.e., with cpu state annotations)
+                return dfatool.drift.compensate_etplusplus(
+                    data,
+                    timestamps,
+                    event_timestamps,
+                    self.hw_statechange_indexes,
+                    offline_index=offline_index,
+                )
+
             return dfatool.drift.compensate(
                 data, timestamps, event_timestamps, offline_index=offline_index
             )
@@ -41,6 +52,7 @@ class ExternalTimerSync:
     # * self.sync_min_high_count, self.sync_min_low_count: outlier handling in synchronization pulse detection
     # * self.sync_power, self.sync_min_duration: synchronization pulse parameters. one pulse before the measurement, two pulses afterwards
     # expected_trace must contain online timestamps
+    # TODO automatically determine sync_power if it is None
     def analyze_states(self, expected_trace, repeat_id, online_timestamps=None):
         """
         :param online_timestamps: must start at 0, if set
