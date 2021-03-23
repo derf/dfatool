@@ -1,7 +1,8 @@
+#!/usr/bin/env python3
+
 import json
 import numpy as np
 
-from dfatool.lennart.DataInterface import DataInterface
 import logging
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ class SigrokResult:
         pass
 
 
-class SigrokInterface(DataInterface):
+class SigrokInterface:
     def __init__(self, sample_rate, driver="fx2lafw", filename="temp/sigrok.log"):
         """
 
