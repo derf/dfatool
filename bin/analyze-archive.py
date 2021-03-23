@@ -425,6 +425,9 @@ def mogrify(model):
             model["function"] = _mogrify(
                 model["functionStr"], model["parameterNames"], model["regressionModel"]
             )
+            model.pop("functionStr")
+            model.pop("parameterNames")
+            model.pop("regressionModel")
         else:
             for k, v in model.items():
                 model[k] = mogrify(v)
