@@ -793,15 +793,44 @@ class PTAModel(AnalyticModel):
         pta = self.pta
         if pta is None:
             pta = PTA(self.states, parameters=self._parameter_names)
-            logger.warning(
-                "to_json: self.pta is None. Transitions will have incorrect origin/destination states."
-            )
+            if self.traces:
+                logger.warning(
+                    "to_json: PTA is unavailable. Transitions may have incorrect or incomplete origin/destination states."
+                )
+            else:
+                logger.warning(
+                    "to_json: Neither PTA nor traces are available. Falling back to incorrectly mapping all transitions as UNINITIALIZED -> UNINITIALIZED."
+                )
             for transition in self.transitions:
-                pta.add_transition("UNINITIALIZED", "UNINITIALIZED", transition)
+                for origin, destination in self.get_transition_states_from_traces(
+                    transition
+                ):
+                    pta.add_transition(origin, destination, transition)
         pta.update(
             param_info, static_error=static_quality, function_error=analytic_quality
         )
         return pta.to_json()
+
+    def get_transition_states_from_traces(self, transition_name):
+        if self.traces is None:
+            return [("UNINITIALIZED", "UNINITIALIZED")]
+        pairs = set()
+        for trace in self.traces:
+            trace = trace["trace"]
+            for i, tos in enumerate(trace):
+                if (
+                    i == 0
+                    and tos["isa"] == "transition"
+                    and tos["name"] == transition_name
+                ):
+                    pairs.add(("UNINITIALIZED", trace[i + 1]["name"]))
+                elif (
+                    i + 1 < len(trace)
+                    and tos["isa"] == "transition"
+                    and tos["name"] == transition_name
+                ):
+                    pairs.add((trace[i - 1]["name"], trace[i + 1]["name"]))
+        return list(pairs)
 
     def assess(self, model_function, ref=None):
         """
