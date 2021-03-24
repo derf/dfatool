@@ -1157,9 +1157,8 @@ if __name__ == "__main__":
     if args.export_webconf:
         if not pta:
             print(
-                "[E] --export-energymodel requires --hwmodel to be set", file=sys.stderr
+                "Note: v0 measurements do not embed the PTA used for benchmark generation. Estimating PTA from recorded observations."
             )
-            sys.exit(1)
         json_model = model.to_json()
         mogrify(json_model)
         json_model_str = json.dumps(json_model, indent=2, sort_keys=True, cls=NpEncoder)
@@ -1179,9 +1178,8 @@ if __name__ == "__main__":
     if args.export_energymodel:
         if not pta:
             print(
-                "[E] --export-energymodel requires --hwmodel to be set", file=sys.stderr
+                "Note: v0 measurements do not embed the PTA used for benchmark generation. Estimating PTA from recorded observations."
             )
-            sys.exit(1)
         json_model = model.to_json()
         with open(args.export_energymodel, "w") as f:
             json.dump(json_model, f, indent=2, sort_keys=True, cls=NpEncoder)

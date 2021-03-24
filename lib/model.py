@@ -793,6 +793,11 @@ class PTAModel(AnalyticModel):
         pta = self.pta
         if pta is None:
             pta = PTA(self.states, parameters=self._parameter_names)
+            logger.warning(
+                "to_json: self.pta is None. Transitions will have incorrect origin/destination states."
+            )
+            for transition in self.transitions:
+                pta.add_transition("UNINITIALIZED", "UNINITIALIZED", transition)
         pta.update(
             param_info, static_error=static_quality, function_error=analytic_quality
         )
