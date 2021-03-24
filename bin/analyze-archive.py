@@ -57,6 +57,7 @@ from dfatool.utils import (
     filter_aggregate_by_param,
     detect_outliers_in_aggregate,
     NpEncoder,
+    is_numeric,
 )
 from dfatool.automata import PTA
 
@@ -322,6 +323,37 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
             )
         print("</tr>")
     print("</table>")
+
+
+def print_kconfig(model):
+    for param_name in model.parameters:
+        unique_values = set()
+        is_relevant = False
+        for name in model.names:
+            unique_values.update(
+                model.attr_by_name[name]["power"].stats.distinct_values_by_param_name[
+                    param_name
+                ]
+            )
+            for attr in model.attr_by_name[name].values():
+                # FIXME this indicates whether it might depend on the parameter, not whether it actually uses it (there's no API for that yet)
+                if attr.stats.depends_on_param(param_name):
+                    is_relevant = True
+        unique_values.discard(None)
+        if not unique_values or not is_relevant:
+            # unused by the model
+            continue
+
+        print(f"config {param_name}")
+        print(f'  prompt "{param_name}"')
+        if unique_values == {0, 1}:
+            print("  bool")
+        elif all(map(is_numeric, unique_values)):
+            print("  int")
+            print(f"  range {min(unique_values)} {max(unique_values)}")
+        else:
+            print("  string")
+            print(f"  #!accept [{unique_values}]")
 
 
 def plot_traces(preprocessed_data, sot_name):
@@ -1173,7 +1205,8 @@ if __name__ == "__main__":
                     + match.group(3)
                 )
             json_model_out += line + "\n"
-        print(json_model_out)
+        # print(json_model_out)
+        print_kconfig(model)
 
     if args.export_energymodel:
         if not pta:
