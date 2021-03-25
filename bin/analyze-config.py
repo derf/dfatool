@@ -2,8 +2,10 @@
 """
 analyze-config - generate NFP model from system config benchmarks
 
-analyze-connfig generates an NFP model from benchmarks with various system
-configs (.config entries generated from a common Kconfig definition).
+analyze-config generates an NFP model from benchmarks with various system
+configs (.config entries generated from a common Kconfig definition). The
+NFP model is not yet compatible with the type of models generated
+by analyze-archive and analyze-timing
 """
 
 import argparse
@@ -14,7 +16,9 @@ import os
 
 import numpy as np
 
+from dfatool.functions import SplitFunction, StaticFunction
 from dfatool.model import AnalyticModel
+from dfatool.utils import NpEncoder
 
 
 def main():
@@ -98,50 +102,13 @@ def main():
 
     model = AnalyticModel(by_name, symbols, compute_stats=False)
 
-    class DTreeLeaf:
-        def __init__(self, value, stddev):
-            self.value = value
-            self.stddev = stddev
-
-        def __repr__(self):
-            return f"<DTreeLeaf({self.value}, {self.stddev})>"
-
-        def to_json(self):
-            return {"value": self.value, "stddev": self.stddev}
-
-    class DTreeNode:
-        def __init__(self, symbol):
-            self.symbol = symbol
-            self.false_child = None
-            self.true_child = None
-
-        def set_false_child(self, child_node):
-            self.false_child = child_node
-
-        def set_true_child(self, child_node):
-            self.true_child = child_node
-
-        def __repr__(self):
-            return f"<DTreeNode({self.false_child}, {self.true_child})>"
-
-        def to_json(self):
-            ret = {"symbol": self.symbol}
-            if self.false_child:
-                ret["false"] = self.false_child.to_json()
-            else:
-                ret["false"] = None
-            if self.true_child:
-                ret["true"] = self.true_child.to_json()
-            else:
-                ret["true"] = None
-            return ret
-
     def get_min(this_symbols, this_data, level):
 
         rom_sizes = list(map(lambda x: x[1], this_data))
 
         if np.std(rom_sizes) < 100 or len(this_symbols) == 0:
-            return DTreeLeaf(np.mean(rom_sizes), np.std(rom_sizes))
+            return StaticFunction(np.mean(rom_sizes))
+            # sf.value_error["std"] = np.std(rom_sizes)
 
         mean_stds = list()
         for i, param in enumerate(this_symbols):
@@ -162,7 +129,7 @@ def main():
         enabled = list(filter(lambda vrr: vrr[0][symbol_index] == True, this_data))
         disabled = list(filter(lambda vrr: vrr[0][symbol_index] == False, this_data))
 
-        node = DTreeNode(symbol)
+        child = dict()
 
         new_symbols = this_symbols[:symbol_index] + this_symbols[symbol_index + 1 :]
         enabled = list(
@@ -181,18 +148,18 @@ def main():
             f"Level {level} split on {symbol} has {len(enabled)} children when enabled and {len(disabled)} children when disabled"
         )
         if len(enabled):
-            node.set_true_child(get_min(new_symbols, enabled, level + 1))
+            child[1] = get_min(new_symbols, enabled, level + 1)
         if len(disabled):
-            node.set_false_child(get_min(new_symbols, disabled, level + 1))
+            child[0] = get_min(new_symbols, disabled, level + 1)
 
-        return node
+        return SplitFunction(np.mean(rom_sizes), symbol_index, child)
 
     model = get_min(symbols, data, 0)
 
     output = {"model": model.to_json(), "symbols": symbols}
 
     with open("kconfigmodel.json", "w") as f:
-        json.dump(output, f)
+        json.dump(output, f, cls=NpEncoder)
 
 
 if __name__ == "__main__":
