@@ -102,11 +102,11 @@ def main():
 
     model = AnalyticModel(by_name, symbols, compute_stats=False)
 
-    def get_min(this_symbols, this_data, level):
+    def get_min(this_symbols, this_data, data_index=1, threshold=100, level=0):
 
-        rom_sizes = list(map(lambda x: x[1], this_data))
+        rom_sizes = list(map(lambda x: x[data_index], this_data))
 
-        if np.std(rom_sizes) < 100 or len(this_symbols) == 0:
+        if np.std(rom_sizes) < threshold or len(this_symbols) == 0:
             return StaticFunction(np.mean(rom_sizes))
             # sf.value_error["std"] = np.std(rom_sizes)
 
@@ -148,15 +148,19 @@ def main():
             f"Level {level} split on {symbol} has {len(enabled)} children when enabled and {len(disabled)} children when disabled"
         )
         if len(enabled):
-            child[1] = get_min(new_symbols, enabled, level + 1)
+            child[1] = get_min(new_symbols, enabled, data_index, threshold, level + 1)
         if len(disabled):
-            child[0] = get_min(new_symbols, disabled, level + 1)
+            child[0] = get_min(new_symbols, disabled, data_index, threshold, level + 1)
 
         return SplitFunction(np.mean(rom_sizes), symbol_index, child)
 
-    model = get_min(symbols, data, 0)
+    rom_model = get_min(symbols, data, 1, 100)
+    ram_model = get_min(symbols, data, 2, 20)
 
-    output = {"model": model.to_json(), "symbols": symbols}
+    output = {
+        "model": {"rom": rom_model.to_json(), "ram": ram_model.to_json()},
+        "symbols": symbols,
+    }
 
     with open("kconfigmodel.json", "w") as f:
         json.dump(output, f, cls=NpEncoder)
