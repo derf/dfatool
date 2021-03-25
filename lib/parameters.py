@@ -48,9 +48,9 @@ def _depends_on_param(corr_param, std_param, std_lut):
     return std_lut / std_param < 0.5
 
 
-def _std_by_param(n_by_param, all_param_values, param_index):
+def _mean_std_by_param(n_by_param, all_param_values, param_index):
     """
-    Calculate standard deviations for a static model where all parameters but `param_index` are constant.
+    Calculate the mean standard deviation for a static model where all parameters but `param_index` are constant.
 
     :param n_by_param: measurements of a specific model attribute partitioned by parameter values.
         Example: `{(0, 2): [2], (0, 4): [4], (0, 6): [6]}`
@@ -58,32 +58,14 @@ def _std_by_param(n_by_param, all_param_values, param_index):
         E.g. for two parameters, the first being None, FOO, or BAR, and the second being 1, 2, 3, or 4, the argument is
         `[[None, 'FOO', 'BAR'], [1, 2, 3, 4]]`.
     :param param_index: index of variable parameter
-    :returns: (stddev matrix, mean stddev, LUT matrix)
-        *stddev matrix* is an ((number of parameters)-1)-dimensional matrix giving the standard deviation of each individual parameter variation partition.
-        E.g. for param_index == 2 and 4 parameters, stddev matrix[a, b, d] is the stddev of
-        measurements with param0 == all_param_values[0][a],
-        param1 == all_param_values[1][b], param2 variable, and
-        param3 == all_param_values[3][d].
+    :returns: mean stddev
         *mean stddev* is the mean standard deviation of all measurements where parameter `param_index` is dynamic and all other parameters are fixed.
         E.g., if parameters are a, b, c ∈ {1,2,3} and 'index' corresponds to b, then
         this function returns the mean of the standard deviations of (a=1, b=*, c=1),
         (a=1, b=*, c=2), and so on.
-        *LUT matrix* is an ((number of parameters)-1)-dimensional matrix giving the mean standard deviation of individual partitions with entirely constant parameters.
-        E.g. for param_index == 2 and 4 parameters, LUT matrix[a][b][d] is the mean of
-        stddev(param0 -> a, param1 -> b, param2 -> first distinct value, param3 -> d),
-        stddev(param0 -> a, param1 -> b, param2 -> second distinct value, param3 -> d),
-        and so on.
     """
     param_values = list(remove_index_from_tuple(all_param_values, param_index))
-    info_shape = tuple(map(len, param_values))
-
-    # We will calculate the mean over the entire matrix later on. As we cannot
-    # guarantee that each entry will be filled in this loop (e.g. transitions
-    # whose arguments are combined using 'zip' rather than 'cartesian' always
-    # have missing parameter combinations), we pre-fill it with NaN and use
-    # np.nanmean to skip those when calculating the mean.
-    stddev_matrix = np.full(info_shape, np.nan)
-    lut_matrix = np.full(info_shape, np.nan)
+    partitions = list()
 
     for param_value in itertools.product(*param_values):
         param_partition = list()
@@ -91,33 +73,14 @@ def _std_by_param(n_by_param, all_param_values, param_index):
         for k, v in n_by_param.items():
             if (*k[:param_index], *k[param_index + 1 :]) == param_value:
                 param_partition.extend(v)
-                std_list.append(np.std(v))
 
         if len(param_partition) > 1:
-            matrix_index = list(range(len(param_value)))
-            for i in range(len(param_value)):
-                matrix_index[i] = param_values[i].index(param_value[i])
-            matrix_index = tuple(matrix_index)
-            stddev_matrix[matrix_index] = np.std(param_partition)
-            lut_matrix[matrix_index] = np.mean(std_list)
-        # This can (and will) happen in normal operation, e.g. when a transition's
-        # arguments are combined using 'zip' rather than 'cartesian'.
-        # elif len(param_partition) == 1:
-        #    vprint(verbose, '[W] parameter value partition for {} contains only one element -- skipping'.format(param_value))
-        # else:
-        #    vprint(verbose, '[W] parameter value partition for {} is empty'.format(param_value))
+            partitions.append(param_partition)
 
-    if np.all(np.isnan(stddev_matrix)):
-        logger.warning(
-            f"parameter #{param_index} has no data partitions. All stddev_matrix entries are NaN."
-        )
-        return stddev_matrix, 0.0, lut_matrix
+    if len(partitions) == 0:
+        return 0.0
 
-    return (
-        stddev_matrix,
-        np.nanmean(stddev_matrix),
-        lut_matrix,
-    )  # np.mean([np.std(partition) for partition in partitions])
+    return np.mean([np.std(partition) for partition in partitions])
 
 
 def _corr_by_param(attribute_data, param_values, param_index):
@@ -216,12 +179,8 @@ def _compute_param_statistics(
     ret["std_param_lut"] = np.mean([np.std(v) for v in by_param.values()])
 
     ret["std_by_param"] = dict()
-    ret["std_by_param_values"] = dict()
-    ret["lut_by_param_values"] = dict()
 
     ret["std_by_arg"] = list()
-    ret["std_by_arg_values"] = list()
-    ret["lut_by_arg_values"] = list()
 
     ret["corr_by_param"] = dict()
     ret["corr_by_arg"] = list()
@@ -242,12 +201,8 @@ def _compute_param_statistics(
         else:
             by_param = ret["by_param"]
             distinct_values = ret["distinct_values_by_param_index"]
-        std_matrix, mean_std, lut_matrix = _std_by_param(
-            by_param, distinct_values, param_idx
-        )
+        mean_std = _mean_std_by_param(by_param, distinct_values, param_idx)
         ret["std_by_param"][param] = mean_std
-        ret["std_by_param_values"][param] = std_matrix
-        ret["lut_by_param_values"][param] = lut_matrix
         ret["corr_by_param"][param] = _corr_by_param(data, param_tuples, param_idx)
 
         ret["_depends_on_param"][param] = _depends_on_param(
@@ -269,14 +224,8 @@ def _compute_param_statistics(
             else:
                 by_param = ret["by_param"]
                 distinct_values = ret["distinct_values_by_param_index"]
-            std_matrix, mean_std, lut_matrix = _std_by_param(
-                by_param,
-                distinct_values,
-                param_idx,
-            )
+            mean_std = _mean_std_by_param(by_param, distinct_values, param_idx)
             ret["std_by_arg"].append(mean_std)
-            ret["std_by_arg_values"].append(std_matrix)
-            ret["lut_by_arg_values"].append(lut_matrix)
             ret["corr_by_arg"].append(_corr_by_param(data, param_tuples, param_idx))
 
             if False:
@@ -601,9 +550,9 @@ class ModelAttribute:
 
     def _check_codependent_param(self):
         for (
-            param1_index,
-            param2_index,
-        ), is_codependent in self.codependent_param_pair.items():
+            (param1_index, param2_index),
+            is_codependent,
+        ) in self.codependent_param_pair.items():
             if not is_codependent:
                 continue
             param1_values = map(lambda pv: pv[param1_index], self.param_values)
@@ -810,11 +759,7 @@ class ModelAttribute:
                         (
                             (self.name, self.attr),
                             arg_index,
-                            (
-                                by_param,
-                                param_index,
-                                safe_functions_enabled,
-                            ),
+                            (by_param, param_index, safe_functions_enabled),
                             dict(),
                         )
                     )
