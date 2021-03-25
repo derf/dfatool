@@ -17,7 +17,7 @@ import os
 import numpy as np
 
 from dfatool.functions import SplitFunction, StaticFunction
-from dfatool.model import AnalyticModel
+from dfatool.model import AnalyticModel, ModelAttribute
 from dfatool.utils import NpEncoder
 
 
@@ -154,16 +154,31 @@ def main():
 
         return SplitFunction(np.mean(rom_sizes), symbol_index, child)
 
-    rom_model = get_min(symbols, data, 1, 100)
-    ram_model = get_min(symbols, data, 2, 20)
+    model.attr_by_name["multipass"] = dict()
+    model.attr_by_name["multipass"]["rom_usage"] = ModelAttribute(
+        "multipass",
+        "rom_usage",
+        by_name["multipass"]["rom_usage"],
+        by_name["multipass"]["param"],
+        symbols,
+    )
+    model.attr_by_name["multipass"]["ram_usage"] = ModelAttribute(
+        "multipass",
+        "rom_usage",
+        by_name["multipass"]["ram_usage"],
+        by_name["multipass"]["param"],
+        symbols,
+    )
 
-    output = {
-        "model": {"rom": rom_model.to_json(), "ram": ram_model.to_json()},
-        "symbols": symbols,
-    }
+    model.attr_by_name["multipass"]["rom_usage"].model_function = get_min(
+        symbols, data, 1, 100
+    )
+    model.attr_by_name["multipass"]["ram_usage"].model_function = get_min(
+        symbols, data, 2, 20
+    )
 
     with open("kconfigmodel.json", "w") as f:
-        json.dump(output, f, cls=NpEncoder)
+        json.dump(model.to_json(), f, cls=NpEncoder)
 
 
 if __name__ == "__main__":
