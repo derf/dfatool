@@ -69,6 +69,7 @@ class AnalyticModel:
         arg_count=None,
         function_override=dict(),
         use_corrcoef=False,
+        compute_stats=True,
     ):
         """
         Create a new AnalyticModel and compute parameter statistics.
@@ -119,7 +120,8 @@ class AnalyticModel:
 
         self.fit_done = False
 
-        self._compute_stats(by_name)
+        if compute_stats:
+            self._compute_stats(by_name)
 
     def __repr__(self):
         names = ", ".join(self.by_name.keys())
@@ -423,6 +425,7 @@ class PTAModel(AnalyticModel):
         use_corrcoef=False,
         pta=None,
         pelt=None,
+        compute_stats=True,
     ):
         """
         Prepare a new PTA energy model.
@@ -491,7 +494,8 @@ class PTAModel(AnalyticModel):
 
         self._aggregate_to_ndarray(self.by_name)
 
-        self._compute_stats(by_name)
+        if compute_stats:
+            self._compute_stats(by_name)
 
         if self.pelt is not None:
             # cluster_substates uses self.attr_by_name[*]["power"].param_values, which is set by _compute_stats
