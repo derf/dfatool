@@ -81,8 +81,40 @@ class PELT:
         if os.getenv("DFATOOL_PELT_MIN_DIST"):
             self.min_dist = int(os.getenv("DFATOOL_PELT_MIN_DIST"))
 
-    # signals: a set of uW measurements belonging to a single parameter configuration (i.e., a single by_param entry)
-    def needs_refinement(self, signals):
+    def needs_refinement_pelt(self, signals):
+        import ruptures
+
+        count = 0
+        for signal in signals:
+            if len(signal) < 100:
+                continue
+
+            algo = ruptures.Pelt(
+                model=self.model, jump=len(signal) // 100, min_size=self.min_dist
+            )
+            algo = algo.fit(self.norm_signal(signal))
+
+            # Empirically, most sub-state detectino results use a penalty
+            # in the range 30 to 60. If there's no changepoints with a
+            # penalty of 20, there's also no changepoins with any penalty
+            # > 20, so we can safely skip changepoint detection altogether.
+            changepoints = algo.predict(pen=20)
+
+            if not changepoints:
+                continue
+
+            if len(changepoints) and changepoints[-1] == len(signal):
+                changepoints.pop()
+            if len(changepoints) and changepoints[0] == 0:
+                changepoints.pop(0)
+
+            if changepoints:
+                count += 1
+
+        refinement_ratio = count / len(signals)
+        return refinement_ratio > 0.3
+
+    def needs_refinement_percentile(self, signals):
         count = 0
         for signal in signals:
             if len(signal) < 30:
@@ -96,6 +128,10 @@ class PELT:
                 count += 1
         refinement_ratio = count / len(signals)
         return refinement_ratio > 0.3
+
+    # signals: a set of uW measurements belonging to a single parameter configuration (i.e., a single by_param entry)
+    def needs_refinement(self, signals):
+        return self.needs_refinement_pelt(signals)
 
     def norm_signal(self, signal, scaler=25):
         max_val = max(np.abs(signal))
