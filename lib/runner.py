@@ -352,11 +352,223 @@ class ShellMonitor:
         pass
 
 
-class Arch:
+class KRATOS:
+    def __init__(self, opts=list()):
+        self.opts = opts
+
+    def app_header(self):
+        ret = (
+            '#include "AEMR.h"\n'
+            '#include "syscall/guarded_buzzer.h"\n'
+            '#include "drivers/counter.h"\n'
+            '#include "drivers/gpio.h"\n'
+        )
+        return ret
+
+    def app_function_start(self):
+        ret = (
+            "ImplementThread(EnergyBenchmarkApp, energyBenchmarkApp, 512);\n"
+            "void EnergyBenchmarkApp::action()\n"
+            "{\n"
+            "Guarded_Buzzer buz(500);\n"
+        )
+
+        return ret
+
+    def app_function_end(self):
+        return "}\n"
+
+    def app_delay(self, ms, comment=""):
+        return self.app_sleep(ms, comment)
+
+    def app_sleep(self, ms, comment=""):
+        if comment:
+            comment = f" // {comment}"
+        return f"buz.sleep({ms});{comment}\n"
+
+    def app_newlines(self):
+        return "uart << endl << endl;\n"
+
+    def app_lasync_call(self):
+        return "runLASync(buz);\n"
+
+    def app_lasync_function(self):
+        ret = """void runLASync(Guarded_Buzzer &buz){
+    setOutput(1, 0);
+    setOutput(1, 1);
+    pinHigh(1, 0);
+    pinHigh(1, 1);
+
+    buz.sleep(1000);
+
+    pinLow(1, 0);
+    pinLow(1, 1);
+}
+"""
+        return ret
+
+    def build(self, app, opts=list()):
+        command = ["make", "clean"]
+        command.extend(self.opts)
+        command.extend(opts)
+        logger.debug(f"Building: {' '.join(command)}")
+        res = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        if res.returncode != 0:
+            raise RuntimeError(
+                "Build failure, executing {}:\n".format(command) + res.stderr
+            )
+        command = ["make"]
+        command.extend(self.opts)
+        command.extend(opts)
+        logger.debug(f"Building: {' '.join(command)}")
+        res = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        if res.returncode != 0:
+            raise RuntimeError(
+                "Build failure, executing {}:\n ".format(command) + res.stderr
+            )
+        return command
+
+    def flash(self, app, opts=list()):
+        command = ["make", "flash"]
+        command.extend(self.opts)
+        command.extend(opts)
+        logger.debug(f"Flashing: {' '.join(command)}")
+        res = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        if res.returncode != 0:
+            raise RuntimeError("Flash failure")
+        return command
+
+    def get_monitor(self, **kwargs) -> object:
+        """
+        Return an appropriate monitor for arch, depending on "make info" output.
+
+        Port and Baud rate are taken from "make info".
+
+        :param energytrace: `EnergyTraceMonitor` options. Returns an EnergyTrace monitor if not None.
+        :param mimosa: `MIMOSAMonitor` options. Returns a MIMOSA monitor if not None.
+        """
+        if "mimosa" in kwargs and kwargs["mimosa"] is not None:
+            mimosa_kwargs = kwargs.pop("mimosa")
+            return MIMOSAMonitor("/dev/ttyACM1", "9600", **mimosa_kwargs, **kwargs)
+        elif "energytrace" in kwargs and kwargs["energytrace"] is not None:
+            energytrace_kwargs = kwargs.pop("energytrace").copy()
+            sync_mode = energytrace_kwargs.pop("sync")
+            if sync_mode == "la":
+                return EnergyTraceLogicAnalyzerMonitor(
+                    "/dev/ttyACM1", "9600", **energytrace_kwargs, **kwargs
+                )
+            else:
+                return EnergyTraceMonitor(
+                    "/dev/ttyACM1", "9600", **energytrace_kwargs, **kwargs
+                )
+        else:
+            kwargs.pop("energytrace", None)
+            kwargs.pop("mimosa", None)
+            return SerialMonitor("/dev/ttyACM1", "9600", **kwargs)
+
+    def sleep_ms(self, duration: int, opts=list()) -> str:
+        max_sleep = 250
+        if max_sleep is not None and duration > max_sleep:
+            sub_sleep_count = duration // max_sleep
+            tail_sleep = duration % max_sleep
+            ret = f"for (unsigned char i = 0; i < {sub_sleep_count}; i++) {{ buz.sleep({max_sleep}); }}\n"
+            if tail_sleep > 0:
+                ret += f"buz.sleep({tail_sleep});\n"
+            return ret
+        return f"buz.sleep({duration});\n"
+
+    def get_counter_limits_us(self, opts=list()) -> tuple:
+        """Return duration of one counter step and one counter overflow in us."""
+        cpu_freq = 16_000_000
+        overflow_value = 65536
+        max_overflow = 65535
+        return (
+            1_000_000 / cpu_freq,
+            overflow_value * 1_000_000 / cpu_freq,
+            max_overflow,
+        )
+
+
+class Multipass:
     def __init__(self, name, opts=list()):
         self.name = name
         self.opts = opts
         self.info = self.get_info()
+
+    def app_header(self):
+        ret = '#include "arch.h"\n' '#include "driver/gpio.h"\n'
+        return ret
+
+    def app_function_start(self):
+        ret = "int main(void)\n{\n"
+
+        for driver in ("arch", "gpio", "kout"):
+            ret += f"{driver}.setup();\n"
+
+        return ret
+
+    def app_function_end(self):
+        return "while (1) { }\nreturn 0;\n}\n"
+
+    def app_delay(self, ms, comment=""):
+        if comment:
+            comment = f" // {comment}"
+        return f"arch.delay_ms({ms});{comment}\n"
+
+    def app_sleep(self, ms, comment=""):
+        if ms > 250:
+            # TODO build multiple sleep_ms calls
+            raise ValueError("msp430 does not support sleep longer than 250ms")
+        if comment:
+            comment = f" // {comment}"
+        return f"arch.sleep_ms({ms});{comment}\n"
+
+    def app_newlines(self):
+        return "kout << endl << endl;\n"
+
+    def app_lasync_call(self):
+        return "runLASync();\n"
+
+    def app_lasync_function(self):
+        ret = """void runLASync(){
+    #ifdef PTALOG_GPIO
+    gpio.write(PTALOG_GPIO, 1);
+    #endif
+    gpio.led_on(0);
+    gpio.led_on(1);
+    #ifdef PTALOG_GPIO
+    gpio.write(PTALOG_GPIO, 0);
+    #endif
+
+    for (unsigned char i = 0; i < 4; i++) {
+        arch.sleep_ms(250);
+    }
+
+    #ifdef PTALOG_GPIO
+    gpio.write(PTALOG_GPIO, 1);
+    #endif
+    gpio.led_off(0);
+    gpio.led_off(1);
+    #ifdef PTALOG_GPIO
+    gpio.write(PTALOG_GPIO, 0);
+    #endif
+}\n\n"""
+        return ret
 
     def build(self, app, opts=list()):
         command = ["make", "arch={}".format(self.name), "app={}".format(app), "clean"]

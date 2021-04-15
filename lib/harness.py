@@ -37,6 +37,7 @@ class TransitionHarness:
         repeat=0,
         post_transition_delay_us=0,
         energytrace_sync=None,
+        target=None,
     ):
         """
         Create a new TransitionHarness
@@ -58,6 +59,7 @@ class TransitionHarness:
         self.repeat = repeat
         self.post_transition_delay_us = post_transition_delay_us
         self.energytrace_sync = energytrace_sync
+        self.target = target
         self.reset()
 
     def copy(self):
@@ -387,6 +389,7 @@ class OnboardTimerHarness(TransitionHarness):
             log_return_values=self.log_return_values,
             repeat=self.repeat,
             energytrace_sync=self.energytrace_sync,
+            target=self.target,
         )
         new_harness.traces = self.traces.copy()
         new_harness.trace_id = self.trace_id
@@ -426,41 +429,16 @@ class OnboardTimerHarness(TransitionHarness):
         ret = "#define PTALOG_TIMING\n"
         ret += super().global_code()
         if self.energytrace_sync == "led":
-            # TODO Make nicer
-            ret += """\nvoid runLASync(){
-    // ======================= LED SYNC ================================
-    #ifdef PTALOG_GPIO
-    gpio.write(PTALOG_GPIO, 1);
-    #endif
-    gpio.led_on(0);
-    gpio.led_on(1);
-    #ifdef PTALOG_GPIO
-    gpio.write(PTALOG_GPIO, 0);
-    #endif
-
-    for (unsigned char i = 0; i < 4; i++) {
-        arch.sleep_ms(250);
-    }
-
-    #ifdef PTALOG_GPIO
-    gpio.write(PTALOG_GPIO, 1);
-    #endif
-    gpio.led_off(0);
-    gpio.led_off(1);
-    #ifdef PTALOG_GPIO
-    gpio.write(PTALOG_GPIO, 0);
-    #endif
-    // ======================= LED SYNC ================================
-}\n\n"""
+            ret += self.target.app_lasync_function()
         return ret
 
     def start_benchmark(self, benchmark_id=0):
         ret = ""
         if self.energytrace_sync == "led":
-            ret += "runLASync();\n"
+            ret += self.target.app_lasync_call()
         ret += "ptalog.passNop();\n"
         if self.energytrace_sync == "led":
-            ret += "arch.sleep_ms(250);\n"
+            ret += self.target.app_sleep(250)
         ret += super().start_benchmark(benchmark_id)
         return ret
 
@@ -468,10 +446,10 @@ class OnboardTimerHarness(TransitionHarness):
         ret = ""
         if self.energytrace_sync == "led":
             ret += "counter.stop();\n"
-            ret += "runLASync();\n"
+            ret += self.target.app_lasync_call()
         ret += super().stop_benchmark()
         if self.energytrace_sync == "led":
-            ret += "arch.sleep_ms(250);\n"
+            ret += self.target.app_sleep(250)
         return ret
 
     def pass_transition(

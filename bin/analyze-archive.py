@@ -325,7 +325,8 @@ def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
     print("</table>")
 
 
-def print_kconfig(model):
+def get_kconfig(model):
+    buf = str()
     for param_name in model.parameters:
         unique_values = set()
         is_relevant = False
@@ -344,16 +345,18 @@ def print_kconfig(model):
             # unused by the model
             continue
 
-        print(f"config {param_name}")
-        print(f'  prompt "{param_name}"')
+        buf += f"config {param_name}\n"
+        buf += f'  prompt "{param_name}"\n'
         if unique_values == {0, 1}:
-            print("  bool")
+            buf += "  bool\n"
         elif all(map(is_numeric, unique_values)):
-            print("  int")
-            print(f"  range {min(unique_values)} {max(unique_values)}")
+            buf += "  int\n"
+            buf += f"  range {min(unique_values)} {max(unique_values)}\n"
         else:
-            print("  string")
-            print(f"  #!accept [{unique_values}]")
+            buf += "  string\n"
+            buf += f"  #!accept [{unique_values}]\n"
+
+    return buf
 
 
 def plot_traces(preprocessed_data, sot_name):
@@ -1205,8 +1208,10 @@ if __name__ == "__main__":
                     + match.group(3)
                 )
             json_model_out += line + "\n"
-        # print(json_model_out)
-        print_kconfig(model)
+        with open(f"{args.export_webconf}.json", "w") as f:
+            f.write(json_model_out)
+        with open(f"{args.export_webconf}.kconfig", "w") as f:
+            f.write(get_kconfig(model))
 
     if args.export_energymodel:
         if not pta:

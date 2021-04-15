@@ -48,6 +48,8 @@ Options:
     shunt = 330 (measurement shunt in ohms)
     voltage = 3.3 (VCC provided to DUT)
 
+--os=kratos|multipass (default: multipass)
+
 --sleep=<ms> (default: 0)
     How long to sleep between function calls.
 
@@ -120,8 +122,8 @@ def benchmark_from_runs(
 ) -> io.StringIO:
     outbuf = io.StringIO()
 
-    outbuf.write('#include "arch.h"\n')
-    outbuf.write('#include "driver/gpio.h"\n')
+    outbuf.write(target.app_header())
+
     if dummy:
         outbuf.write('#include "driver/dummy.h"\n')
     elif "includes" in pta.codegen:
@@ -129,11 +131,7 @@ def benchmark_from_runs(
             outbuf.write('#include "{}"\n'.format(include))
     outbuf.write(harness.global_code())
 
-    outbuf.write("int main(void)\n")
-    outbuf.write("{\n")
-
-    for driver in ("arch", "gpio", "kout"):
-        outbuf.write("{}.setup();\n".format(driver))
+    outbuf.write(target.app_function_start())
 
     # There is a race condition between flashing the code and starting the UART log.
     # When starting the log before flashing, output from a previous benchmark may cause bogus data to be added.
@@ -147,21 +145,22 @@ def benchmark_from_runs(
     # decreases pre-sync power consumption
     if "energytrace" not in opt:
         if "mimosa" in opt:
-            outbuf.write("arch.delay_ms(12000);\n")
+            outbuf.write(target.app_delay(12000))
         else:
-            outbuf.write("arch.delay_ms(2000);\n")
+            outbuf.write(target.app_delay(2000))
         # Output some newlines to ensure the parser can determine the start of the first real output line
-        outbuf.write("kout << endl << endl;\n")
+        outbuf.write(target.app_newlines())
 
     if "setup" in pta.codegen:
         for call in pta.codegen["setup"]:
             outbuf.write(call)
 
     if "energytrace" in opt:
-        outbuf.write("for (unsigned char i = 0; i < 10; i++) {\n")
-        outbuf.write("arch.sleep_ms(250);\n}\n")
+        outbuf.write("for (unsigned char j = 0; j < 10; j++) {\n")
+        outbuf.write(target.app_sleep(250))
+        outbuf.write("}\n")
         # Output some newlines to ensure the parser can determine the start of the first real output line
-        outbuf.write("kout << endl << endl;\n")
+        outbuf.write(target.app_newlines())
 
     if repeat:
         outbuf.write("unsigned char i = 0;\n")
@@ -218,16 +217,16 @@ def benchmark_from_runs(
             if "delay_after_ms" in transition.codegen:
                 if "energytrace" in opt:
                     outbuf.write(
-                        "arch.sleep_ms({:d}); // {} -- delay mandated by codegen.delay_after_ms\n".format(
+                        target.app_sleep(
                             transition.codegen["delay_after_ms"],
-                            transition.destination.name,
+                            f"{transition.destination.name} -- delay mandated by codegen.delay_after_ms",
                         )
                     )
                 else:
                     outbuf.write(
-                        "arch.delay_ms({:d}); // {} -- delay mandated by codegen.delay_after_ms\n".format(
+                        target.app_delay(
                             transition.codegen["delay_after_ms"],
-                            transition.destination.name,
+                            f"{transition.destination.name} -- delay mandated by codegen.delay_after_ms",
                         )
                     )
             elif opt["sleep"]:
@@ -236,7 +235,7 @@ def benchmark_from_runs(
                     outbuf.write(target.sleep_ms(opt["sleep"]))
                 else:
                     outbuf.write(f"// -> {transition.destination.name}\n")
-                    outbuf.write("arch.delay_ms({:d});\n".format(opt["sleep"]))
+                    outbuf.write(target.app_delay(opt["sleep"]))
 
         outbuf.write(harness.stop_run(num_traces))
         if dummy:
@@ -251,10 +250,7 @@ def benchmark_from_runs(
 
     # Ensure logging can be terminated after the specified number of measurements
     outbuf.write(harness.start_benchmark())
-
-    outbuf.write("while(1) { }\n")
-    outbuf.write("return 0;\n")
-    outbuf.write("}\n")
+    outbuf.write(target.app_function_end())
 
     return outbuf
 
@@ -449,6 +445,7 @@ if __name__ == "__main__":
             "instance= "
             "log-level= "
             "mimosa= "
+            "os= "
             "repeat= "
             "run= "
             "sleep= "
@@ -537,21 +534,26 @@ if __name__ == "__main__":
                     map(lambda x: x.split("="), opt["dummy"].split(","))
                 )
 
+        if "os" not in opt:
+            opt["os"] = "multipass"
+
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)
 
-    if "msp430fr" in opt["arch"]:
+    if opt["os"] == "kratos":
+        target = runner.KRATOS()
+    elif "msp430fr" in opt["arch"]:
         if len(opt["arch-flags"]) == 0:
             opt["arch-flags"] = ["cpu_freq=8000000", "uart_freq=9600"]
-        target = runner.Arch(opt["arch"], opt["arch-flags"])
+        target = runner.Multipass(opt["arch"], opt["arch-flags"])
     else:
-        target = runner.Arch(opt["arch"])
+        target = runner.Multipass(opt["arch"])
 
     modelfile = args[0]
 
     pta = PTA.from_file(modelfile)
-    run_flags = None
+    run_flags = list()
 
     if "shrink" in opt:
         pta.shrink_argument_values()
@@ -622,7 +624,7 @@ if __name__ == "__main__":
         with open(modelfile, "r") as f:
             driver_definition = yaml.safe_load(f)
         if "codegen" in driver_definition and "flags" in driver_definition["codegen"]:
-            if run_flags is None:
+            if not run_flags:
                 run_flags = driver_definition["codegen"]["flags"]
     if "run" in opt:
         run_flags.extend(opt["run"].split())
@@ -703,6 +705,8 @@ if __name__ == "__main__":
             energytrace_sync="led",
             remove_nop_from_timings=False,  # kein einfluss auf ungenauigkeiten
         )
+
+    harness.target = target
 
     if len(args) > 1:
         results = run_benchmark(
