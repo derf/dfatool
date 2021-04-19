@@ -47,7 +47,7 @@ class SimulationResult:
         duration_mae: float = None,
         energy_mae: float = None,
     ):
-        u"""
+        """
         Create a new SimulationResult.
 
         :param duration: run duration in µs
@@ -83,7 +83,7 @@ class State:
     """A single PTA state."""
 
     def __init__(self, name: str, power: ModelFunction = StaticFunction(0)):
-        u"""
+        """
         Create a new PTA state.
 
         :param name: state name
@@ -105,7 +105,7 @@ class State:
         self.outgoing_transitions[new_transition.name] = new_transition
 
     def get_energy(self, duration: float, param_dict: dict = {}) -> float:
-        u"""
+        """
         Return energy spent in state in pJ.
 
         :param duration: duration in µs
@@ -115,7 +115,7 @@ class State:
         return self.power.eval(dict_to_list(param_dict)) * duration
 
     def set_random_energy_model(self, static_model=True):
-        u"""Set a random static state power between 0 µW and 50 mW."""
+        """Set a random static state power between 0 µW and 50 mW."""
         self.power.value = int(np.random.sample() * 50000)
 
     def get_transition(self, transition_name: str) -> object:
@@ -281,9 +281,13 @@ class State:
             ret["power"] = self.power.to_json()
         return ret
 
+    def to_dot(self) -> str:
+        quote = '"'
+        return f"{quote}{self.name}{quote};\n"
+
 
 class Transition:
-    u"""
+    """
     A single PTA transition with one origin and one destination state.
 
     :param name: transition name, corresponds to driver function name
@@ -361,7 +365,7 @@ class Transition:
                 handler["formula"] = NormalizationFunction(handler["formula"])
 
     def get_duration(self, param_dict: dict = {}, args: list = []) -> float:
-        u"""
+        """
         Return transition duration in µs.
 
         :param param_dict: current parameter values
@@ -372,7 +376,7 @@ class Transition:
         return self.duration.eval(dict_to_list(param_dict) + args)
 
     def get_energy(self, param_dict: dict = {}, args: list = []) -> float:
-        u"""
+        """
         Return transition energy cost in pJ.
 
         :param param_dict: current parameter values
@@ -386,7 +390,7 @@ class Transition:
         self.timeout.value = int(np.random.sample() * 50000)
 
     def get_timeout(self, param_dict: dict = {}, args: list = list()) -> float:
-        u"""
+        """
         Return transition timeout in µs.
 
         Returns 0 if the transition does not have a timeout.
@@ -441,6 +445,12 @@ class Transition:
         if self.timeout is not None:
             ret["timeout"] = self.timeout.to_json()
         return ret
+
+    def to_dot(self) -> str:
+        return (
+            '"'
+            + f"""{self.origin.name}" -> "{self.destination.name}" [label="{self.name}"];\n"""
+        )
 
 
 def _json_get_static(base, attribute: str):
@@ -618,7 +628,7 @@ class PTA:
                     duration=ModelFunction.from_json_maybe(transition, "duration"),
                     energy=ModelFunction.from_json_maybe(transition, "energy"),
                     timeout=ModelFunction.from_json_maybe(transition, "timeout"),
-                    **kwargs
+                    **kwargs,
                 )
 
         return pta
@@ -729,7 +739,7 @@ class PTA:
                         arguments=arguments,
                         argument_values=argument_values,
                         arg_to_param_map=arg_to_param_map,
-                        **kwargs
+                        **kwargs,
                     )
             else:
                 if "src" not in transition:
@@ -744,7 +754,7 @@ class PTA:
                         arguments=arguments,
                         argument_values=argument_values,
                         arg_to_param_map=arg_to_param_map,
-                        **kwargs
+                        **kwargs,
                     )
 
         return pta
@@ -765,6 +775,17 @@ class PTA:
             "accepting_states": self.accepting_states,
         }
         return ret
+
+    def to_dot(self) -> str:
+        buf = """digraph "pta" {\n"""
+        buf += """node [fontname="OpenSans"];\n"""
+        buf += """edge [fontname="OpenSans"];\n"""
+        for state in self.state.values():
+            buf += state.to_dot()
+        for transition in self.transitions:
+            buf += transition.to_dot()
+        buf += "}"
+        return buf
 
     def add_state(self, state_name: str, **kwargs):
         """
@@ -855,7 +876,7 @@ class PTA:
         )
 
     def set_random_energy_model(self, static_model=True):
-        u"""
+        """
         Set random power/energy/duration/timeout for all states and transitions.
 
         Values in µW/pJ/µs are chosen from a uniform [0 .. 50000] distribution.
@@ -1029,7 +1050,7 @@ class PTA:
         orig_state: str = "UNINITIALIZED",
         param_dict: dict = None,
         with_parameters: bool = False,
-        **kwargs
+        **kwargs,
     ):
         """
         Return a generator object for depth-first search starting at orig_state.
@@ -1079,7 +1100,7 @@ class PTA:
         orig_param=None,
         accounting=None,
     ):
-        u"""
+        """
         Simulate a single run through the PTA and return total energy, duration, final state, and resulting parameters.
 
         :param trace: list of (function name, arg1, arg2, ...) tuples representing the individual transitions,
