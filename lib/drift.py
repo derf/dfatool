@@ -72,15 +72,59 @@ def compensate(data, timestamps, event_timestamps, offline_index=None):
         )
 
     if os.getenv("DFATOOL_COMPENSATE_DRIFT_GREEDY"):
-        return compensate_drift_greedy(
+        compensated_timestamps = compensate_drift_greedy(
             event_timestamps, transition_start_candidate_weights
         )
+    else:
+        compensated_timestamps = compensate_drift_graph(
+            event_timestamps,
+            transition_start_candidate_weights,
+            offline_index=offline_index,
+        )
 
-    return compensate_drift_graph(
-        event_timestamps,
-        transition_start_candidate_weights,
-        offline_index=offline_index,
-    )
+    if os.getenv("DFATOOL_PLOT_DRIFT_CANDIDATES"):
+        import matplotlib.pyplot as plt
+
+        min_y = min(data)
+        max_y = max(data)
+
+        candidates = list()
+        for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
+            expected_end_ts = event_timestamps[2 * i + 1]
+            for start_drift, _, _ in transition_start_candidate_weights[i]:
+                candidates.append(expected_start_ts + start_drift)
+
+        plt.plot(timestamps, data, "-", label="Measurements")
+        plt.vlines(
+            event_timestamps,
+            min_y,
+            max_y,
+            colors=["red"],
+            linestyles="solid",
+            label="Uncompensated Timestamps",
+        )
+        plt.vlines(
+            candidates,
+            min_y,
+            max_y,
+            colors=["green"],
+            linestyles="dashed",
+            label="Candidates (Changepoints)",
+        )
+        plt.vlines(
+            compensated_timestamps,
+            min_y,
+            max_y,
+            colors=["green"],
+            linestyles="solid",
+            label="Compensated Timestamps",
+        )
+        plt.xlabel("Timestamp [s]")
+        plt.ylabel("Power [W]")
+        plt.legend()
+        plt.show()
+
+    return compensated_timestamps
 
 
 def compensate_drift_graph(
