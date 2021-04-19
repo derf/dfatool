@@ -407,7 +407,26 @@ class KRATOS:
 """
         return ret
 
+    def sanity_check_config(self):
+        with open(".config", "r") as f:
+            config_lines = f.readlines()
+        for line in config_lines:
+            line = line.strip()
+            if (
+                "CONFIG_eUSCI_A_UART_BAUDRATE" in line
+                and line != "CONFIG_eUSCI_A_UART_BAUDRATE=9600"
+            ):
+                raise RuntimeError(
+                    f"Unsupported UART baud rate in .config, must be 9600: {line}"
+                )
+            if (
+                "CONFIG_Architecture_MSP430FR_CycleCounter" in line
+                and line != "CONFIG_Architecture_MSP430FR_CycleCounter=y"
+            ):
+                raise RuntimeError(f"Kratos Cycle Counter is disabled")
+
     def build(self, app, opts=list()):
+        self.sanity_check_config()
         command = ["make", "clean"]
         command.extend(self.opts)
         command.extend(opts)
