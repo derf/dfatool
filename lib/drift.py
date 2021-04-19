@@ -95,6 +95,10 @@ def compensate_drift_graph(
     # The first and last layer of the graph consists of a single node
     # with a drift of 0, representing the start / end synchronization pulse, respectively.
 
+    # event_timestamps = [trans1 start, trans1 end, trans2 start, trans2 end, ...]
+    # transition_start_candidate_weights = [trans1 candidates, trans2 candidates, ...]
+    #   trans i candidates = [(transition start delta ts, transition end delta ts, weight), ...]
+
     prev_nodes = [0]
     prev_drifts = [0]
     node_drifts = [0]
@@ -112,10 +116,7 @@ def compensate_drift_graph(
     compensated_timestamps = list()
 
     # default: up to two nodes may be skipped
-    max_skip_count = 2
-
-    if os.getenv("DFATOOL_DC_MAX_SKIP"):
-        max_skip_count = int(os.getenv("DFATOOL_DC_MAX_SKIP"))
+    max_skip_count = int(os.getenv("DFATOOL_DC_MAX_SKIP", 2))
 
     for transition_index, candidates in enumerate(transition_start_candidate_weights):
         new_nodes = list()
@@ -200,6 +201,45 @@ def compensate_drift_graph(
         pred = predecessors[pred]
 
     nodes = list(reversed(nodes))
+
+    if os.getenv("DFATOOL_PLOT_DRIFT_GRAPH"):
+        # plot expected
+        import matplotlib.pyplot as plt
+
+        # X: uncompensated timestamp (same transition -> same X position)
+        candidate_X = list()
+        # Y: absolute drift/delta of candidate
+        candidate_Y = list()
+
+        # X: uncompensated timestamp of selected candidates
+        selection_X = list()
+        # Y: absolitue drift/delta of selected candidates
+        selection_Y = list()
+
+        for transition_index, candidates in enumerate(
+            transition_start_candidate_weights
+        ):
+            expected_start_ts = event_timestamps[transition_index * 2]
+            expected_end_ts = event_timestamps[transition_index * 2 + 1]
+            for i, (drift_start, drift_end, _) in enumerate(candidates):
+                candidate_X.append(expected_start_ts)
+                candidate_Y.append(drift_start)
+                candidate_X.append(expected_end_ts)
+                candidate_Y.append(drift_end)
+        for i, node in enumerate(nodes):
+            transition_index, _, is_end = transition_by_node[node]
+            expected_ts = event_timestamps[transition_index * 2 + is_end]
+            drift = node_drifts[node]
+            selection_X.append(expected_ts)
+            selection_Y.append(drift)
+        plt.plot(candidate_X, candidate_Y, "o", label="Changepoints")
+        plt.plot(
+            selection_X, selection_Y, "o--", color="red", label="Compensated Events"
+        )
+        plt.xlabel("Timestamp [s]")
+        plt.ylabel("Drift [s]")
+        plt.legend()
+        plt.show()
 
     # first and last node are not included in "nodes" as they represent
     # the start/stop sync pulse (and not a transition with sync candidates)
