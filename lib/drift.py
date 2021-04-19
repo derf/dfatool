@@ -53,6 +53,7 @@ def compensate(data, timestamps, event_timestamps, offline_index=None):
                     candidate_weights[i][changepoint] = 1
 
     for i, expected_start_ts in enumerate(expected_transition_start_timestamps):
+        expected_end_ts = event_timestamps[2 * i + 1]
 
         # TODO ist expected_start_ts wirklich eine gute Referenz? Wenn vor einer Transition ein UART-Dump
         # liegt, dürfte expected_end_ts besser sein, dann muss allerdings bei der compensation wieder auf
