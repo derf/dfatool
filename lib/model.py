@@ -373,6 +373,13 @@ class AnalyticModel:
 
         return ret
 
+    def webconf_function_map(self) -> list:
+        ret = list()
+        for name in self.names:
+            for attr_model in self.attr_by_name[name].values():
+                ret.extend(attr_model.webconf_function_map())
+        return ret
+
     def predict(self, trace, with_fitted=True, wth_lut=False):
         pass
         # TODO trace= ( (name, duration), (name, duration), ...)

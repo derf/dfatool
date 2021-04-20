@@ -191,6 +191,9 @@ class ModelFunction:
             return self.function_error["mae"]
         return self.value_error["mae"]
 
+    def webconf_function_map(self):
+        return list()
+
     def to_json(self):
         """Convert model to JSON."""
         ret = {
@@ -299,6 +302,12 @@ class SplitFunction(ModelFunction):
     def eval(self, param_list):
         param_value = param_list[self.param_index]
         return self.child[param_value].eval(param_list)
+
+    def webconf_function_map(self):
+        ret = list()
+        for child in self.child.values():
+            ret.extend(child.webconf_function_map())
+        return ret
 
     def to_json(self):
         ret = super().to_json()
@@ -571,6 +580,19 @@ class AnalyticFunction(ModelFunction):
         :param arg_list: argument values (list of float), if arguments are used.
         """
         return self._function(self.model_args, param_list)
+
+    def webconf_function_map(self):
+        js_buf = self.model_function
+        for i in range(len(self.model_args)):
+            js_buf = js_buf.replace(f"regression_arg({i})", str(self.model_args[i]))
+        for parameter_name in self._parameter_names:
+            js_buf = js_buf.replace(
+                f"parameter({parameter_name})", f"""param["{parameter_name}"]"""
+            )
+        for arg_num in range(self._num_args):
+            js_buf = js_buf.replace(f"function_arg({arg_num})", f"args[{arg_num}]")
+        js_buf = "(param, args) => " + js_buf.replace("np.", "Math.")
+        return [(f'"{self.model_function}"', js_buf)]
 
     def to_json(self):
         ret = super().to_json()

@@ -437,41 +437,6 @@ def print_splitinfo(param_names, info, prefix=""):
         print(f"{prefix}: UNKNOWN")
 
 
-def _mogrify(function_str, parameter_names, regression_args):
-    for i in range(len(regression_args)):
-        function_str = function_str.replace(
-            f"regression_arg({i})", str(regression_args[i])
-        )
-    for parameter_name in parameter_names:
-        function_str = function_str.replace(
-            f"parameter({parameter_name})", f"""param["{parameter_name}"]"""
-        )
-    for arg_num in range(10):
-        function_str = function_str.replace(
-            f"function_arg({arg_num})", f"args[{arg_num}]"
-        )
-    function_str = function_str.replace("np.", "Math.")
-    return "#![modelfunction]" + function_str
-
-
-def mogrify(model):
-    if type(model) is dict:
-        if "functionStr" in model:
-            model["function"] = _mogrify(
-                model["functionStr"], model["parameterNames"], model["regressionModel"]
-            )
-            model.pop("functionStr")
-            model.pop("parameterNames")
-            model.pop("regressionModel")
-        else:
-            for k, v in model.items():
-                model[k] = mogrify(v)
-    elif type(model) is list:
-        for i, elem in enumerate(model):
-            model[i] = mogrify(model[i])
-    return model
-
-
 if __name__ == "__main__":
 
     ignored_trace_indexes = []
@@ -1201,21 +1166,11 @@ if __name__ == "__main__":
                 "Note: v0 measurements do not embed the PTA used for benchmark generation. Estimating PTA from recorded observations."
             )
         json_model = model.to_json()
-        mogrify(json_model)
         json_model_str = json.dumps(json_model, indent=2, sort_keys=True, cls=NpEncoder)
-        json_model_out = ""
-        for line in json_model_str.split("\n"):
-            match = re.fullmatch(r"(.*)\"#!\[modelfunction\](.*\")(.*)", line)
-            if match:
-                line = (
-                    match.group(1)
-                    + "(param, args) => "
-                    + json.loads('"' + match.group(2))
-                    + match.group(3)
-                )
-            json_model_out += line + "\n"
-        with open(f"{args.export_webconf}.json", "w") as f:
-            f.write(json_model_out)
+        for function_str, function_body in model.webconf_function_map():
+            json_model_str = json_model_str.replace(function_str, function_body)
+        with open(f"{args.export_webconf}.js", "w") as f:
+            f.write(json_model_str)
         with open(f"{args.export_webconf}.kconfig", "w") as f:
             f.write(get_kconfig(model))
 

@@ -537,6 +537,9 @@ class ModelAttribute:
         ret = {"mean": (self.mean, unit), "median": (self.median, unit)}
         return ret
 
+    def webconf_function_map(self):
+        return self.model_function.webconf_function_map()
+
     @staticmethod
     def from_json(cls, name, attr, data):
         param_names = data["paramNames"]
