@@ -283,7 +283,15 @@ class State:
 
     def to_dot(self) -> str:
         quote = '"'
-        return f"{quote}{self.name}{quote};\n"
+        label = self.name
+        if self.power and self.power.value:
+            if self.power.value < 1e3:
+                label += f"\\n{self.power.value : .0f} µW"
+            elif self.power.value < 1e6:
+                label += f"\\n{self.power.value * 1e-3 : .1f} mW"
+            else:
+                label += f"\\n{self.power.value * 1e-6 : .1f} W"
+        return f"""{quote}{self.name}{quote} [label="{label}"];\n"""
 
 
 class Transition:
@@ -317,6 +325,7 @@ class Transition:
         name: str,
         energy: ModelFunction = StaticFunction(0),
         duration: ModelFunction = StaticFunction(0),
+        power: ModelFunction = StaticFunction(0),
         timeout: ModelFunction = StaticFunction(0),
         is_interrupt: bool = False,
         arguments: list = [],
@@ -340,6 +349,7 @@ class Transition:
         self.destination = dest_state
         self.energy = energy
         self.duration = duration
+        self.power = power
         self.timeout = timeout
         self.is_interrupt = is_interrupt
         self.arguments = arguments.copy()
@@ -447,9 +457,24 @@ class Transition:
         return ret
 
     def to_dot(self) -> str:
+        label = self.name
+        if self.duration and self.duration.value:
+            if self.duration.value < 1e3:
+                label += f"\\n{self.duration.value : .0f} µs"
+            elif self.duration.value < 1e6:
+                label += f"\\n{self.duration.value * 1e-3 : .1f} ms"
+            else:
+                label += f"\\n{self.duration.value * 1e-6 : .1f} s"
+        if self.power and self.power.value:
+            if self.power.value < 1e3:
+                label += f"\\n{self.power.value : .0f} µW"
+            elif self.power.value < 1e6:
+                label += f"\\n{self.power.value * 1e-3 : .1f} mW"
+            else:
+                label += f"\\n{self.power.value * 1e-6 : .1f} W"
         return (
             '"'
-            + f"""{self.origin.name}" -> "{self.destination.name}" [label="{self.name}"];\n"""
+            + f"""{self.origin.name}" -> "{self.destination.name}" [label="{label}"];\n"""
         )
 
 
@@ -627,6 +652,7 @@ class PTA:
                     transition["name"],
                     duration=ModelFunction.from_json_maybe(transition, "duration"),
                     energy=ModelFunction.from_json_maybe(transition, "energy"),
+                    power=ModelFunction.from_json_maybe(transition, "power"),
                     timeout=ModelFunction.from_json_maybe(transition, "timeout"),
                     **kwargs,
                 )
@@ -1205,6 +1231,7 @@ class PTA:
         for transition in self.transitions:
             try:
                 transition.duration = model(transition.name, "duration")
+                transition.power = model(transition.name, "power")
                 transition.energy = model(transition.name, "energy")
                 if transition.is_interrupt:
                     transition.timeout = model(transition.name, "timeout")

@@ -815,6 +815,19 @@ class PTAModel(AnalyticModel):
         )
         return pta.to_json()
 
+    def to_dot(self) -> str:
+        param_model, param_info = self.get_fitted()
+        pta = self.pta
+        if pta is None:
+            pta = PTA(self.states, parameters=self._parameter_names)
+            for transition in self.transitions:
+                for origin, destination in self.get_transition_states_from_traces(
+                    transition
+                ):
+                    pta.add_transition(origin, destination, transition)
+        pta.update(param_info)
+        return pta.to_dot()
+
     def get_transition_states_from_traces(self, transition_name):
         if self.traces is None:
             return [("UNINITIALIZED", "UNINITIALIZED")]
