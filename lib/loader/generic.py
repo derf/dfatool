@@ -50,7 +50,7 @@ class ExternalTimerSync:
     # * self.data (e.g. power readings)
     # * self.timestamps (timstamps in seconds)
     # * self.sync_min_high_count, self.sync_min_low_count: outlier handling in synchronization pulse detection
-    # * self.sync_power, self.sync_min_duration: synchronization pulse parameters. one pulse before the measurement, two pulses afterwards
+    # * self.sync_power, self.sync_min_duration, self.sync_max_duration: synchronization pulse parameters. one pulse before the measurement, two pulses afterwards
     # expected_trace must contain online timestamps
     # TODO automatically determine sync_power if it is None
     def analyze_states(self, expected_trace, repeat_id, online_timestamps=None):
@@ -79,7 +79,11 @@ class ExternalTimerSync:
             if high_count >= self.sync_min_high_count and sync_start is None:
                 sync_start = high_ts
             elif low_count >= self.sync_min_low_count and sync_start is not None:
-                if low_ts - sync_start > self.sync_min_duration:
+                if (
+                    self.sync_min_duration
+                    < low_ts - sync_start
+                    < self.sync_max_duration
+                ):
                     sync_end = low_ts
                     sync_timestamps.append((sync_start, sync_end))
                 sync_start = None

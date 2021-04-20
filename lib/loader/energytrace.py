@@ -651,6 +651,7 @@ class EnergyTraceWithLogicAnalyzer(ExternalTimerSync):
         self.errors = list()
 
         self.sync_min_duration = 0.7
+        self.sync_max_duration = 1.3
         self.sync_min_low_count = 3
         self.sync_min_high_count = 1
         self.sync_power = 0.011
@@ -723,6 +724,7 @@ class EnergyTraceWithTimer(ExternalTimerSync):
         self.errors = list()
 
         self.sync_min_duration = 0.7
+        self.sync_max_duration = 1.3
         self.sync_min_low_count = 3
         self.sync_min_high_count = 1
         self.sync_power = 0.011
