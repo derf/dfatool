@@ -269,21 +269,6 @@ class ExternalTimerSync:
         :return: None
         """
 
-        def calculateRectangleCurve(timestamps, min_value=0, max_value=0.160):
-            import numpy as np
-
-            data = []
-            for ts in timestamps:
-                data.append(ts)
-                data.append(ts)
-
-            a = np.empty((len(data),))
-            a[0::4] = max_value
-            a[1::4] = min_value
-            a[2::4] = min_value
-            a[3::4] = max_value
-            return data, a  # plotting by columns
-
         import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots()
@@ -299,17 +284,14 @@ class ExternalTimerSync:
             )
             annot.set_visible(True)
 
-        rectCurve_with_drift = calculateRectangleCurve(
-            event_timestamps, max_value=max(self.data)
+        plt.plot(self.timestamps, self.data, label="P")
+        plt.plot(self.timestamps, np.gradient(self.data), label="dP/dt")
+        plt.vlines(
+            event_timestamps, 0, max(self.data), colors=["green"], label="Events"
         )
 
-        plt.plot(self.timestamps, self.data, label="Leistung")
-        plt.plot(self.timestamps, np.gradient(self.data), label="dP/dt")
-
-        plt.plot(rectCurve_with_drift[0], rectCurve_with_drift[1], "-g", label="Events")
-
-        plt.xlabel("Zeit [s]")
-        plt.ylabel("Leistung [W]")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Power [W]")
         leg = plt.legend()
 
         def getDataText(x):
