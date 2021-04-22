@@ -34,6 +34,9 @@ def _load_energytrace(data_string):
     data = np.empty((data_count, 4))
     hardware_states = [None for i in range(data_count)]
 
+    energy_overflow_count = 0
+    prev_total_energy = 0
+
     for i, line in enumerate(data_lines):
         fields = line.split(" ")
         if len(fields) == 4:
@@ -43,6 +46,15 @@ def _load_energytrace(data_string):
             timestamp, current, voltage, total_energy = map(int, fields[1:])
         else:
             raise RuntimeError('cannot parse line "{}"'.format(line))
+
+        if (total_energy < 0 and prev_total_energy > 0) or (
+            total_energy >= 0 and total_energy < prev_total_energy
+        ):
+            energy_overflow_count += 1
+
+        prev_total_energy = total_energy
+        total_energy += energy_overflow_count * (2 ** 32)
+
         data[i] = [timestamp, current, voltage, total_energy]
 
     interval_start_timestamp = data[1:, 0] * 1e-6
