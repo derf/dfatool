@@ -55,6 +55,9 @@ def main():
 
     kconf = kconfiglib.Kconfig(args.kconfig_file)
 
+    # TODO Optional neben bool auch choices unterstützen.
+    # Später ebenfalls int u.ä. -> dfatool-modeling
+
     symbols = sorted(
         map(
             lambda sym: sym.name,
@@ -83,7 +86,7 @@ def main():
         with open(attr_path, "r") as f:
             attr = json.load(f)
 
-        config_vector = tuple(map(lambda sym: kconf.syms[sym].tri_value == 2, symbols))
+        config_vector = tuple(map(lambda sym: kconf.syms[sym].str_value, symbols))
         config_vectors.add(config_vector)
         by_name["multipass"]["rom_usage"].append(attr["total"]["ROM"])
         by_name["multipass"]["ram_usage"].append(attr["total"]["RAM"])
@@ -112,8 +115,8 @@ def main():
 
         mean_stds = list()
         for i, param in enumerate(this_symbols):
-            enabled = list(filter(lambda vrr: vrr[0][i] == True, this_data))
-            disabled = list(filter(lambda vrr: vrr[0][i] == False, this_data))
+            enabled = list(filter(lambda vrr: vrr[0][i] == "y", this_data))
+            disabled = list(filter(lambda vrr: vrr[0][i] == "n", this_data))
 
             enabled_std_rom = np.std(list(map(lambda x: x[1], enabled)))
             disabled_std_rom = np.std(list(map(lambda x: x[1], disabled)))
@@ -126,8 +129,8 @@ def main():
 
         symbol_index = np.argmin(mean_stds)
         symbol = this_symbols[symbol_index]
-        enabled = list(filter(lambda vrr: vrr[0][symbol_index] == True, this_data))
-        disabled = list(filter(lambda vrr: vrr[0][symbol_index] == False, this_data))
+        enabled = list(filter(lambda vrr: vrr[0][symbol_index] == "y", this_data))
+        disabled = list(filter(lambda vrr: vrr[0][symbol_index] == "n", this_data))
 
         child = dict()
 
@@ -148,9 +151,11 @@ def main():
             f"Level {level} split on {symbol} has {len(enabled)} children when enabled and {len(disabled)} children when disabled"
         )
         if len(enabled):
-            child[1] = get_min(new_symbols, enabled, data_index, threshold, level + 1)
+            child["y"] = get_min(new_symbols, enabled, data_index, threshold, level + 1)
         if len(disabled):
-            child[0] = get_min(new_symbols, disabled, data_index, threshold, level + 1)
+            child["n"] = get_min(
+                new_symbols, disabled, data_index, threshold, level + 1
+            )
 
         return SplitFunction(np.mean(rom_sizes), symbol_index, child)
 
