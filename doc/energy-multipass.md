@@ -1,5 +1,5 @@
-Diese Anleitung beschreibt die Benchmarkgenerierung mit AEMR/dfatool. Sie geht
-von der folgenden Verzeichnisstruktur aus.
+Diese Anleitung beschreibt die Generierung von Energiemodellen mit dfatool und
+multipass. Sie geht von der folgenden Verzeichnisstruktur aus.
 
 * `data`: Benchmark-Messdaten
 * `data/cache`: Cache für teilweise ausgewertete Benchmarks
@@ -16,7 +16,8 @@ Generierungs- und Auswertungsskripte.
 
 Die Generierung und Vermessung von Benchmarks erfolgt immer mit
 `generate-dfa-benchmark.py`. Dieses muss vom multipass-Verzeichnis aus
-aufgerufen werden. Ein Benchmark läuft wie folgt ab.
+aufgerufen werden. Die multipass-Konfiguration (Treiber und Anwendungen)
+sowie Codegenerierung läuft automatisch.
 
 * Generierung von Läufen durch den PTA des zu vermessenden Geräts. Die Läufe
   können u.a. mit `--depth`, `--shrink` und `--trace-filter` beeinflusst
@@ -64,8 +65,8 @@ Benchmark-Ablauf:
 ```
 cd multipass
 ../dfatool/bin/generate-dfa-benchmark.py --data=../data \
---timer-pin=GPIO::p1_0 --sleep=200 --repeat=3 --arch=msp430fr5994lp \
---energytrace=sync=bar model/driver/sharp96.dfa src/app/aemr/main.cc
+--sleep=50 --repeat=3 --arch=msp430fr5994lp \
+--energytrace=sync=timer model/driver/sharp96.dfa src/app/aemr/main.cc
 ```
 
 Nach einigen Minuten wird unter `data` ein auf sharp96.tar endendes Archiv mit
