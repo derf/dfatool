@@ -21,6 +21,18 @@ from dfatool.model import AnalyticModel, ModelAttribute
 from dfatool.utils import NpEncoder
 
 
+def make_config_vector(kconf, params, symbols, choices):
+    config_vector = [None for i in params]
+    for i, param in enumerate(params):
+        if param in choices:
+            choice = kconf.choices[choices.index(param)]
+            if choice.selection:
+                config_vector[i] = choice.selection.name
+        else:
+            config_vector[i] = kconf.syms[param].str_value
+    return tuple(config_vector)
+
+
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
@@ -31,6 +43,11 @@ def main():
         choices=["debug", "info", "warning", "error"],
         default="warning",
         help="Set log level",
+    )
+    parser.add_argument(
+        "--with-choice-node",
+        action="store_true",
+        help="Add special decisiontree nodes for Kconfig choice symbols",
     )
     parser.add_argument("kconfig_file")
     parser.add_argument("data_dir")
@@ -68,6 +85,13 @@ def main():
         )
     )
 
+    if args.with_choice_node:
+        choices = list(map(lambda choice: choice.name, kconf.choices))
+    else:
+        choices = list()
+
+    params = sorted(symbols + choices)
+
     by_name = {
         "multipass": {
             "isa": "state",
@@ -86,7 +110,8 @@ def main():
         with open(attr_path, "r") as f:
             attr = json.load(f)
 
-        config_vector = tuple(map(lambda sym: kconf.syms[sym].str_value, symbols))
+        config_vector = make_config_vector(kconf, params, symbols, choices)
+
         config_vectors.add(config_vector)
         by_name["multipass"]["rom_usage"].append(attr["total"]["ROM"])
         by_name["multipass"]["ram_usage"].append(attr["total"]["RAM"])
@@ -103,7 +128,7 @@ def main():
         "std of all data: {:5.0f} Bytes".format(np.std(list(map(lambda x: x[1], data))))
     )
 
-    model = AnalyticModel(by_name, symbols, compute_stats=False)
+    model = AnalyticModel(by_name, params, compute_stats=False)
 
     def get_min(this_symbols, this_data, data_index=1, threshold=100, level=0):
 
@@ -115,47 +140,59 @@ def main():
 
         mean_stds = list()
         for i, param in enumerate(this_symbols):
-            enabled = list(filter(lambda vrr: vrr[0][i] == "y", this_data))
-            disabled = list(filter(lambda vrr: vrr[0][i] == "n", this_data))
 
-            enabled_std_rom = np.std(list(map(lambda x: x[1], enabled)))
-            disabled_std_rom = np.std(list(map(lambda x: x[1], disabled)))
-            children = [enabled_std_rom, disabled_std_rom]
+            unique_values = list(set(map(lambda vrr: vrr[0][i], this_data)))
+
+            child_values = list()
+            for value in unique_values:
+                child_values.append(
+                    list(filter(lambda vrr: vrr[0][i] == value, this_data))
+                )
+
+            if len(list(filter(len, child_values))) < 2:
+                # this param only has a single value. there's no point in splitting.
+                mean_stds.append(np.inf)
+                continue
+
+            children = list()
+            for child in child_values:
+                children.append(np.std(list(map(lambda x: x[1], child))))
 
             if np.any(np.isnan(children)):
                 mean_stds.append(np.inf)
             else:
                 mean_stds.append(np.mean(children))
 
+        if np.all(np.isinf(mean_stds)):
+            # all children have the same configuration. We shouldn't get here due to the threshold check above...
+            logging.warning("Waht")
+            return StaticFunction(np.mean(rom_sizes))
+
         symbol_index = np.argmin(mean_stds)
         symbol = this_symbols[symbol_index]
-        enabled = list(filter(lambda vrr: vrr[0][symbol_index] == "y", this_data))
-        disabled = list(filter(lambda vrr: vrr[0][symbol_index] == "n", this_data))
+        new_symbols = this_symbols[:symbol_index] + this_symbols[symbol_index + 1 :]
+
+        unique_values = list(set(map(lambda vrr: vrr[0][symbol_index], this_data)))
 
         child = dict()
 
-        new_symbols = this_symbols[:symbol_index] + this_symbols[symbol_index + 1 :]
-        enabled = list(
-            map(
-                lambda x: (x[0][:symbol_index] + x[0][symbol_index + 1 :], *x[1:]),
-                enabled,
+        for value in unique_values:
+            children = filter(lambda vrr: vrr[0][symbol_index] == value, this_data)
+            children = list(
+                map(
+                    lambda x: (x[0][:symbol_index] + x[0][symbol_index + 1 :], *x[1:]),
+                    children,
+                )
             )
-        )
-        disabled = list(
-            map(
-                lambda x: (x[0][:symbol_index] + x[0][symbol_index + 1 :], *x[1:]),
-                disabled,
-            )
-        )
-        print(
-            f"Level {level} split on {symbol} has {len(enabled)} children when enabled and {len(disabled)} children when disabled"
-        )
-        if len(enabled):
-            child["y"] = get_min(new_symbols, enabled, data_index, threshold, level + 1)
-        if len(disabled):
-            child["n"] = get_min(
-                new_symbols, disabled, data_index, threshold, level + 1
-            )
+            if len(children):
+                print(
+                    f"Level {level} split on {symbol} == {value} has {len(children)} children"
+                )
+                child[value] = get_min(
+                    new_symbols, children, data_index, threshold, level + 1
+                )
+
+        assert len(child.values()) >= 2
 
         return SplitFunction(np.mean(rom_sizes), symbol_index, child)
 
@@ -165,25 +202,25 @@ def main():
         "rom_usage",
         by_name["multipass"]["rom_usage"],
         by_name["multipass"]["param"],
-        symbols,
+        params,
     )
     model.attr_by_name["multipass"]["ram_usage"] = ModelAttribute(
         "multipass",
         "rom_usage",
         by_name["multipass"]["ram_usage"],
         by_name["multipass"]["param"],
-        symbols,
+        params,
     )
 
     model.attr_by_name["multipass"]["rom_usage"].model_function = get_min(
-        symbols, data, 1, 100
+        params, data, 1, 100
     )
     model.attr_by_name["multipass"]["ram_usage"].model_function = get_min(
-        symbols, data, 2, 20
+        params, data, 2, 20
     )
 
     with open("kconfigmodel.json", "w") as f:
-        json_model = model.to_json(with_param_name=True, param_names=symbols)
+        json_model = model.to_json(with_param_name=True, param_names=params)
         json.dump(json_model, f, sort_keys=True, cls=NpEncoder)
 
 
