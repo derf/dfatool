@@ -170,26 +170,21 @@ def main():
 
         symbol_index = np.argmin(mean_stds)
         symbol = this_symbols[symbol_index]
-        new_symbols = this_symbols[:symbol_index] + this_symbols[symbol_index + 1 :]
 
         unique_values = list(set(map(lambda vrr: vrr[0][symbol_index], this_data)))
 
         child = dict()
 
         for value in unique_values:
-            children = filter(lambda vrr: vrr[0][symbol_index] == value, this_data)
             children = list(
-                map(
-                    lambda x: (x[0][:symbol_index] + x[0][symbol_index + 1 :], *x[1:]),
-                    children,
-                )
+                filter(lambda vrr: vrr[0][symbol_index] == value, this_data)
             )
             if len(children):
                 print(
                     f"Level {level} split on {symbol} == {value} has {len(children)} children"
                 )
                 child[value] = get_min(
-                    new_symbols, children, data_index, threshold, level + 1
+                    this_symbols, children, data_index, threshold, level + 1
                 )
 
         assert len(child.values()) >= 2
