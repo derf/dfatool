@@ -183,7 +183,8 @@ def main():
     )
 
     with open("kconfigmodel.json", "w") as f:
-        json.dump(model.to_json(), f, cls=NpEncoder)
+        json_model = model.to_json(with_param_name=True, param_names=symbols)
+        json.dump(json_model, f, sort_keys=True, cls=NpEncoder)
 
 
 if __name__ == "__main__":

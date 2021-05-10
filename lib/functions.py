@@ -194,7 +194,7 @@ class ModelFunction:
     def webconf_function_map(self):
         return list()
 
-    def to_json(self):
+    def to_json(self, **kwargs):
         """Convert model to JSON."""
         ret = {
             "value": self.value,
@@ -264,8 +264,8 @@ class StaticFunction(ModelFunction):
         """
         return self.value
 
-    def to_json(self):
-        ret = super().to_json()
+    def to_json(self, **kwargs):
+        ret = super().to_json(**kwargs)
         ret.update({"type": "static", "value": self.value})
         return ret
 
@@ -309,16 +309,18 @@ class SplitFunction(ModelFunction):
             ret.extend(child.webconf_function_map())
         return ret
 
-    def to_json(self):
-        ret = super().to_json()
-        ret.update(
-            {
-                "type": "split",
-                "paramIndex": self.param_index,
-                # TODO zusätzlich paramName
-                "child": dict([[k, v.to_json()] for k, v in self.child.items()]),
-            }
-        )
+    def to_json(self, **kwargs):
+        ret = super().to_json(**kwargs)
+        with_param_name = kwargs.get("with_param_name", False)
+        param_names = kwargs.get("param_names", list())
+        update = {
+            "type": "split",
+            "paramIndex": self.param_index,
+            "child": dict([[k, v.to_json(**kwargs)] for k, v in self.child.items()]),
+        }
+        if with_param_name and param_names:
+            update["paramName"] = param_names[self.param_index]
+        ret.update(update)
         return ret
 
     @classmethod
@@ -368,14 +370,14 @@ class SubstateFunction(ModelFunction):
 
         return cumulative_energy / total_duration
 
-    def to_json(self):
-        ret = super().to_json()
+    def to_json(self, **kwargs):
+        ret = super().to_json(**kwargs)
         ret.update(
             {
                 "type": "substate",
                 "sequence": self.sequence_by_count,
-                "countModel": self.count_model.to_json(),
-                "subModel": self.sub_model.to_json(),
+                "countModel": self.count_model.to_json(**kwargs),
+                "subModel": self.sub_model.to_json(**kwargs),
             }
         )
         return ret
@@ -594,8 +596,8 @@ class AnalyticFunction(ModelFunction):
         js_buf = "(param, args) => " + js_buf.replace("np.", "Math.")
         return [(f'"{self.model_function}"', js_buf)]
 
-    def to_json(self):
-        ret = super().to_json()
+    def to_json(self, **kwargs):
+        ret = super().to_json(**kwargs)
         ret.update(
             {
                 "type": "analytic",

@@ -525,11 +525,11 @@ class ModelAttribute:
         mean = np.mean(self.data)
         return f"ModelAttribute<{self.name}, {self.attr}, mean={mean}>"
 
-    def to_json(self):
+    def to_json(self, **kwargs):
         ret = {
             "paramNames": self.param_names,
             "argCount": self.arg_count,
-            "modelFunction": self.model_function.to_json(),
+            "modelFunction": self.model_function.to_json(**kwargs),
         }
         return ret
 

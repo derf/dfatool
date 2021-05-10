@@ -274,11 +274,11 @@ class State:
                         new_suffix.extend(suffix)
                         yield new_suffix
 
-    def to_json(self) -> dict:
+    def to_json(self, **kwargs) -> dict:
         """Return JSON encoding of this state object."""
         ret = {"name": self.name, "power": None}
         if self.power is not None:
-            ret["power"] = self.power.to_json()
+            ret["power"] = self.power.to_json(**kwargs)
         return ret
 
     def to_dot(self) -> str:
@@ -432,7 +432,7 @@ class Transition:
                 ret[v] = args[k]
         return ret
 
-    def to_json(self) -> dict:
+    def to_json(self, **kwargs) -> dict:
         """Return JSON encoding of this transition object."""
         ret = {
             "name": self.name,
@@ -449,11 +449,11 @@ class Transition:
             "timeout": None,
         }
         if self.duration is not None:
-            ret["duration"] = self.duration.to_json()
+            ret["duration"] = self.duration.to_json(**kwargs)
         if self.energy is not None:
-            ret["energy"] = self.energy.to_json()
+            ret["energy"] = self.energy.to_json(**kwargs)
         if self.timeout is not None:
-            ret["timeout"] = self.timeout.to_json()
+            ret["timeout"] = self.timeout.to_json(**kwargs)
         return ret
 
     def to_dot(self) -> str:
@@ -785,7 +785,7 @@ class PTA:
 
         return pta
 
-    def to_json(self) -> dict:
+    def to_json(self, **kwargs) -> dict:
         """
         Return JSON encoding of this PTA.
 
@@ -795,9 +795,9 @@ class PTA:
             "parameters": self.parameters,
             "initial_param_values": self.initial_param_values,
             "state": dict(
-                [[state.name, state.to_json()] for state in self.state.values()]
+                [[state.name, state.to_json(**kwargs)] for state in self.state.values()]
             ),
-            "transitions": [trans.to_json() for trans in self.transitions],
+            "transitions": [trans.to_json(**kwargs) for trans in self.transitions],
             "accepting_states": self.accepting_states,
         }
         return ret

@@ -358,7 +358,7 @@ class AnalyticModel:
                 )
         return ret
 
-    def to_json(self) -> dict:
+    def to_json(self, **kwargs) -> dict:
         """
         Return JSON encoding of this AnalyticModel.
         """
@@ -369,7 +369,7 @@ class AnalyticModel:
 
         for name in self.names:
             for attr_name, attr in self.attr_by_name[name].items():
-                ret["name"][name][attr_name] = attr.to_json()
+                ret["name"][name][attr_name] = attr.to_json(**kwargs)
 
         return ret
 
@@ -796,7 +796,7 @@ class PTAModel(AnalyticModel):
 
         self.submodel_by_name[name] = PTAModel(by_name, self.parameters, dict())
 
-    def to_json(self):
+    def to_json(self, **kwargs):
         static_model = self.get_static()
         static_quality = self.assess(static_model)
         param_model, param_info = self.get_fitted()
@@ -820,7 +820,7 @@ class PTAModel(AnalyticModel):
         pta.update(
             param_info, static_error=static_quality, function_error=analytic_quality
         )
-        return pta.to_json()
+        return pta.to_json(**kwargs)
 
     def to_dot(self) -> str:
         param_model, param_info = self.get_fitted()
