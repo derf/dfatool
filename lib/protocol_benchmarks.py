@@ -247,10 +247,9 @@ class ArduinoJSON(DummyProtocol):
         self.int_type = int_type
         self.float_type = float_type
         self.enc_buf += self.add_transition(
-            "ArduinoJson::StaticJsonBuffer<{:d}> jsonBuffer;\n".format(bufsize),
+            "ArduinoJson::StaticJsonDocument<{:d}> root;\n".format(bufsize),
             [bufsize],
         )
-        self.enc_buf += "ArduinoJson::JsonObject& root = jsonBuffer.createObject();\n"
         self.from_json(data, "root")
 
     def get_serialized_length(self):
@@ -273,17 +272,17 @@ class ArduinoJSON(DummyProtocol):
 
     def get_serialize(self):
         return self.add_transition(
-            "uint16_t serialized_size = root.printTo(buf);\n",
+            "ArduinoJson::serializeJson(root, buf);\n",
             [self.max_serialized_bytes],
         )
 
     def get_deserialize(self):
         ret = self.add_transition(
-            "ArduinoJson::StaticJsonBuffer<{:d}> jsonBuffer;\n".format(self.bufsize),
+            "ArduinoJson::StaticJsonDocument<{:d}> root;\n".format(self.bufsize),
             [self.bufsize],
         )
         ret += self.add_transition(
-            "ArduinoJson::JsonObject& root = jsonBuffer.parseObject(buf);\n",
+            "ArduinoJson::deserializeJson(root, buf);\n",
             [self.max_serialized_bytes],
         )
         return ret
@@ -328,7 +327,7 @@ class ArduinoJSON(DummyProtocol):
             child = enc_node + "l"
             while child in self.children:
                 child += "_"
-            self.enc_buf += "ArduinoJson::JsonArray& {} = {}.createNestedArray();\n".format(
+            self.enc_buf += "ArduinoJson::JsonArray {} = {}.createNestedArray();\n".format(
                 child, enc_node
             )
             self.children.add(child)
@@ -338,7 +337,7 @@ class ArduinoJSON(DummyProtocol):
             child = enc_node + "o"
             while child in self.children:
                 child += "_"
-            self.enc_buf += "ArduinoJson::JsonObject& {} = {}.createNestedObject();\n".format(
+            self.enc_buf += "ArduinoJson::JsonObject {} = {}.createNestedObject();\n".format(
                 child, enc_node
             )
             self.children.add(child)
@@ -399,7 +398,7 @@ class ArduinoJSON(DummyProtocol):
             while child in self.children:
                 child += "_"
             self.enc_buf += self.add_transition(
-                'ArduinoJson::JsonArray& {} = {}.createNestedArray("{}");\n'.format(
+                'ArduinoJson::JsonArray {} = {}.createNestedArray("{}");\n'.format(
                     child, enc_node, key
                 ),
                 [len(key)],
@@ -412,7 +411,7 @@ class ArduinoJSON(DummyProtocol):
             while child in self.children:
                 child += "_"
             self.enc_buf += self.add_transition(
-                'ArduinoJson::JsonObject& {} = {}.createNestedObject("{}");\n'.format(
+                'ArduinoJson::JsonObject {} = {}.createNestedObject("{}");\n'.format(
                     child, enc_node, key
                 ),
                 [len(key)],
@@ -2007,23 +2006,23 @@ def shorten_call(snippet, lib):
         snippet = re.sub("msg.(?:[^[]+)(?:\[.*?\])? = .*", "msg.? = ?", snippet)
     elif lib == "arduinojson:":
         snippet = re.sub(
-            'ArduinoJson::JsonObject& [^ ]+ = [^.]+.createNestedObject\([^")]*\);',
-            "ArduinoJson::JsonObject& ? = ?.createNestedObject();",
+            'ArduinoJson::JsonObject [^ ]+ = [^.]+.createNestedObject\([^")]*\);',
+            "ArduinoJson::JsonObject ? = ?.createNestedObject();",
             snippet,
         )
         snippet = re.sub(
-            'ArduinoJson::JsonObject& [^ ]+ = [^.]+.createNestedObject\("[^")]*"\);',
-            "ArduinoJson::JsonObject& ? = ?.createNestedObject(?);",
+            'ArduinoJson::JsonObject [^ ]+ = [^.]+.createNestedObject\("[^")]*"\);',
+            "ArduinoJson::JsonObject ? = ?.createNestedObject(?);",
             snippet,
         )
         snippet = re.sub(
-            'ArduinoJson::JsonArray& [^ ]+ = [^.]+.createNestedArray\([^")]*\);',
-            "ArduinoJson::JsonArray& ? = ?.createNestedArray();",
+            'ArduinoJson::JsonArray [^ ]+ = [^.]+.createNestedArray\([^")]*\);',
+            "ArduinoJson::JsonArray ? = ?.createNestedArray();",
             snippet,
         )
         snippet = re.sub(
-            'ArduinoJson::JsonArray& [^ ]+ = [^.]+.createNestedArray\("[^")]*"\);',
-            "ArduinoJson::JsonArray& ? = ?.createNestedArray(?);",
+            'ArduinoJson::JsonArray [^ ]+ = [^.]+.createNestedArray\("[^")]*"\);',
+            "ArduinoJson::JsonArray ? = ?.createNestedArray(?);",
             snippet,
         )
         snippet = re.sub('root[^[]*\["[^"]*"\] = [^";]+', 'root?["?"] = ?', snippet)
