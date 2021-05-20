@@ -930,7 +930,7 @@ class MPack(DummyProtocol):
             "mpack_writer_init(&writer, buf, sizeof(buf));\n",
             [self.max_serialized_bytes],
         )
-        self.dec_buf0 += "char strbuf[16];\n"
+        self.dec_buf0 += "char strbuf[50];\n"
         self.from_json(data)
 
     def get_serialized_length(self):
@@ -972,7 +972,7 @@ class MPack(DummyProtocol):
 
     def get_decode_and_output(self):
         ret = 'kout << dec << "dec:";\n'
-        ret += "char strbuf[16];\n"
+        ret += "char strbuf[50];\n"
         return ret + self.dec_buf + "kout << endl;\n"
 
     def get_decode_vars(self):
@@ -1563,9 +1563,9 @@ class XDR(DummyProtocol):
         # By default, XDR does not even include a version / protocol specifier.
         # This seems rather impractical -> emulate that here.
         # self.enc_buf += 'xdrstream << (uint32_t)22075;\n'
-        self.dec_buf += "char strbuf[16];\n"
+        self.dec_buf += "char strbuf[50];\n"
         # self.dec_buf += 'xdrinput.get_uint32();\n'
-        self.dec_buf0 += "char strbuf[16];\n"
+        self.dec_buf0 += "char strbuf[50];\n"
         # self.dec_buf0 += 'xdrinput.get_uint32();\n'
         self.from_json(data)
 
@@ -1691,9 +1691,9 @@ class XDR16(DummyProtocol):
         # By default, XDR does not even include a version / protocol specifier.
         # This seems rather impractical -> emulate that here.
         # self.enc_buf += 'xdrstream << (uint32_t)22075;\n'
-        self.dec_buf += "char strbuf[16];\n"
+        self.dec_buf += "char strbuf[50];\n"
         # self.dec_buf += 'xdrinput.get_uint32();\n'
-        self.dec_buf0 += "char strbuf[16];\n"
+        self.dec_buf0 += "char strbuf[50];\n"
         # self.dec_buf0 += 'xdrinput.get_uint32();\n'
         self.from_json(data)
 
