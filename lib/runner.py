@@ -641,7 +641,7 @@ class Multipass:
 
         Returns a list.
         """
-        command = ["make", "arch={}".format(self.name), "info"]
+        command = ["make", "arch={}".format(self.name), "app=donothing", "info"]
         command.extend(self.opts)
         command.extend(opts)
         logger.debug(f"Getting Info: {' '.join(command)}")
