@@ -465,7 +465,7 @@ class CapnProtoC(DummyProtocol):
     def __init__(
         self,
         data,
-        max_serialized_bytes=128,
+        max_serialized_bytes=2048,
         packed=False,
         trail=["benchmark"],
         int_type="uint16_t",
