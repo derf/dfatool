@@ -374,6 +374,14 @@ class Protolog:
                         )
                     except KeyError:
                         pass
+                    try:
+                        val["mem_serdes_delta"] = (
+                            val["data_serdes_delta"]
+                            + val["bss_serdes_delta"]
+                            + max(val["stack_set_ser"], val["stack_set_des"])
+                        )
+                    except KeyError:
+                        pass
 
         if cpu_conf_str:
             cpu_conf = utils.parse_conf_str(cpu_conf_str)
