@@ -9,6 +9,7 @@ by analyze-archive and analyze-timing
 """
 
 import argparse
+import hashlib
 import json
 import kconfiglib
 import logging
@@ -72,6 +73,15 @@ def main():
 
     kconf = kconfiglib.Kconfig(args.kconfig_file)
 
+    file_hash = hashlib.sha256()
+    with open(args.kconfig_file, "rb") as f:
+        kconfig_data = f.read()
+        while len(kconfig_data) > 0:
+            file_hash.update(kconfig_data)
+            kconfig_data = f.read()
+
+    kconfig_hash = str(file_hash.hexdigest())
+
     # TODO Optional neben bool auch choices unterstützen.
     # Später ebenfalls int u.ä. -> dfatool-modeling
 
@@ -86,7 +96,7 @@ def main():
     )
 
     if args.with_choice_node:
-        choices = list(map(lambda choice: choice.name, kconf.choices))
+        choices = sorted(map(lambda choice: choice.name, kconf.choices))
     else:
         choices = list()
 
@@ -234,7 +244,30 @@ def main():
 
     with open("kconfigmodel.json", "w") as f:
         json_model = model.to_json(with_param_name=True, param_names=params)
-        json.dump(json_model, f, sort_keys=True, cls=NpEncoder)
+        json_model = json_model["name"]["multipass"]
+        json_model["ram_usage"].update(
+            {
+                "unit": "B",
+                "description": "RAM Usage",
+                "minimize": True,
+            }
+        )
+        json_model["rom_usage"].update(
+            {
+                "unit": "B",
+                "description": "ROM Usage",
+                "minimize": True,
+            }
+        )
+        out_model = {
+            "model": json_model,
+            "modelType": "dfatool-kconfig",
+            "kconfigHash": kconfig_hash,
+            "project": "multipass",
+            "symbols": symbols,
+            "choices": choices,
+        }
+        json.dump(out_model, f, sort_keys=True, cls=NpEncoder)
 
 
 if __name__ == "__main__":
