@@ -141,29 +141,8 @@ def main():
     )
 
     model = AnalyticModel(by_name, params, compute_stats=False)
-
-    model.attr_by_name["multipass"] = dict()
-    model.attr_by_name["multipass"]["rom_usage"] = ModelAttribute(
-        "multipass",
-        "rom_usage",
-        by_name["multipass"]["rom_usage"],
-        by_name["multipass"]["param"],
-        params,
-    )
-    model.attr_by_name["multipass"]["ram_usage"] = ModelAttribute(
-        "multipass",
-        "rom_usage",
-        by_name["multipass"]["ram_usage"],
-        by_name["multipass"]["param"],
-        params,
-    )
-
-    model.attr_by_name["multipass"]["rom_usage"].model_function = model.build_tree(
-        params, data, 0, 100
-    )
-    model.attr_by_name["multipass"]["ram_usage"].model_function = model.build_tree(
-        params, data, 1, 20
-    )
+    model.build_dtree("multipass", "rom_usage", 100)
+    model.build_dtree("multipass", "ram_usage", 20)
 
     with open("kconfigmodel.json", "w") as f:
         json_model = model.to_json(with_param_name=True, param_names=params)
