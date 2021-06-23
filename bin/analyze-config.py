@@ -142,83 +142,6 @@ def main():
 
     model = AnalyticModel(by_name, params, compute_stats=False)
 
-    def get_min(this_symbols, this_data, data_index=0, threshold=100, level=0):
-        """
-        Build a Decision Tree on `this_data`.
-
-        :param this_symbols: parameter names
-        :param this_data: list of measurements. Each entry is a (param vector, mearusements vector) tuple.
-            param vector holds parameter values (same order as parameter names). mearuserements vector holds measurements.
-        :param data_index: Index in measurements vector to use for model generation. Default 0.
-        :param threshold: Return a StaticFunction leaf node if std(data[data_index]) < threshold. Default 100.
-
-        :returns: SplitFunction or StaticFunction
-        """
-
-        rom_sizes = list(map(lambda x: x[1][data_index], this_data))
-
-        if np.std(rom_sizes) < threshold or len(this_symbols) == 0:
-            return StaticFunction(np.mean(rom_sizes))
-            # sf.value_error["std"] = np.std(rom_sizes)
-
-        mean_stds = list()
-        for i, param in enumerate(this_symbols):
-
-            unique_values = list(set(map(lambda vrr: vrr[0][i], this_data)))
-
-            if None in unique_values:
-                # param is a choice and undefined in some configs. Do not split on it.
-                mean_stds.append(np.inf)
-                continue
-
-            child_values = list()
-            for value in unique_values:
-                child_values.append(
-                    list(filter(lambda vrr: vrr[0][i] == value, this_data))
-                )
-
-            if len(list(filter(len, child_values))) < 2:
-                # this param only has a single value. there's no point in splitting.
-                mean_stds.append(np.inf)
-                continue
-
-            children = list()
-            for child in child_values:
-                children.append(np.std(list(map(lambda x: x[1][data_index], child))))
-
-            if np.any(np.isnan(children)):
-                mean_stds.append(np.inf)
-            else:
-                mean_stds.append(np.mean(children))
-
-        if np.all(np.isinf(mean_stds)):
-            # all children have the same configuration. We shouldn't get here due to the threshold check above...
-            logging.warning("Waht")
-            return StaticFunction(np.mean(rom_sizes))
-
-        symbol_index = np.argmin(mean_stds)
-        symbol = this_symbols[symbol_index]
-
-        unique_values = list(set(map(lambda vrr: vrr[0][symbol_index], this_data)))
-
-        child = dict()
-
-        for value in unique_values:
-            children = list(
-                filter(lambda vrr: vrr[0][symbol_index] == value, this_data)
-            )
-            if len(children):
-                print(
-                    f"Level {level} split on {symbol} == {value} has {len(children)} children"
-                )
-                child[value] = get_min(
-                    this_symbols, children, data_index, threshold, level + 1
-                )
-
-        assert len(child.values()) >= 2
-
-        return SplitFunction(np.mean(rom_sizes), symbol_index, child)
-
     model.attr_by_name["multipass"] = dict()
     model.attr_by_name["multipass"]["rom_usage"] = ModelAttribute(
         "multipass",
@@ -235,10 +158,10 @@ def main():
         params,
     )
 
-    model.attr_by_name["multipass"]["rom_usage"].model_function = get_min(
+    model.attr_by_name["multipass"]["rom_usage"].model_function = model.build_tree(
         params, data, 0, 100
     )
-    model.attr_by_name["multipass"]["ram_usage"].model_function = get_min(
+    model.attr_by_name["multipass"]["ram_usage"].model_function = model.build_tree(
         params, data, 1, 20
     )
 
