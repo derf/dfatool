@@ -116,7 +116,7 @@ def main():
         by_name["multipass"]["rom_usage"].append(attr["total"]["ROM"])
         by_name["multipass"]["ram_usage"].append(attr["total"]["RAM"])
         by_name["multipass"]["param"].append(config_vector)
-        data.append((config_vector, attr["total"]["ROM"], attr["total"]["RAM"]))
+        data.append((config_vector, (attr["total"]["ROM"], attr["total"]["RAM"])))
 
     print(
         "Processing {:d} unique configurations of {:d} total".format(
@@ -125,14 +125,27 @@ def main():
     )
 
     print(
-        "std of all data: {:5.0f} Bytes".format(np.std(list(map(lambda x: x[1], data))))
+        "std of all data: {:5.0f} Bytes".format(
+            np.std(list(map(lambda x: x[1][0], data)))
+        )
     )
 
     model = AnalyticModel(by_name, params, compute_stats=False)
 
-    def get_min(this_symbols, this_data, data_index=1, threshold=100, level=0):
+    def get_min(this_symbols, this_data, data_index=0, threshold=100, level=0):
+        """
+        Build a Decision Tree on `this_data`.
 
-        rom_sizes = list(map(lambda x: x[data_index], this_data))
+        :param this_symbols: parameter names
+        :param this_data: list of measurements. Each entry is a (param vector, mearusements vector) tuple.
+            param vector holds parameter values (same order as parameter names). mearuserements vector holds measurements.
+        :param data_index: Index in measurements vector to use for model generation. Default 0.
+        :param threshold: Return a StaticFunction leaf node if std(data[data_index]) < threshold. Default 100.
+
+        :returns: SplitFunction or StaticFunction
+        """
+
+        rom_sizes = list(map(lambda x: x[1][data_index], this_data))
 
         if np.std(rom_sizes) < threshold or len(this_symbols) == 0:
             return StaticFunction(np.mean(rom_sizes))
@@ -142,6 +155,11 @@ def main():
         for i, param in enumerate(this_symbols):
 
             unique_values = list(set(map(lambda vrr: vrr[0][i], this_data)))
+
+            if None in unique_values:
+                # param is a choice and undefined in some configs. Do not split on it.
+                mean_stds.append(np.inf)
+                continue
 
             child_values = list()
             for value in unique_values:
@@ -156,7 +174,7 @@ def main():
 
             children = list()
             for child in child_values:
-                children.append(np.std(list(map(lambda x: x[1], child))))
+                children.append(np.std(list(map(lambda x: x[1][data_index], child))))
 
             if np.any(np.isnan(children)):
                 mean_stds.append(np.inf)
@@ -208,10 +226,10 @@ def main():
     )
 
     model.attr_by_name["multipass"]["rom_usage"].model_function = get_min(
-        params, data, 1, 100
+        params, data, 0, 100
     )
     model.attr_by_name["multipass"]["ram_usage"].model_function = get_min(
-        params, data, 2, 20
+        params, data, 1, 20
     )
 
     with open("kconfigmodel.json", "w") as f:
