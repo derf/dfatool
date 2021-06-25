@@ -409,9 +409,6 @@ class AnalyticModel:
             child_parameters = list(map(lambda i: parameters[i], indexes))
             child_data = list(map(lambda i: data[i], indexes))
             if len(child_data):
-                print(
-                    f"Level {level} split on {symbol} == {value} has {len(child_data)} children"
-                )
                 child[value] = self._build_dtree(
                     child_parameters, child_data, threshold, level + 1
                 )
