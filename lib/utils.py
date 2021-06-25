@@ -189,6 +189,37 @@ def partition_by_param(data, param_values, ignore_parameters=list()):
     return ret
 
 
+def param_dict_to_list(param_dict, parameter_names, default=None):
+    ret = list()
+    for parameter_name in parameter_names:
+        ret.append(param_dict.get(parameter_name, None))
+    return ret
+
+
+def observations_to_by_name(observations: list, attributes: list):
+    parameter_names = set()
+    by_name = dict()
+    for observation in observations:
+        parameter_names.update(observation["param"].keys())
+        name = observation["name"]
+        if name not in by_name:
+            by_name[name] = {"attributes": attributes, "param": list()}
+            for attribute in attributes:
+                by_name[name][attribute] = list()
+    parameter_names = sorted(parameter_names)
+    for observation in observations:
+        name = observation["name"]
+        by_name[name]["param"].append(
+            param_dict_to_list(observation["param"], parameter_names)
+        )
+        for attribute in attributes:
+            by_name[name][attribute].append(observation[attribute])
+    for name in by_name:
+        for attribute in attributes:
+            by_name[name][attribute] = np.array(by_name[name][attribute])
+    return by_name, parameter_names
+
+
 def by_name_to_by_param(by_name: dict):
     """
     Convert aggregation by name to aggregation by name and parameter values.
