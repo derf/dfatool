@@ -42,6 +42,7 @@ import logging
 import random
 import re
 import sys
+import dfatool.cli
 from dfatool import plotter
 from dfatool.loader import RawData, pta_trace_to_aggregate
 from dfatool.functions import (
@@ -387,32 +388,6 @@ def plot_traces(preprocessed_data, sot_name):
     plotter.plot_xy(
         timestamps, traces, xlabel="t [s]", ylabel="P [W]", title=sot_name, family=True
     )
-
-
-def print_static(model, static_model, name, attribute):
-    unit = "  "
-    if attribute == "power":
-        unit = "µW"
-    elif attribute == "duration":
-        unit = "µs"
-    elif attribute == "substate_count":
-        unit = "su"
-    print(
-        "{:10s}: {:.0f} {:s}  ({:.2f})".format(
-            name,
-            static_model(name, attribute),
-            unit,
-            model.attr_by_name[name][attribute].stats.generic_param_dependence_ratio(),
-        )
-    )
-    for param in model.parameters:
-        print(
-            "{:10s}  dependence on {:15s}: {:.2f}".format(
-                "",
-                param,
-                model.attr_by_name[name][attribute].stats.param_dependence_ratio(param),
-            )
-        )
 
 
 def print_analyticinfo(prefix, info):
@@ -801,12 +776,12 @@ if __name__ == "__main__":
     if "static" in show_models or "all" in show_models:
         for state in model.states:
             for attribute in model.attributes(state):
-                print_static(model, static_model, state, attribute)
+                dfatool.cli.print_static(model, static_model, state, attribute)
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
                 for substate in submodel.states:
                     for subattribute in submodel.attributes(substate):
-                        print_static(
+                        dfatool.cli.print_static(
                             submodel, submodel.get_static(), substate, subattribute
                         )
 
@@ -1169,8 +1144,13 @@ if __name__ == "__main__":
         json_model_str = json.dumps(json_model, indent=2, sort_keys=True, cls=NpEncoder)
         for function_str, function_body in model.webconf_function_map():
             json_model_str = json_model_str.replace(function_str, function_body)
+
+        buf = "class watModel {\n"
+        buf += f"model = {json_model_str};\n"
+        buf += "};"
+
         with open(f"{args.export_webconf}.js", "w") as f:
-            f.write(json_model_str)
+            f.write(buf)
         with open(f"{args.export_webconf}.kconfig", "w") as f:
             f.write(get_kconfig(model))
 
