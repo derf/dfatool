@@ -331,6 +331,8 @@ class SplitFunction(ModelFunction):
         for k, v in data["child"].items():
             self.child[k] = ModelFunction.from_json(v)
 
+        return self
+
     def __repr__(self):
         return f"SplitFunction<{self.value}, param_index={self.param_index}>"
 

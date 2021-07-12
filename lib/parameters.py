@@ -504,8 +504,12 @@ class ModelAttribute:
         self.ignore_param = dict()
 
         # Static model used as lower bound of model accuracy
-        self.mean = np.mean(data)
-        self.median = np.median(data)
+        if data is not None:
+            self.mean = np.mean(data)
+            self.median = np.median(data)
+        else:
+            self.mean = None
+            self.median = None
 
         # LUT model used as upper bound of model accuracy
         self.by_param = None  # set via ParallelParamStats
@@ -540,7 +544,7 @@ class ModelAttribute:
     def webconf_function_map(self):
         return self.model_function.webconf_function_map()
 
-    @staticmethod
+    @classmethod
     def from_json(cls, name, attr, data):
         param_names = data["paramNames"]
         arg_count = data["argCount"]
