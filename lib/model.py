@@ -347,6 +347,8 @@ class AnalyticModel:
         :returns: SplitFunction or StaticFunction
         """
 
+        # TODO remove data entries which are None (and remove corresponding parameters, too!)
+
         parameter_names = self.parameters
         if len(parameter_names) == 0 or np.std(data) < threshold:
             return StaticFunction(np.mean(data))
@@ -389,7 +391,9 @@ class AnalyticModel:
 
         if np.all(np.isinf(mean_stds)):
             # all children have the same configuration. We shouldn't get here due to the threshold check above...
-            logging.warning("Waht")
+            logging.warning(
+                f"While building DTree for configurations {parameters}: Children have identical configuration, but high stddev ({np.std(data)}). Falling back to Staticfunction"
+            )
             return StaticFunction(np.mean(data))
 
         symbol_index = np.argmin(mean_stds)
