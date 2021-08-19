@@ -17,7 +17,7 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-class ParallelParamFit:
+class ParamFit:
     """
     Fit a set of functions on parameterized measurements.
 
@@ -25,9 +25,10 @@ class ParallelParamFit:
     function type for each parameter.
     """
 
-    def __init__(self):
-        """Create a new ParallelParamFit object."""
+    def __init__(self, parallel=True):
+        """Create a new ParamFit object."""
         self.fit_queue = list()
+        self.parallel = parallel
 
     def enqueue(self, key, param, args, kwargs=dict()):
         """
@@ -49,10 +50,13 @@ class ParallelParamFit:
 
         Fitting is one in parallel with one process per core.
 
-        Results can be accessed using the public ParallelParamFit.results object.
+        Results can be accessed using the public ParamFit.results object.
         """
-        with Pool() as pool:
-            self.results = pool.map(_try_fits_parallel, self.fit_queue)
+        if self.parallel:
+            with Pool() as pool:
+                self.results = pool.map(_try_fits_parallel, self.fit_queue)
+        else:
+            self.results = list(map(_try_fits_parallel, self.fit_queue))
 
     def get_result(self, key):
         """

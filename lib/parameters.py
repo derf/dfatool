@@ -319,11 +319,11 @@ class ParallelParamStats:
 
     def compute(self):
         """
-        Fit functions on previously enqueue data.
+        Fit functions on previously enqueued data.
 
         Fitting is one in parallel with one process per core.
 
-        Results can be accessed using the public ParallelParamFit.results object.
+        Results can be accessed using the public ParamFit.results object.
         """
         with Pool() as pool:
             results = pool.map(_compute_param_statistics_parallel, self.queue)

@@ -652,7 +652,7 @@ class Multipass:
             universal_newlines=True,
         )
         if res.returncode != 0:
-            raise RuntimeError("make info Failure")
+            raise RuntimeError(f"make info Failure. command = {command}")
         return res.stdout.split("\n")
 
     def _cached_info(self, opts=list()) -> list:

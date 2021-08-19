@@ -17,7 +17,7 @@ import numpy as np
 from dfatool.functions import analytic
 from dfatool.loader import RawData
 from dfatool import parameters
-from dfatool.model import ParallelParamFit, PTAModel
+from dfatool.model import ParamFit, PTAModel
 from dfatool.utils import by_name_to_by_param
 
 # from scipy.cluster.hierarchy import dendrogram, linkage # for graphical display
@@ -899,7 +899,7 @@ if __name__ == "__main__":
         #     last_pow = power
         # plt.show()
         stats = parameters.ParamStats(by_name, by_param, param_names, dict())
-        paramfit = ParallelParamFit(by_param)
+        paramfit = ParamFit(by_param)
         for state_name in by_name.keys():
             for num_param, param_name in enumerate(param_names):
                 if stats.depends_on_param(state_name, "power", param_name):
@@ -1080,7 +1080,7 @@ if __name__ == "__main__":
         new_stats = parameters.ParamStats(
             new_by_name, new_by_param, param_names, dict()
         )
-        new_paramfit = ParallelParamFit(new_by_param)
+        new_paramfit = ParamFit(new_by_param)
         for state_name in new_by_name.keys():
             for num_param, param_name in enumerate(param_names):
                 if new_stats.depends_on_param(state_name, "power", param_name):

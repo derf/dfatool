@@ -5,8 +5,8 @@ import numpy as np
 import os
 from .automata import PTA, ModelAttribute
 from .functions import StaticFunction, SubstateFunction, SplitFunction
-from .parameters import ParallelParamStats, codependent_param_dict
-from .paramfit import ParallelParamFit
+from .parameters import ParallelParamStats, ParamStats, codependent_param_dict
+from .paramfit import ParamFit
 from .utils import soft_cast_int, by_name_to_by_param, regression_measures
 
 logger = logging.getLogger(__name__)
@@ -233,7 +233,7 @@ class AnalyticModel:
 
         if not self.fit_done:
 
-            paramfit = ParallelParamFit()
+            paramfit = ParamFit()
 
             for name in self.names:
                 for attr in self.attr_by_name[name].keys():

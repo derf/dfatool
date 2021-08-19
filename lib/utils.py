@@ -190,6 +190,9 @@ def partition_by_param(data, param_values, ignore_parameters=list()):
 
 
 def param_dict_to_list(param_dict, parameter_names, default=None):
+    """
+    Convert {"foo": 1, "bar": 2}, ["bar", "foo", "quux"] to [2, 1, None]
+    """
     ret = list()
     for parameter_name in parameter_names:
         ret.append(param_dict.get(parameter_name, None))
@@ -197,6 +200,17 @@ def param_dict_to_list(param_dict, parameter_names, default=None):
 
 
 def observations_to_by_name(observations: list, attributes: list):
+    """
+    Convert observation list to by_name dictionary for AnalyticModel analysis
+
+    :param observations: list of dicts, each representing one measurement. dict keys:
+        "name": name of observed state/transition/...
+        "param": {"parameter name": parameter value, ...} dict
+    :param attributes: observed attributes (i.e., actual measurements). Each measurement dict must have an
+        entry holding the data value for each attribute. It should not be None.
+
+    :returns: tuple (by_name, parameter_names) which can be passed to AnalyticModel
+    """
     parameter_names = set()
     by_name = dict()
     for observation in observations:

@@ -3,7 +3,7 @@
 from dfatool import parameters
 from dfatool.utils import by_name_to_by_param
 from dfatool.functions import analytic
-from dfatool.model import ParallelParamFit
+from dfatool.model import ParamFit
 import unittest
 
 import numpy as np
@@ -56,7 +56,7 @@ class TestModels(unittest.TestCase):
 
         # Fit individual functions for each parameter (only "p_linear" in this case)
 
-        paramfit = ParallelParamFit()
+        paramfit = ParamFit()
         paramfit.enqueue(("TX", "power"), "p_linear", (stats.by_param, 1, False))
         paramfit.fit()
 
@@ -146,7 +146,7 @@ class TestModels(unittest.TestCase):
         self.assertEqual(ll_stats.depends_on_param("log_inv"), True)
         self.assertEqual(ll_stats.depends_on_param("square_none"), False)
 
-        paramfit = ParallelParamFit()
+        paramfit = ParamFit()
         paramfit.enqueue(("someKey", "lls"), "lin_lin", (lls_stats.by_param, 0, False))
         paramfit.enqueue(("someKey", "lls"), "log_inv", (lls_stats.by_param, 1, False))
         paramfit.enqueue(
