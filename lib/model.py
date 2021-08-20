@@ -330,11 +330,24 @@ class AnalyticModel:
                 self.parameters,
             )
 
+        # temporary hack for ResKIL / kconfig-webconf evaluation of regression trees with function nodes
+        with_function_leaves = bool(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES"))
+        if (
+            with_function_leaves
+            and attribute in "accuracy model_size_mb power_w".split()
+        ):
+            with_function_leaves = False
+
         self.attr_by_name[name][attribute].model_function = self._build_dtree(
-            self.by_name[name]["param"], self.by_name[name][attribute], threshold
+            self.by_name[name]["param"],
+            self.by_name[name][attribute],
+            with_function_leaves,
+            threshold,
         )
 
-    def _build_dtree(self, parameters, data, threshold=100, level=0):
+    def _build_dtree(
+        self, parameters, data, with_function_leaves=False, threshold=100, level=0
+    ):
         """
         Build a Decision Tree on `param` / `data` for kconfig models.
 
@@ -361,6 +374,11 @@ class AnalyticModel:
 
             if None in unique_values:
                 # param is a choice and undefined in some configs. Do not split on it.
+                mean_stds.append(np.inf)
+                continue
+
+            # temporary hack for ResKIL / kconfig-webconf evaluation of regression trees with function nodes
+            if with_function_leaves and param == "batch_size":
                 mean_stds.append(np.inf)
                 continue
 
@@ -391,9 +409,22 @@ class AnalyticModel:
 
         if np.all(np.isinf(mean_stds)):
             # all children have the same configuration. We shouldn't get here due to the threshold check above...
-            logging.warning(
-                f"While building DTree for configurations {parameters}: Children have identical configuration, but high stddev ({np.std(data)}). Falling back to Staticfunction"
-            )
+            # temporary hack for ResKIL / kconfig-webconf evaluation of regression trees with function nodes
+            if with_function_leaves and "batch_size" in parameter_names:
+                ma = ModelAttribute("tmp", "tmp", data, parameters, self.parameters, 0)
+                ParamStats.compute_for_attr(ma)
+                paramfit = ParamFit(parallel=False)
+                for key, param, args, kwargs in ma.get_data_for_paramfit():
+                    paramfit.enqueue(key, param, args, kwargs)
+                paramfit.fit()
+                ma.set_data_from_paramfit(paramfit)
+                print(ma)
+                print(ma.model_function)
+                return ma.model_function
+            else:
+                logging.warning(
+                    f"While building DTree for configurations {parameters}: Children have identical configuration, but high stddev ({np.std(data)}). Falling back to Staticfunction"
+                )
             return StaticFunction(np.mean(data))
 
         symbol_index = np.argmin(mean_stds)
@@ -414,7 +445,11 @@ class AnalyticModel:
             child_data = list(map(lambda i: data[i], indexes))
             if len(child_data):
                 child[value] = self._build_dtree(
-                    child_parameters, child_data, threshold, level + 1
+                    child_parameters,
+                    child_data,
+                    with_function_leaves,
+                    threshold,
+                    level + 1,
                 )
 
         assert len(child.values()) >= 2
