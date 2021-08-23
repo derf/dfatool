@@ -151,11 +151,6 @@ class AnalyticModel:
 
         paramstats.compute()
 
-        if not os.getenv("DFATOOL_NO_DECISIONTREES"):
-            for name in self.names:
-                for attr in self.attr_by_name[name].values():
-                    attr.build_dtree()
-
     def attributes(self, name):
         return self.attr_by_name[name].keys()
 

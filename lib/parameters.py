@@ -587,124 +587,6 @@ class ModelAttribute:
             return np.mean(self.by_param[param])
         return np.median(self.by_param[param])
 
-    def build_dtree(self):
-        split_param_index = self.get_split_param_index()
-        if split_param_index is None:
-            return
-
-        distinct_values = self.stats.distinct_values_by_param_index[split_param_index]
-        tt1 = list(
-            map(
-                lambda i: self.param_values[i][split_param_index] == distinct_values[0],
-                range(len(self.param_values)),
-            )
-        )
-        tt2 = np.invert(tt1)
-
-        pv1 = list()
-        pv2 = list()
-
-        for i, param_tuple in enumerate(self.param_values):
-            if tt1[i]:
-                pv1.append(param_tuple)
-            else:
-                pv2.append(param_tuple)
-
-        # print(
-        #    f">>> split {self.name} {self.attr} by param #{split_param_index}"
-        # )
-
-        child1 = ModelAttribute(
-            self.name,
-            self.attr,
-            self.data[tt1],
-            pv1,
-            self.param_names,
-            self.arg_count,
-            codependent_param_dict(pv1),
-        )
-        child2 = ModelAttribute(
-            self.name,
-            self.attr,
-            self.data[tt2],
-            pv2,
-            self.param_names,
-            self.arg_count,
-            codependent_param_dict(pv2),
-        )
-
-        ParamStats.compute_for_attr(child1)
-        ParamStats.compute_for_attr(child2)
-
-        child1.build_dtree()
-        child2.build_dtree()
-
-        self.split = (
-            split_param_index,
-            {distinct_values[0]: child1, distinct_values[1]: child2},
-        )
-
-        # print(
-        #    f"<<< split {self.name} {self.attr} by param #{split_param_index}"
-        # )
-
-    # None -> kein split notwendig
-    # andernfalls: Parameter-Index, anhand dessen eine Decision Tree-Ebene aufgespannt wird
-    # (Kinder sind wiederum ModelAttributes, in denen dieser Parameter konstant ist)
-    def get_split_param_index(self):
-        if not self.param_names:
-            return None
-        std_by_param = list()
-        for param_index, param_name in enumerate(self.param_names):
-            distinct_values = self.stats.distinct_values_by_param_index[param_index]
-            if (
-                self.stats.depends_on_param(param_name)
-                and len(distinct_values) == 2
-                and not param_index in self.ignore_param
-            ):
-                val1 = list(
-                    map(
-                        lambda i: self.param_values[i][param_index]
-                        == distinct_values[0],
-                        range(len(self.param_values)),
-                    )
-                )
-                val2 = np.invert(val1)
-                val1_std = np.std(self.data[val1])
-                val2_std = np.std(self.data[val2])
-                std_by_param.append(np.mean([val1_std, val2_std]))
-            else:
-                std_by_param.append(np.inf)
-        for arg_index in range(self.arg_count):
-            distinct_values = self.stats.distinct_values_by_param_index[
-                len(self.param_names) + arg_index
-            ]
-            if (
-                self.stats.depends_on_arg(arg_index)
-                and len(distinct_values) == 2
-                and not len(self.param_names) + arg_index in self.ignore_param
-            ):
-                val1 = list(
-                    map(
-                        lambda i: self.param_values[i][
-                            len(self.param_names) + arg_index
-                        ]
-                        == distinct_values[0],
-                        range(len(self.param_values)),
-                    )
-                )
-                val2 = np.invert(val1)
-                val1_std = np.std(self.data[val1])
-                val2_std = np.std(self.data[val2])
-                std_by_param.append(np.mean([val1_std, val2_std]))
-            else:
-                std_by_param.append(np.inf)
-        split_param_index = np.argmin(std_by_param)
-        split_std = std_by_param[split_param_index]
-        if split_std == np.inf:
-            return None
-        return split_param_index
-
     def get_data_for_paramfit(self, safe_functions_enabled=False):
         if self.split:
             return self.get_data_for_paramfit_split(
@@ -716,6 +598,7 @@ class ModelAttribute:
             )
 
     def get_data_for_paramfit_split(self, safe_functions_enabled=False):
+        # currently unused
         split_param_index, child_by_param_value = self.split
         ret = list()
         for param_value, child in child_by_param_value.items():
@@ -798,6 +681,7 @@ class ModelAttribute:
             self.set_data_from_paramfit_this(paramfit, prefix)
 
     def set_data_from_paramfit_split(self, paramfit, prefix):
+        # currently unused
         split_param_index, child_by_param_value = self.split
         function_map = {
             "split_by": split_param_index,
