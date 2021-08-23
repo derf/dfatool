@@ -291,9 +291,7 @@ def _compute_param_statistics_parallel(arg):
 def _all_params_are_numeric(data, param_idx):
     """Check if all `data['param'][*][param_idx]` elements are numeric, as reported by `utils.is_numeric`."""
     param_values = list(map(lambda x: x[param_idx], data))
-    if len(list(filter(is_numeric, param_values))) == len(param_values):
-        return True
-    return False
+    return all(map(is_numeric, param_values))
 
 
 class ParallelParamStats:
@@ -737,6 +735,26 @@ class ModelAttribute:
                 param_tuple[i] = None
             new_param_values.append(param_tuple)
         return partition_by_param(self.data, new_param_values)
+
+    def depends_on_any_param(self):
+        for param_index, param_name in enumerate(self.param_names):
+            if (
+                self.stats.depends_on_param(param_name)
+                and not param_index in self.ignore_param
+            ):
+                return True
+        return False
+
+    def all_relevant_parameters_are_none_or_numeric(self):
+        for param_index, param_name in enumerate(self.param_names):
+            if (
+                self.stats.depends_on_param(param_name)
+                and not param_index in self.ignore_param
+            ):
+                param_values = list(map(lambda x: x[param_index], self.param_values))
+                if not all(map(lambda n: n is None or is_numeric(n), param_values)):
+                    return False
+        return True
 
     def get_data_for_paramfit_this(self, safe_functions_enabled=False):
         ret = list()
