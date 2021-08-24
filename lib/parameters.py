@@ -675,6 +675,21 @@ class ModelAttribute:
 
         return ret
 
+    def fit_override_function(self):
+        function_str = self.function_override
+        x = df.AnalyticFunction(
+            self.median,
+            function_str,
+            self.param_names,
+            self.arg_count,
+            # fit_by_param=fit_result,
+        )
+        x.fit(self.by_param)
+        if x.fit_success:
+            self.model_function = x
+        else:
+            logger.warning(f"Fit of user-defined model function {function_str} failed.")
+
     def set_data_from_paramfit(self, paramfit, prefix=tuple()):
         if self.split:
             self.set_data_from_paramfit_split(paramfit, prefix)
@@ -700,20 +715,9 @@ class ModelAttribute:
 
     def set_data_from_paramfit_this(self, paramfit, prefix):
         fit_result = paramfit.get_result((self.name, self.attr) + prefix)
-        self.model_function = df.StaticFunction(self.median)
-        if self.function_override is not None:
-            function_str = self.function_override
-            x = df.AnalyticFunction(
-                self.median,
-                function_str,
-                self.param_names,
-                self.arg_count,
-                fit_by_param=fit_result,
-            )
-            x.fit(self.by_param)
-            if x.fit_success:
-                self.model_function = x
-        elif os.getenv("DFATOOL_NO_PARAM"):
+        if self.model_function is None:
+            self.model_function = df.StaticFunction(self.median)
+        if os.getenv("DFATOOL_NO_PARAM"):
             pass
         elif len(fit_result.keys()):
             x = df.analytic.function_powerset(

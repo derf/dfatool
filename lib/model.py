@@ -234,7 +234,9 @@ class AnalyticModel:
             for name in self.names:
                 tree_required[name] = dict()
                 for attr in self.attr_by_name[name].keys():
-                    if self.attr_by_name[name][
+                    if self.attr_by_name[name][attr].function_override is not None:
+                        self.attr_by_name[name][attr].fit_override_function()
+                    elif self.attr_by_name[name][
                         attr
                     ].all_relevant_parameters_are_none_or_numeric():
                         for key, param, args, kwargs in self.attr_by_name[name][
