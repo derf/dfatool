@@ -654,6 +654,12 @@ class TestFromFile(unittest.TestCase):
                 " "
             ),
         )
+
+        # disable analytic model. dtree only.
+        # for sot in model.states + model.transitions:
+        #    for attr in model.attr_by_name[sot].values():
+        #        attr.min_values_for_analytic_model = 1e6
+
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("RX", "power"), 47964, places=0)
         self.assertAlmostEqual(static_model("STANDBY1", "power"), 128, places=0)
@@ -696,13 +702,13 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "duration",
-                param=[0, 76, 1000, 0, 10, None, None, 1500, 0, None, 9, None, None],
+                param=[0, 76, 1000, 0, 10, None, None, 1500, 0, None, 9, 0, None],
             ),
-            1133,
+            1090,
             places=0,
         )
 
-        # only bitrate and packet length are relevant
+        # only bitrate, and arg2 are relevant
         self.assertAlmostEqual(
             param_model(
                 "write",
@@ -718,12 +724,12 @@ class TestFromFile(unittest.TestCase):
                     None,
                     None,
                     None,
-                    9,
                     None,
+                    0,
                     None,
                 ],
             ),
-            1133,
+            1090,
             places=0,
         )
         self.assertAlmostEqual(
@@ -741,12 +747,12 @@ class TestFromFile(unittest.TestCase):
                     None,
                     None,
                     None,
-                    9,
                     None,
+                    0,
                     None,
                 ],
             ),
-            2100,
+            2057,
             places=0,
         )
         self.assertAlmostEqual(
@@ -764,12 +770,12 @@ class TestFromFile(unittest.TestCase):
                     None,
                     None,
                     None,
-                    9,
                     None,
+                    0,
                     None,
                 ],
             ),
-            972,
+            928,
             places=0,
         )
 
@@ -778,9 +784,9 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "duration",
-                param=[1, 76, 1000, 0, 10, None, None, 1500, 0, None, 9, None, None],
+                param=[1, 76, 1000, 0, 10, None, None, 1500, 0, None, 9, 1, None],
             ),
-            22327,
+            22284,
             places=0,
         )
         self.assertAlmostEqual(
@@ -798,12 +804,12 @@ class TestFromFile(unittest.TestCase):
                     None,
                     None,
                     None,
-                    9,
                     None,
+                    1,
                     None,
                 ],
             ),
-            22327,
+            22284,
             places=0,
         )
         self.assertAlmostEqual(
@@ -821,12 +827,12 @@ class TestFromFile(unittest.TestCase):
                     None,
                     None,
                     None,
-                    9,
                     None,
+                    1,
                     None,
                 ],
             ),
-            33273,
+            33229,
             places=0,
         )
         self.assertAlmostEqual(
@@ -844,12 +850,12 @@ class TestFromFile(unittest.TestCase):
                     None,
                     None,
                     None,
-                    9,
                     None,
+                    1,
                     None,
                 ],
             ),
-            20503,
+            20459,
             places=0,
         )
 
@@ -862,6 +868,12 @@ class TestFromFile(unittest.TestCase):
         self.assertEqual(
             model.transitions, "setAutoAck setPALevel setRetries setup write".split(" ")
         )
+
+        # disable analytic model. dtree only.
+        # for sot in model.states + model.transitions:
+        #    for attr in model.attr_by_name[sot].values():
+        #        attr.min_values_for_analytic_model = 1e6
+
         static_model = model.get_static()
         self.assertAlmostEqual(static_model("STANDBY1", "power"), 130, places=0)
         self.assertAlmostEqual(static_model("setAutoAck", "power"), 150, places=0)
@@ -941,401 +953,235 @@ class TestFromFile(unittest.TestCase):
             param_model(
                 "write",
                 "duration",
-                param=[0, None, 1000, None, 0, None, None, 250, 0, None, 9, None, None],
+                param=[0, None, 1000, None, 0, None, None, 250, 0, None, 9, 0, None],
             ),
-            1148,
+            1150,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "duration",
-                param=[0, None, 1000, None, 5, None, None, 250, 0, None, 9, None, None],
+                param=[0, None, 1000, None, 0, None, None, 250, 0, None, 9, 1, None],
             ),
-            1148,
+            1150,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "duration",
-                param=[
-                    0,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    2750,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[0, None, 1000, None, 5, None, None, 250, 0, None, 9, 0, None],
             ),
-            1148,
+            1150,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "duration",
-                param=[
-                    0,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    2750,
-                    15,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[0, None, 1000, None, 5, None, None, 250, 0, None, 9, 1, None],
             ),
-            1148,
+            1150,
+            places=0,
+        )
+        self.assertAlmostEqual(
+            param_model(
+                "write",
+                "duration",
+                param=[0, None, 1000, None, 5, None, None, 2750, 0, None, 9, 0, None],
+            ),
+            1150,
+            places=0,
+        )
+        self.assertAlmostEqual(
+            param_model(
+                "write",
+                "duration",
+                param=[0, None, 1000, None, 5, None, None, 2750, 15, None, 9, 0, None],
+            ),
+            1150,
             places=0,
         )
 
         # auto_ack! == 1 -> max_retry_count and retry_delay affect duration, tx_power does not
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "duration",
-                param=[1, None, 1000, None, 0, None, None, 250, 0, None, 9, None, None],
-            ),
-            1473,
-            places=0,
-        )
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "duration",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    0,
-                    None,
-                    None,
-                    250,
-                    12,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
-            ),
-            1473,
-            places=0,
-        )
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "duration",
-                param=[1, None, 1000, None, 5, None, None, 250, 0, None, 9, None, None],
-            ),
-            5030,
-            places=0,
-        )
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "duration",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    250,
-                    16,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
-            ),
-            5030,
-            places=0,
-        )
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "duration",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    2750,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
-            ),
-            20029,
-            places=0,
-        )
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "duration",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    2750,
-                    15,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
-            ),
-            20029,
-            places=0,
-        )
+        for tx_power in range(18):
+            self.assertAlmostEqual(
+                param_model(
+                    "write",
+                    "duration",
+                    param=[
+                        1,
+                        None,
+                        1000,
+                        None,
+                        0,
+                        None,
+                        None,
+                        250,
+                        tx_power,
+                        None,
+                        9,
+                        1,
+                        None,
+                    ],
+                ),
+                1418,
+                places=0,
+            )
+        for tx_power in range(18):
+            self.assertAlmostEqual(
+                param_model(
+                    "write",
+                    "duration",
+                    param=[
+                        1,
+                        None,
+                        1000,
+                        None,
+                        5,
+                        None,
+                        None,
+                        250,
+                        tx_power,
+                        None,
+                        9,
+                        1,
+                        None,
+                    ],
+                ),
+                4975,
+                places=0,
+            )
+        for tx_power in range(18):
+            self.assertAlmostEqual(
+                param_model(
+                    "write",
+                    "duration",
+                    param=[
+                        1,
+                        None,
+                        1000,
+                        None,
+                        5,
+                        None,
+                        None,
+                        2750,
+                        tx_power,
+                        None,
+                        9,
+                        1,
+                        None,
+                    ],
+                ),
+                19982,
+                places=0,
+            )
 
         # auto_ack! == 0 -> max_retry_count and retry_delay have no effect on power, txpower does
 
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "power",
-                param=[0, None, 1000, None, 0, None, None, 250, 0, None, 9, None, None],
-            ),
-            12420,
-            places=0,
-        )
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "power",
-                param=[
-                    0,
-                    None,
-                    1000,
-                    None,
-                    0,
-                    None,
-                    None,
-                    250,
-                    12,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
-            ),
-            19172,
-            places=0,
-        )
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "power",
-                param=[0, None, 1000, None, 5, None, None, 250, 0, None, 9, None, None],
-            ),
-            12420,
-            places=0,
-        )
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "power",
-                param=[
-                    0,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    250,
-                    12,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
-            ),
-            19172,
-            places=0,
-        )
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "power",
-                param=[
-                    0,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    2750,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
-            ),
-            12420,
-            places=0,
-        )
-        self.assertAlmostEqual(
-            param_model(
-                "write",
-                "power",
-                param=[
-                    0,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    2750,
-                    12,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
-            ),
-            19172,
-            places=0,
-        )
+        for max_retry_count, retry_delay in ((0, 250), (5, 250), (5, 2750)):
+            self.assertAlmostEqual(
+                param_model(
+                    "write",
+                    "power",
+                    param=[
+                        0,
+                        None,
+                        1000,
+                        None,
+                        max_retry_count,
+                        None,
+                        None,
+                        retry_delay,
+                        0,
+                        None,
+                        9,
+                        0,
+                        None,
+                    ],
+                ),
+                12971,
+                places=0,
+            )
+        for max_retry_count, retry_delay in ((0, 250), (5, 250), (5, 2750)):
+            self.assertAlmostEqual(
+                param_model(
+                    "write",
+                    "power",
+                    param=[
+                        0,
+                        None,
+                        1000,
+                        None,
+                        max_retry_count,
+                        None,
+                        None,
+                        retry_delay,
+                        12,
+                        None,
+                        9,
+                        0,
+                        None,
+                    ],
+                ),
+                20029,
+                places=0,
+            )
 
         # auto_ack! == 1 -> max_retry_count and retry_delay also affect power
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "power",
-                param=[1, None, 1000, None, 0, None, None, 250, 0, None, 9, None, None],
+                param=[1, None, 1000, None, 0, None, None, 250, 0, None, 9, 1, None],
             ),
-            16692,
+            17317,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "power",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    0,
-                    None,
-                    None,
-                    250,
-                    12,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[1, None, 1000, None, 0, None, None, 250, 12, None, 9, 1, None],
             ),
-            22317,
+            23164,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "power",
-                param=[1, None, 1000, None, 5, None, None, 250, 0, None, 9, None, None],
+                param=[1, None, 1000, None, 5, None, None, 250, 0, None, 9, 1, None],
             ),
-            26361,
+            26650,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "power",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    250,
-                    12,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[1, None, 1000, None, 5, None, None, 250, 12, None, 9, 1, None],
             ),
-            35292,
+            35680,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "power",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    2750,
-                    0,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[1, None, 1000, None, 5, None, None, 2750, 0, None, 9, 1, None],
             ),
-            7931,
+            8001,
             places=0,
         )
         self.assertAlmostEqual(
             param_model(
                 "write",
                 "power",
-                param=[
-                    1,
-                    None,
-                    1000,
-                    None,
-                    5,
-                    None,
-                    None,
-                    2750,
-                    12,
-                    None,
-                    9,
-                    None,
-                    None,
-                ],
+                param=[1, None, 1000, None, 5, None, None, 2750, 12, None, 9, 1, None],
             ),
-            10356,
+            10450,
             places=0,
         )
 
