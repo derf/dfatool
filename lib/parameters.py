@@ -244,6 +244,19 @@ def _compute_param_statistics(
 
 
 def codependent_param_dict(param_values):
+    """
+    Detect pairs of codependent parameters in param_values.
+
+    The parameter values are first normalized to integer values (e.g. 1, 7, 33 -> 0, 1, 2 and "foo", None, "Hello" -> 0, 1, 2).
+    In essence, a pair of parameters (p1, p2) is codepenent if p2 changes only if p1 changes. This is calculated as follows:
+    A pair of parameters (p1, p2) is codependent if, for each normalized value of p1, there is only one normalized value of p2 in the set of measurements with
+    parameter 1 == p1. Essentially, this means that the mean standard deviation of parameter 2 values for each subset of measurements with a constant parameter
+    1 value is zero.
+
+    :param param_values: List of parameter values. Each list entry contains a list of parameter values for one measurement:
+        ((param 1 value 1, param 2 value 1, ...), (param 1 value 2, param 2 value 2, ...), ...)
+    :returns: dict of codependent parameter pairs. dict[(param 1 index, param 2 index)] is True iff param 1 and param 2 are codependent.
+    """
     lut = [dict() for i in param_values[0]]
     for param_index in range(len(param_values[0])):
         uniqs = set(map(lambda param_tuple: param_tuple[param_index], param_values))
@@ -301,6 +314,13 @@ class ParallelParamStats:
         self.map = dict()
 
     def enqueue(self, key, attr):
+        """
+        Enqueue data series for statistics calculation.
+
+        :param key: entry key used for retrieval. attr is stored in self.map[key]
+            and extended with "by_param" and "stats" attributes once compute() has been called.
+        :param attr: ModelAttribute instance. Edited in-place by compute()
+        """
         self.queue.append(
             {
                 "key": key,
@@ -318,11 +338,9 @@ class ParallelParamStats:
 
     def compute(self):
         """
-        Fit functions on previously enqueued data.
+        Compute statistics for previously enqueue ModelAttribute data.
 
-        Fitting is one in parallel with one process per core.
-
-        Results can be accessed using the public ParamFit.results object.
+        Statistics are computed in parallel with one process per core. Results are written to each ModelAttribute wich was passed via enqueue().
         """
         with Pool() as pool:
             results = pool.map(_compute_param_statistics_parallel, self.queue)
