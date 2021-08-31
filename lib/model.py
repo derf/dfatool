@@ -255,7 +255,12 @@ class AnalyticModel:
             for name in self.names:
                 for attr in self.attr_by_name[name].keys():
                     if tree_required[name].get(attr, False):
-                        self.build_dtree(name, attr, 0.1, with_function_leaves=True)
+                        self.build_dtree(
+                            name,
+                            attr,
+                            self.attr_by_name[name][attr].stats.std_param_lut,
+                            with_function_leaves=False,
+                        )
                     else:
                         self.attr_by_name[name][attr].set_data_from_paramfit(paramfit)
 
