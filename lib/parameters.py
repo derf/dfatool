@@ -351,6 +351,18 @@ class ParallelParamStats:
 
 
 class ParamStats:
+    """
+    Statistics.
+
+    :var std_static: static parameter-unaware model error (standard deviation of raw data)
+    :var std_param_lut:  static parameter-aware model error (mean standard deviation of data partitioned by parameter)
+    :var std_by_param: static parameter-aware model error ignoring a single parameter.
+        dict mapping parameter name -> mean std of data partitioned so that all parameters but "parameter name" are constant.
+    :var sty_by_arg: list, argument index -> mean std of data partition so that all parameters but "argument index" are constant
+    :var _depends_on_param: dict, parameter name -> bool, True if the modeled behaviour likely depends on parameter name
+    :var _depends_on_arg: list, argument index -> bool, True if the modeled behaviour likely depends on argument index
+    """
+
     def __init__(self, data):
         self.__dict__.update(data)
 

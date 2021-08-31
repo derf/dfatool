@@ -26,7 +26,11 @@ class ParamFit:
     """
 
     def __init__(self, parallel=True):
-        """Create a new ParamFit object."""
+        """
+        Create a new ParamFit object.
+
+        :param parallel: Perform parallel fitting using multiprocessing. default true.
+        """
         self.fit_queue = list()
         self.parallel = parallel
 
