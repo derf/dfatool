@@ -227,6 +227,10 @@ def observations_to_by_name(observations: list, attributes: list):
             param_dict_to_list(observation["param"], parameter_names)
         )
         for attribute in attributes:
+            if observation[attribute] is None:
+                raise ValueError(
+                    f"""Attribute "{attribute}" of observation "{name}" is None. This is not allowed. Parameters = {observation["param"]}"""
+                )
             by_name[name][attribute].append(observation[attribute])
     for name in by_name:
         for attribute in attributes:
