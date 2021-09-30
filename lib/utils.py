@@ -199,24 +199,31 @@ def param_dict_to_list(param_dict, parameter_names, default=None):
     return ret
 
 
-def observations_to_by_name(observations: list, attributes: list):
+def observations_to_by_name(observations: list):
     """
     Convert observation list to by_name dictionary for AnalyticModel analysis
 
     :param observations: list of dicts, each representing one measurement. dict keys:
         "name": name of observed state/transition/...
-        "param": {"parameter name": parameter value, ...} dict
+        "param": {"parameter name": parameter value, ...},
+        "attribute:" {"attribute name": attribute value, ...}
+
     :param attributes: observed attributes (i.e., actual measurements). Each measurement dict must have an
         entry holding the data value for each attribute. It should not be None.
 
     :returns: tuple (by_name, parameter_names) which can be passed to AnalyticModel
     """
     parameter_names = set()
+    attributes_by_name = dict()
     by_name = dict()
     for observation in observations:
+        if observation["name"] not in attributes_by_name:
+            attributes_by_name[observation["name"]] = set()
         parameter_names.update(observation["param"].keys())
+        attributes_by_name[observation["name"]].update(observation["attribute"].keys())
         name = observation["name"]
         if name not in by_name:
+            attributes = list(attributes_by_name[observation["name"]])
             by_name[name] = {"attributes": attributes, "param": list()}
             for attribute in attributes:
                 by_name[name][attribute] = list()
@@ -226,14 +233,18 @@ def observations_to_by_name(observations: list, attributes: list):
         by_name[name]["param"].append(
             param_dict_to_list(observation["param"], parameter_names)
         )
-        for attribute in attributes:
-            if observation[attribute] is None:
+        for attribute in attributes_by_name[name]:
+            if attribute not in observation["attribute"]:
+                raise ValueError(
+                    f"""Attribute "{attribute}" missing in observation "{name}". Parameters = {observation["param"]}"""
+                )
+            if observation["attribute"][attribute] is None:
                 raise ValueError(
                     f"""Attribute "{attribute}" of observation "{name}" is None. This is not allowed. Parameters = {observation["param"]}"""
                 )
-            by_name[name][attribute].append(observation[attribute])
+            by_name[name][attribute].append(observation["attribute"][attribute])
     for name in by_name:
-        for attribute in attributes:
+        for attribute in attributes_by_name[name]:
             by_name[name][attribute] = np.array(by_name[name][attribute])
     return by_name, parameter_names
 
