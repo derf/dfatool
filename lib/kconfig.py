@@ -2,6 +2,7 @@
 
 import kconfiglib
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -80,10 +81,12 @@ class KConfig:
         self.clean_command = "make clean"
         self.build_command = "make"
         self.attribute_command = "make attributes"
+        self.randconfig_command = "make randconfig"
+        self.kconfig = "Kconfig"
 
     def randconfig(self):
         status = subprocess.run(
-            ["make", "randconfig"],
+            self.randconfig_command.split(),
             cwd=self.cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -131,7 +134,7 @@ class KConfig:
                 "--randconfig_seed",
                 self.randconfig(),
                 "--kconfig_hash",
-                self.file_hash(f"{self.cwd}/Kconfig"),
+                self.file_hash(f"{self.cwd}/{self.kconfig}"),
                 "--project_version",
                 self.git_commit_id(),
                 "--project_root",
@@ -144,6 +147,8 @@ class KConfig:
                 self.attribute_command,
             ]
         )
+        success = os.path.exists(experiment.attributes.path)
+        return {"success": success, "config_path": experiment.config.path}
 
     def config_is_functional(self, kconf):
         for choice in kconf.choices:
@@ -156,7 +161,7 @@ class KConfig:
         return True
 
     def run_exploration_from_file(self, config_file):
-        kconfig_file = f"{self.cwd}/Kconfig"
+        kconfig_file = f"{self.cwd}/{self.kconfig}"
         kconf = kconfiglib.Kconfig(kconfig_file)
         kconf.load_config(config_file)
         symbols = list(kconf.syms.keys())

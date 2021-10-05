@@ -19,10 +19,6 @@ import sys
 
 from dfatool import kconfig
 
-from versuchung.experiment import Experiment
-from versuchung.types import String, Bool, Integer
-from versuchung.files import File, Directory
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -45,6 +41,11 @@ def main():
         help="Explore a number of random configurations (make randconfig)",
     )
     parser.add_argument(
+        "--with-neighbourhood",
+        action="store_true",
+        help="Explore neighbourhood of successful random configurations",
+    )
+    parser.add_argument(
         "--clean-command", type=str, help="Clean command", default="make clean"
     )
     parser.add_argument(
@@ -55,6 +56,15 @@ def main():
         type=str,
         help="Attribute extraction command",
         default="make attributes",
+    )
+    parser.add_argument(
+        "--randconfig-command",
+        type=str,
+        help="Randconfig command for --random",
+        default="make randconfig",
+    )
+    parser.add_argument(
+        "--kconfig-file", type=str, help="Kconfig file", default="Kconfig"
     )
     parser.add_argument("project_root", type=str, help="Project root directory")
 
@@ -73,13 +83,22 @@ def main():
         kconf.build_command = args.build_command
     if args.attribute_command:
         kconf.attribute_command = args.attribute_command
+    if args.randconfig_command:
+        kconf.randconfig_command = args.randconfig_command
+    if args.kconfig_file:
+        kconf.kconfig = args.kconfig_file
 
     if args.random:
         for i in range(args.random):
             logging.info(f"Running randconfig {i+1} of {args.random}")
-            kconf.run_randconfig()
+            status = kconf.run_randconfig()
+            if args.with_neighbourhood and status["success"]:
+                config_filename = status["config_path"]
+                logging.info(f"Exploring neighbourhood of {config_filename}")
+                kconf.run_exploration_from_file(config_filename)
 
     if args.neighbourhood:
+        # TODO also explore range of numeric options
         if os.path.isfile(args.neighbourhood):
             kconf.run_exploration_from_file(args.neighbourhood)
         elif os.path.isdir(args.neighbourhood):
