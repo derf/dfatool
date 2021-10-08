@@ -59,7 +59,7 @@ def main():
         "--attribute-command",
         type=str,
         help="Attribute extraction command",
-        default="make attributes",
+        default="make nfpvalues",
     )
     parser.add_argument(
         "--randconfig-command",
