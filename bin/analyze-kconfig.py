@@ -118,6 +118,17 @@ def main():
                 for attr in model.by_name[name]["attributes"]:
                     # TODO specify correct threshold
                     model.build_dtree(name, attr, 20)
+            model.fit_done = True
+
+        param_model, param_info = model.get_fitted()
+        analytic_quality = model.assess(param_model)
+
+        print("Model Error on Training Data:")
+        for name in model.names:
+            for attribute, error in analytic_quality[name].items():
+                mae = error["mae"]
+                smape = error["smape"]
+                print(f"{name:15s} {attribute:20s}  ± {mae:5.0}  /  {smape:5.1f}%")
 
     else:
         raise NotImplementedError()
