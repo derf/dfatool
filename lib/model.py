@@ -5,7 +5,12 @@ import numpy as np
 import os
 from .automata import PTA, ModelAttribute
 from .functions import StaticFunction, SubstateFunction, SplitFunction
-from .parameters import ParallelParamStats, ParamStats, codependent_param_dict
+from .parameters import (
+    ParallelParamStats,
+    ParamStats,
+    codependent_param_dict,
+    distinct_param_values,
+)
 from .paramfit import ParamFit
 from .utils import soft_cast_int, by_name_to_by_param, regression_measures
 
@@ -117,6 +122,12 @@ class AnalyticModel:
         self._num_args = arg_count
         if self._num_args is None:
             self._num_args = _num_args_from_by_name(by_name)
+
+        self.distinct_param_values_by_name = dict()
+        for name in self.names:
+            self.distinct_param_values_by_name[name] = distinct_param_values(
+                by_name[name]["param"]
+            )
 
         self.fit_done = False
 
@@ -534,6 +545,12 @@ class PTAModel(AnalyticModel):
         self.substate_sequence_by_nc = dict()
         self.pta = pta
         self.ignore_trace_indexes = ignore_trace_indexes
+
+        self.distinct_param_values_by_name = dict()
+        for name in self.names:
+            self.distinct_param_values_by_name[name] = distinct_param_values(
+                by_name[name]["param"]
+            )
 
         self.fit_done = False
 

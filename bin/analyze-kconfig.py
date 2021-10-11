@@ -134,7 +134,12 @@ def main():
         raise NotImplementedError()
 
     if args.info:
-        print("TODO")
+        for name in model.names:
+            print(f"{name}:")
+            print(f"""    Number of Measurements: {len(by_name[name]["param"])}""")
+            for i, param in enumerate(model.parameters):
+                param_values = model.distinct_param_values_by_name[name][i]
+                print(f"    Parameter {param} ∈ {param_values}")
 
     if args.export_tree:
         with open("nfpkeys.json", "r") as f:
