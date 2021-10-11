@@ -92,6 +92,8 @@ def main():
     if args.kconfig_file:
         kconf.kconfig = args.kconfig_file
 
+    kconf.run_nfpkeys()
+
     if args.random:
         for i in range(args.random):
             logging.info(f"Running randconfig {i+1} of {args.random}")

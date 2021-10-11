@@ -126,6 +126,11 @@ class KConfig:
         sha256sum = status.stdout.split()[0]
         return sha256sum
 
+    def run_nfpkeys(self):
+        nfpkeys = File("nfpkeys.json")
+        with open(nfpkeys.path, "w") as out_fd:
+            subprocess.check_call(["make", "nfpkeys"], cwd=self.cwd, stdout=out_fd)
+
     def run_randconfig(self):
         """Run a randomconfig experiment in the selected project. Results are written to the current working directory."""
         experiment = RandomConfig()
