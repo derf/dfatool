@@ -165,20 +165,19 @@ class KConfig:
                 return False
         return True
 
-    def run_exploration_from_file(self, config_file):
-        kconfig_file = f"{self.cwd}/{self.kconfig}"
-        kconf = kconfiglib.Kconfig(kconfig_file)
-        kconf.load_config(config_file)
-        symbols = list(kconf.syms.keys())
-
+    def _run_explore_experiment(self, kconf, kconf_hash, config_file):
+        if not self.config_is_functional(kconf):
+            logger.debug("Configuration is non-functional")
+            kconf.load_config(config_file)
+            return
+        kconf.write_config(f"{self.cwd}/.config")
         experiment = ExploreConfig()
-        shutil.copyfile(config_file, f"{self.cwd}/.config")
         experiment(
             [
                 "--config_hash",
-                self.file_hash(config_file),
+                self.file_hash(f"{self.cwd}/.config"),
                 "--kconfig_hash",
-                self.file_hash(kconfig_file),
+                kconf_hash,
                 "--project_version",
                 self.git_commit_id(),
                 "--project_root",
@@ -191,32 +190,23 @@ class KConfig:
                 self.attribute_command,
             ]
         )
+        kconf.load_config(config_file)
 
-        for symbol in kconf.syms.values():
-            if kconfiglib.TYPE_TO_STR[symbol.type] != "bool":
-                continue
-            if symbol.tri_value == 0 and 2 in symbol.assignable:
-                logger.debug(f"Set {symbol.name} to y")
-                symbol.set_value(2)
-            elif symbol.tri_value == 2 and 0 in symbol.assignable:
-                logger.debug(f"Set {symbol.name} to n")
-                symbol.set_value(0)
-            else:
-                continue
+    def run_exploration_from_file(self, config_file, with_initial_config=True):
+        kconfig_file = f"{self.cwd}/{self.kconfig}"
+        kconfig_hash = self.file_hash(kconfig_file)
+        kconf = kconfiglib.Kconfig(kconfig_file)
+        kconf.load_config(config_file)
 
-            if not self.config_is_functional(kconf):
-                logger.debug("Configuration is non-functional")
-                kconf.load_config(config_file)
-                continue
-
-            kconf.write_config(f"{self.cwd}/.config")
+        if with_initial_config:
             experiment = ExploreConfig()
+            shutil.copyfile(config_file, f"{self.cwd}/.config")
             experiment(
                 [
                     "--config_hash",
-                    self.file_hash(f"{self.cwd}/.config"),
+                    self.file_hash(config_file),
                     "--kconfig_hash",
-                    self.file_hash(kconfig_file),
+                    kconfig_hash,
                     "--project_version",
                     self.git_commit_id(),
                     "--project_root",
@@ -229,4 +219,34 @@ class KConfig:
                     self.attribute_command,
                 ]
             )
-            kconf.load_config(config_file)
+
+        for symbol in kconf.syms.values():
+            if kconfiglib.TYPE_TO_STR[symbol.type] == "bool":
+                if symbol.tri_value == 0 and 2 in symbol.assignable:
+                    logger.debug(f"Set {symbol.name} to y")
+                    symbol.set_value(2)
+                    self._run_explore_experiment(kconf, kconfig_hash, config_file)
+                elif symbol.tri_value == 2 and 0 in symbol.assignable:
+                    logger.debug(f"Set {symbol.name} to n")
+                    symbol.set_value(0)
+                    self._run_explore_experiment(kconf, kconfig_hash, config_file)
+            elif (
+                kconfiglib.TYPE_TO_STR[symbol.type] == "int"
+                and symbol.visibility
+                and symbol.ranges
+            ):
+                for min_val, max_val, condition in symbol.ranges:
+                    if condition.tri_value:
+                        min_val = int(min_val.str_value, 0)
+                        max_val = int(max_val.str_value, 0)
+                        step_size = (max_val - min_val) // 8
+                        if step_size == 0:
+                            step_size = 1
+                        for val in range(min_val, max_val, step_size):
+                            print(f"Set {symbol.name} to {val}")
+                            symbol.set_value(str(val))
+                            self._run_explore_experiment(
+                                kconf, kconfig_hash, config_file
+                            )
+            else:
+                continue

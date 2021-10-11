@@ -101,7 +101,9 @@ def main():
             if args.with_neighbourhood and status["success"]:
                 config_filename = status["config_path"]
                 logging.info(f"Exploring neighbourhood of {config_filename}")
-                kconf.run_exploration_from_file(config_filename)
+                kconf.run_exploration_from_file(
+                    config_filename, with_initial_config=False
+                )
 
     if args.neighbourhood:
         # TODO also explore range of numeric options
