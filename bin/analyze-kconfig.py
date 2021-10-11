@@ -137,17 +137,15 @@ def main():
         print("TODO")
 
     if args.export_tree:
+        with open("nfpkeys.json", "r") as f:
+            nfpkeys = json.load(f)
         complete_json_model = model.to_json(
             with_param_name=True, param_names=parameter_names
         )
         json_model = dict()
         for name, attribute_data in complete_json_model["name"].items():
             for attribue, data in attribute_data.items():
-                # data.update({
-                #    "unit": "",
-                #    "description": attribute,
-                #    "minimize": True
-                # })
+                data.update(nfpkeys[name][attribute])
                 json_model[attribute] = data
         with open(args.export_tree, "w") as f:
             json.dump(json_model, f, sort_keys=True, cls=dfatool.utils.NpEncoder)
