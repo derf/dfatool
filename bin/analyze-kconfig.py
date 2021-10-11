@@ -40,9 +40,9 @@ def main():
         help="Build decision tree without checking for analytic functions first. Use this for large kconfig files.",
     )
     parser.add_argument(
-        "--export-tree",
+        "--export-model",
         type=str,
-        help="Export kconfig-webconf model to file",
+        help="Export kconfig-webconf NFP model to file",
         metavar="FILE",
     )
     parser.add_argument(
@@ -109,6 +109,9 @@ def main():
 
         by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
 
+        # Release memory
+        observations = None
+
         model = AnalyticModel(
             by_name, parameter_names, compute_stats=not args.force_tree
         )
@@ -128,7 +131,7 @@ def main():
             for attribute, error in analytic_quality[name].items():
                 mae = error["mae"]
                 smape = error["smape"]
-                print(f"{name:15s} {attribute:20s}  ± {mae:5.0}  /  {smape:5.1f}%")
+                print(f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {smape:5.1f}%")
 
     else:
         raise NotImplementedError()
@@ -141,7 +144,7 @@ def main():
                 param_values = model.distinct_param_values_by_name[name][i]
                 print(f"    Parameter {param} ∈ {param_values}")
 
-    if args.export_tree:
+    if args.export_model:
         with open("nfpkeys.json", "r") as f:
             nfpkeys = json.load(f)
         complete_json_model = model.to_json(
@@ -149,10 +152,10 @@ def main():
         )
         json_model = dict()
         for name, attribute_data in complete_json_model["name"].items():
-            for attribue, data in attribute_data.items():
-                data.update(nfpkeys[name][attribute])
-                json_model[attribute] = data
-        with open(args.export_tree, "w") as f:
+            for attribute, data in attribute_data.items():
+                json_model[attribute] = data.copy()
+                json_model[attribute].update(nfpkeys[name][attribute])
+        with open(args.export_model, "w") as f:
             json.dump(json_model, f, sort_keys=True, cls=dfatool.utils.NpEncoder)
 
     if args.config:
