@@ -120,7 +120,7 @@ def main():
             for name in model.names:
                 for attr in model.by_name[name]["attributes"]:
                     # TODO specify correct threshold
-                    model.build_dtree(name, attr, 20)
+                    model.build_dtree(name, attr, 0)
             model.fit_done = True
 
         param_model, param_info = model.get_fitted()
