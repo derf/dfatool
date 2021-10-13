@@ -599,13 +599,15 @@ class ModelAttribute:
             param1_numeric_count = sum(map(is_numeric, param1_values))
             param2_values = map(lambda pv: pv[param2_index], self.param_values)
             param2_numeric_count = sum(map(is_numeric, param2_values))
-            if param1_numeric_count >= param2_numeric_count:
+            # codependent parameter removal is only sensible for numeric parameters. For others (e.g. enums or boolean kconfig switches), dtree modeling
+            # automatically leaves out unimportant parameters.
+            if param1_numeric_count >= param2_numeric_count > 0:
                 self.ignore_param[param2_index] = True
                 self.codependent_params[param1_index].append(param2_index)
                 logger.info(
                     f"{self.name} {self.attr}: parameters ({self.log_param_names[param1_index]}, {self.log_param_names[param2_index]}) are codependent. Ignoring {self.log_param_names[param2_index]}"
                 )
-            else:
+            elif param2_numeric_count >= param1_numeric_count > 0:
                 self.ignore_param[param1_index] = True
                 self.codependent_params[param2_index].append(param1_index)
                 logger.info(
