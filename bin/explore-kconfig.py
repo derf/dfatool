@@ -40,6 +40,9 @@ def main():
         help="Set log level",
     )
     parser.add_argument(
+        "--enumerate", action="store_true", help="Enumerate all valid configurations"
+    )
+    parser.add_argument(
         "--random",
         type=int,
         help="Explore a number of random configurations (make randconfig)",
@@ -93,6 +96,9 @@ def main():
         kconf.kconfig = args.kconfig_file
 
     kconf.run_nfpkeys()
+
+    if args.enumerate:
+        kconf.enumerate()
 
     if args.random:
         for i in range(args.random):

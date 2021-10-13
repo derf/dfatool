@@ -2,6 +2,7 @@
 
 import kconfiglib
 import logging
+import itertools
 import os
 import re
 import shutil
@@ -192,6 +193,192 @@ class KConfig:
         )
         kconf.load_config(config_file)
 
+    def _can_be_handled_by_bdd(self, symbol):
+        sym_type = kconfiglib.TYPE_TO_STR[symbol.type]
+        return sym_type == "bool"
+
+    def _dependencies_to_bdd_expr(self, depends_on):
+        depends_on = kconfiglib.expr_str(depends_on)
+
+        choices = list()
+
+        for match in re.finditer(r"<choice ([^>]+)>", depends_on):
+            choices.append(match.group(1))
+
+        for choice in choices:
+            depends_on = re.sub(f"<choice {choice}>", f"_choice_{choice}", depends_on)
+
+        depends_on = re.sub("&& <([^>]+)>", "", depends_on)
+
+        if depends_on == "n" or depends_on == "m" or depends_on == "y":
+            return None
+
+        depends_on = re.sub("&&", "&", depends_on)
+        depends_on = re.sub("\|\|", "|", depends_on)
+
+        return depends_on
+
+    def enumerate(
+        self, cudd=True, export_pdf=None, return_count=False, return_solutions=False
+    ):
+        if cudd:
+            from dd.cudd import BDD
+        else:
+            from dd.autoref import BDD
+        kconfig_file = f"{self.cwd}/{self.kconfig}"
+        kconfig_hash = self.file_hash(kconfig_file)
+        kconf = kconfiglib.Kconfig(kconfig_file)
+        pre_variables = list()
+        pre_expressions = list()
+        for choice in kconf.choices:
+            var_name = f"_choice_{choice.name}"
+            pre_variables.append(var_name)
+
+            # Build "exactly_one", expressing that exactly one of the symbols managed by this choice must be selected
+            symbols = list(map(lambda sym: sym.name, choice.syms))
+            exactly_one = list()
+            for sym1 in symbols:
+                subexpr = list()
+                for sym2 in symbols:
+                    if sym1 == sym2:
+                        subexpr.append(sym2)
+                    else:
+                        subexpr.append(f"!{sym2}")
+                exactly_one.append("(" + " & ".join(subexpr) + ")")
+            exactly_one = " | ".join(exactly_one)
+
+            # If the choice is selected, exactly one choice element must be selected
+            pre_expressions.append(f"{var_name} -> ({exactly_one})")
+            # Each choice symbol in exactly_once depends on the choice itself, which will lead to "{symbol} -> {var_name}" rules being generated later on. This
+            # ensures that if the choice is false, each symbol is false too. We do not need to handle that case here.
+
+            # The choice may depend on other variables
+            depends_on = self._dependencies_to_bdd_expr(choice.direct_dep)
+
+            if depends_on:
+                if choice.is_optional:
+                    pre_expressions.append(f"{var_name} -> {depends_on}")
+                else:
+                    pre_expressions.append(f"{var_name} <-> {depends_on}")
+            elif not choice.is_optional:
+                # Always active
+                pre_expressions.append(var_name)
+
+        for symbol in kconf.syms.values():
+            if not self._can_be_handled_by_bdd(symbol):
+                continue
+            pre_variables.append(symbol.name)
+            depends_on = self._dependencies_to_bdd_expr(symbol.direct_dep)
+            if depends_on:
+                pre_expressions.append(f"{symbol.name} -> {depends_on}")
+            for selected_symbol, depends_on in symbol.selects:
+                depends_on = self._dependencies_to_bdd_expr(depends_on)
+                if depends_on:
+                    pre_expressions.append(
+                        f"({symbol.name} & ({depends_on})) -> {selected_symbol.name}"
+                    )
+                else:
+                    pre_expressions.append(f"{symbol.name} -> {selected_symbol.name}")
+
+        logger.debug("Variables:")
+        logger.debug("\n".join(pre_variables))
+        logger.debug("Expressions:")
+        logger.debug("\n".join(pre_expressions))
+
+        variables = list()
+        expressions = list()
+
+        bdd = BDD()
+        variable_count = 0
+        for variable in pre_variables:
+            if variable[0] != "#":
+                variables.append(variable)
+                variable_count += 1
+                bdd.declare(variable)
+        logger.debug(f"Got {variable_count} variables")
+
+        constraint = "True"
+        expression_count = 0
+        for expression in pre_expressions:
+            if expression[0] != "#":
+                expressions.append(expression)
+                expression_count += 1
+                constraint += f" & ({expression})"
+        logger.debug(f"Got {expression_count} rules")
+        logger.debug(constraint)
+
+        constraint = bdd.add_expr(constraint)
+
+        if cudd:
+            # Egal?
+            logger.debug("Reordering ...")
+            BDD.reorder(bdd)
+
+        else:
+            # Wichtig! Lesbarkeit++ falls gedumpt wird, Performance vermutlich auch.
+            logger.debug("Collecting Garbage ...")
+            bdd.collect_garbage()
+
+            # See <http://www.ecs.umass.edu/ece/labs/vlsicad/ece667/reading/somenzi99bdd.pdf> for how to read the graphical representation.
+            # A solid line is followed if the origin node is 1
+            # A dashed line is followed if the origin node is 0
+            # A path from a top node to 1 satisfies the function iff the number of negations ("-1" annotations) is even
+            if export_pdf is not None:
+                logger.info(f"Dumping to {export_pdf} ...")
+                bdd.dump(export_pdf)
+
+        logger.debug("Solving ...")
+
+        # still need to be set, otherwise autoref and cudd complain and set them anyways.
+        # care_vars = list(filter(lambda x: "meta_" not in x and "_choice_" not in x, variables))
+
+        if return_solutions:
+            return bdd.pick_iter(constraint, care_vars=variables)
+
+        if return_count:
+            return len(bdd.pick_iter(constraint, care_vars=variables))
+
+        config_file = f"{self.cwd}/.config"
+        for solution in bdd.pick_iter(constraint, care_vars=variables):
+            logger.debug(f"Set {solution}")
+            with open(config_file, "w") as f:
+                for k, v in solution.items():
+                    if v:
+                        print(f"CONFIG_{k}=y", file=f)
+                    else:
+                        print(f"# CONFIG_{k} is not set", file=f)
+            kconf = kconfiglib.Kconfig(kconfig_file)
+            kconf.load_config(config_file)
+
+            int_values = list()
+            int_names = list()
+            for symbol in kconf.syms.values():
+                if (
+                    kconfiglib.TYPE_TO_STR[symbol.type] == "int"
+                    and symbol.visibility
+                    and symbol.ranges
+                ):
+                    for min_val, max_val, condition in symbol.ranges:
+                        if condition.tri_value:
+                            int_names.append(symbol.name)
+                            min_val = int(min_val.str_value, 0)
+                            max_val = int(max_val.str_value, 0)
+                            step_size = (max_val - min_val) // 8
+                            if step_size == 0:
+                                step_size = 1
+                            int_values.append(
+                                list(range(min_val, max_val + 1, step_size))
+                            )
+                            continue
+
+            for int_config in itertools.product(*int_values):
+                for i, int_name in enumerate(int_names):
+                    val = int_config[i]
+                    symbol = kconf.syms[int_name]
+                    logger.debug(f"Set {symbol.name} to {val}")
+                    symbol.set_value(str(val))
+                self._run_explore_experiment(kconf, kconfig_hash, config_file)
+
     def run_exploration_from_file(self, config_file, with_initial_config=True):
         kconfig_file = f"{self.cwd}/{self.kconfig}"
         kconfig_hash = self.file_hash(kconfig_file)
@@ -242,7 +429,7 @@ class KConfig:
                         step_size = (max_val - min_val) // 8
                         if step_size == 0:
                             step_size = 1
-                        for val in range(min_val, max_val, step_size):
+                        for val in range(min_val, max_val + 1, step_size):
                             print(f"Set {symbol.name} to {val}")
                             symbol.set_value(str(val))
                             self._run_explore_experiment(
