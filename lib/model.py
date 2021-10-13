@@ -75,6 +75,7 @@ class AnalyticModel:
         function_override=dict(),
         use_corrcoef=False,
         compute_stats=True,
+        force_tree=False,
     ):
         """
         Create a new AnalyticModel and compute parameter statistics.
@@ -133,6 +134,13 @@ class AnalyticModel:
 
         if compute_stats:
             self._compute_stats(by_name)
+
+        if force_tree:
+            for name in self.names:
+                for attr in self.by_name[name]["attributes"]:
+                    # TODO specify correct threshold
+                    self.build_dtree(name, attr, 0)
+            self.fit_done = True
 
     def __repr__(self):
         names = ", ".join(self.by_name.keys())
