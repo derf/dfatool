@@ -35,11 +35,11 @@ class TestModels(unittest.TestCase):
         self.assertIsInstance(param_info("setup", "duration"), StaticFunction)
         self.assertEqual(
             param_info("write", "duration").model_function,
-            "0 + regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * parameter(max_retry_count) * parameter(retry_delay)",
+            "0 + regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * function_arg(1) + regression_arg(4) * parameter(max_retry_count) * parameter(retry_delay) + regression_arg(5) * parameter(max_retry_count) * function_arg(1) + regression_arg(6) * parameter(retry_delay) * function_arg(1) + regression_arg(7) * parameter(max_retry_count) * parameter(retry_delay) * function_arg(1)",
         )
 
         self.assertAlmostEqual(
-            param_info("write", "duration").model_args[0], 1163, places=0
+            param_info("write", "duration").model_args[0], 1281, places=0
         )
         self.assertAlmostEqual(
             param_info("write", "duration").model_args[1], 464, places=0
@@ -48,7 +48,19 @@ class TestModels(unittest.TestCase):
             param_info("write", "duration").model_args[2], 1, places=0
         )
         self.assertAlmostEqual(
-            param_info("write", "duration").model_args[3], 1, places=0
+            param_info("write", "duration").model_args[3], -9, places=0
+        )
+        self.assertAlmostEqual(
+            param_info("write", "duration").model_args[4], 1, places=0
+        )
+        self.assertAlmostEqual(
+            param_info("write", "duration").model_args[5], 0, places=0
+        )
+        self.assertAlmostEqual(
+            param_info("write", "duration").model_args[6], 0, places=0
+        )
+        self.assertAlmostEqual(
+            param_info("write", "duration").model_args[7], 0, places=0
         )
 
     def test_dependent_parameter_pruning(self):
