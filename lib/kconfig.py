@@ -423,7 +423,7 @@ class KConfig:
                 and symbol.ranges
             ):
                 for min_val, max_val, condition in symbol.ranges:
-                    if condition.tri_value:
+                    if kconfiglib.expr_value(condition):
                         min_val = int(min_val.str_value, 0)
                         max_val = int(max_val.str_value, 0)
                         step_size = (max_val - min_val) // 8
