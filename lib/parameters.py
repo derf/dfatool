@@ -599,15 +599,30 @@ class ModelAttribute:
             param1_numeric_count = sum(map(is_numeric, param1_values))
             param2_values = map(lambda pv: pv[param2_index], self.param_values)
             param2_numeric_count = sum(map(is_numeric, param2_values))
-            # codependent parameter removal is only sensible for numeric parameters. For others (e.g. enums or boolean kconfig switches), dtree modeling
-            # automatically leaves out unimportant parameters.
-            if param1_numeric_count >= param2_numeric_count > 0:
+            # If all occurences of (param1, param2) are either (None, None) or (not None, not None), removing one of them is sensible.
+            # Otherwise, one parameter may decide whether the other one has an effect or not (or what kind of effect it has). This is importent for
+            # decision-tree models, so do not remove parameters in that case.
+            params_are_pairwise_none = all(
+                map(
+                    lambda pv: not (
+                        (pv[param1_index] is None) ^ (pv[param2_index] is None)
+                    ),
+                    self.param_values,
+                )
+            )
+            if (
+                param1_numeric_count >= param2_numeric_count
+                and params_are_pairwise_none
+            ):
                 self.ignore_param[param2_index] = True
                 self.codependent_params[param1_index].append(param2_index)
                 logger.info(
                     f"{self.name} {self.attr}: parameters ({self.log_param_names[param1_index]}, {self.log_param_names[param2_index]}) are codependent. Ignoring {self.log_param_names[param2_index]}"
                 )
-            elif param2_numeric_count >= param1_numeric_count > 0:
+            elif (
+                param2_numeric_count >= param1_numeric_count
+                and params_are_pairwise_none
+            ):
                 self.ignore_param[param1_index] = True
                 self.codependent_params[param2_index].append(param1_index)
                 logger.info(
