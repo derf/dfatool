@@ -435,5 +435,6 @@ class KConfig:
                             self._run_explore_experiment(
                                 kconf, kconfig_hash, config_file
                             )
+                        break
             else:
                 continue
