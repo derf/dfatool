@@ -248,6 +248,7 @@ class AnalyticModel:
         if not self.fit_done:
 
             paramfit = ParamFit()
+            tree_allowed = bool(int(os.getenv("DFATOOL_DTREE_ENABLED", "1")))
             tree_required = dict()
 
             for name in self.names:
@@ -264,7 +265,7 @@ class AnalyticModel:
                             safe_functions_enabled=safe_functions_enabled
                         ):
                             paramfit.enqueue(key, param, args, kwargs)
-                    else:
+                    elif tree_allowed:
                         tree_required[name][attr] = self.attr_by_name[name][
                             attr
                         ].depends_on_any_param()
