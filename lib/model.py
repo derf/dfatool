@@ -415,15 +415,27 @@ class AnalyticModel:
                     e_model["smape"],
                     r"\percent",
                 )
-                ret[f"error/static/{name}/{attr_name}/mape"] = (
-                    e_static["mape"],
-                    r"\percent",
-                )
-                ret[f"error/lut/{name}/{attr_name}/mape"] = (e_lut["mape"], r"\percent")
-                ret[f"error/model/{name}/{attr_name}/mape"] = (
-                    e_model["mape"],
-                    r"\percent",
-                )
+                try:
+                    ret[f"error/static/{name}/{attr_name}/mape"] = (
+                        e_static["mape"],
+                        r"\percent",
+                    )
+                except KeyError:
+                    logger.warning(f"{name} {attr_name} static model has no MAPE")
+                try:
+                    ret[f"error/lut/{name}/{attr_name}/mape"] = (
+                        e_lut["mape"],
+                        r"\percent",
+                    )
+                except KeyError:
+                    logger.warning(f"{name} {attr_name} LUT model has no MAPE")
+                try:
+                    ret[f"error/model/{name}/{attr_name}/mape"] = (
+                        e_model["mape"],
+                        r"\percent",
+                    )
+                except KeyError:
+                    logger.warning(f"{name} {attr_name} param model has no MAPE")
         return ret
 
     def to_json(self, **kwargs) -> dict:
