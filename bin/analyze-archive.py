@@ -1133,7 +1133,7 @@ if __name__ == "__main__":
                     prefix = r"\drefset{"
                 else:
                     prefix = r"\drefset" + f"[unit={v[1]}]" + "{"
-                print(f"{prefix}{k}" + "}{" + str(v[0]) + "}", file=f)
+                print(f"{prefix}/{k}" + "}{" + str(v[0]) + "}", file=f)
 
     if args.export_webconf:
         if not pta:
