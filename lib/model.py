@@ -275,9 +275,12 @@ class AnalyticModel:
             for name in self.names:
                 for attr in self.attr_by_name[name].keys():
                     if tree_required[name].get(attr, False):
-                        with_function_leaves = True
-                        if os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES") == "0":
-                            with_function_leaves = False
+                        with_function_leaves = bool(
+                            int(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES", "1"))
+                        )
+                        logger.debug(
+                            f"build_dtree({name}, {attr}, threshold={self.attr_by_name[name][attr].stats.std_param_lut}, with_function_leaves={with_function_leaves})"
+                        )
                         self.build_dtree(
                             name,
                             attr,
@@ -368,8 +371,6 @@ class AnalyticModel:
             )
 
         # temporary hack for ResKIL / kconfig-webconf evaluation of regression trees with function nodes
-        if not with_function_leaves:
-            with_function_leaves = bool(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES"))
         if (
             with_function_leaves
             and attribute in "accuracy model_size_mb power_w".split()
