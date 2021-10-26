@@ -55,6 +55,7 @@ class AttributeExperiment(Experiment):
 class RandomConfig(AttributeExperiment):
     inputs = {
         "randconfig_seed": String("FIXME"),
+        "config_hash": String("FIXME"),
         "kconfig_hash": String("FIXME"),
         "project_root": Directory("/tmp"),
         "project_version": String("FIXME"),
@@ -103,7 +104,7 @@ class KConfig:
                 seed = match.group(1)
         if seed:
             return seed
-        raise RuntimeError("KCONFIG_SEED not found")
+        return "unknown"
 
     def git_commit_id(self):
         status = subprocess.run(
@@ -139,6 +140,8 @@ class KConfig:
             [
                 "--randconfig_seed",
                 self.randconfig(),
+                "--config_hash",
+                self.file_hash(f"{self.cwd}/.config"),
                 "--kconfig_hash",
                 self.file_hash(f"{self.cwd}/{self.kconfig}"),
                 "--project_version",
