@@ -8,11 +8,23 @@ import re
 import shutil
 import subprocess
 
+from contextlib import contextmanager
+
 from versuchung.experiment import Experiment
 from versuchung.types import String, Bool, Integer
 from versuchung.files import File, Directory
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def cd(path):
+    old_dir = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(old_dir)
 
 
 class AttributeExperiment(Experiment):
@@ -230,7 +242,8 @@ class KConfig:
             from dd.autoref import BDD
         kconfig_file = f"{self.cwd}/{self.kconfig}"
         kconfig_hash = self.file_hash(kconfig_file)
-        kconf = kconfiglib.Kconfig(kconfig_file)
+        with cd(self.cwd):
+            kconf = kconfiglib.Kconfig(kconfig_file)
         pre_variables = list()
         pre_expressions = list()
         for choice in kconf.choices:
@@ -350,7 +363,8 @@ class KConfig:
                         print(f"CONFIG_{k}=y", file=f)
                     else:
                         print(f"# CONFIG_{k} is not set", file=f)
-            kconf = kconfiglib.Kconfig(kconfig_file)
+            with cd(self.cwd):
+                kconf = kconfiglib.Kconfig(kconfig_file)
             kconf.load_config(config_file)
 
             int_values = list()
@@ -385,7 +399,8 @@ class KConfig:
     def run_exploration_from_file(self, config_file, with_initial_config=True):
         kconfig_file = f"{self.cwd}/{self.kconfig}"
         kconfig_hash = self.file_hash(kconfig_file)
-        kconf = kconfiglib.Kconfig(kconfig_file)
+        with cd(self.cwd):
+            kconf = kconfiglib.Kconfig(kconfig_file)
         kconf.load_config(config_file)
 
         if with_initial_config:
