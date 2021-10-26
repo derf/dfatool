@@ -41,6 +41,12 @@ def main():
         help="Build decision tree without checking for analytic functions first. Use this for large kconfig files.",
     )
     parser.add_argument(
+        "--max-std",
+        type=str,
+        metavar="VALUE_OR_MAP",
+        help="Specify desired maximum standard deviation for decision tree generation, either as float (global) or <key>/<attribute>=<value>[,<key>/<attribute>=<value>,...]",
+    )
+    parser.add_argument(
         "--export-model",
         type=str,
         help="Export kconfig-webconf NFP model to file",
@@ -119,11 +125,29 @@ def main():
         # Release memory
         observations = None
 
+        if args.max_std:
+            max_std = dict()
+            if "=" in args.max_std:
+                for kkv in args.max_std.split(","):
+                    kk, v = kkv.split("=")
+                    key, attr = kk.split("/")
+                    if key not in max_std:
+                        max_std[key] = dict()
+                    max_std[key][attr] = float(v)
+            else:
+                for key in by_name.keys():
+                    max_std[key] = dict()
+                    for attr in by_name[key]["attributes"]:
+                        max_std[key][attr] = float(args.max_std)
+        else:
+            max_std = None
+
         model = AnalyticModel(
             by_name,
             parameter_names,
             compute_stats=not args.force_tree,
             force_tree=args.force_tree,
+            max_std=max_std,
         )
 
         if args.cross_validate:
@@ -135,6 +159,7 @@ def main():
                 parameter_names,
                 compute_stats=not args.force_tree,
                 force_tree=args.force_tree,
+                max_std=max_std,
             )
         else:
             xv_method = None
