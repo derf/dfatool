@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .. import kconfiglib
+from dfatool.utils import cd
 from frozendict import frozendict
 import json
 import os
@@ -20,7 +21,10 @@ class KConfigAttributes:
             elif os.path.exists(config_path):
                 failed_experiments.append(config_path)
 
-        kconf = kconfiglib.Kconfig(kconfig_path)
+        kconfig_dir = "/".join(kconfig_path.split("/")[:-1])
+
+        with cd(kconfig_dir):
+            kconf = kconfiglib.Kconfig(kconfig_path)
         self.kconf = kconf
 
         self.kconfig_hash = self.file_hash(kconfig_path)

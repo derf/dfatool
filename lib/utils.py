@@ -2,11 +2,23 @@
 
 import json
 import numpy as np
+import os
 import re
 import logging
+from contextlib import contextmanager
 from sklearn.metrics import r2_score
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def cd(path):
+    old_dir = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(old_dir)
 
 
 class NpEncoder(json.JSONEncoder):

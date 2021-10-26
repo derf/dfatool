@@ -8,23 +8,12 @@ import re
 import shutil
 import subprocess
 
-from contextlib import contextmanager
-
+from .utils import cd
 from versuchung.experiment import Experiment
 from versuchung.types import String, Bool, Integer
 from versuchung.files import File, Directory
 
 logger = logging.getLogger(__name__)
-
-
-@contextmanager
-def cd(path):
-    old_dir = os.getcwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(old_dir)
 
 
 class AttributeExperiment(Experiment):
