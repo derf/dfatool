@@ -32,12 +32,21 @@ class KConfigAttributes:
         if "/" in kconfig_path:
             self.kconfig_dir = kconfig_path.split("/")[-2]
 
+        accepted_symbol_types = "bool tristate int string hex".split()
+
+        if bool(int(os.getenv("DFATOOL_KCONF_IGNORE_NUMERIC", 0))):
+            accepted_symbol_types.remove("int")
+            accepted_symbol_types.remove("hex")
+
+        if bool(int(os.getenv("DFATOOL_KCONF_IGNORE_STRING", 0))):
+            accepted_symbol_types.remove("string")
+
         self.symbol_names = sorted(
             map(
                 lambda sym: sym.name,
                 filter(
                     lambda sym: kconfiglib.TYPE_TO_STR[sym.type]
-                    in ("bool", "tristate", "int", "string", "hex"),
+                    in accepted_symbol_types,
                     kconf.syms.values(),
                 ),
             )
