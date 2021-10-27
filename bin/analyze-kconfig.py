@@ -47,6 +47,12 @@ def main():
         help="Specify desired maximum standard deviation for decision tree generation, either as float (global) or <key>/<attribute>=<value>[,<key>/<attribute>=<value>,...]",
     )
     parser.add_argument(
+        "--export-observations",
+        type=str,
+        metavar="FILE.json.xz",
+        help="Export observations (intermediate and generic benchmark data representation) to FILE",
+    )
+    parser.add_argument(
         "--export-model",
         type=str,
         help="Export kconfig-webconf NFP model to file",
@@ -83,7 +89,7 @@ def main():
     parser.add_argument(
         "model",
         type=str,
-        help="Path to experiment results directory or model.json file",
+        help="Path to experiment results directory or observations.json.xz file",
     )
 
     args = parser.parse_args()
@@ -101,6 +107,13 @@ def main():
         if args.show_nop_symbols:
             show_nop_symbols(attributes)
 
+        if args.sample_size:
+            shuffled_data_indices = np.random.permutation(
+                np.arange(len(attributes.data))
+            )
+            sample_indices = shuffled_data_indices[: args.sample_size]
+            raise RuntimeError("Not Implemented")
+
         observations = list()
 
         for param, attr in attributes.data:
@@ -113,75 +126,78 @@ def main():
                     }
                 )
 
-        if args.sample_size:
-            shuffled_data_indices = np.random.permutation(
-                np.arange(len(attributes.data))
-            )
-            sample_indices = shuffled_data_indices[: args.sample_size]
-            raise RuntimeError("Not Implemented")
+        if args.export_observations:
+            import lzma
 
-        by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
+            with lzma.open(args.export_observations, "wt") as f:
+                json.dump(observations, f)
+    else:
+        # show-failing-symbols, show-nop-symbols, DFATOOL_KCONF_WITH_CHOICE_NODES, DFATOOL_KCONF_IGNORE_NUMERIC, and DFATOOL_KCONF_IGNORE_STRING have no effect
+        # in this branch.
+        import lzma
 
-        # Release memory
-        observations = None
+        with lzma.open(args.model, "rt") as f:
+            observations = json.load(f)
 
-        if args.max_std:
-            max_std = dict()
-            if "=" in args.max_std:
-                for kkv in args.max_std.split(","):
-                    kk, v = kkv.split("=")
-                    key, attr = kk.split("/")
-                    if key not in max_std:
-                        max_std[key] = dict()
-                    max_std[key][attr] = float(v)
-            else:
-                for key in by_name.keys():
+    by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
+
+    # Release memory
+    observations = None
+
+    if args.max_std:
+        max_std = dict()
+        if "=" in args.max_std:
+            for kkv in args.max_std.split(","):
+                kk, v = kkv.split("=")
+                key, attr = kk.split("/")
+                if key not in max_std:
                     max_std[key] = dict()
-                    for attr in by_name[key]["attributes"]:
-                        max_std[key][attr] = float(args.max_std)
+                max_std[key][attr] = float(v)
         else:
-            max_std = None
+            for key in by_name.keys():
+                max_std[key] = dict()
+                for attr in by_name[key]["attributes"]:
+                    max_std[key][attr] = float(args.max_std)
+    else:
+        max_std = None
 
-        model = AnalyticModel(
+    model = AnalyticModel(
+        by_name,
+        parameter_names,
+        compute_stats=not args.force_tree,
+        force_tree=args.force_tree,
+        max_std=max_std,
+    )
+
+    if args.cross_validate:
+        xv_method, xv_count = args.cross_validate.split(":")
+        xv_count = int(xv_count)
+        xv = CrossValidator(
+            AnalyticModel,
             by_name,
             parameter_names,
             compute_stats=not args.force_tree,
             force_tree=args.force_tree,
             max_std=max_std,
         )
-
-        if args.cross_validate:
-            xv_method, xv_count = args.cross_validate.split(":")
-            xv_count = int(xv_count)
-            xv = CrossValidator(
-                AnalyticModel,
-                by_name,
-                parameter_names,
-                compute_stats=not args.force_tree,
-                force_tree=args.force_tree,
-                max_std=max_std,
-            )
-        else:
-            xv_method = None
-
-        param_model, param_info = model.get_fitted()
-
-        if xv_method == "montecarlo":
-            analytic_quality = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
-        elif xv_method == "kfold":
-            analytic_quality = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
-        else:
-            analytic_quality = model.assess(param_model)
-
-        print("Model Error on Training Data:")
-        for name in model.names:
-            for attribute, error in analytic_quality[name].items():
-                mae = error["mae"]
-                smape = error["smape"]
-                print(f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {smape:5.1f}%")
-
     else:
-        raise NotImplementedError()
+        xv_method = None
+
+    param_model, param_info = model.get_fitted()
+
+    if xv_method == "montecarlo":
+        analytic_quality = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
+    elif xv_method == "kfold":
+        analytic_quality = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
+    else:
+        analytic_quality = model.assess(param_model)
+
+    print("Model Error on Training Data:")
+    for name in model.names:
+        for attribute, error in analytic_quality[name].items():
+            mae = error["mae"]
+            smape = error["smape"]
+            print(f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {smape:5.1f}%")
 
     if args.info:
         for name in model.names:
