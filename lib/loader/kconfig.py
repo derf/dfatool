@@ -2,7 +2,6 @@
 
 from .. import kconfiglib
 from dfatool.utils import cd
-from frozendict import frozendict
 import json
 import os
 import subprocess
@@ -84,12 +83,12 @@ class KConfigAttributes:
                 attr = json.load(f)
 
             param = self._conf_to_param()
-            self.data.append((frozendict(param), attr))
+            self.data.append((param, attr))
 
         for config_path in failed_experiments:
             kconf.load_config(config_path)
             param = self._conf_to_param()
-            self.failures.append(frozendict(param))
+            self.failures.append(param)
 
     def _conf_to_param(self):
         param = dict()
