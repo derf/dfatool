@@ -53,9 +53,20 @@ def main():
         help="Export observations (intermediate and generic benchmark data representation) to FILE",
     )
     parser.add_argument(
+        "--export-observations-only",
+        action="store_true",
+        help="Exit after exporting observations",
+    )
+    parser.add_argument(
         "--export-model",
         type=str,
         help="Export kconfig-webconf NFP model to file",
+        metavar="FILE",
+    )
+    parser.add_argument(
+        "--export-dref",
+        type=str,
+        help="Export model and model quality to LaTeX dataref file",
         metavar="FILE",
     )
     parser.add_argument(
@@ -129,8 +140,13 @@ def main():
         if args.export_observations:
             import lzma
 
+            print(
+                f"Exporting {len(observations)} observations to {args.export_observations}"
+            )
             with lzma.open(args.export_observations, "wt") as f:
                 json.dump(observations, f)
+            if args.export_observations_only:
+                return
     else:
         # show-failing-symbols, show-nop-symbols, DFATOOL_KCONF_WITH_CHOICE_NODES, DFATOOL_KCONF_IGNORE_NUMERIC, and DFATOOL_KCONF_IGNORE_STRING have no effect
         # in this branch.
@@ -142,7 +158,7 @@ def main():
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
 
     # Release memory
-    observations = None
+    del observations
 
     if args.max_std:
         max_std = dict()
@@ -183,14 +199,41 @@ def main():
     else:
         xv_method = None
 
+    static_model = model.get_static()
+    try:
+        lut_model = model.get_param_lut()
+    except RuntimeError as e:
+        if args.force_tree:
+            # this is to be expected
+            logging.debug(f"Skipping LUT model: {e}")
+        else:
+            logging.warning(f"Skipping LUT model: {e}")
+        lut_model = None
     param_model, param_info = model.get_fitted()
 
     if xv_method == "montecarlo":
+        static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
         analytic_quality = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
+        if lut_model:
+            lut_quality = xv.montecarlo(
+                lambda m: m.get_param_lut(fallback=True), xv_count
+            )
+        else:
+            lut_quality = None
     elif xv_method == "kfold":
+        static_quality = xv.kfold(lambda m: m.get_static(), xv_count)
         analytic_quality = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
+        if lut_model:
+            lut_quality = xv.kfold(lambda m: m.get_param_lut(fallback=True), xv_count)
+        else:
+            lut_quality = None
     else:
+        static_quality = model.assess(static_model)
         analytic_quality = model.assess(param_model)
+        if lut_model:
+            lut_quality = model.assess(lut_model)
+        else:
+            lut_quality = None
 
     print("Model Error on Training Data:")
     for name in model.names:
@@ -220,6 +263,25 @@ def main():
                 json_model[attribute].update(nfpkeys[name][attribute])
         with open(args.export_model, "w") as f:
             json.dump(json_model, f, sort_keys=True, cls=dfatool.utils.NpEncoder)
+
+    if xv_method == "montecarlo":
+        static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
+    elif xv_method == "kfold":
+        static_quality = xv.kfold(lambda m: m.get_static(), xv_count)
+    else:
+        static_quality = model.assess(static_model)
+
+    if args.export_dref:
+        dref = model.to_dref(static_quality, lut_quality, analytic_quality)
+        with open(args.export_dref, "w") as f:
+            for k, v in dref.items():
+                if type(v) is not tuple:
+                    v = (v, None)
+                if v[1] is None:
+                    prefix = r"\drefset{"
+                else:
+                    prefix = r"\drefset" + f"[unit={v[1]}]" + "{"
+                print(f"{prefix}/{k}" + "}{" + str(v[0]) + "}", file=f)
 
     if args.config:
         kconf = kconfiglib.Kconfig(args.kconfig_path)

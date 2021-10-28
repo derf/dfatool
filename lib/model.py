@@ -231,6 +231,10 @@ class AnalyticModel:
             for k, v in attr.items():
                 static_model[name][k] = v.get_static(use_mean=use_mean)
                 lut_model[name][k] = dict()
+                if not v.by_param:
+                    raise RuntimeError(
+                        f"ModelAttribute({name}, {k}).by_param is None. Did you run ParallelParamStats.compute?"
+                    )
                 for param, model_value in v.by_param.items():
                     lut_model[name][k][param] = v.get_lut(param, use_mean=use_mean)
 
@@ -408,9 +412,6 @@ class AnalyticModel:
         ret = dict()
         for name in self.names:
             for attr_name, attr in self.attr_by_name[name].items():
-                e_static = static_quality[name][attr_name]
-                e_lut = lut_quality[name][attr_name]
-                e_model = model_quality[name][attr_name]
                 unit = None
                 if "power" in attr.attr:
                     unit = r"\micro\watt"
@@ -420,19 +421,10 @@ class AnalyticModel:
                     unit = r"\micro\second"
                 for k, v in attr.to_dref(unit).items():
                     ret[f"data/{name}/{attr_name}/{k}"] = v
+                e_static = static_quality[name][attr_name]
                 ret[f"error/static/{name}/{attr_name}/mae"] = (e_static["mae"], unit)
-                ret[f"error/lut/{name}/{attr_name}/mae"] = (e_lut["mae"], unit)
-                ret[f"error/model/{name}/{attr_name}/mae"] = (e_model["mae"], unit)
                 ret[f"error/static/{name}/{attr_name}/smape"] = (
                     e_static["smape"],
-                    r"\percent",
-                )
-                ret[f"error/lut/{name}/{attr_name}/smape"] = (
-                    e_lut["smape"],
-                    r"\percent",
-                )
-                ret[f"error/model/{name}/{attr_name}/smape"] = (
-                    e_model["smape"],
                     r"\percent",
                 )
                 try:
@@ -442,13 +434,28 @@ class AnalyticModel:
                     )
                 except KeyError:
                     logger.warning(f"{name} {attr_name} static model has no MAPE")
-                try:
-                    ret[f"error/lut/{name}/{attr_name}/mape"] = (
-                        e_lut["mape"],
+
+                if lut_quality is not None:
+                    e_lut = lut_quality[name][attr_name]
+                    ret[f"error/lut/{name}/{attr_name}/mae"] = (e_lut["mae"], unit)
+                    ret[f"error/lut/{name}/{attr_name}/smape"] = (
+                        e_lut["smape"],
                         r"\percent",
                     )
-                except KeyError:
-                    logger.warning(f"{name} {attr_name} LUT model has no MAPE")
+                    try:
+                        ret[f"error/lut/{name}/{attr_name}/mape"] = (
+                            e_lut["mape"],
+                            r"\percent",
+                        )
+                    except KeyError:
+                        logger.warning(f"{name} {attr_name} LUT model has no MAPE")
+
+                e_model = model_quality[name][attr_name]
+                ret[f"error/model/{name}/{attr_name}/mae"] = (e_model["mae"], unit)
+                ret[f"error/model/{name}/{attr_name}/smape"] = (
+                    e_model["smape"],
+                    r"\percent",
+                )
                 try:
                     ret[f"error/model/{name}/{attr_name}/mape"] = (
                         e_model["mape"],
