@@ -263,6 +263,24 @@ def main():
         else:
             lut_quality = None
 
+    if "static" in args.show_model or "all" in args.show_model:
+        print("--- static model ---")
+        for name in model.names:
+            for attribute in model.attributes(name):
+                dfatool.cli.print_static(model, static_model, name, attribute)
+
+    if "param" in args.show_model or "all" in args.show_model:
+        print("--- param model ---")
+        for name in model.names:
+            for attribute in model.attributes(name):
+                info = param_info(name, attribute)
+                if type(info) is dfatool.cli.AnalyticFunction:
+                    dfatool.cli.print_analyticinfo(f"{name:20s} {attribute:15s}", info)
+                elif type(info) is dfatool.cli.SplitFunction:
+                    dfatool.cli.print_splitinfo(
+                        model.parameters, info, f"{name:20s} {attribute:15s}"
+                    )
+
     if "table" in args.show_quality or "all" in args.show_quality:
         dfatool.cli.model_quality_table(
             ["static", "parameterized", "LUT"],

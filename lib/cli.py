@@ -33,6 +33,28 @@ def print_static(model, static_model, name, attribute):
         )
 
 
+def print_analyticinfo(prefix, info):
+    empty = ""
+    print(f"{prefix}: {info.model_function}")
+    print(f"{empty:{len(prefix)}s}  {info.model_args}")
+
+
+def print_splitinfo(param_names, info, prefix=""):
+    if type(info) is SplitFunction:
+        for k, v in info.child.items():
+            if info.param_index < len(param_names):
+                param_name = param_names[info.param_index]
+            else:
+                param_name = f"arg{info.param_index - len(param_names)}"
+            print_splitinfo(param_names, v, f"{prefix} {param_name}={k}")
+    elif type(info) is AnalyticFunction:
+        print_analyticinfo(prefix, info)
+    elif type(info) is StaticFunction:
+        print(f"{prefix}: {info.value}")
+    else:
+        print(f"{prefix}: UNKNOWN")
+
+
 def format_quality_measures(result):
     if "smape" in result:
         return "{:6.2f}% / {:9.0f}".format(result["smape"], result["mae"])

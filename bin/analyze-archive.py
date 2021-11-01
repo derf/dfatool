@@ -345,28 +345,6 @@ def plot_traces(preprocessed_data, sot_name):
     )
 
 
-def print_analyticinfo(prefix, info):
-    empty = ""
-    print(f"{prefix}: {info.model_function}")
-    print(f"{empty:{len(prefix)}s}  {info.model_args}")
-
-
-def print_splitinfo(param_names, info, prefix=""):
-    if type(info) is SplitFunction:
-        for k, v in info.child.items():
-            if info.param_index < len(param_names):
-                param_name = param_names[info.param_index]
-            else:
-                param_name = f"arg{info.param_index - len(param_names)}"
-            print_splitinfo(param_names, v, f"{prefix} {param_name}={k}")
-    elif type(info) is AnalyticFunction:
-        print_analyticinfo(prefix, info)
-    elif type(info) is StaticFunction:
-        print(f"{prefix}: {info.value}")
-    else:
-        print(f"{prefix}: UNKNOWN")
-
-
 if __name__ == "__main__":
 
     ignored_trace_indexes = []
@@ -917,9 +895,9 @@ if __name__ == "__main__":
             for attribute in model.attributes(state):
                 info = param_info(state, attribute)
                 if type(info) is AnalyticFunction:
-                    print_analyticinfo(f"{state:10s} {attribute:15s}", info)
+                    dfatool.cli.print_analyticinfo(f"{state:10s} {attribute:15s}", info)
                 elif type(info) is SplitFunction:
-                    print_splitinfo(
+                    dfatool.cli.print_splitinfo(
                         model.parameters, info, f"{state:10s} {attribute:15s}"
                     )
                 elif type(info) is SubstateFunction:
@@ -928,9 +906,9 @@ if __name__ == "__main__":
             for attribute in model.attributes(trans):
                 info = param_info(trans, attribute)
                 if type(info) is AnalyticFunction:
-                    print_analyticinfo(f"{trans:10s} {attribute:15s}", info)
+                    dfatool.cli.print_analyticinfo(f"{trans:10s} {attribute:15s}", info)
                 elif type(info) is SplitFunction:
-                    print_splitinfo(
+                    dfatool.cli.print_splitinfo(
                         model.parameters, info, f"{trans:10s} {attribute:15s}"
                     )
                 elif type(info) is SubstateFunction:
