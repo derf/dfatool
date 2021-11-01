@@ -15,6 +15,7 @@ import os
 
 import numpy as np
 
+import dfatool.cli
 import dfatool.utils
 from dfatool.loader import KConfigAttributes
 from dfatool.model import AnalyticModel
@@ -96,6 +97,28 @@ def main():
         help="Report modul accuracy via Cross-Validation",
         metavar="METHOD:COUNT",
     )
+    parser.add_argument(
+        "--show-model",
+        choices=["static", "paramdetection", "param", "all", "tex", "html"],
+        action="append",
+        default=list(),
+        help="static: show static model values as well as parameter detection heuristic.\n"
+        "paramdetection: show stddev of static/lut/fitted model\n"
+        "param: show parameterized model functions and regression variable values\n"
+        "all: all of the above\n"
+        "tex: print tex/pgfplots-compatible model data on stdout\n"
+        "html: print model and quality data as HTML table on stdout",
+    )
+    parser.add_argument(
+        "--show-quality",
+        choices=["table", "summary", "all", "tex", "html"],
+        action="append",
+        default=list(),
+        help="table: show static/fitted/lut SMAPE and MAE for each name and attribute.\n"
+        "summary: show static/fitted/lut SMAPE and MAE for each attribute, averaged over all states/transitions.\n"
+        "all: all of the above.\n"
+        "tex: print tex/pgfplots-compatible model quality data on stdout.",
+    )
     parser.add_argument("kconfig_path", type=str, help="Path to Kconfig file")
     parser.add_argument(
         "model",
@@ -110,8 +133,13 @@ def main():
     else:
         print(f"Invalid log level. Setting log level to INFO.", file=sys.stderr)
 
+    if args.export_dref:
+        dref = dict()
+
     if os.path.isdir(args.model):
         attributes = KConfigAttributes(args.kconfig_path, args.model)
+        if args.export_dref:
+            dref.update(attributes.to_dref())
 
         if args.show_failing_symbols:
             show_failing_symbols(attributes)
@@ -235,6 +263,13 @@ def main():
         else:
             lut_quality = None
 
+    if "table" in args.show_quality or "all" in args.show_quality:
+        dfatool.cli.model_quality_table(
+            ["static", "parameterized", "LUT"],
+            [static_quality, analytic_quality, lut_quality],
+            [None, param_info, None],
+        )
+
     print("Model Error on Training Data:")
     for name in model.names:
         for attribute, error in analytic_quality[name].items():
@@ -272,7 +307,7 @@ def main():
         static_quality = model.assess(static_model)
 
     if args.export_dref:
-        dref = model.to_dref(static_quality, lut_quality, analytic_quality)
+        dref.update(model.to_dref(static_quality, lut_quality, analytic_quality))
         with open(args.export_dref, "w") as f:
             for k, v in dref.items():
                 if type(v) is not tuple:

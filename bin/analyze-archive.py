@@ -77,81 +77,36 @@ def print_model_quality(results):
                 print("{:20s} {:15s} {:.0f}".format(state_or_tran, key, result["mae"]))
 
 
-def format_quality_measures(result):
-    if "smape" in result:
-        return "{:6.2f}% / {:9.0f}".format(result["smape"], result["mae"])
-    else:
-        return "{:6}    {:9.0f}".format("", result["mae"])
-
-
-def model_quality_table(header, result_lists, info_list):
-    print(
-        "{:20s} {:15s}       {:19s}       {:19s}       {:19s}".format(
-            "key",
-            "attribute",
-            header[0].center(19),
-            header[1].center(19),
-            header[2].center(19),
-        )
-    )
-    for state_or_tran in result_lists[0].keys():
-        for key in result_lists[0][state_or_tran].keys():
-            buf = "{:20s} {:15s}".format(state_or_tran, key)
-            for i, results in enumerate(result_lists):
-                info = info_list[i]
-                buf += "  |||  "
-                if (
-                    info is None
-                    or (
-                        key != "energy_Pt"
-                        and type(info(state_or_tran, key)) is not StaticFunction
-                    )
-                    or (
-                        key == "energy_Pt"
-                        and (
-                            type(info(state_or_tran, "power")) is not StaticFunction
-                            or type(info(state_or_tran, "duration"))
-                            is not StaticFunction
-                        )
-                    )
-                ):
-                    result = results[state_or_tran][key]
-                    buf += format_quality_measures(result)
-                else:
-                    buf += "{:7}----{:8}".format("", "")
-            print(buf)
-
-
 def model_summary_table(result_list):
     buf = "transition duration"
     for results in result_list:
         if len(buf):
             buf += "  |||  "
-        buf += format_quality_measures(results["duration_by_trace"])
+        buf += dfatool.cli.format_quality_measures(results["duration_by_trace"])
     print(buf)
     buf = "total energy       "
     for results in result_list:
         if len(buf):
             buf += "  |||  "
-        buf += format_quality_measures(results["energy_by_trace"])
+        buf += dfatool.cli.format_quality_measures(results["energy_by_trace"])
     print(buf)
     buf = "rel total energy   "
     for results in result_list:
         if len(buf):
             buf += "  |||  "
-        buf += format_quality_measures(results["rel_energy_by_trace"])
+        buf += dfatool.cli.format_quality_measures(results["rel_energy_by_trace"])
     print(buf)
     buf = "state-only energy  "
     for results in result_list:
         if len(buf):
             buf += "  |||  "
-        buf += format_quality_measures(results["state_energy_by_trace"])
+        buf += dfatool.cli.format_quality_measures(results["state_energy_by_trace"])
     print(buf)
     buf = "transition timeout "
     for results in result_list:
         if len(buf):
             buf += "  |||  "
-        buf += format_quality_measures(results["timeout_by_trace"])
+        buf += dfatool.cli.format_quality_measures(results["timeout_by_trace"])
     print(buf)
 
 
@@ -1038,7 +993,7 @@ if __name__ == "__main__":
         )
 
     if "table" in show_quality or "all" in show_quality:
-        model_quality_table(
+        dfatool.cli.model_quality_table(
             ["static", "parameterized", "LUT"],
             [static_quality, analytic_quality, lut_quality],
             [None, param_info, None],
@@ -1051,7 +1006,7 @@ if __name__ == "__main__":
                 sub_lut_quality = submodel.assess(sub_lut_model)
                 sub_param_model, sub_param_info = submodel.get_fitted()
                 sub_analytic_quality = submodel.assess(sub_param_model)
-                model_quality_table(
+                dfatool.cli.model_quality_table(
                     ["static", "parameterized", "LUT"],
                     [sub_static_quality, sub_analytic_quality, sub_lut_quality],
                     [None, sub_param_info, None],
