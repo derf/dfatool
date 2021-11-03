@@ -34,3 +34,4 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_KCONF_WITH_CHOICE_NODES` | 0, **1** | Generate enum parameters from kconfig choice nodes; ignore corresponding boolean config options. |
 | `DFATOOL_KCONF_IGNORE_NUMERIC` | **0**, 1 | Ignore numeric (int/hex) configuration options. Useful for comparison with CART/DECART. |
 | `DFATOOL_KCONF_IGNORE_STRING` | **0**, 1 | Ignore string configuration options. Useful for comparison with CART/DECART. |
+| `DFATOOL_FIT_LINEAR_ONLY` | **0**, 1 | Only consider linear functions (a + bx) in regression analysis. Useful for comparison with Linear Model Trees / M5. |

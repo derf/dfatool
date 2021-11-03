@@ -8,6 +8,7 @@ regression and general handling of model functions.
 from itertools import chain, combinations
 import logging
 import numpy as np
+import os
 import re
 from scipy import optimize
 from .utils import is_numeric
@@ -719,24 +720,24 @@ class analytic:
                 lambda model_param: model_param >= 0,
                 2,
             ),
-            "num0_8": ParamFunction(
-                lambda reg_param, model_param: reg_param[0]
-                + reg_param[1] * analytic._num0_8(model_param),
-                lambda model_param: True,
-                2,
-            ),
-            "num0_16": ParamFunction(
-                lambda reg_param, model_param: reg_param[0]
-                + reg_param[1] * analytic._num0_16(model_param),
-                lambda model_param: True,
-                2,
-            ),
-            "num1": ParamFunction(
-                lambda reg_param, model_param: reg_param[0]
-                + reg_param[1] * analytic._num1(model_param),
-                lambda model_param: True,
-                2,
-            ),
+            # "num0_8": ParamFunction(
+            #    lambda reg_param, model_param: reg_param[0]
+            #    + reg_param[1] * analytic._num0_8(model_param),
+            #    lambda model_param: True,
+            #    2,
+            # ),
+            # "num0_16": ParamFunction(
+            #    lambda reg_param, model_param: reg_param[0]
+            #    + reg_param[1] * analytic._num0_16(model_param),
+            #    lambda model_param: True,
+            #    2,
+            # ),
+            # "num1": ParamFunction(
+            #    lambda reg_param, model_param: reg_param[0]
+            #    + reg_param[1] * analytic._num1(model_param),
+            #    lambda model_param: True,
+            #    2,
+            # ),
         }
 
         if safe_functions_enabled:
@@ -758,6 +759,9 @@ class analytic:
                 lambda model_param: True,
                 2,
             )
+
+        if bool(int(os.getenv("DFATOOL_FIT_LINEAR_ONLY", "0"))):
+            functions = {"linear": functions["linear"]}
 
         return functions
 
