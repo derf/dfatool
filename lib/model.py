@@ -12,7 +12,7 @@ from .parameters import (
     distinct_param_values,
 )
 from .paramfit import ParamFit
-from .utils import soft_cast_int, by_name_to_by_param, regression_measures
+from .utils import is_numeric, soft_cast_int, by_name_to_by_param, regression_measures
 
 logger = logging.getLogger(__name__)
 
@@ -411,6 +411,36 @@ class AnalyticModel:
     def to_dref(self, static_quality, lut_quality, model_quality) -> dict:
         ret = dict()
         for name in self.names:
+            param_data = {
+                "unset": 0,
+                "useless": 0,
+                "boolean": 0,
+                "scalar": 0,
+                "enum": 0,
+            }
+            for param_index, param_values in enumerate(
+                self.distinct_param_values_by_name[name]
+            ):
+                if None in param_values:
+                    none_adj = -1
+                else:
+                    none_adj = 0
+                value_count = len(param_values) + none_adj
+                if value_count == 0:
+                    param_data["unset"] += 1
+                elif value_count == 1:
+                    param_data["useless"] += 1
+                elif value_count == 2:
+                    param_data["boolean"] += 1
+                elif all(map(lambda x: x is None or is_numeric(x), param_values)):
+                    param_data["scalar"] += 1
+                else:
+                    param_data["enum"] += 1
+            ret[f"paramcount/{name}/useful"] = (
+                param_data["boolean"] + param_data["scalar"] + param_data["enum"]
+            )
+            for k, v in param_data.items():
+                ret[f"paramcount/{name}/{k}"] = v
             for attr_name, attr in self.attr_by_name[name].items():
                 unit = None
                 if "power" in attr.attr:
