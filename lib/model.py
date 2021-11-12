@@ -442,6 +442,8 @@ class AnalyticModel:
             for k, v in param_data.items():
                 ret[f"paramcount/{name}/{k}"] = v
             for attr_name, attr in self.attr_by_name[name].items():
+                # attr.data must be the same for all attrs
+                ret[f"data/{name}/num samples"] = len(attr.data)
                 unit = None
                 if "power" in attr.attr:
                     unit = r"\micro\watt"
