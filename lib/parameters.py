@@ -786,7 +786,14 @@ class ModelAttribute:
             if x.fit_success:
                 self.model_function = x
 
-    def build_dtree(self, parameters, data, with_function_leaves=False, threshold=100):
+    def build_dtree(
+        self,
+        parameters,
+        data,
+        with_function_leaves=False,
+        with_nonbinary_nodes=True,
+        threshold=100,
+    ):
         """
         Build a Decision Tree on `param` / `data` for kconfig models.
 
@@ -799,11 +806,21 @@ class ModelAttribute:
         :returns: SplitFunction or StaticFunction
         """
         self.model_function = self._build_dtree(
-            parameters, data, with_function_leaves, threshold
+            parameters,
+            data,
+            with_function_leaves=with_function_leaves,
+            with_nonbinary_nodes=with_nonbinary_nodes,
+            threshold=threshold,
         )
 
     def _build_dtree(
-        self, parameters, data, with_function_leaves=False, threshold=100, level=0
+        self,
+        parameters,
+        data,
+        with_function_leaves=False,
+        with_nonbinary_nodes=True,
+        threshold=100,
+        level=0,
     ):
         """
         Build a Decision Tree on `param` / `data` for kconfig models.
@@ -835,6 +852,10 @@ class ModelAttribute:
 
             if None in unique_values:
                 # param is a choice and undefined in some configs. Do not split on it.
+                mean_stds.append(np.inf)
+                continue
+
+            if not with_nonbinary_nodes and len(unique_values) > 2:
                 mean_stds.append(np.inf)
                 continue
 
@@ -915,9 +936,10 @@ class ModelAttribute:
                 child[value] = self._build_dtree(
                     child_parameters,
                     child_data,
-                    with_function_leaves,
-                    threshold,
-                    level + 1,
+                    with_function_leaves=with_function_leaves,
+                    with_nonbinary_nodes=with_nonbinary_nodes,
+                    threshold=threshold,
+                    level=level + 1,
                 )
 
         assert len(child.values()) >= 2

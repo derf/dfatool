@@ -149,10 +149,19 @@ class AnalyticModel:
                     with_function_leaves = bool(
                         int(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES", "1"))
                     )
-                    logger.debug(
-                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves})"
+                    with_nonbinary_nodes = bool(
+                        int(os.getenv("DFATOOL_DTREE_NONBINARY_NODES", "1"))
                     )
-                    self.build_dtree(name, attr, threshold, with_function_leaves)
+                    logger.debug(
+                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes})"
+                    )
+                    self.build_dtree(
+                        name,
+                        attr,
+                        threshold=threshold,
+                        with_function_leaves=with_function_leaves,
+                        with_nonbinary_nodes=with_nonbinary_nodes,
+                    )
             self.fit_done = True
 
     def __repr__(self):
@@ -295,6 +304,9 @@ class AnalyticModel:
                         with_function_leaves = bool(
                             int(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES", "1"))
                         )
+                        with_nonbinary_nodes = bool(
+                            int(os.getenv("DFATOOL_DTREE_NONBINARY_NODES", "1"))
+                        )
                         threshold = self.attr_by_name[name][attr].stats.std_param_lut
                         if (
                             self.dtree_max_std
@@ -303,13 +315,14 @@ class AnalyticModel:
                         ):
                             threshold = self.dtree_max_std[name][attr]
                         logger.debug(
-                            f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves})"
+                            f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes})"
                         )
                         self.build_dtree(
                             name,
                             attr,
-                            threshold,
+                            threshold=threshold,
                             with_function_leaves=with_function_leaves,
+                            with_nonbinary_nodes=with_nonbinary_nodes,
                         )
                     else:
                         self.attr_by_name[name][attr].set_data_from_paramfit(paramfit)
@@ -380,7 +393,14 @@ class AnalyticModel:
 
         return detailed_results
 
-    def build_dtree(self, name, attribute, threshold=100, with_function_leaves=False):
+    def build_dtree(
+        self,
+        name,
+        attribute,
+        threshold=100,
+        with_function_leaves=False,
+        with_nonbinary_nodes=True,
+    ):
 
         if name not in self.attr_by_name:
             self.attr_by_name[name] = dict()
@@ -404,8 +424,9 @@ class AnalyticModel:
         self.attr_by_name[name][attribute].build_dtree(
             self.by_name[name]["param"],
             self.by_name[name][attribute],
-            with_function_leaves,
-            threshold,
+            with_function_leaves=with_function_leaves,
+            with_nonbinary_nodes=with_nonbinary_nodes,
+            threshold=threshold,
         )
 
     def to_dref(self, static_quality, lut_quality, model_quality) -> dict:
