@@ -740,19 +740,25 @@ class analytic:
             # ),
         }
 
-        if safe_functions_enabled:
+        if safe_functions_enabled or bool(
+            int(os.getenv("DFATOOL_REGRESSION_SAFE_FUNCTIONS", "0"))
+        ):
+            functions.pop("logarithmic1")
+            functions.pop("logarithmic")
             functions["safe_log"] = ParamFunction(
                 lambda reg_param, model_param: reg_param[0]
                 + reg_param[1] * analytic._safe_log(model_param),
                 lambda model_param: True,
                 2,
             )
+            functions.pop("inverse")
             functions["safe_inv"] = ParamFunction(
                 lambda reg_param, model_param: reg_param[0]
                 + reg_param[1] * analytic._safe_inv(model_param),
                 lambda model_param: True,
                 2,
             )
+            functions.pop("sqrt")
             functions["safe_sqrt"] = ParamFunction(
                 lambda reg_param, model_param: reg_param[0]
                 + reg_param[1] * analytic._safe_sqrt(model_param),
