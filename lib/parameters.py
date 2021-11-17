@@ -572,6 +572,10 @@ class ModelAttribute:
 
     def to_dref(self, unit=None):
         ret = {"mean": (self.mean, unit), "median": (self.median, unit)}
+
+        if type(self.model_function) is df.SplitFunction:
+            ret["decision tree nodes"] = self.model_function.get_number_of_nodes()
+
         return ret
 
     def webconf_function_map(self):

@@ -324,6 +324,15 @@ class SplitFunction(ModelFunction):
         ret.update(update)
         return ret
 
+    def get_number_of_nodes(self):
+        ret = 1
+        for v in self.child.values():
+            if type(v) is SplitFunction:
+                ret += v.get_number_of_nodes()
+            else:
+                ret += 1
+        return ret
+
     @classmethod
     def from_json(cls, data):
         assert data["type"] == "split"
