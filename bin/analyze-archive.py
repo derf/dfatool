@@ -42,6 +42,7 @@ import logging
 import random
 import re
 import sys
+import time
 import dfatool.cli
 from dfatool import plotter
 from dfatool.loader import RawData, pta_trace_to_aggregate
@@ -640,6 +641,7 @@ if __name__ == "__main__":
         by_name, z_limit=args.z_score, remove_outliers=args.remove_outliers
     )
 
+    constructor_start = time.time()
     model = PTAModel(
         by_name,
         parameters,
@@ -649,6 +651,7 @@ if __name__ == "__main__":
         pta=pta,
         pelt=args.with_substates,
     )
+    constructor_duration = time.time() - constructor_start
 
     if xv_method:
         xv = CrossValidator(PTAModel, by_name, parameters, arg_count)
@@ -829,9 +832,11 @@ if __name__ == "__main__":
         print("--- param model ---")
 
     # get_fitted_sub -> with sub-state detection and modeling
+    fit_start_time = time.time()
     param_model, param_info = model.get_fitted(
         safe_functions_enabled=safe_functions_enabled
     )
+    fit_duration = time.time() - fit_start_time
 
     if "paramdetection" in show_models or "all" in show_models:
         for name in model.names:
@@ -1058,6 +1063,8 @@ if __name__ == "__main__":
     if args.export_dref:
         dref = raw_data.to_dref()
         dref.update(model.to_dref(static_quality, lut_quality, analytic_quality))
+        dref["constructor duration"] = (constructor_duration, r"\second")
+        dref["regression duration"] = (fit_duration, r"\second")
         with open(args.export_dref, "w") as f:
             for k, v in dref.items():
                 if type(v) is not tuple:

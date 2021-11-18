@@ -12,6 +12,7 @@ import json
 import kconfiglib
 import logging
 import os
+import time
 
 import numpy as np
 
@@ -146,13 +147,6 @@ def main():
         if args.show_nop_symbols:
             show_nop_symbols(attributes)
 
-        if args.sample_size:
-            shuffled_data_indices = np.random.permutation(
-                np.arange(len(attributes.data))
-            )
-            sample_indices = shuffled_data_indices[: args.sample_size]
-            raise RuntimeError("Not Implemented")
-
         observations = list()
 
         for param, attr in attributes.data:
@@ -164,6 +158,14 @@ def main():
                         "attribute": value,
                     }
                 )
+
+        if args.sample_size:
+            shuffled_data_indices = np.random.permutation(np.arange(len(observations)))
+            sample_indices = shuffled_data_indices[: args.sample_size]
+            new_observations = list()
+            for sample_index in sample_indices:
+                new_observations.append(observations[sample_index])
+            observations = new_observations
 
         if args.export_observations:
             import lzma
@@ -205,6 +207,7 @@ def main():
     else:
         max_std = None
 
+    constructor_start = time.time()
     model = AnalyticModel(
         by_name,
         parameter_names,
@@ -212,6 +215,7 @@ def main():
         force_tree=args.force_tree,
         max_std=max_std,
     )
+    constructor_duration = time.time() - constructor_start
 
     if args.cross_validate:
         xv_method, xv_count = args.cross_validate.split(":")
@@ -237,7 +241,10 @@ def main():
         else:
             logging.warning(f"Skipping LUT model: {e}")
         lut_model = None
+
+    fit_start_time = time.time()
     param_model, param_info = model.get_fitted()
+    fit_duration = time.time() - fit_start_time
 
     if xv_method == "montecarlo":
         static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
@@ -326,6 +333,8 @@ def main():
 
     if args.export_dref:
         dref.update(model.to_dref(static_quality, lut_quality, analytic_quality))
+        dref["constructor duration"] = (constructor_duration, r"\second")
+        dref["regression duration"] = (fit_duration, r"\second")
         with open(args.export_dref, "w") as f:
             for k, v in dref.items():
                 if type(v) is not tuple:
