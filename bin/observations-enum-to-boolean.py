@@ -24,7 +24,7 @@ def main():
 
     for param_name, distinct_values in distinct_param_values.items():
         if len(distinct_values) > 2 and not all(
-            map(dfatool.utils.is_numeric, distinct_values)
+            map(lambda x: x is None or dfatool.utils.is_numeric(x), distinct_values)
         ):
             replace_map[param_name] = distinct_values
 
