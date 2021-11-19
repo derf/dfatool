@@ -433,7 +433,7 @@ class KConfig:
                     if kconfiglib.expr_value(condition):
                         min_val = int(min_val.str_value, 0)
                         max_val = int(max_val.str_value, 0)
-                        step_size = (max_val - min_val) // 8
+                        step_size = (max_val - min_val) // 5
                         if step_size == 0:
                             step_size = 1
                         for val in range(min_val, max_val + 1, step_size):
