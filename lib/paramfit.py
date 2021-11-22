@@ -202,9 +202,15 @@ def _try_fits(
                 if function_name not in raw_results:
                     raw_results[function_name] = dict()
                 error_function = param_function.error_function
-                res = optimize.least_squares(
-                    error_function, [0, 1], args=(X, Y), xtol=2e-15
-                )
+                try:
+                    res = optimize.least_squares(
+                        error_function, [0, 1], args=(X, Y), xtol=2e-15
+                    )
+                except FloatingPointError as e:
+                    logger.warning(
+                        f"optimize.least_squares threw '{e}' when fitting {param_function} on {X}, {Y}"
+                    )
+                    continue
                 measures = regression_measures(param_function.eval(res.x, X), Y)
                 raw_results_by_param[other_parameters][function_name] = measures
                 for measure, error_rate in measures.items():
