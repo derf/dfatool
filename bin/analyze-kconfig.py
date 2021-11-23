@@ -99,6 +99,11 @@ def main():
         metavar="METHOD:COUNT",
     )
     parser.add_argument(
+        "--parameter-aware-cross-validation",
+        action="store_true",
+        help="Perform parameter-aware cross-validation: ensure that parameter values (and not just observations) are mutually exclusive between training and validation sets.",
+    )
+    parser.add_argument(
         "--show-model",
         choices=["static", "paramdetection", "param", "all", "tex", "html"],
         action="append",
@@ -228,6 +233,7 @@ def main():
             force_tree=args.force_tree,
             max_std=max_std,
         )
+        xv.parameter_aware = args.parameter_aware_cross_validation
     else:
         xv_method = None
 

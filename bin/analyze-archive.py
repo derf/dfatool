@@ -477,6 +477,11 @@ if __name__ == "__main__":
         "Only works with --show-quality=table at the moment.",
     )
     parser.add_argument(
+        "--parameter-aware-cross-validation",
+        action="store_true",
+        help="Perform parameter-aware cross-validation: ensure that parameter values (and not just observations) are mutually exclusive between training and validation sets.",
+    )
+    parser.add_argument(
         "--with-safe-functions",
         action="store_true",
         help="Include 'safe' functions (safe_log, safe_inv, safe_sqrt) which are also defined for 0 and -1. "
@@ -655,6 +660,7 @@ if __name__ == "__main__":
 
     if xv_method:
         xv = CrossValidator(PTAModel, by_name, parameters, arg_count)
+        xv.parameter_aware = args.parameter_aware_cross_validation
 
     if args.info:
         for state in model.states:
