@@ -218,6 +218,7 @@ class CrossValidator:
                 ret[name][attribute] = {
                     "mae_list": list(),
                     "rmsd_list": list(),
+                    "mape_list": list(),
                     "smape_list": list(),
                 }
 
@@ -225,14 +226,14 @@ class CrossValidator:
             res = self._single_xv(model_getter, training_and_validation_by_name)
             for name in self.names:
                 for attribute in self.by_name[name]["attributes"]:
-                    for measure in ("mae", "rmsd", "smape"):
+                    for measure in ("mae", "rmsd", "mape", "smape"):
                         ret[name][attribute][f"{measure}_list"].append(
                             res[name][attribute][measure]
                         )
 
         for name in self.names:
             for attribute in self.by_name[name]["attributes"]:
-                for measure in ("mae", "rmsd", "smape"):
+                for measure in ("mae", "rmsd", "mape", "smape"):
                     ret[name][attribute][measure] = np.mean(
                         ret[name][attribute][f"{measure}_list"]
                     )
