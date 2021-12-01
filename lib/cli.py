@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 
-from dfatool.functions import (
-    SplitFunction,
-    AnalyticFunction,
-    StaticFunction,
-)
+from dfatool.functions import SplitFunction, AnalyticFunction, StaticFunction
 
 
 def print_static(model, static_model, name, attribute):
@@ -98,3 +94,24 @@ def model_quality_table(header, result_lists, info_list):
                 else:
                     buf += "{:7}----{:8}".format("", "")
             print(buf)
+
+
+def add_standard_arguments(parser):
+    parser.add_argument(
+        "--export-dref",
+        metavar="FILE",
+        type=str,
+        help="Export model and model quality to LaTeX dataref file",
+    )
+    parser.add_argument(
+        "--cross-validate",
+        metavar="<method>:<count>",
+        type=str,
+        help="Perform cross validation when computing model quality. "
+        "Only works with --show-quality=table at the moment.",
+    )
+    parser.add_argument(
+        "--parameter-aware-cross-validation",
+        action="store_true",
+        help="Perform parameter-aware cross-validation: ensure that parameter values (and not just observations) are mutually exclusive between training and validation sets.",
+    )

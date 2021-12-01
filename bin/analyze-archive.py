@@ -362,6 +362,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
     )
+    dfatool.cli.add_standard_arguments(parser)
     parser.add_argument(
         "--info",
         action="store_true",
@@ -449,12 +450,6 @@ if __name__ == "__main__":
         "Creates a JSON file for each state and transition.",
     )
     parser.add_argument(
-        "--export-dref",
-        metavar="FILE",
-        type=str,
-        help="Export model and model quality to LaTeX dataref file",
-    )
-    parser.add_argument(
         "--filter-param",
         metavar="<parameter name>=<parameter value>[,<parameter name>=<parameter value>...]",
         type=str,
@@ -468,18 +463,6 @@ if __name__ == "__main__":
         choices=["debug", "info", "warning", "error"],
         default="warning",
         help="Set log level",
-    )
-    parser.add_argument(
-        "--cross-validate",
-        metavar="<method>:<count>",
-        type=str,
-        help="Perform cross validation when computing model quality. "
-        "Only works with --show-quality=table at the moment.",
-    )
-    parser.add_argument(
-        "--parameter-aware-cross-validation",
-        action="store_true",
-        help="Perform parameter-aware cross-validation: ensure that parameter values (and not just observations) are mutually exclusive between training and validation sets.",
     )
     parser.add_argument(
         "--with-safe-functions",

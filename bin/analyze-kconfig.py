@@ -27,6 +27,7 @@ def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
     )
+    dfatool.cli.add_standard_arguments(parser)
     parser.add_argument(
         "--show-failing-symbols",
         action="store_true",
@@ -66,12 +67,6 @@ def main():
         metavar="FILE",
     )
     parser.add_argument(
-        "--export-dref",
-        type=str,
-        help="Export model and model quality to LaTeX dataref file",
-        metavar="FILE",
-    )
-    parser.add_argument(
         "--config",
         type=str,
         help="Show model results for symbols in .config file",
@@ -91,17 +86,6 @@ def main():
         type=int,
         help="Restrict model generation to N random samples",
         metavar="N",
-    )
-    parser.add_argument(
-        "--cross-validate",
-        type=str,
-        help="Report modul accuracy via Cross-Validation",
-        metavar="METHOD:COUNT",
-    )
-    parser.add_argument(
-        "--parameter-aware-cross-validation",
-        action="store_true",
-        help="Perform parameter-aware cross-validation: ensure that parameter values (and not just observations) are mutually exclusive between training and validation sets.",
     )
     parser.add_argument(
         "--show-model",
