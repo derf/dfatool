@@ -476,6 +476,10 @@ class AnalyticModel:
                     ret[f"data/{name}/{attr_name}/{k}"] = v
                 e_static = static_quality[name][attr_name]
                 ret[f"error/static/{name}/{attr_name}/mae"] = (e_static["mae"], unit)
+                ret[f"error/static/{name}/{attr_name}/mape"] = (
+                    e_static["mape"],
+                    r"\percent",
+                )
                 ret[f"error/static/{name}/{attr_name}/smape"] = (
                     e_static["smape"],
                     r"\percent",
@@ -491,6 +495,10 @@ class AnalyticModel:
                 if lut_quality is not None:
                     e_lut = lut_quality[name][attr_name]
                     ret[f"error/lut/{name}/{attr_name}/mae"] = (e_lut["mae"], unit)
+                    ret[f"error/lut/{name}/{attr_name}/mape"] = (
+                        e_lut["mape"],
+                        r"\percent",
+                    )
                     ret[f"error/lut/{name}/{attr_name}/smape"] = (
                         e_lut["smape"],
                         r"\percent",
@@ -505,6 +513,10 @@ class AnalyticModel:
 
                 e_model = model_quality[name][attr_name]
                 ret[f"error/model/{name}/{attr_name}/mae"] = (e_model["mae"], unit)
+                ret[f"error/model/{name}/{attr_name}/mape"] = (
+                    e_model["mape"],
+                    r"\percent",
+                )
                 ret[f"error/model/{name}/{attr_name}/smape"] = (
                     e_model["smape"],
                     r"\percent",
