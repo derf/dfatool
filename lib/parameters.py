@@ -308,6 +308,36 @@ def _all_params_are_numeric(data, param_idx):
     return all(map(is_numeric, param_values))
 
 
+class ParamType(dict):
+    UNSET = 0
+    USELESS = 1
+    BOOLEAN = 2
+    SCALAR = 3
+    ENUM = 4
+
+    def __init__(self, param_values, values_are_distinct=False):
+        if values_are_distinct:
+            distinct_values = param_values
+        else:
+            distinct_values = distinct_param_values(param_values)
+        for param_index, param_values in enumerate(distinct_values):
+            if None in param_values:
+                none_adj = -1
+            else:
+                none_adj = 0
+            value_count = len(param_values) + none_adj
+            if value_count == 0:
+                self[param_index] = self.UNSET
+            elif value_count == 1:
+                self[param_index] = self.USELESS
+            elif value_count == 2:
+                self[param_index] = self.BOOLEAN
+            elif all(map(lambda n: n is None or is_numeric(n), param_values)):
+                self[param_index] = self.SCALAR
+            else:
+                self[param_index] = self.ENUM
+
+
 class ParallelParamStats:
     def __init__(self):
         self.queue = list()

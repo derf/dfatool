@@ -6,6 +6,7 @@ import os
 from .automata import PTA, ModelAttribute
 from .functions import StaticFunction, SubstateFunction, SplitFunction
 from .parameters import (
+    ParamType,
     ParallelParamStats,
     ParamStats,
     codependent_param_dict,
@@ -127,9 +128,13 @@ class AnalyticModel:
             self._num_args = _num_args_from_by_name(by_name)
 
         self.distinct_param_values_by_name = dict()
+        self.param_type_by_name = dict()
         for name in self.names:
             self.distinct_param_values_by_name[name] = distinct_param_values(
                 by_name[name]["param"]
+            )
+            self.param_type_by_name[name] = ParamType(
+                self.distinct_param_values_by_name[name], values_are_distinct=True
             )
 
         self.fit_done = False
@@ -439,24 +444,20 @@ class AnalyticModel:
                 "scalar": 0,
                 "enum": 0,
             }
-            for param_index, param_values in enumerate(
-                self.distinct_param_values_by_name[name]
-            ):
-                if None in param_values:
-                    none_adj = -1
-                else:
-                    none_adj = 0
-                value_count = len(param_values) + none_adj
-                if value_count == 0:
+            for param_index in range(len(self.parameters)):
+                param_type = self.param_type_by_name[name][param_index]
+                if param_type == ParamType.UNSET:
                     param_data["unset"] += 1
-                elif value_count == 1:
+                elif param_type == ParamType.USELESS:
                     param_data["useless"] += 1
-                elif value_count == 2:
+                elif param_type == ParamType.BOOLEAN:
                     param_data["boolean"] += 1
-                elif all(map(lambda x: x is None or is_numeric(x), param_values)):
+                elif param_type == ParamType.SCALAR:
                     param_data["scalar"] += 1
-                else:
+                elif param_type == ParamType.ENUM:
                     param_data["enum"] += 1
+                else:
+                    raise RuntimeError(f"Unknown param_type: {param_type}")
             ret[f"paramcount/{name}/useful"] = (
                 param_data["boolean"] + param_data["scalar"] + param_data["enum"]
             )
@@ -663,9 +664,13 @@ class PTAModel(AnalyticModel):
         self.ignore_trace_indexes = ignore_trace_indexes
 
         self.distinct_param_values_by_name = dict()
+        self.param_type_by_name = dict()
         for name in self.names:
             self.distinct_param_values_by_name[name] = distinct_param_values(
                 by_name[name]["param"]
+            )
+            self.param_type_by_name[name] = ParamType(
+                self.distinct_param_values_by_name[name], values_are_distinct=True
             )
 
         self.fit_done = False
