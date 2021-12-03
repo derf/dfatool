@@ -449,7 +449,9 @@ class AnalyticModel:
                 "scalar": 0,
                 "enum": 0,
             }
-            for param_index in range(len(self.parameters)):
+            for param_index in range(
+                len(self.parameters) + self._num_args.get(name, 0)
+            ):
                 param_type = self.param_type_by_name[name][param_index]
                 if param_type == ParamType.UNSET:
                     param_data["unset"] += 1
