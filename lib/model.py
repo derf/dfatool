@@ -157,8 +157,11 @@ class AnalyticModel:
                     with_nonbinary_nodes = bool(
                         int(os.getenv("DFATOOL_DTREE_NONBINARY_NODES", "1"))
                     )
+                    loss_ignore_scalar = bool(
+                        int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
+                    )
                     logger.debug(
-                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes})"
+                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes}, loss_ignore_scalar={loss_ignore_scalar})"
                     )
                     self.build_dtree(
                         name,
@@ -166,6 +169,7 @@ class AnalyticModel:
                         threshold=threshold,
                         with_function_leaves=with_function_leaves,
                         with_nonbinary_nodes=with_nonbinary_nodes,
+                        loss_ignore_scalar=loss_ignore_scalar,
                     )
             self.fit_done = True
 
@@ -189,6 +193,7 @@ class AnalyticModel:
                     self.parameters,
                     self._num_args.get(name, 0),
                     codependent_param=codependent_param,
+                    param_type=self.param_type_by_name[name],
                 )
                 self.attr_by_name[name][attr] = model_attr
                 paramstats.enqueue((name, attr), model_attr)
@@ -319,8 +324,11 @@ class AnalyticModel:
                             and attr in self.dtree_max_std[name]
                         ):
                             threshold = self.dtree_max_std[name][attr]
+                        loss_ignore_scalar = bool(
+                            int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
+                        )
                         logger.debug(
-                            f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes})"
+                            f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes}, loss_ignore_scalar={loss_ignore_scalar})"
                         )
                         self.build_dtree(
                             name,
@@ -328,6 +336,7 @@ class AnalyticModel:
                             threshold=threshold,
                             with_function_leaves=with_function_leaves,
                             with_nonbinary_nodes=with_nonbinary_nodes,
+                            loss_ignore_scalar=loss_ignore_scalar,
                         )
                     else:
                         self.attr_by_name[name][attr].set_data_from_paramfit(paramfit)
@@ -405,6 +414,7 @@ class AnalyticModel:
         threshold=100,
         with_function_leaves=False,
         with_nonbinary_nodes=True,
+        loss_ignore_scalar=False,
     ):
 
         if name not in self.attr_by_name:
@@ -417,6 +427,7 @@ class AnalyticModel:
                 self.by_name[name][attribute],
                 self.by_name[name]["param"],
                 self.parameters,
+                param_type=ParamType(self.by_name[name]["param"]),
             )
 
         # temporary hack for ResKIL / kconfig-webconf evaluation of regression trees with function nodes
@@ -431,6 +442,7 @@ class AnalyticModel:
             self.by_name[name][attribute],
             with_function_leaves=with_function_leaves,
             with_nonbinary_nodes=with_nonbinary_nodes,
+            loss_ignore_scalar=loss_ignore_scalar,
             threshold=threshold,
         )
 

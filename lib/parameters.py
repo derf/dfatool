@@ -540,6 +540,7 @@ class ModelAttribute:
         param_names,
         arg_count=0,
         codependent_param=dict(),
+        param_type=dict(),
     ):
 
         # Data for model generation
@@ -554,6 +555,22 @@ class ModelAttribute:
 
         self.log_param_names = self.param_names + list(
             map(lambda i: f"arg{i}", range(arg_count))
+        )
+
+        # dict: Parameter index -> Parameter type (UNSET, BOOLEAN, SCALAR, ...)
+        self.param_type = param_type
+
+        self.nonscalar_param_indexes = list(
+            map(
+                lambda kv: kv[0],
+                filter(lambda kv: kv[1] != ParamType.SCALAR, self.param_type.items()),
+            )
+        )
+        self.scalar_param_indexes = list(
+            map(
+                lambda kv: kv[0],
+                filter(lambda kv: kv[1] == ParamType.SCALAR, self.param_type.items()),
+            )
         )
 
         # Co-dependent parameters. If (param1_index, param2_index) in codependent_param, they are codependent.
@@ -826,24 +843,33 @@ class ModelAttribute:
         data,
         with_function_leaves=False,
         with_nonbinary_nodes=True,
+        loss_ignore_scalar=False,
         threshold=100,
     ):
         """
         Build a Decision Tree on `param` / `data` for kconfig models.
 
-        :param this_symbols: parameter names
-        :param this_data: list of measurements. Each entry is a (param vector, mearusements vector) tuple.
-            param vector holds parameter values (same order as parameter names). mearuserements vector holds measurements.
-        :param data_index: Index in measurements vector to use for model generation. Default 0.
-        :param threshold: Return a StaticFunction leaf node if std(data[data_index]) < threshold. Default 100.
+        :param parameters: parameter values for each measurement. [(data 1 param 1, data 1 param 2, ...), (data 2 param 1, data 2 param 2, ...), ...]
+        :param data: Measurements. [data 1, data 2, data 3, ...]
+        :param with_function_leaves: Use fitted function sets to generate function leaves for scalar parameters
+        :param with_nonbinary_nodes: Allow non-binary nodes for enum and scalar parameters (i.e., nodes with more than two children)
+        :param loss_ignore_scalar: Ignore scalar parameters when computing the loss for split candidates. Only sensible if with_function_leaves is enabled.
+        :param threshold: Return a StaticFunction leaf node if std(data) < threshold. Default 100.
 
         :returns: SplitFunction or StaticFunction
         """
+
+        if loss_ignore_scalar and not with_function_leaves:
+            logger.warning(
+                "build_dtree called with loss_ignore_scalar=True, with_function_leaves=False. This does not make sense."
+            )
+
         self.model_function = self._build_dtree(
             parameters,
             data,
             with_function_leaves=with_function_leaves,
             with_nonbinary_nodes=with_nonbinary_nodes,
+            loss_ignore_scalar=loss_ignore_scalar,
             threshold=threshold,
         )
 
@@ -853,22 +879,22 @@ class ModelAttribute:
         data,
         with_function_leaves=False,
         with_nonbinary_nodes=True,
+        loss_ignore_scalar=False,
         threshold=100,
         level=0,
     ):
         """
         Build a Decision Tree on `param` / `data` for kconfig models.
 
-        :param this_symbols: parameter names
-        :param this_data: list of measurements. Each entry is a (param vector, mearusements vector) tuple.
-            param vector holds parameter values (same order as parameter names). mearuserements vector holds measurements.
-        :param data_index: Index in measurements vector to use for model generation. Default 0.
-        :param threshold: Return a StaticFunction leaf node if std(data[data_index]) < threshold. Default 100.
+        :param parameters: parameter values for each measurement. [(data 1 param 1, data 1 param 2, ...), (data 2 param 1, data 2 param 2, ...), ...]
+        :param data: Measurements. [data 1, data 2, data 3, ...]
+        :param with_function_leaves: Use fitted function sets to generate function leaves for scalar parameters
+        :param with_nonbinary_nodes: Allow non-binary nodes for enum and scalar parameters (i.e., nodes with more than two children)
+        :param loss_ignore_scalar: Ignore scalar parameters when computing the loss for split candidates. Only sensible if with_function_leaves is enabled.
+        :param threshold: Return a StaticFunction leaf node if std(data) < threshold. Default 100.
 
         :returns: SplitFunction or StaticFunction
         """
-
-        # TODO remove data entries which are None (and remove corresponding parameters, too!)
 
         param_count = len(self.param_names) + self.arg_count
         if param_count == 0 or np.std(data) < threshold:
@@ -889,14 +915,16 @@ class ModelAttribute:
                 mean_stds.append(np.inf)
                 continue
 
+            # if not with_nonbinary_nodes and sorted(unique_values) != [0, 1]:
             if not with_nonbinary_nodes and len(unique_values) > 2:
+                # param cannot be handled with a binary split
                 mean_stds.append(np.inf)
                 continue
 
             if (
                 with_function_leaves
+                and self.param_type[param_index] == ParamType.SCALAR
                 and len(unique_values) >= self.min_values_for_analytic_model
-                and all(map(lambda x: type(x) is int, unique_values))
             ):
                 # param can be modeled as a function. Do not split on it.
                 mean_stds.append(np.inf)
@@ -920,7 +948,17 @@ class ModelAttribute:
 
             children = list()
             for child in child_indexes:
-                children.append(np.std(list(map(lambda i: data[i], child))))
+                child_data = list(map(lambda i: data[i], child))
+                if loss_ignore_scalar:
+                    child_param = list(map(lambda i: parameters[i], child))
+                    child_data_by_scalar = partition_by_param(
+                        child_data,
+                        child_param,
+                        ignore_parameters=self.nonscalar_param_indexes,
+                    )
+                    children.extend(map(np.std, child_data_by_scalar.values()))
+                else:
+                    children.append(np.std(child_data))
 
             if np.any(np.isnan(children)):
                 mean_stds.append(np.inf)
@@ -938,6 +976,7 @@ class ModelAttribute:
                     parameters,
                     self.param_names,
                     arg_count=self.arg_count,
+                    param_type=self.param_type,
                 )
                 ParamStats.compute_for_attr(ma)
                 paramfit = ParamFit(parallel=False)
