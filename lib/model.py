@@ -430,13 +430,6 @@ class AnalyticModel:
                 param_type=ParamType(self.by_name[name]["param"]),
             )
 
-        # temporary hack for ResKIL / kconfig-webconf evaluation of regression trees with function nodes
-        if (
-            with_function_leaves
-            and attribute in "accuracy model_size_mb power_w".split()
-        ):
-            with_function_leaves = False
-
         self.attr_by_name[name][attribute].build_dtree(
             self.by_name[name]["param"],
             self.by_name[name][attribute],
