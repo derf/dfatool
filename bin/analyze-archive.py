@@ -800,9 +800,9 @@ if __name__ == "__main__":
                 )
 
     if xv_method == "montecarlo":
-        static_quality = xv.montecarlo(lambda m: m.get_static(), xv_count)
+        static_quality, _ = xv.montecarlo(lambda m: m.get_static(), xv_count)
     elif xv_method == "kfold":
-        static_quality = xv.kfold(lambda m: m.get_static(), xv_count)
+        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count)
     else:
         static_quality = model.assess(static_model)
 
@@ -811,9 +811,11 @@ if __name__ == "__main__":
     lut_model = model.get_param_lut()
 
     if xv_method == "montecarlo":
-        lut_quality = xv.montecarlo(lambda m: m.get_param_lut(fallback=True), xv_count)
+        lut_quality, _ = xv.montecarlo(
+            lambda m: m.get_param_lut(fallback=True), xv_count
+        )
     elif xv_method == "kfold":
-        lut_quality = xv.kfold(lambda m: m.get_param_lut(fallback=True), xv_count)
+        lut_quality, _ = xv.kfold(lambda m: m.get_param_lut(fallback=True), xv_count)
     else:
         lut_quality = model.assess(lut_model)
 
@@ -933,9 +935,9 @@ if __name__ == "__main__":
                 )
 
     if xv_method == "montecarlo":
-        analytic_quality = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
+        analytic_quality, _ = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
     elif xv_method == "kfold":
-        analytic_quality = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
+        analytic_quality, _ = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
     else:
         analytic_quality = model.assess(param_model)
 
