@@ -238,7 +238,9 @@ def main():
 
     if xv_method == "montecarlo":
         static_quality, _ = xv.montecarlo(lambda m: m.get_static(), xv_count)
-        analytic_quality, _ = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
+        analytic_quality, xv_analytic_models = xv.montecarlo(
+            lambda m: m.get_fitted()[0], xv_count
+        )
         if lut_model:
             lut_quality, _ = xv.montecarlo(
                 lambda m: m.get_param_lut(fallback=True), xv_count
@@ -247,7 +249,9 @@ def main():
             lut_quality = None
     elif xv_method == "kfold":
         static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count)
-        analytic_quality, _ = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
+        analytic_quality, xv_analytic_models = xv.kfold(
+            lambda m: m.get_fitted()[0], xv_count
+        )
         if lut_model:
             lut_quality, _ = xv.kfold(
                 lambda m: m.get_param_lut(fallback=True), xv_count
@@ -257,6 +261,7 @@ def main():
     else:
         static_quality = model.assess(static_model)
         analytic_quality = model.assess(param_model)
+        xv_analytic_models = none
         if lut_model:
             lut_quality = model.assess(lut_model)
         else:
@@ -324,7 +329,14 @@ def main():
         static_quality = model.assess(static_model)
 
     if args.export_dref:
-        dref.update(model.to_dref(static_quality, lut_quality, analytic_quality))
+        dref.update(
+            model.to_dref(
+                static_quality,
+                lut_quality,
+                analytic_quality,
+                xv_models=xv_analytic_models,
+            )
+        )
         dref["constructor duration"] = (constructor_duration, r"\second")
         dref["regression duration"] = (fit_duration, r"\second")
         with open(args.export_dref, "w") as f:

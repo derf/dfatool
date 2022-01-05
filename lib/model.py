@@ -449,7 +449,9 @@ class AnalyticModel:
             threshold=threshold,
         )
 
-    def to_dref(self, static_quality, lut_quality, model_quality) -> dict:
+    def to_dref(
+        self, static_quality, lut_quality, model_quality, xv_models=None
+    ) -> dict:
         ret = dict()
         for name in self.names:
             param_data = {
@@ -546,6 +548,20 @@ class AnalyticModel:
                     )
                 except KeyError:
                     logger.warning(f"{name} {attr_name} param model has no MAPE")
+
+                if xv_models is not None:
+                    keys = ("decision tree/nodes", "decision tree/max depth")
+                    entry = dict()
+                    for k in keys:
+                        entry[k] = list()
+                    for xv_model in xv_models:
+                        dref = xv_model.attr_by_name[name][attr_name].to_dref()
+                        for k in keys:
+                            if k in dref:
+                                entry[k].append(dref[k])
+                    for k in keys:
+                        if len(entry[k]):
+                            ret[k] = np.mean(entry[k])
         return ret
 
     def to_json(self, **kwargs) -> dict:

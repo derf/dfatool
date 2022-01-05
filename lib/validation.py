@@ -280,4 +280,4 @@ class CrossValidator:
             validation, self.parameters, *self.args, **self.kwargs
         )
 
-        return training_model, validation_data.assess(training_model)
+        return training_data, validation_data.assess(training_model)

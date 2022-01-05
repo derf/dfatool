@@ -935,11 +935,16 @@ if __name__ == "__main__":
                 )
 
     if xv_method == "montecarlo":
-        analytic_quality, _ = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
+        analytic_quality, xv_analytic_models = xv.montecarlo(
+            lambda m: m.get_fitted()[0], xv_count
+        )
     elif xv_method == "kfold":
-        analytic_quality, _ = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
+        analytic_quality, xv_analytic_models = xv.kfold(
+            lambda m: m.get_fitted()[0], xv_count
+        )
     else:
         analytic_quality = model.assess(param_model)
+        xv_analytic_models = None
 
     if "tex" in show_models or "tex" in show_quality:
         print_text_model_data(
@@ -1053,7 +1058,14 @@ if __name__ == "__main__":
 
     if args.export_dref:
         dref = raw_data.to_dref()
-        dref.update(model.to_dref(static_quality, lut_quality, analytic_quality))
+        dref.update(
+            model.to_dref(
+                static_quality,
+                lut_quality,
+                analytic_quality,
+                xv_models=xv_analytic_models,
+            )
+        )
         dref["constructor duration"] = (constructor_duration, r"\second")
         dref["regression duration"] = (fit_duration, r"\second")
         with open(args.export_dref, "w") as f:

@@ -339,6 +339,13 @@ class SplitFunction(ModelFunction):
                 ret += 1
         return ret
 
+    def get_max_depth(self):
+        ret = [0]
+        for v in self.child.values():
+            if type(v) is SplitFunction:
+                ret.append(v.get_max_depth())
+        return 1 + max(ret)
+
     @classmethod
     def from_json(cls, data):
         assert data["type"] == "split"
