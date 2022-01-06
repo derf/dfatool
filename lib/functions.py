@@ -417,9 +417,10 @@ class SubstateFunction(ModelFunction):
 
 
 class SKLearnRegressionFunction(ModelFunction):
-    def __init__(self, value, regressor, ignore_index):
+    def __init__(self, value, regressor, categorial_to_index, ignore_index):
         super().__init__(value)
         self.regressor = regressor
+        self.categorial_to_index = categorial_to_index
         self.ignore_index = ignore_index
 
     def is_predictable(self, param_list=None):
@@ -442,7 +443,10 @@ class SKLearnRegressionFunction(ModelFunction):
         actual_param_list = list()
         for i, param in enumerate(param_list):
             if not self.ignore_index[i]:
-                actual_param_list.append(param)
+                if i in self.categorial_to_index:
+                    actual_param_list.append(self.categorial_to_index[i][param])
+                else:
+                    actual_param_list.append(param)
         return self.regressor.predict(np.array([actual_param_list]))
 
 

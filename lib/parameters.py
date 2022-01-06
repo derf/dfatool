@@ -38,9 +38,11 @@ def distinct_param_values(param_tuples):
     return distinct_values
 
 
-def param_to_ndarray(param_tuples, with_nan=True):
+def param_to_ndarray(param_tuples, with_nan=True, categorial_to_scalar=False):
     has_nan = dict()
     has_non_numeric = dict()
+    distinct_values = dict()
+    category_to_scalar = dict()
 
     for param_tuple in param_tuples:
         for i, param in enumerate(param_tuple):
@@ -49,24 +51,40 @@ def param_to_ndarray(param_tuples, with_nan=True):
                     has_nan[i] = True
                 else:
                     has_non_numeric[i] = True
+                if categorial_to_scalar and param is not None:
+                    if not i in distinct_values:
+                        distinct_values[i] = set()
+                    distinct_values[i].add(param)
+
+    for i, paramset in distinct_values.items():
+        distinct_values[i] = sorted(paramset)
+        category_to_scalar[i] = dict()
+        for j, param in enumerate(distinct_values[i]):
+            category_to_scalar[i][param] = j
 
     ignore_index = dict()
     for i in range(len(param_tuples[0])):
-        if has_non_numeric.get(i, False):
+        if has_non_numeric.get(i, False) and not categorial_to_scalar:
             ignore_index[i] = True
         elif not with_nan and has_nan.get(i, False):
             ignore_index[i] = True
         else:
             ignore_index[i] = False
 
+    print(category_to_scalar, ignore_index)
+
     ret_tuples = list()
     for param_tuple in param_tuples:
         ret_tuple = list()
         for i, param in enumerate(param_tuple):
             if not ignore_index[i]:
-                ret_tuple.append(param)
+                if i in category_to_scalar:
+                    ret_tuple.append(category_to_scalar[i][param])
+                else:
+                    ret_tuple.append(param)
+        print(ret_tuple)
         ret_tuples.append(ret_tuple)
-    return np.asarray(ret_tuples), ignore_index
+    return np.asarray(ret_tuples), category_to_scalar, ignore_index
 
 
 def _depends_on_param(corr_param, std_param, std_lut):
@@ -902,10 +920,12 @@ class ModelAttribute:
             if max_depth == 0:
                 max_depth = None
             cart = DecisionTreeRegressor(max_depth=max_depth)
-            fit_parameters, ignore_index = param_to_ndarray(parameters, with_nan=False)
+            fit_parameters, category_to_index, ignore_index = param_to_ndarray(
+                parameters, with_nan=False, categorial_to_scalar=True
+            )
             cart.fit(fit_parameters, data)
             self.model_function = df.SKLearnRegressionFunction(
-                np.mean(data), cart, ignore_index
+                np.mean(data), cart, category_to_index, ignore_index
             )
             return
 
@@ -921,10 +941,12 @@ class ModelAttribute:
                 gamma=0.01,
                 alpha=0.0006,
             )
-            fit_parameters, ignore_index = param_to_ndarray(parameters, with_nan=False)
+            fit_parameters, category_to_index, ignore_index = param_to_ndarray(
+                parameters, with_nan=False, categorial_to_scalar=True
+            )
             xgb.fit(fit_parameters, data)
             self.model_function = df.SKLearnRegressionFunction(
-                np.mean(data), xgb, ignore_index
+                np.mean(data), xgb, category_to_index, ignore_index
             )
             return
 
