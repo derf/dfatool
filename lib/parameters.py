@@ -71,8 +71,6 @@ def param_to_ndarray(param_tuples, with_nan=True, categorial_to_scalar=False):
         else:
             ignore_index[i] = False
 
-    print(category_to_scalar, ignore_index)
-
     ret_tuples = list()
     for param_tuple in param_tuples:
         ret_tuple = list()
@@ -82,7 +80,6 @@ def param_to_ndarray(param_tuples, with_nan=True, categorial_to_scalar=False):
                     ret_tuple.append(category_to_scalar[i][param])
                 else:
                     ret_tuple.append(param)
-        print(ret_tuple)
         ret_tuples.append(ret_tuple)
     return np.asarray(ret_tuples), category_to_scalar, ignore_index
 
