@@ -443,7 +443,7 @@ class SKLearnRegressionFunction(ModelFunction):
         for i, param in enumerate(param_list):
             if not self.ignore_index[i]:
                 actual_param_list.append(param)
-        return self.regressor.predict([actual_param_list])
+        return self.regressor.predict(np.array([actual_param_list]))
 
 
 class AnalyticFunction(ModelFunction):

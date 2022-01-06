@@ -876,6 +876,7 @@ class ModelAttribute:
         with_function_leaves=False,
         with_nonbinary_nodes=True,
         with_sklearn_cart=False,
+        with_xgboost=False,
         loss_ignore_scalar=False,
         threshold=100,
     ):
@@ -905,6 +906,25 @@ class ModelAttribute:
             cart.fit(fit_parameters, data)
             self.model_function = df.SKLearnRegressionFunction(
                 np.mean(data), cart, ignore_index
+            )
+            return
+
+        if with_xgboost:
+            from xgboost import XGBRegressor
+
+            # TODO retrieve parameters from env
+            xgb = XGBRegressor(
+                n_estimators=100,
+                max_depth=10,
+                eta=0.2,
+                subsample=0.7,
+                gamma=0.01,
+                alpha=0.0006,
+            )
+            fit_parameters, ignore_index = param_to_ndarray(parameters, with_nan=False)
+            xgb.fit(fit_parameters, data)
+            self.model_function = df.SKLearnRegressionFunction(
+                np.mean(data), xgb, ignore_index
             )
             return
 
