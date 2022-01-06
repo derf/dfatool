@@ -913,6 +913,10 @@ class ModelAttribute:
         :returns: SplitFunction or StaticFunction
         """
 
+        categorial_to_scalar = bool(
+            int(os.getenv("DFATOOL_PARAM_CATEGORIAL_TO_SCALAR", "0"))
+        )
+
         if with_sklearn_cart:
             from sklearn.tree import DecisionTreeRegressor
 
@@ -921,7 +925,7 @@ class ModelAttribute:
                 max_depth = None
             cart = DecisionTreeRegressor(max_depth=max_depth)
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
-                parameters, with_nan=False, categorial_to_scalar=True
+                parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
             )
             cart.fit(fit_parameters, data)
             self.model_function = df.SKLearnRegressionFunction(
@@ -942,7 +946,7 @@ class ModelAttribute:
                 alpha=0.0006,
             )
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
-                parameters, with_nan=False, categorial_to_scalar=True
+                parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
             )
             xgb.fit(fit_parameters, data)
             self.model_function = df.SKLearnRegressionFunction(
