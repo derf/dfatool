@@ -322,8 +322,8 @@ class TestSynthetic(unittest.TestCase):
         model = PTAModel(by_name, parameter_names, arg_count)
         validator = CrossValidator(PTAModel, by_name, parameter_names, arg_count)
 
-        static_quality = validator.kfold(lambda m: m.get_static(), 10)
-        param_quality = validator.kfold(lambda m: m.get_fitted()[0], 10)
+        static_quality, _ = validator.kfold(lambda m: m.get_static(), 10)
+        param_quality, _ = validator.kfold(lambda m: m.get_fitted()[0], 10)
 
         # static quality reflects normal distribution scale for non-parameterized data
 
