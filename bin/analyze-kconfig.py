@@ -261,7 +261,7 @@ def main():
     else:
         static_quality = model.assess(static_model)
         analytic_quality = model.assess(param_model)
-        xv_analytic_models = none
+        xv_analytic_models = [model]
         if lut_model:
             lut_quality = model.assess(lut_model)
         else:

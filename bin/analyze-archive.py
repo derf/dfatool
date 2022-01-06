@@ -944,7 +944,7 @@ if __name__ == "__main__":
         )
     else:
         analytic_quality = model.assess(param_model)
-        xv_analytic_models = None
+        xv_analytic_models = [model]
 
     if "tex" in show_models or "tex" in show_quality:
         print_text_model_data(

@@ -561,7 +561,7 @@ class AnalyticModel:
                                 entry[k].append(dref[k])
                     for k in keys:
                         if len(entry[k]):
-                            ret[k] = np.mean(entry[k])
+                            ret[f"xv/{name}/{attr_name}/{k}"] = np.mean(entry[k])
         return ret
 
     def to_json(self, **kwargs) -> dict:
