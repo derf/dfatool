@@ -444,10 +444,21 @@ class SKLearnRegressionFunction(ModelFunction):
         for i, param in enumerate(param_list):
             if not self.ignore_index[i]:
                 if i in self.categorial_to_index:
-                    actual_param_list.append(self.categorial_to_index[i][param])
+                    try:
+                        actual_param_list.append(self.categorial_to_index[i][param])
+                    except KeyError:
+                        # param was not part of training data. substitute an unused scalar.
+                        # Note that all param values which were not part of training data map to the same scalar this way.
+                        # This should be harmless.
+                        actual_param_list.append(
+                            max(self.categorial_to_index[i][param]) + 1
+                        )
                 else:
                     actual_param_list.append(param)
-        return self.regressor.predict(np.array([actual_param_list]))
+        predictions = self.regressor.predict(np.array([actual_param_list]))
+        if predictions.shape == (1,):
+            return predictions[0]
+        return predictions
 
 
 class AnalyticFunction(ModelFunction):
