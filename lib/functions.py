@@ -451,7 +451,7 @@ class SKLearnRegressionFunction(ModelFunction):
                         # Note that all param values which were not part of training data map to the same scalar this way.
                         # This should be harmless.
                         actual_param_list.append(
-                            max(self.categorial_to_index[i][param]) + 1
+                            max(self.categorial_to_index[i].values()) + 1
                         )
                 else:
                     actual_param_list.append(param)
