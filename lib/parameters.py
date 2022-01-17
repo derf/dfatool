@@ -924,6 +924,11 @@ class ModelAttribute:
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
                 parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
             )
+            if fit_parameters.shape[1] == 0:
+                logger.warning(
+                    f"Cannot generate CART due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
+                )
+                return df.StaticFunction(np.mean(data))
             cart.fit(fit_parameters, data)
             self.model_function = df.SKLearnRegressionFunction(
                 np.mean(data), cart, category_to_index, ignore_index
@@ -945,6 +950,11 @@ class ModelAttribute:
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
                 parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
             )
+            if fit_parameters.shape[1] == 0:
+                logger.warning(
+                    f"Cannot run XGBoost due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
+                )
+                return df.StaticFunction(np.mean(data))
             xgb.fit(fit_parameters, np.reshape(data, (-1, 1)))
             self.model_function = df.SKLearnRegressionFunction(
                 np.mean(data), xgb, category_to_index, ignore_index
