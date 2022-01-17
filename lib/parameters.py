@@ -936,16 +936,20 @@ class ModelAttribute:
             return
 
         if with_xgboost:
-            from xgboost import XGBRegressor
+            import xgboost
 
             # TODO retrieve parameters from env
-            xgb = XGBRegressor(
-                n_estimators=100,
-                max_depth=10,
-                eta=0.2,
+            # <https://xgboost.readthedocs.io/en/stable/python/python_api.html#module-xgboost.sklearn>
+            # n_estimators := number of trees in forest
+            # max_depth := maximum tree depth
+            # eta <=> learning_rate
+            xgb = xgboost.XGBRegressor(
+                n_estimators=int(os.getenv("DFATOOL_XGB_N_ESTIMATORS", "100")),
+                max_depth=int(os.getenv("DFATOOL_XGB_MAX_DEPTH", "10")),
+                learning_rate=0.2,
                 subsample=0.7,
                 gamma=0.01,
-                alpha=0.0006,
+                reg_alpha=0.0006,
             )
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
                 parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
