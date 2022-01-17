@@ -945,7 +945,7 @@ class ModelAttribute:
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
                 parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
             )
-            xgb.fit(fit_parameters, data)
+            xgb.fit(fit_parameters, np.reshape(data, (-1, 1)))
             self.model_function = df.SKLearnRegressionFunction(
                 np.mean(data), xgb, category_to_index, ignore_index
             )
