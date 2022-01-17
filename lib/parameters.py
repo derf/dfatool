@@ -928,7 +928,8 @@ class ModelAttribute:
                 logger.warning(
                     f"Cannot generate CART due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
                 )
-                return df.StaticFunction(np.mean(data))
+                self.model_function = df.StaticFunction(np.mean(data))
+                return
             cart.fit(fit_parameters, data)
             self.model_function = df.SKLearnRegressionFunction(
                 np.mean(data), cart, category_to_index, ignore_index
@@ -958,7 +959,8 @@ class ModelAttribute:
                 logger.warning(
                     f"Cannot run XGBoost due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
                 )
-                return df.StaticFunction(np.mean(data))
+                self.model_function = df.StaticFunction(np.mean(data))
+                return
             xgb.fit(fit_parameters, np.reshape(data, (-1, 1)))
             self.model_function = df.SKLearnRegressionFunction(
                 np.mean(data), xgb, category_to_index, ignore_index
