@@ -965,6 +965,9 @@ class ModelAttribute:
             self.model_function = df.SKLearnRegressionFunction(
                 np.mean(data), xgb, category_to_index, ignore_index
             )
+            output_filename = os.getenv("DFATOOL_XGB_DUMP_MODEL", None)
+            if output_filename:
+                xgb.dump_model(output_filename, dump_format="json", with_stats=True)
             return
 
         if loss_ignore_scalar and not with_function_leaves:
