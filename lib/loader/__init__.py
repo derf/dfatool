@@ -415,6 +415,12 @@ class RawData:
             os.mkdir(self.cache_dir)
         except FileExistsError:
             pass
+        except PermissionError:
+            logger.info(
+                f"Cannot write cache entry {self.cache_file}: permission denied"
+            )
+            # no cache for you
+            return
         with open(self.cache_file, "w") as f:
             cache_data = {
                 "filenames": self.filenames,
