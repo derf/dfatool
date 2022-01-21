@@ -1009,7 +1009,7 @@ class ModelAttribute:
         """
 
         param_count = len(self.param_names) + self.arg_count
-        if param_count == 0 or np.std(data) < threshold:
+        if param_count == 0 or np.std(data) <= threshold:
             return df.StaticFunction(np.mean(data))
             # sf.value_error["std"] = np.std(data)
 
