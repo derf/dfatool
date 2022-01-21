@@ -947,7 +947,6 @@ class ModelAttribute:
             xgb = xgboost.XGBRegressor(
                 n_estimators=int(os.getenv("DFATOOL_XGB_N_ESTIMATORS", "100")),
                 max_depth=int(os.getenv("DFATOOL_XGB_MAX_DEPTH", "10")),
-                learning_rate=0.2,
                 subsample=0.7,
                 gamma=0.01,
                 reg_alpha=0.0006,
@@ -967,7 +966,9 @@ class ModelAttribute:
             )
             output_filename = os.getenv("DFATOOL_XGB_DUMP_MODEL", None)
             if output_filename:
-                xgb.dump_model(output_filename, dump_format="json", with_stats=True)
+                xgb.get_booster().dump_model(
+                    output_filename, dump_format="json", with_stats=True
+                )
             return
 
         if loss_ignore_scalar and not with_function_leaves:
