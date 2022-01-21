@@ -666,7 +666,7 @@ class ModelAttribute:
     def to_dref(self, unit=None):
         ret = {"mean": (self.mean, unit), "median": (self.median, unit)}
 
-        if type(self.model_function) is df.SplitFunction:
+        if type(self.model_function) in (df.SplitFunction, df.CARTFunction):
             ret["decision tree/nodes"] = self.model_function.get_number_of_nodes()
             ret["decision tree/max depth"] = self.model_function.get_max_depth()
 
@@ -931,7 +931,7 @@ class ModelAttribute:
                 self.model_function = df.StaticFunction(np.mean(data))
                 return
             cart.fit(fit_parameters, data)
-            self.model_function = df.SKLearnRegressionFunction(
+            self.model_function = df.CARTFunction(
                 np.mean(data), cart, category_to_index, ignore_index
             )
             return
