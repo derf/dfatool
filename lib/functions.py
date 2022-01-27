@@ -469,6 +469,10 @@ class CARTFunction(SKLearnRegressionFunction):
         return self.regressor.get_depth()
 
 
+class LMTFunction(SKLearnRegressionFunction):
+    pass
+
+
 class XGBoostFunction(SKLearnRegressionFunction):
     def get_number_of_nodes(self):
         import json

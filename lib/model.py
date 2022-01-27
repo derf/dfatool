@@ -160,6 +160,7 @@ class AnalyticModel:
                     with_sklearn_cart = bool(
                         int(os.getenv("DFATOOL_DTREE_SKLEARN_CART", "0"))
                     )
+                    with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
                     with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
                     loss_ignore_scalar = bool(
                         int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
@@ -174,6 +175,7 @@ class AnalyticModel:
                         with_function_leaves=with_function_leaves,
                         with_nonbinary_nodes=with_nonbinary_nodes,
                         with_sklearn_cart=with_sklearn_cart,
+                        with_lmt=with_lmt,
                         with_xgboost=with_xgboost,
                         loss_ignore_scalar=loss_ignore_scalar,
                     )
@@ -326,6 +328,7 @@ class AnalyticModel:
                         with_sklearn_cart = bool(
                             int(os.getenv("DFATOOL_DTREE_SKLEARN_CART", "0"))
                         )
+                        with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
                         with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
                         loss_ignore_scalar = bool(
                             int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
@@ -347,6 +350,7 @@ class AnalyticModel:
                             with_function_leaves=with_function_leaves,
                             with_nonbinary_nodes=with_nonbinary_nodes,
                             with_sklearn_cart=with_sklearn_cart,
+                            with_lmt=with_lmt,
                             with_xgboost=with_xgboost,
                             loss_ignore_scalar=loss_ignore_scalar,
                         )
@@ -427,6 +431,7 @@ class AnalyticModel:
         with_function_leaves=False,
         with_nonbinary_nodes=True,
         with_sklearn_cart=False,
+        with_lmt=False,
         with_xgboost=False,
         loss_ignore_scalar=False,
     ):
@@ -450,6 +455,7 @@ class AnalyticModel:
             with_function_leaves=with_function_leaves,
             with_nonbinary_nodes=with_nonbinary_nodes,
             with_sklearn_cart=with_sklearn_cart,
+            with_lmt=with_lmt,
             with_xgboost=with_xgboost,
             loss_ignore_scalar=loss_ignore_scalar,
             threshold=threshold,
