@@ -1069,7 +1069,7 @@ if __name__ == "__main__":
         dref["constructor duration"] = (constructor_duration, r"\second")
         dref["regression duration"] = (fit_duration, r"\second")
         with open(args.export_dref, "w") as f:
-            for k, v in dref.items():
+            for k, v in sorted(dref.items()):
                 if type(v) is not tuple:
                     v = (v, None)
                 if v[1] is None:
