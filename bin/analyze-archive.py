@@ -500,6 +500,11 @@ if __name__ == "__main__":
         type=str,
         help="Perform substate analysis",
     )
+    parser.add_argument(
+        "--force-tree",
+        action="store_true",
+        help="Build regression tree without checking whether static/analytic functions are sufficient.",
+    )
     parser.add_argument("measurement", nargs="+")
 
     args = parser.parse_args()
@@ -638,11 +643,14 @@ if __name__ == "__main__":
         function_override=function_override,
         pta=pta,
         pelt=args.with_substates,
+        force_tree=args.force_tree,
     )
     constructor_duration = time.time() - constructor_start
 
     if xv_method:
-        xv = CrossValidator(PTAModel, by_name, parameters, arg_count)
+        xv = CrossValidator(
+            PTAModel, by_name, parameters, arg_count, force_tree=args.force_tree
+        )
         xv.parameter_aware = args.parameter_aware_cross_validation
 
     if args.info:

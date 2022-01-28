@@ -470,7 +470,11 @@ class CARTFunction(SKLearnRegressionFunction):
 
 
 class LMTFunction(SKLearnRegressionFunction):
-    pass
+    def get_number_of_nodes(self):
+        return self.regressor.node_count
+
+    def get_max_depth(self):
+        return self.regressor.max_depth
 
 
 class XGBoostFunction(SKLearnRegressionFunction):

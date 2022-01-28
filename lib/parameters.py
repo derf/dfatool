@@ -670,6 +670,7 @@ class ModelAttribute:
             df.SplitFunction,
             df.CARTFunction,
             df.XGBoostFunction,
+            df.LMTFunction,
         ):
             ret["decision tree/nodes"] = self.model_function.get_number_of_nodes()
             ret["decision tree/max depth"] = self.model_function.get_max_depth()

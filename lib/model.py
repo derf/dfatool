@@ -652,6 +652,7 @@ class PTAModel(AnalyticModel):
         pelt=None,
         compute_stats=True,
         dtree_max_std=None,
+        force_tree=False,
     ):
         """
         Prepare a new PTA energy model.
@@ -733,6 +734,49 @@ class PTAModel(AnalyticModel):
 
         if compute_stats:
             self._compute_stats(by_name)
+
+        if force_tree:
+            for name in self.names:
+                for attr in self.by_name[name]["attributes"]:
+                    if (
+                        dtree_max_std
+                        and name in dtree_max_std
+                        and attr in dtree_max_std[name]
+                    ):
+                        threshold = dtree_max_std[name][attr]
+                    elif compute_stats:
+                        threshold = (self.attr_by_name[name][attr].stats.std_param_lut,)
+                    else:
+                        threshold = 0
+                    with_function_leaves = bool(
+                        int(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES", "1"))
+                    )
+                    with_nonbinary_nodes = bool(
+                        int(os.getenv("DFATOOL_DTREE_NONBINARY_NODES", "1"))
+                    )
+                    with_sklearn_cart = bool(
+                        int(os.getenv("DFATOOL_DTREE_SKLEARN_CART", "0"))
+                    )
+                    with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
+                    with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
+                    loss_ignore_scalar = bool(
+                        int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
+                    )
+                    logger.debug(
+                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes}, loss_ignore_scalar={loss_ignore_scalar})"
+                    )
+                    self.build_dtree(
+                        name,
+                        attr,
+                        threshold=threshold,
+                        with_function_leaves=with_function_leaves,
+                        with_nonbinary_nodes=with_nonbinary_nodes,
+                        with_sklearn_cart=with_sklearn_cart,
+                        with_lmt=with_lmt,
+                        with_xgboost=with_xgboost,
+                        loss_ignore_scalar=loss_ignore_scalar,
+                    )
+            self.fit_done = True
 
         if self.pelt is not None:
             # cluster_substates uses self.attr_by_name[*]["power"].param_values, which is set by _compute_stats
