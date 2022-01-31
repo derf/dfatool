@@ -57,6 +57,7 @@ from dfatool.model import PTAModel
 from dfatool.validation import CrossValidator
 from dfatool.utils import (
     filter_aggregate_by_param,
+    shift_param_in_aggregate,
     detect_outliers_in_aggregate,
     NpEncoder,
     is_numeric,
@@ -630,6 +631,11 @@ if __name__ == "__main__":
     )
 
     filter_aggregate_by_param(by_name, parameters, args.filter_param)
+
+    if args.param_shift:
+        param_shift = dfatool.cli.parse_param_shift(args.param_shift)
+        shift_param_in_aggregate(by_name, parameters, param_shift)
+
     detect_outliers_in_aggregate(
         by_name, z_limit=args.z_score, remove_outliers=args.remove_outliers
     )

@@ -314,6 +314,27 @@ def by_param_to_by_name(by_param: dict) -> dict:
     return by_name
 
 
+def shift_param_in_aggregate(aggregate, parameters, parameter_shift):
+    """
+    Remove entries which do not have certain parameter values from `aggregate`.
+
+    :param aggregate: aggregated measurement data, must be a dict conforming to
+        aggregate[state or transition name]['param'] = (first parameter value, second parameter value, ...)
+        and
+        aggregate[state or transition name]['attributes'] = [list of keys with measurement data, e.g. 'power' or 'duration']
+    :param parameters: list of parameters, used to map parameter index to parameter name. parameters=['foo', ...] means 'foo' is the first parameter
+    :param parameter_filter: [[name, value], [name, value], ...] list of parameter values to keep, all others are removed. Values refer to normalizad parameter data.
+    """
+    for param_name, param_shift_function in parameter_shift:
+        param_index = parameters.index(param_name)
+        for name in aggregate.keys():
+            for param_list in aggregate[name]["param"]:
+                if param_list[param_index] is not None:
+                    param_list[param_index] = param_shift_function(
+                        param_list[param_index]
+                    )
+
+
 def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
     """
     Remove entries which do not have certain parameter values from `aggregate`.
