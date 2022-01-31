@@ -991,7 +991,12 @@ class ModelAttribute:
                 )
                 self.model_function = df.StaticFunction(np.mean(data))
                 return
-            lmt.fit(fit_parameters, data)
+            try:
+                lmt.fit(fit_parameters, data)
+            except np.linalg.LinAlgError as e:
+                logger.error(f"LMT generated failed: {e}")
+                self.model_function = df.StaticFunction(np.mean(data))
+                return
             self.model_function = df.LMTFunction(
                 np.mean(data), lmt, category_to_index, ignore_index
             )
