@@ -455,36 +455,6 @@ class ParamStats:
         attr.by_param = res.pop("by_param")
         attr.stats = cls(res)
 
-    def can_be_fitted(self) -> bool:
-        """
-        Return whether a sufficient amount of distinct numeric parameter values is available, allowing a parameter-aware model to be generated.
-        """
-        for param in self._parameter_names:
-            if (
-                len(
-                    list(
-                        filter(
-                            lambda n: is_numeric(n),
-                            self.distinct_values_by_param_name[param],
-                        )
-                    )
-                )
-                > 2
-            ):
-                logger.debug(
-                    "can be fitted for param {} on {}".format(
-                        param,
-                        list(
-                            filter(
-                                lambda n: is_numeric(n),
-                                self.distinct_values_by_param_name[param],
-                            )
-                        ),
-                    )
-                )
-                return True
-        return False
-
     def _generic_param_independence_ratio(self):
         """
         Return the heuristic ratio of parameter independence.
