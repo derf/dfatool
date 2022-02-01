@@ -644,6 +644,9 @@ class ModelAttribute:
         ):
             ret["decision tree/nodes"] = self.model_function.get_number_of_nodes()
             ret["decision tree/max depth"] = self.model_function.get_max_depth()
+        elif type(self.model_function) in (df.StaticFunction, df.AnalyticFunction):
+            ret["decision tree/nodes"] = 1
+            ret["decision tree/max depth"] = 1
 
         return ret
 
