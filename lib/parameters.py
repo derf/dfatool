@@ -905,7 +905,7 @@ class ModelAttribute:
             )
             if fit_parameters.shape[1] == 0:
                 logger.warning(
-                    f"Cannot generate CART due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
+                    f"Cannot generate CART for {self.name} {self.attr} due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
                 )
                 self.model_function = df.StaticFunction(np.mean(data))
                 return
@@ -935,7 +935,7 @@ class ModelAttribute:
             )
             if fit_parameters.shape[1] == 0:
                 logger.warning(
-                    f"Cannot run XGBoost due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
+                    f"Cannot run XGBoost for {self.name} {self.attr} due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
                 )
                 self.model_function = df.StaticFunction(np.mean(data))
                 return
@@ -960,14 +960,14 @@ class ModelAttribute:
             )
             if fit_parameters.shape[1] == 0:
                 logger.warning(
-                    f"Cannot generate LMT due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
+                    f"Cannot generate LMT for {self.name} {self.attr} due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
                 )
                 self.model_function = df.StaticFunction(np.mean(data))
                 return
             try:
                 lmt.fit(fit_parameters, data)
             except np.linalg.LinAlgError as e:
-                logger.error(f"LMT generated failed: {e}")
+                logger.error(f"LMT generation for {self.name} {self.attr} failed: {e}")
                 self.model_function = df.StaticFunction(np.mean(data))
                 return
             self.model_function = df.LMTFunction(
@@ -977,7 +977,7 @@ class ModelAttribute:
 
         if loss_ignore_scalar and not with_function_leaves:
             logger.warning(
-                "build_dtree called with loss_ignore_scalar=True, with_function_leaves=False. This does not make sense."
+                "build_dtree {self.name} {self.attr} called with loss_ignore_scalar=True, with_function_leaves=False. This does not make sense."
             )
 
         self.model_function = self._build_dtree(
@@ -1103,8 +1103,8 @@ class ModelAttribute:
             if ffs_feasible:
                 # try generating a function. if it fails, model_function is a StaticFunction.
                 ma = ModelAttribute(
-                    "tmp",
-                    "tmp",
+                    self.name + "_",
+                    self.attr,
                     data,
                     parameters,
                     self.param_names,
