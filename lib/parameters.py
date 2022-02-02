@@ -1110,6 +1110,7 @@ class ModelAttribute:
                     self.param_names,
                     arg_count=self.arg_count,
                     param_type=self.param_type,
+                    codependent_param=codependent_param_dict(parameters),
                 )
                 ParamStats.compute_for_attr(ma)
                 paramfit = ParamFit(parallel=False)
