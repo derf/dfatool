@@ -704,7 +704,7 @@ class TestFromFile(unittest.TestCase):
                 "duration",
                 param=[0, 76, 1000, 0, 10, None, None, 1500, 0, None, 9, 0, None],
             ),
-            1090,
+            1133,
             places=0,
         )
 
@@ -729,7 +729,7 @@ class TestFromFile(unittest.TestCase):
                     None,
                 ],
             ),
-            1090,
+            11230,
             places=0,
         )
         self.assertAlmostEqual(
@@ -752,7 +752,7 @@ class TestFromFile(unittest.TestCase):
                     None,
                 ],
             ),
-            2057,
+            11230,
             places=0,
         )
         self.assertAlmostEqual(
@@ -775,7 +775,7 @@ class TestFromFile(unittest.TestCase):
                     None,
                 ],
             ),
-            929,
+            11230,
             places=0,
         )
 
@@ -786,7 +786,7 @@ class TestFromFile(unittest.TestCase):
                 "duration",
                 param=[1, 76, 1000, 0, 10, None, None, 1500, 0, None, 9, 1, None],
             ),
-            22284,
+            22327,
             places=0,
         )
         self.assertAlmostEqual(
@@ -809,7 +809,7 @@ class TestFromFile(unittest.TestCase):
                     None,
                 ],
             ),
-            22284,
+            11230,
             places=0,
         )
         self.assertAlmostEqual(
@@ -832,7 +832,7 @@ class TestFromFile(unittest.TestCase):
                     None,
                 ],
             ),
-            33229,
+            11230,
             places=0,
         )
         self.assertAlmostEqual(
@@ -855,7 +855,7 @@ class TestFromFile(unittest.TestCase):
                     None,
                 ],
             ),
-            20459,
+            11230,
             places=0,
         )
 
@@ -955,7 +955,7 @@ class TestFromFile(unittest.TestCase):
                 "duration",
                 param=[0, None, 1000, None, 0, None, None, 250, 0, None, 9, 0, None],
             ),
-            1101,
+            1148,
             places=0,
         )
         self.assertAlmostEqual(
@@ -964,7 +964,7 @@ class TestFromFile(unittest.TestCase):
                 "duration",
                 param=[0, None, 1000, None, 0, None, None, 250, 0, None, 9, 1, None],
             ),
-            1101,
+            1148,
             places=0,
         )
         self.assertAlmostEqual(
@@ -973,7 +973,7 @@ class TestFromFile(unittest.TestCase):
                 "duration",
                 param=[0, None, 1000, None, 5, None, None, 250, 0, None, 9, 0, None],
             ),
-            1101,
+            1148,
             places=0,
         )
         self.assertAlmostEqual(
@@ -982,7 +982,7 @@ class TestFromFile(unittest.TestCase):
                 "duration",
                 param=[0, None, 1000, None, 5, None, None, 250, 0, None, 9, 1, None],
             ),
-            1101,
+            1148,
             places=0,
         )
         self.assertAlmostEqual(
@@ -991,7 +991,7 @@ class TestFromFile(unittest.TestCase):
                 "duration",
                 param=[0, None, 1000, None, 5, None, None, 2750, 0, None, 9, 0, None],
             ),
-            1101,
+            1148,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1000,7 +1000,7 @@ class TestFromFile(unittest.TestCase):
                 "duration",
                 param=[0, None, 1000, None, 5, None, None, 2750, 15, None, 9, 0, None],
             ),
-            1101,
+            1148,
             places=0,
         )
 
@@ -1026,7 +1026,7 @@ class TestFromFile(unittest.TestCase):
                         None,
                     ],
                 ),
-                1425,
+                1473,
                 places=0,
             )
         for tx_power in range(18):
@@ -1050,7 +1050,7 @@ class TestFromFile(unittest.TestCase):
                         None,
                     ],
                 ),
-                4982,
+                5030,
                 places=0,
             )
         for tx_power in range(18):
@@ -1074,7 +1074,7 @@ class TestFromFile(unittest.TestCase):
                         None,
                     ],
                 ),
-                19982,
+                20029,
                 places=0,
             )
 
@@ -1101,7 +1101,7 @@ class TestFromFile(unittest.TestCase):
                         None,
                     ],
                 ),
-                12989,
+                12420,
                 places=0,
             )
         for max_retry_count, retry_delay in ((0, 250), (5, 250), (5, 2750)):
@@ -1125,7 +1125,7 @@ class TestFromFile(unittest.TestCase):
                         None,
                     ],
                 ),
-                20055,
+                19172,
                 places=0,
             )
 
@@ -1136,7 +1136,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 0, None, None, 250, 0, None, 9, 1, None],
             ),
-            17255,
+            16692,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1145,7 +1145,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 0, None, None, 250, 12, None, 9, 1, None],
             ),
-            23074,
+            22317,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1154,7 +1154,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 5, None, None, 250, 0, None, 9, 1, None],
             ),
-            26633,
+            26361,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1163,7 +1163,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 5, None, None, 250, 12, None, 9, 1, None],
             ),
-            35656,
+            35292,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1172,7 +1172,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 5, None, None, 2750, 0, None, 9, 1, None],
             ),
-            7964,
+            7931,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1181,7 +1181,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 5, None, None, 2750, 12, None, 9, 1, None],
             ),
-            10400,
+            10356,
             places=0,
         )
 
