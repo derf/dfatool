@@ -111,23 +111,18 @@ def _mean_std_by_param(n_by_param, all_param_values, param_index):
         this function returns the mean of the standard deviations of (a=1, b=*, c=1),
         (a=1, b=*, c=2), and so on.
     """
-    param_values = list(remove_index_from_tuple(all_param_values, param_index))
-    partitions = list()
+    partition_by_tuple = dict()
 
-    for param_value in itertools.product(*param_values):
-        param_partition = list()
-        std_list = list()
-        for k, v in n_by_param.items():
-            if (*k[:param_index], *k[param_index + 1 :]) == param_value:
-                param_partition.extend(v)
+    for k, v in n_by_param.items():
+        tuple_key = (*k[:param_index], *k[param_index + 1 :])
+        if not tuple_key in partition_by_tuple:
+            partition_by_tuple[tuple_key] = list()
+        partition_by_tuple[tuple_key].extend(v)
 
-        if len(param_partition) > 1:
-            partitions.append(param_partition)
-
-    if len(partitions) == 0:
+    if len(partition_by_tuple) == 0:
         return 0.0
 
-    return np.mean([np.std(partition) for partition in partitions])
+    return np.mean([np.std(partition) for partition in partition_by_tuple.values()])
 
 
 def _corr_by_param(attribute_data, param_values, param_index):
@@ -1045,13 +1040,6 @@ class ModelAttribute:
                 loss.append(np.inf)
                 continue
 
-            std_by_param = _mean_std_by_param(
-                by_param, distinct_values_by_param_index, param_index
-            )
-            if not _depends_on_param(None, std_by_param, std_lut):
-                loss.append(np.inf)
-                continue
-
             if (
                 with_function_leaves
                 and self.param_type[param_index] == ParamType.SCALAR
@@ -1060,6 +1048,13 @@ class ModelAttribute:
                 # param can be modeled as a function. Do not split on it.
                 loss.append(np.inf)
                 ffs_feasible = True
+                continue
+
+            std_by_param = _mean_std_by_param(
+                by_param, distinct_values_by_param_index, param_index
+            )
+            if not _depends_on_param(None, std_by_param, std_lut):
+                loss.append(np.inf)
                 continue
 
             child_indexes = list()
@@ -1140,6 +1135,7 @@ class ModelAttribute:
             child_parameters = list(map(lambda i: parameters[i], indexes))
             child_data = list(map(lambda i: data[i], indexes))
             if len(child_data):
+                logger.debug(f"subtree level {level+1}")
                 child[value] = self._build_dtree(
                     child_parameters,
                     child_data,
