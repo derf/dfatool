@@ -302,13 +302,19 @@ class SplitFunction(ModelFunction):
         (e.g. None).
         """
         param_value = param_list[self.param_index]
-        if param_value not in self.child:
-            return False
-        return self.child[param_value].is_predictable(param_list)
+        if param_value in self.child:
+            return self.child[param_value].is_predictable(param_list)
+        return all(
+            map(lambda child: child.is_predictable(param_list), self.child.values())
+        )
 
     def eval(self, param_list):
         param_value = param_list[self.param_index]
-        return self.child[param_value].eval(param_list)
+        if param_value in self.child:
+            return self.child[param_value].eval(param_list)
+        return np.mean(
+            list(map(lambda child: child.eval(param_list), self.child.values()))
+        )
 
     def webconf_function_map(self):
         ret = list()
