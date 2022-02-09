@@ -866,6 +866,7 @@ class ModelAttribute:
         with_sklearn_cart=False,
         with_xgboost=False,
         with_lmt=False,
+        ignore_irrelevant_parameters=True,
         loss_ignore_scalar=False,
         threshold=100,
     ):
@@ -980,6 +981,7 @@ class ModelAttribute:
             data,
             with_function_leaves=with_function_leaves,
             with_nonbinary_nodes=with_nonbinary_nodes,
+            ignore_irrelevant_parameters=ignore_irrelevant_parameters,
             loss_ignore_scalar=loss_ignore_scalar,
             threshold=threshold,
         )
@@ -990,6 +992,7 @@ class ModelAttribute:
         data,
         with_function_leaves=False,
         with_nonbinary_nodes=True,
+        ignore_irrelevant_parameters=True,
         loss_ignore_scalar=False,
         threshold=100,
         level=0,
@@ -1050,12 +1053,13 @@ class ModelAttribute:
                 ffs_feasible = True
                 continue
 
-            std_by_param = _mean_std_by_param(
-                by_param, distinct_values_by_param_index, param_index
-            )
-            if not _depends_on_param(None, std_by_param, std_lut):
-                loss.append(np.inf)
-                continue
+            if ignore_irrelevant_parameters:
+                std_by_param = _mean_std_by_param(
+                    by_param, distinct_values_by_param_index, param_index
+                )
+                if not _depends_on_param(None, std_by_param, std_lut):
+                    loss.append(np.inf)
+                    continue
 
             child_indexes = list()
             for value in unique_values:
@@ -1141,6 +1145,8 @@ class ModelAttribute:
                     child_data,
                     with_function_leaves=with_function_leaves,
                     with_nonbinary_nodes=with_nonbinary_nodes,
+                    ignore_irrelevant_parameters=ignore_irrelevant_parameters,
+                    loss_ignore_scalar=loss_ignore_scalar,
                     threshold=threshold,
                     level=level + 1,
                 )

@@ -162,11 +162,14 @@ class AnalyticModel:
                     )
                     with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
                     with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
+                    ignore_irrelevant_parameters = bool(
+                        int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "1"))
+                    )
                     loss_ignore_scalar = bool(
                         int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
                     )
                     logger.debug(
-                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes}, loss_ignore_scalar={loss_ignore_scalar})"
+                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes}, ignore_irrelevant_parameters={ignore_irrelevant_parameters}, loss_ignore_scalar={loss_ignore_scalar})"
                     )
                     self.build_dtree(
                         name,
@@ -177,6 +180,7 @@ class AnalyticModel:
                         with_sklearn_cart=with_sklearn_cart,
                         with_lmt=with_lmt,
                         with_xgboost=with_xgboost,
+                        ignore_irrelevant_parameters=ignore_irrelevant_parameters,
                         loss_ignore_scalar=loss_ignore_scalar,
                     )
             self.fit_done = True
@@ -330,6 +334,11 @@ class AnalyticModel:
                         )
                         with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
                         with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
+                        ignore_irrelevant_parameters = bool(
+                            int(
+                                os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "1")
+                            )
+                        )
                         loss_ignore_scalar = bool(
                             int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
                         )
@@ -341,7 +350,7 @@ class AnalyticModel:
                         ):
                             threshold = self.dtree_max_std[name][attr]
                         logger.debug(
-                            f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes}, loss_ignore_scalar={loss_ignore_scalar})"
+                            f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, ignore_irrelevant_parameters={ignore_irrelevant_parameters}, with_nonbinary_nodes={with_nonbinary_nodes}, loss_ignore_scalar={loss_ignore_scalar})"
                         )
                         self.build_dtree(
                             name,
@@ -352,6 +361,7 @@ class AnalyticModel:
                             with_sklearn_cart=with_sklearn_cart,
                             with_lmt=with_lmt,
                             with_xgboost=with_xgboost,
+                            ignore_irrelevant_parameters=ignore_irrelevant_parameters,
                             loss_ignore_scalar=loss_ignore_scalar,
                         )
                     else:
@@ -433,6 +443,7 @@ class AnalyticModel:
         with_sklearn_cart=False,
         with_lmt=False,
         with_xgboost=False,
+        ignore_irrelevant_parameters=True,
         loss_ignore_scalar=False,
     ):
 
@@ -457,6 +468,7 @@ class AnalyticModel:
             with_sklearn_cart=with_sklearn_cart,
             with_lmt=with_lmt,
             with_xgboost=with_xgboost,
+            ignore_irrelevant_parameters=ignore_irrelevant_parameters,
             loss_ignore_scalar=loss_ignore_scalar,
             threshold=threshold,
         )
@@ -759,11 +771,14 @@ class PTAModel(AnalyticModel):
                     )
                     with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
                     with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
+                    ignore_irrelevant_parameters = bool(
+                        int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "1"))
+                    )
                     loss_ignore_scalar = bool(
                         int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
                     )
                     logger.debug(
-                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes}, loss_ignore_scalar={loss_ignore_scalar})"
+                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes}, ignore_irrelevant_parameters={ignore_irrelevant_parameters}, loss_ignore_scalar={loss_ignore_scalar})"
                     )
                     self.build_dtree(
                         name,
@@ -774,6 +789,7 @@ class PTAModel(AnalyticModel):
                         with_sklearn_cart=with_sklearn_cart,
                         with_lmt=with_lmt,
                         with_xgboost=with_xgboost,
+                        ignore_irrelevant_parameters=ignore_irrelevant_parameters,
                         loss_ignore_scalar=loss_ignore_scalar,
                     )
             self.fit_done = True
