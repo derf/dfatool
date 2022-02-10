@@ -19,7 +19,6 @@ from .energytrace import (
     EnergyTraceWithLogicAnalyzer,
     EnergyTraceWithTimer,
 )
-from .kconfig import KConfigAttributes
 from .keysight import DLog, KeysightCSV
 from .mimosa import MIMOSA
 

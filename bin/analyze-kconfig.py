@@ -18,7 +18,7 @@ import numpy as np
 
 import dfatool.cli
 import dfatool.utils
-from dfatool.loader import KConfigAttributes
+from dfatool.loader.kconfig import KConfigAttributes
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 
