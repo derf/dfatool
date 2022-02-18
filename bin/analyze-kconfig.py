@@ -307,6 +307,9 @@ def main():
                 param_values = model.distinct_param_values_by_name[name][i]
                 print(f"    Parameter {param} ∈ {param_values}")
 
+    if args.show_model_size:
+        dfatool.cli.print_model_size(model)
+
     if args.export_model:
         with open("nfpkeys.json", "r") as f:
             nfpkeys = json.load(f)

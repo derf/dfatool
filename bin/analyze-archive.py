@@ -1048,6 +1048,9 @@ if __name__ == "__main__":
             ]
         )
 
+    if args.show_model_size:
+        dfatool.cli.print_model_size(model)
+
     if args.plot_param:
         for kv in args.plot_param.split(";"):
             try:
