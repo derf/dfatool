@@ -73,15 +73,6 @@ def main():
         metavar="FILE",
     )
     parser.add_argument(
-        "--log-level",
-        default=logging.INFO,
-        type=lambda level: getattr(logging, level.upper()),
-        help="Set log level",
-    )
-    parser.add_argument(
-        "--info", action="store_true", help="Show Kconfig and benchmark information"
-    )
-    parser.add_argument(
         "--sample-size",
         type=int,
         help="Restrict model generation to N random samples",
@@ -118,10 +109,12 @@ def main():
 
     args = parser.parse_args()
 
-    if isinstance(args.log_level, int):
-        logging.basicConfig(level=args.log_level)
-    else:
-        print(f"Invalid log level. Setting log level to INFO.", file=sys.stderr)
+    if args.log_level:
+        numeric_level = getattr(logging, args.log_level.upper(), None)
+        if not isinstance(numeric_level, int):
+            print(f"Invalid log level: {args.log_level}", file=sys.stderr)
+            sys.exit(1)
+        logging.basicConfig(level=numeric_level)
 
     if args.export_dref:
         dref = dict()

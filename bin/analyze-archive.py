@@ -365,11 +365,6 @@ if __name__ == "__main__":
     )
     dfatool.cli.add_standard_arguments(parser)
     parser.add_argument(
-        "--info",
-        action="store_true",
-        help="Show state duration and (for each state and transition) number of measurements and parameter values)",
-    )
-    parser.add_argument(
         "--no-cache", action="store_true", help="Do not load cached measurement results"
     )
     parser.add_argument(
@@ -457,13 +452,6 @@ if __name__ == "__main__":
         help="Only consider measurements where <parameter name> is <parameter value>. "
         "All other measurements (including those where it is None, that is, has not been set yet) are discarded. "
         "Note that this may remove entire function calls from the model.",
-    )
-    parser.add_argument(
-        "--log-level",
-        metavar="LEVEL",
-        choices=["debug", "info", "warning", "error"],
-        default="warning",
-        help="Set log level",
     )
     parser.add_argument(
         "--with-safe-functions",

@@ -123,6 +123,18 @@ def add_standard_arguments(parser):
         help="Export model and model quality to LaTeX dataref file",
     )
     parser.add_argument(
+        "--info",
+        action="store_true",
+        help="Show benchmark information (number of measurements, parameter values, ...)",
+    )
+    parser.add_argument(
+        "--log-level",
+        metavar="LEVEL",
+        choices=["debug", "info", "warning", "error"],
+        default="warning",
+        help="Set log level",
+    )
+    parser.add_argument(
         "--show-model-size",
         action="store_true",
         help="Show model size (e.g. regression tree height and node count)",
