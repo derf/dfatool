@@ -357,7 +357,6 @@ if __name__ == "__main__":
     pta = None
     energymodel_export_file = None
     trace_export_dir = None
-    xv_method = None
     xv_count = 10
 
     parser = argparse.ArgumentParser(
@@ -518,10 +517,6 @@ if __name__ == "__main__":
     show_models = args.show_models
     show_quality = args.show_quality
 
-    if args.cross_validate:
-        xv_method, xv_count = args.cross_validate.split(":")
-        xv_count = int(xv_count)
-
     if args.filter_param:
         args.filter_param = list(
             map(lambda x: x.split("="), args.filter_param.split(","))
@@ -641,50 +636,18 @@ if __name__ == "__main__":
     )
     constructor_duration = time.time() - constructor_start
 
-    if xv_method:
+    if args.info:
+        dfatool.cli.print_info_by_name(model, by_name)
+
+    if args.cross_validate:
+        xv_method, xv_count = args.cross_validate.split(":")
+        xv_count = int(xv_count)
         xv = CrossValidator(
             PTAModel, by_name, parameters, arg_count, force_tree=args.force_tree
         )
         xv.parameter_aware = args.parameter_aware_cross_validation
-
-    if args.info:
-        for state in model.states:
-            print("{}:".format(state))
-            print(f"""    Number of Measurements: {len(by_name[state]["power"])}""")
-            for param in model.parameters:
-                print(
-                    "    Parameter {} ∈ {}".format(
-                        param,
-                        model.attr_by_name[state][
-                            "power"
-                        ].stats.distinct_values_by_param_name[param],
-                    )
-                )
-        for transition in model.transitions:
-            print("{}:".format(transition))
-            print(
-                f"""    Number of Measurements: {len(by_name[transition]["duration"])}"""
-            )
-            for param in model.parameters:
-                print(
-                    "    Parameter {} ∈ {}".format(
-                        param,
-                        model.attr_by_name[transition][
-                            "duration"
-                        ].stats.distinct_values_by_param_name[param],
-                    )
-                )
-            for i in range(model._num_args[transition]):
-                print(
-                    "    Argument  {} ∈ {}".format(
-                        i,
-                        model.attr_by_name[transition][
-                            "duration"
-                        ].stats.distinct_values_by_param_index[
-                            len(model.parameters) + i
-                        ],
-                    )
-                )
+    else:
+        xv_method = None
 
     if args.plot_unparam:
         for kv in args.plot_unparam.split(";"):

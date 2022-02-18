@@ -199,6 +199,9 @@ def main():
     )
     constructor_duration = time.time() - constructor_start
 
+    if args.info:
+        dfatool.cli.print_info_by_name(model, by_name)
+
     if args.cross_validate:
         xv_method, xv_count = args.cross_validate.split(":")
         xv_count = int(xv_count)
@@ -291,14 +294,6 @@ def main():
             mae = error["mae"]
             smape = error["smape"]
             print(f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {smape:5.1f}%")
-
-    if args.info:
-        for name in model.names:
-            print(f"{name}:")
-            print(f"""    Number of Measurements: {len(by_name[name]["param"])}""")
-            for i, param in enumerate(model.parameters):
-                param_values = model.distinct_param_values_by_name[name][i]
-                print(f"    Parameter {param} ∈ {param_values}")
 
     if args.show_model_size:
         dfatool.cli.print_model_size(model)

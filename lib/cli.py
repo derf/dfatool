@@ -29,6 +29,34 @@ def print_static(model, static_model, name, attribute):
         )
 
 
+def print_info_by_name(model, by_name):
+    for name in model.names:
+        attr = list(model.attributes(name))[0]
+        print(f"{name}:")
+        print(f"""    Number of Measurements: {len(by_name[name][attr])}""")
+        for param in model.parameters:
+            print(
+                "    Parameter {} ∈ {}".format(
+                    param,
+                    model.attr_by_name[name][attr].stats.distinct_values_by_param_name[
+                        param
+                    ],
+                )
+            )
+        if name in model._num_args:
+            for i in range(model._num_args[name]):
+                print(
+                    "    Argument  {} ∈ {}".format(
+                        i,
+                        model.attr_by_name[name][
+                            attr
+                        ].stats.distinct_values_by_param_index[
+                            len(model.parameters) + i
+                        ],
+                    )
+                )
+
+
 def print_analyticinfo(prefix, info):
     empty = ""
     print(f"{prefix}: {info.model_function}")
