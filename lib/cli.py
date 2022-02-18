@@ -143,6 +143,18 @@ def model_quality_table(header, result_lists, info_list):
             print(buf)
 
 
+def export_dataref(dref_file, dref):
+    with open(dref_file, "w") as f:
+        for k, v in sorted(dref.items()):
+            if type(v) is not tuple:
+                v = (v, None)
+            if v[1] is None:
+                prefix = r"\drefset{"
+            else:
+                prefix = r"\drefset" + f"[unit={v[1]}]" + "{"
+            print(f"{prefix}/{k}" + "}{" + str(v[0]) + "}", file=f)
+
+
 def add_standard_arguments(parser):
     parser.add_argument(
         "--export-dref",

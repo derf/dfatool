@@ -1036,15 +1036,7 @@ if __name__ == "__main__":
         )
         dref["constructor duration"] = (constructor_duration, r"\second")
         dref["regression duration"] = (fit_duration, r"\second")
-        with open(args.export_dref, "w") as f:
-            for k, v in sorted(dref.items()):
-                if type(v) is not tuple:
-                    v = (v, None)
-                if v[1] is None:
-                    prefix = r"\drefset{"
-                else:
-                    prefix = r"\drefset" + f"[unit={v[1]}]" + "{"
-                print(f"{prefix}/{k}" + "}{" + str(v[0]) + "}", file=f)
+        dfatool.cli.export_dataref(args.export_dref, dref)
 
     if args.export_webconf:
         if not pta:
