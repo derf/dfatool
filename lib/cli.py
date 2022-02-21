@@ -155,7 +155,22 @@ def export_dataref(dref_file, dref):
             print(f"{prefix}/{k}" + "}{" + str(v[0]) + "}", file=f)
 
 
+def export_dot(model, dot_prefix):
+    for name in model.names:
+        for attribute in model.attributes(name):
+            dot_model = model.attr_by_name[name][attribute].to_dot()
+            if not dot_model is None:
+                with open(f"{dot_prefix}{name}-{attribute}.dot", "w") as f:
+                    print(dot_model, file=f)
+
+
 def add_standard_arguments(parser):
+    parser.add_argument(
+        "--export-dot",
+        metavar="PREFIX",
+        type=str,
+        help="Export model and model quality to LaTeX {PREFIX}{name}-{attribute}.dot",
+    )
     parser.add_argument(
         "--export-dref",
         metavar="FILE",

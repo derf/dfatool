@@ -319,6 +319,9 @@ def main():
     else:
         static_quality = model.assess(static_model)
 
+    if args.export_dot:
+        dfatool.cli.export_dot(model, args.export_dot)
+
     if args.export_dref:
         dref.update(
             model.to_dref(

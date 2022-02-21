@@ -645,6 +645,69 @@ class ModelAttribute:
 
         return ret
 
+    def to_dot(self):
+        if type(self.model_function) == df.SplitFunction:
+            import pydot
+
+            graph = pydot.Dot("Regression Model Tree", graph_type="graph")
+            self.model_function.to_dot(pydot, graph, self.param_names)
+            return graph
+        if type(self.model_function) == df.CARTFunction:
+            import sklearn.tree
+
+            feature_names = list(
+                map(
+                    lambda i: self.param_names[i],
+                    filter(
+                        lambda i: not self.model_function.ignore_index[i],
+                        range(len(self.param_names)),
+                    ),
+                )
+            )
+            feature_names += list(
+                map(
+                    lambda i: f"arg{i-len(self.param_names)}",
+                    filter(
+                        lambda i: not self.model_function.ignore_index[i],
+                        range(
+                            len(self.param_names),
+                            len(self.param_names) + self.arg_count,
+                        ),
+                    ),
+                )
+            )
+            return sklearn.tree.export_graphviz(
+                self.model_function.regressor,
+                out_file=None,
+                feature_names=feature_names,
+            )
+        if type(self.model_function) == df.LMTFunction:
+            feature_names = list(
+                map(
+                    lambda i: self.param_names[i],
+                    filter(
+                        lambda i: not self.model_function.ignore_index[i],
+                        range(len(self.param_names)),
+                    ),
+                )
+            )
+            feature_names += list(
+                map(
+                    lambda i: f"arg{i-len(self.param_names)}",
+                    filter(
+                        lambda i: not self.model_function.ignore_index[i],
+                        range(
+                            len(self.param_names),
+                            len(self.param_names) + self.arg_count,
+                        ),
+                    ),
+                )
+            )
+            return self.model_function.regressor.model_to_dot(
+                feature_names=feature_names
+            )
+        return None
+
     def webconf_function_map(self):
         return self.model_function.webconf_function_map()
 

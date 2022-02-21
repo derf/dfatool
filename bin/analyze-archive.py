@@ -465,7 +465,7 @@ if __name__ == "__main__":
         help="Load DFA hardware model from JSON or YAML FILE",
     )
     parser.add_argument(
-        "--export-dot",
+        "--export-pta-dot",
         metavar="FILE",
         type=str,
         help="Export PTA representation suitable for Graphviz dot to FILE",
@@ -1067,12 +1067,15 @@ if __name__ == "__main__":
             json.dump(json_model, f, indent=2, sort_keys=True, cls=NpEncoder)
 
     if args.export_dot:
+        dfatool.cli.export_dot(model, args.export_dot)
+
+    if args.export_pta_dot:
         if not pta:
             print(
                 "Note: v0 measurements do not embed the PTA used for benchmark generation. Estimating PTA from recorded observations."
             )
         json_model = model.to_json()
-        with open(args.export_dot, "w") as f:
+        with open(args.export_pta_dot, "w") as f:
             f.write(model.to_dot())
 
     sys.exit(0)
