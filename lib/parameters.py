@@ -800,9 +800,10 @@ class ModelAttribute:
             return self.by_param
         new_param_values = list()
         for param_tuple in self.param_values:
+            new_param_tuple = param_tuple.copy()
             for i in self.codependent_params[param_index]:
-                param_tuple[i] = None
-            new_param_values.append(param_tuple)
+                new_param_tuple[i] = None
+            new_param_values.append(new_param_tuple)
         return partition_by_param(self.data, new_param_values)
 
     def depends_on_any_param(self):
