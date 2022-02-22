@@ -71,6 +71,7 @@ class KConfigAttributes:
             self.param_names = self.symbol_names + self.choice_names
         else:
             self.param_names = self.symbol_names
+            self.choice_names = list()
 
         self.data = list()
         self.configs = list()
