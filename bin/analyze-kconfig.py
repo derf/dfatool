@@ -214,6 +214,7 @@ def main():
             max_std=max_std,
         )
         xv.parameter_aware = args.parameter_aware_cross_validation
+        xv.export_filename = args.export_xv
     else:
         xv_method = None
 

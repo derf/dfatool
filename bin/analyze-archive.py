@@ -646,6 +646,7 @@ if __name__ == "__main__":
             PTAModel, by_name, parameters, arg_count, force_tree=args.force_tree
         )
         xv.parameter_aware = args.parameter_aware_cross_validation
+        xv.export_filename = args.export_xv
     else:
         xv_method = None
 

@@ -103,6 +103,7 @@ class CrossValidator:
         self.names = sorted(by_name.keys())
         self.parameters = sorted(parameters)
         self.parameter_aware = False
+        self.export_filename = None
         self.args = args
         self.kwargs = kwargs
 
@@ -232,6 +233,12 @@ class CrossValidator:
                         ret[name][attribute][f"{measure}_list"].append(
                             res[name][attribute][measure]
                         )
+
+        if self.export_filename:
+            import json
+
+            with open(self.export_filename, "w") as f:
+                json.dump(ret, f)
 
         for name in self.names:
             for attribute in self.by_name[name]["attributes"]:
