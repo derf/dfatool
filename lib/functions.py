@@ -722,7 +722,13 @@ class AnalyticFunction(ModelFunction):
             corresponds to lexically first parameter, etc.
         :param arg_list: argument values (list of float), if arguments are used.
         """
-        return self._function(self.model_args, param_list)
+        try:
+            return self._function(self.model_args, param_list)
+        except FloatingPointError as e:
+            logger.error(
+                f"{e} when predicting {self._function_str}({param_list}), returning static value"
+            )
+            return self.value
 
     def webconf_function_map(self):
         js_buf = self.model_function
