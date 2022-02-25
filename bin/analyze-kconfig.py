@@ -214,7 +214,6 @@ def main():
             max_std=max_std,
         )
         xv.parameter_aware = args.parameter_aware_cross_validation
-        xv.export_filename = args.export_xv
     else:
         xv_method = None
 
@@ -235,26 +234,28 @@ def main():
 
     if xv_method == "montecarlo":
         static_quality, _ = xv.montecarlo(lambda m: m.get_static(), xv_count)
-        analytic_quality, xv_analytic_models = xv.montecarlo(
-            lambda m: m.get_fitted()[0], xv_count
-        )
         if lut_model:
             lut_quality, _ = xv.montecarlo(
                 lambda m: m.get_param_lut(fallback=True), xv_count
             )
         else:
             lut_quality = None
-    elif xv_method == "kfold":
-        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count)
-        analytic_quality, xv_analytic_models = xv.kfold(
+        xv.export_filename = args.export_xv
+        analytic_quality, xv_analytic_models = xv.montecarlo(
             lambda m: m.get_fitted()[0], xv_count
         )
+    elif xv_method == "kfold":
+        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count)
         if lut_model:
             lut_quality, _ = xv.kfold(
                 lambda m: m.get_param_lut(fallback=True), xv_count
             )
         else:
             lut_quality = None
+        xv.export_filename = args.export_xv
+        analytic_quality, xv_analytic_models = xv.kfold(
+            lambda m: m.get_fitted()[0], xv_count
+        )
     else:
         static_quality = model.assess(static_model)
         analytic_quality = model.assess(param_model)

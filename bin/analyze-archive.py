@@ -646,7 +646,6 @@ if __name__ == "__main__":
             PTAModel, by_name, parameters, arg_count, force_tree=args.force_tree
         )
         xv.parameter_aware = args.parameter_aware_cross_validation
-        xv.export_filename = args.export_xv
     else:
         xv_method = None
 
@@ -901,10 +900,12 @@ if __name__ == "__main__":
                 )
 
     if xv_method == "montecarlo":
+        xv.export_filename = args.export_xv
         analytic_quality, xv_analytic_models = xv.montecarlo(
             lambda m: m.get_fitted()[0], xv_count
         )
     elif xv_method == "kfold":
+        xv.export_filename = args.export_xv
         analytic_quality, xv_analytic_models = xv.kfold(
             lambda m: m.get_fitted()[0], xv_count
         )
