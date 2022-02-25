@@ -258,7 +258,12 @@ def main():
         )
     else:
         static_quality = model.assess(static_model)
-        analytic_quality = model.assess(param_model)
+        if args.export_raw_predictions:
+            analytic_quality, raw_results = model.assess(param_model, return_raw=True)
+            with open(args.export_raw_predictions, "w") as f:
+                json.dump(raw_results, f, cls=dfatool.utils.NpEncoder)
+        else:
+            analytic_quality = model.assess(param_model)
         xv_analytic_models = [model]
         if lut_model:
             lut_quality = model.assess(lut_model)

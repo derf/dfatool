@@ -910,7 +910,12 @@ if __name__ == "__main__":
             lambda m: m.get_fitted()[0], xv_count
         )
     else:
-        analytic_quality = model.assess(param_model)
+        if args.export_raw_predictions:
+            analytic_quality, raw_results = model.assess(param_model, return_raw=True)
+            with open(args.export_raw_predictions, "w") as f:
+                json.dump(raw_results, f, cls=NpEncoder)
+        else:
+            analytic_quality = model.assess(param_model)
         xv_analytic_models = [model]
 
     if "tex" in show_models or "tex" in show_quality:

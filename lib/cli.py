@@ -184,6 +184,12 @@ def add_standard_arguments(parser):
         help="Export raw cross-validation results to FILE for later analysis (e.g. to compare different modeling approaches by means of a t-test)",
     )
     parser.add_argument(
+        "--export-raw-predictions",
+        metavar="FILE",
+        type=str,
+        help="Export raw model error data (i.e., ground truth vs. model output) to FILE for later analysis (e.g. to compare different modeling approaches by means of a t-test)",
+    )
+    parser.add_argument(
         "--info",
         action="store_true",
         help="Show benchmark information (number of measurements, parameter values, ...)",
