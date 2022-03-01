@@ -930,14 +930,14 @@ class ModelAttribute:
         self,
         parameters,
         data,
-        with_function_leaves=False,
-        with_nonbinary_nodes=True,
-        with_sklearn_cart=False,
-        with_sklearn_decart=False,
-        with_xgboost=False,
-        with_lmt=False,
-        ignore_irrelevant_parameters=True,
-        loss_ignore_scalar=False,
+        with_function_leaves=None,
+        with_nonbinary_nodes=None,
+        with_sklearn_cart=None,
+        with_sklearn_decart=None,
+        with_lmt=None,
+        with_xgboost=None,
+        ignore_irrelevant_parameters=None,
+        loss_ignore_scalar=None,
         threshold=100,
     ):
         """
@@ -960,6 +960,32 @@ class ModelAttribute:
         categorial_to_scalar = bool(
             int(os.getenv("DFATOOL_PARAM_CATEGORIAL_TO_SCALAR", "0"))
         )
+        if with_function_leaves is None:
+            with_function_leaves = bool(
+                int(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES", "1"))
+            )
+        if with_nonbinary_nodes is None:
+            with_nonbinary_nodes = bool(
+                int(os.getenv("DFATOOL_DTREE_NONBINARY_NODES", "1"))
+            )
+        if with_sklearn_cart is None:
+            with_sklearn_cart = bool(int(os.getenv("DFATOOL_DTREE_SKLEARN_CART", "0")))
+        if with_sklearn_decart is None:
+            with_sklearn_decart = bool(
+                int(os.getenv("DFATOOL_DTREE_SKLEARN_DECART", "0"))
+            )
+        if with_lmt is None:
+            with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
+        if with_xgboost is None:
+            with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
+        if ignore_irrelevant_parameters is None:
+            ignore_irrelevant_parameters = bool(
+                int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "1"))
+            )
+        if loss_ignore_scalar is None:
+            loss_ignore_scalar = bool(
+                int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
+            )
 
         if with_sklearn_cart or with_sklearn_decart:
             from sklearn.tree import DecisionTreeRegressor

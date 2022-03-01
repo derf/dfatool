@@ -151,41 +151,11 @@ class AnalyticModel:
                         threshold = (self.attr_by_name[name][attr].stats.std_param_lut,)
                     else:
                         threshold = 0
-                    with_function_leaves = bool(
-                        int(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES", "1"))
-                    )
-                    with_nonbinary_nodes = bool(
-                        int(os.getenv("DFATOOL_DTREE_NONBINARY_NODES", "1"))
-                    )
-                    with_sklearn_cart = bool(
-                        int(os.getenv("DFATOOL_DTREE_SKLEARN_CART", "0"))
-                    )
-                    with_sklearn_decart = bool(
-                        int(os.getenv("DFATOOL_DTREE_SKLEARN_DECART", "0"))
-                    )
-                    with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
-                    with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
-                    ignore_irrelevant_parameters = bool(
-                        int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "1"))
-                    )
-                    loss_ignore_scalar = bool(
-                        int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
-                    )
-                    logger.debug(
-                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes}, ignore_irrelevant_parameters={ignore_irrelevant_parameters}, loss_ignore_scalar={loss_ignore_scalar})"
-                    )
+                    logger.debug(f"build_dtree({name}, {attr}, threshold={threshold})")
                     self.build_dtree(
                         name,
                         attr,
                         threshold=threshold,
-                        with_function_leaves=with_function_leaves,
-                        with_nonbinary_nodes=with_nonbinary_nodes,
-                        with_sklearn_cart=with_sklearn_cart,
-                        with_sklearn_decart=with_sklearn_decart,
-                        with_lmt=with_lmt,
-                        with_xgboost=with_xgboost,
-                        ignore_irrelevant_parameters=ignore_irrelevant_parameters,
-                        loss_ignore_scalar=loss_ignore_scalar,
                     )
             self.fit_done = True
 
@@ -327,28 +297,6 @@ class AnalyticModel:
             for name in self.names:
                 for attr in self.attr_by_name[name].keys():
                     if tree_required[name].get(attr, False):
-                        with_function_leaves = bool(
-                            int(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES", "1"))
-                        )
-                        with_nonbinary_nodes = bool(
-                            int(os.getenv("DFATOOL_DTREE_NONBINARY_NODES", "1"))
-                        )
-                        with_sklearn_cart = bool(
-                            int(os.getenv("DFATOOL_DTREE_SKLEARN_CART", "0"))
-                        )
-                        with_sklearn_decart = bool(
-                            int(os.getenv("DFATOOL_DTREE_SKLEARN_DECART", "0"))
-                        )
-                        with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
-                        with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
-                        ignore_irrelevant_parameters = bool(
-                            int(
-                                os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "1")
-                            )
-                        )
-                        loss_ignore_scalar = bool(
-                            int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
-                        )
                         threshold = self.attr_by_name[name][attr].stats.std_param_lut
                         if (
                             self.dtree_max_std
@@ -357,21 +305,9 @@ class AnalyticModel:
                         ):
                             threshold = self.dtree_max_std[name][attr]
                         logger.debug(
-                            f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, ignore_irrelevant_parameters={ignore_irrelevant_parameters}, with_nonbinary_nodes={with_nonbinary_nodes}, loss_ignore_scalar={loss_ignore_scalar})"
+                            f"build_dtree({name}, {attr}, threshold={threshold})"
                         )
-                        self.build_dtree(
-                            name,
-                            attr,
-                            threshold=threshold,
-                            with_function_leaves=with_function_leaves,
-                            with_nonbinary_nodes=with_nonbinary_nodes,
-                            with_sklearn_cart=with_sklearn_cart,
-                            with_sklearn_decart=with_sklearn_decart,
-                            with_lmt=with_lmt,
-                            with_xgboost=with_xgboost,
-                            ignore_irrelevant_parameters=ignore_irrelevant_parameters,
-                            loss_ignore_scalar=loss_ignore_scalar,
-                        )
+                        self.build_dtree(name, attr, threshold=threshold)
                     else:
                         self.attr_by_name[name][attr].set_data_from_paramfit(paramfit)
 
@@ -450,20 +386,7 @@ class AnalyticModel:
             return detailed_results, raw_results
         return detailed_results
 
-    def build_dtree(
-        self,
-        name,
-        attribute,
-        threshold=100,
-        with_function_leaves=False,
-        with_nonbinary_nodes=True,
-        with_sklearn_cart=False,
-        with_sklearn_decart=False,
-        with_lmt=False,
-        with_xgboost=False,
-        ignore_irrelevant_parameters=True,
-        loss_ignore_scalar=False,
-    ):
+    def build_dtree(self, name, attribute, threshold=100, **kwargs):
 
         if name not in self.attr_by_name:
             self.attr_by_name[name] = dict()
@@ -481,15 +404,8 @@ class AnalyticModel:
         self.attr_by_name[name][attribute].build_dtree(
             self.by_name[name]["param"],
             self.by_name[name][attribute],
-            with_function_leaves=with_function_leaves,
-            with_nonbinary_nodes=with_nonbinary_nodes,
-            with_sklearn_cart=with_sklearn_cart,
-            with_sklearn_decart=with_sklearn_decart,
-            with_lmt=with_lmt,
-            with_xgboost=with_xgboost,
-            ignore_irrelevant_parameters=ignore_irrelevant_parameters,
-            loss_ignore_scalar=loss_ignore_scalar,
             threshold=threshold,
+            **kwargs,
         )
 
     def to_dref(
@@ -779,41 +695,11 @@ class PTAModel(AnalyticModel):
                         threshold = (self.attr_by_name[name][attr].stats.std_param_lut,)
                     else:
                         threshold = 0
-                    with_function_leaves = bool(
-                        int(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES", "1"))
-                    )
-                    with_nonbinary_nodes = bool(
-                        int(os.getenv("DFATOOL_DTREE_NONBINARY_NODES", "1"))
-                    )
-                    with_sklearn_cart = bool(
-                        int(os.getenv("DFATOOL_DTREE_SKLEARN_CART", "0"))
-                    )
-                    with_sklearn_decart = bool(
-                        int(os.getenv("DFATOOL_DTREE_SKLEARN_DECART", "0"))
-                    )
-                    with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
-                    with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
-                    ignore_irrelevant_parameters = bool(
-                        int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "1"))
-                    )
-                    loss_ignore_scalar = bool(
-                        int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
-                    )
-                    logger.debug(
-                        f"build_dtree({name}, {attr}, threshold={threshold}, with_function_leaves={with_function_leaves}, with_nonbinary_nodes={with_nonbinary_nodes}, ignore_irrelevant_parameters={ignore_irrelevant_parameters}, loss_ignore_scalar={loss_ignore_scalar})"
-                    )
+                    logger.debug(f"build_dtree({name}, {attr}, threshold={threshold})")
                     self.build_dtree(
                         name,
                         attr,
                         threshold=threshold,
-                        with_function_leaves=with_function_leaves,
-                        with_nonbinary_nodes=with_nonbinary_nodes,
-                        with_sklearn_cart=with_sklearn_cart,
-                        with_sklearn_decart=with_sklearn_decart,
-                        with_lmt=with_lmt,
-                        with_xgboost=with_xgboost,
-                        ignore_irrelevant_parameters=ignore_irrelevant_parameters,
-                        loss_ignore_scalar=loss_ignore_scalar,
                     )
             self.fit_done = True
 
