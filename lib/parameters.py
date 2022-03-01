@@ -1014,7 +1014,7 @@ class ModelAttribute:
             from sklearn.linear_model import LinearRegression
             from dfatool.lineartree import LinearTreeRegressor
 
-            lmt = LinearTreeRegressor(base_estimator=LinearRegression())
+            lmt = LinearTreeRegressor(base_estimator=LinearRegression(), max_depth=20)
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
                 parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
             )
