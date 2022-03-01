@@ -160,6 +160,9 @@ class AnalyticModel:
                     with_sklearn_cart = bool(
                         int(os.getenv("DFATOOL_DTREE_SKLEARN_CART", "0"))
                     )
+                    with_sklearn_decart = bool(
+                        int(os.getenv("DFATOOL_DTREE_SKLEARN_DECART", "0"))
+                    )
                     with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
                     with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
                     ignore_irrelevant_parameters = bool(
@@ -178,6 +181,7 @@ class AnalyticModel:
                         with_function_leaves=with_function_leaves,
                         with_nonbinary_nodes=with_nonbinary_nodes,
                         with_sklearn_cart=with_sklearn_cart,
+                        with_sklearn_decart=with_sklearn_decart,
                         with_lmt=with_lmt,
                         with_xgboost=with_xgboost,
                         ignore_irrelevant_parameters=ignore_irrelevant_parameters,
@@ -332,6 +336,9 @@ class AnalyticModel:
                         with_sklearn_cart = bool(
                             int(os.getenv("DFATOOL_DTREE_SKLEARN_CART", "0"))
                         )
+                        with_sklearn_decart = bool(
+                            int(os.getenv("DFATOOL_DTREE_SKLEARN_DECART", "0"))
+                        )
                         with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
                         with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
                         ignore_irrelevant_parameters = bool(
@@ -359,6 +366,7 @@ class AnalyticModel:
                             with_function_leaves=with_function_leaves,
                             with_nonbinary_nodes=with_nonbinary_nodes,
                             with_sklearn_cart=with_sklearn_cart,
+                            with_sklearn_decart=with_sklearn_decart,
                             with_lmt=with_lmt,
                             with_xgboost=with_xgboost,
                             ignore_irrelevant_parameters=ignore_irrelevant_parameters,
@@ -450,6 +458,7 @@ class AnalyticModel:
         with_function_leaves=False,
         with_nonbinary_nodes=True,
         with_sklearn_cart=False,
+        with_sklearn_decart=False,
         with_lmt=False,
         with_xgboost=False,
         ignore_irrelevant_parameters=True,
@@ -475,6 +484,7 @@ class AnalyticModel:
             with_function_leaves=with_function_leaves,
             with_nonbinary_nodes=with_nonbinary_nodes,
             with_sklearn_cart=with_sklearn_cart,
+            with_sklearn_decart=with_sklearn_decart,
             with_lmt=with_lmt,
             with_xgboost=with_xgboost,
             ignore_irrelevant_parameters=ignore_irrelevant_parameters,
@@ -778,6 +788,9 @@ class PTAModel(AnalyticModel):
                     with_sklearn_cart = bool(
                         int(os.getenv("DFATOOL_DTREE_SKLEARN_CART", "0"))
                     )
+                    with_sklearn_decart = bool(
+                        int(os.getenv("DFATOOL_DTREE_SKLEARN_DECART", "0"))
+                    )
                     with_lmt = bool(int(os.getenv("DFATOOL_DTREE_LMT", "0")))
                     with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
                     ignore_irrelevant_parameters = bool(
@@ -796,6 +809,7 @@ class PTAModel(AnalyticModel):
                         with_function_leaves=with_function_leaves,
                         with_nonbinary_nodes=with_nonbinary_nodes,
                         with_sklearn_cart=with_sklearn_cart,
+                        with_sklearn_decart=with_sklearn_decart,
                         with_lmt=with_lmt,
                         with_xgboost=with_xgboost,
                         ignore_irrelevant_parameters=ignore_irrelevant_parameters,

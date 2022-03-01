@@ -38,7 +38,9 @@ def distinct_param_values(param_tuples):
     return distinct_values
 
 
-def param_to_ndarray(param_tuples, with_nan=True, categorial_to_scalar=False):
+def param_to_ndarray(
+    param_tuples, with_nan=True, categorial_to_scalar=False, ignore_indexes=list()
+):
     has_nan = dict()
     has_non_numeric = dict()
     distinct_values = dict()
@@ -70,6 +72,9 @@ def param_to_ndarray(param_tuples, with_nan=True, categorial_to_scalar=False):
             ignore_index[i] = True
         else:
             ignore_index[i] = False
+
+    for i in ignore_indexes:
+        ignore_index[i] = True
 
     ret_tuples = list()
     for param_tuple in param_tuples:
@@ -928,6 +933,7 @@ class ModelAttribute:
         with_function_leaves=False,
         with_nonbinary_nodes=True,
         with_sklearn_cart=False,
+        with_sklearn_decart=False,
         with_xgboost=False,
         with_lmt=False,
         ignore_irrelevant_parameters=True,
@@ -943,6 +949,8 @@ class ModelAttribute:
         :param with_nonbinary_nodes: Allow non-binary nodes for enum and scalar parameters (i.e., nodes with more than two children)
         :param with_sklearn_cart: Use `sklearn.tree.DecisionTreeRegressor` CART implementation for tree generation. Does not support categorial (enum)
             and sparse parameters. Both are ignored during fitting. All other options are ignored as well.
+        :param with_sklearn_decart: Use `sklearn.tree.DecisionTreeRegressor` CART implementation in DECART mode for tree generation. CART limitations
+            apply; additionaly, scalar parameters are ignored during fitting.
         :param loss_ignore_scalar: Ignore scalar parameters when computing the loss for split candidates. Only sensible if with_function_leaves is enabled.
         :param threshold: Return a StaticFunction leaf node if std(data) < threshold. Default 100.
 
@@ -953,16 +961,26 @@ class ModelAttribute:
             int(os.getenv("DFATOOL_PARAM_CATEGORIAL_TO_SCALAR", "0"))
         )
 
-        if with_sklearn_cart:
+        if with_sklearn_cart or with_sklearn_decart:
             from sklearn.tree import DecisionTreeRegressor
 
             max_depth = int(os.getenv("DFATOOL_CART_MAX_DEPTH", "0"))
             if max_depth == 0:
                 max_depth = None
             cart = DecisionTreeRegressor(max_depth=max_depth)
-            fit_parameters, category_to_index, ignore_index = param_to_ndarray(
-                parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
-            )
+            if with_sklearn_cart:
+                fit_parameters, category_to_index, ignore_index = param_to_ndarray(
+                    parameters,
+                    with_nan=False,
+                    categorial_to_scalar=categorial_to_scalar,
+                )
+            elif with_sklearn_decart:
+                fit_parameters, category_to_index, ignore_index = param_to_ndarray(
+                    parameters,
+                    with_nan=False,
+                    categorial_to_scalar=categorial_to_scalar,
+                    ignore_indexes=self.scalar_param_indexes,
+                )
             if fit_parameters.shape[1] == 0:
                 logger.warning(
                     f"Cannot generate CART for {self.name} {self.attr} due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
