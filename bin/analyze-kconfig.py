@@ -61,7 +61,7 @@ def main():
         help="Exit after exporting observations",
     )
     parser.add_argument(
-        "--export-model",
+        "--export-webconf",
         type=str,
         help="Export kconfig-webconf NFP model to file",
         metavar="FILE",
@@ -305,7 +305,7 @@ def main():
     if args.show_model_size:
         dfatool.cli.print_model_size(model)
 
-    if args.export_model:
+    if args.export_webconf:
         with open("nfpkeys.json", "r") as f:
             nfpkeys = json.load(f)
         complete_json_model = model.to_json(
@@ -316,7 +316,7 @@ def main():
             for attribute, data in attribute_data.items():
                 json_model[attribute] = data.copy()
                 json_model[attribute].update(nfpkeys[name][attribute])
-        with open(args.export_model, "w") as f:
+        with open(args.export_webconf, "w") as f:
             json.dump(json_model, f, sort_keys=True, cls=dfatool.utils.NpEncoder)
 
     if xv_method == "montecarlo":
