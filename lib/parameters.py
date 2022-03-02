@@ -626,11 +626,56 @@ class ModelAttribute:
         return f"ModelAttribute<{self.name}, {self.attr}, mean={mean}>"
 
     def to_json(self, **kwargs):
+        if type(self.model_function) == df.CARTFunction:
+            import sklearn.tree
+
+            feature_names = list(
+                map(
+                    lambda i: self.param_names[i],
+                    filter(
+                        lambda i: not self.model_function.ignore_index[i],
+                        range(len(self.param_names)),
+                    ),
+                )
+            )
+            feature_names += list(
+                map(
+                    lambda i: f"arg{i-len(self.param_names)}",
+                    filter(
+                        lambda i: not self.model_function.ignore_index[i],
+                        range(
+                            len(self.param_names),
+                            len(self.param_names) + self.arg_count,
+                        ),
+                    ),
+                )
+            )
+            kwargs["feature_names"] = feature_names
         ret = {
             "paramNames": self.param_names,
             "argCount": self.arg_count,
             "modelFunction": self.model_function.to_json(**kwargs),
         }
+        if type(self.model_function) == df.CARTFunction:
+            feature_names = self.param_names
+            feature_names += list(
+                map(
+                    lambda i: f"arg{i-len(self.param_names)}",
+                    filter(
+                        lambda i: not self.model_function.ignore_index[i],
+                        range(
+                            len(self.param_names),
+                            len(self.param_names) + self.arg_count,
+                        ),
+                    ),
+                )
+            )
+            ret["paramValueToIndex"] = dict(
+                map(
+                    lambda kv: (feature_names[kv[0]], kv[1]),
+                    self.model_function.categorial_to_index.items(),
+                )
+            )
         return ret
 
     def to_dref(self, unit=None):
