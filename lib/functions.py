@@ -527,7 +527,9 @@ class CARTFunction(SKLearnRegressionFunction):
         if left_child != self.leaf_id:
             sub_data["child"]["left"] = self.recurse_(tree, left_child, depth=depth + 1)
         if right_child != self.leaf_id:
-            sub_data["child"]["right"] = self.recurse_(tree, right_child, depth=depth + 1)
+            sub_data["child"]["right"] = self.recurse_(
+                tree, right_child, depth=depth + 1
+            )
 
         return sub_data
 
@@ -847,7 +849,7 @@ class analytic:
         "logarithmic": np.log,
         "logarithmic1": lambda x: np.log(x + 1),
         "exponential": np.exp,
-        "square": lambda x: x ** 2,
+        "square": lambda x: x**2,
         "inverse": lambda x: 1 / x,
         "sqrt": lambda x: np.sqrt(np.abs(x)),
         "num0_8": _num0_8,
@@ -906,7 +908,7 @@ class analytic:
             #'polynomial' : lambda reg_param, model_param: reg_param[0] + reg_param[1] * model_param + reg_param[2] * model_param ** 2,
             "square": ParamFunction(
                 lambda reg_param, model_param: reg_param[0]
-                + reg_param[1] * model_param ** 2,
+                + reg_param[1] * model_param**2,
                 lambda model_param: True,
                 2,
                 repr_str="β₀ + β₁ * x²",
