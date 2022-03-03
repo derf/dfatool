@@ -525,9 +525,9 @@ class CARTFunction(SKLearnRegressionFunction):
 
         # child value
         if left_child != self.leaf_id:
-            sub_data["child"]["<="] = self.recurse_(tree, left_child, depth=depth + 1)
+            sub_data["child"]["left"] = self.recurse_(tree, left_child, depth=depth + 1)
         if right_child != self.leaf_id:
-            sub_data["child"][">"] = self.recurse_(tree, right_child, depth=depth + 1)
+            sub_data["child"]["right"] = self.recurse_(tree, right_child, depth=depth + 1)
 
         return sub_data
 
