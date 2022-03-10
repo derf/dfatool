@@ -539,6 +539,7 @@ class LMTFunction(SKLearnRegressionFunction):
         return self.regressor.node_count
 
     def get_max_depth(self):
+        # FIXME this returns the configured maximum depth, not the actual tree depth.
         return self.regressor.max_depth
 
 
