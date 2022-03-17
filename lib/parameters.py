@@ -693,6 +693,9 @@ class ModelAttribute:
             ret["decision tree/nodes"] = 1
             ret["decision tree/max depth"] = 1
 
+        if type(self.model_function) in (df.LMTFunction,):
+            ret["decision tree/leaves"] = self.model_function.get_number_of_leaves()
+
         return ret
 
     def to_dot(self):
