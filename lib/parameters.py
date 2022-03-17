@@ -1174,12 +1174,13 @@ class ModelAttribute:
         loss = list()
 
         ffs_feasible = False
-        by_param = partition_by_param(data, parameters)
-        distinct_values_by_param_index = distinct_param_values(
-            parameters
-        )  # required, "unique_values" in for loop is insufficient for std_by_param foo
-        std_static = np.std(data)
-        std_lut = np.mean([np.std(v) for v in by_param.values()])
+        if ignore_irrelevant_parameters:
+            by_param = partition_by_param(data, parameters)
+            distinct_values_by_param_index = distinct_param_values(
+                parameters
+            )  # required, "unique_values" in for loop is insufficient for std_by_param foo
+            std_static = np.std(data)
+            std_lut = np.mean([np.std(v) for v in by_param.values()])
         for param_index in range(param_count):
 
             if param_index in self.ignore_param:
