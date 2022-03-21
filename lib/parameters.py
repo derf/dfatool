@@ -1194,12 +1194,6 @@ class ModelAttribute:
                 loss.append(np.inf)
                 continue
 
-            # if not with_nonbinary_nodes and sorted(unique_values) != [0, 1]:
-            if not with_nonbinary_nodes and len(unique_values) > 2:
-                # param cannot be handled with a binary split
-                loss.append(np.inf)
-                continue
-
             if (
                 with_function_leaves
                 and self.param_type[param_index] == ParamType.SCALAR
@@ -1208,6 +1202,12 @@ class ModelAttribute:
                 # param can be modeled as a function. Do not split on it.
                 loss.append(np.inf)
                 ffs_feasible = True
+                continue
+
+            # if not with_nonbinary_nodes and sorted(unique_values) != [0, 1]:
+            if not with_nonbinary_nodes and len(unique_values) > 2:
+                # param cannot be handled with a binary split
+                loss.append(np.inf)
                 continue
 
             if ignore_irrelevant_parameters:
@@ -1257,6 +1257,7 @@ class ModelAttribute:
         if np.all(np.isinf(loss)):
             # all children have the same configuration. We shouldn't get here due to the threshold check above...
             if ffs_feasible:
+                logger.debug("ffs feasible, attempting to fit a leaf")
                 # try generating a function. if it fails, model_function is a StaticFunction.
                 ma = ModelAttribute(
                     self.name + "_",
@@ -1296,7 +1297,6 @@ class ModelAttribute:
             child_parameters = list(map(lambda i: parameters[i], indexes))
             child_data = list(map(lambda i: data[i], indexes))
             if len(child_data):
-                logger.debug(f"subtree level {level+1}")
                 child[value] = self._build_dtree(
                     child_parameters,
                     child_data,
