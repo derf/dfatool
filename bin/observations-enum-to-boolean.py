@@ -30,10 +30,14 @@ def main():
             replace_map[param_name] = distinct_values
 
     for observation in observations:
+        binary_keys = set()
         for k, v in replace_map.items():
             enum_value = observation["param"].pop(k)
             for binary_key in v:
                 observation["param"][binary_key] = int(enum_value == binary_key)
+                if binary_key in binary_keys:
+                    print(f"Error: key '{binary_key}' is not unique")
+                binary_keys.add(binary_key)
 
     with lzma.open(outfile, "wt") as f:
         json.dump(observations, f)
