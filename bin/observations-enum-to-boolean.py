@@ -20,7 +20,8 @@ def main():
         for k, v in observation["param"].items():
             if not k in distinct_param_values:
                 distinct_param_values[k] = set()
-            distinct_param_values[k].add(v)
+            if v is not None:
+                distinct_param_values[k].add(v)
 
     for param_name, distinct_values in distinct_param_values.items():
         if len(distinct_values) > 2 and not all(
