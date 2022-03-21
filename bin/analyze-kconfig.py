@@ -193,7 +193,6 @@ def main():
     model = AnalyticModel(
         by_name,
         parameter_names,
-        compute_stats=not args.force_tree,
         force_tree=args.force_tree,
         max_std=max_std,
     )
@@ -209,7 +208,6 @@ def main():
             AnalyticModel,
             by_name,
             parameter_names,
-            compute_stats=not args.force_tree,
             force_tree=args.force_tree,
             max_std=max_std,
         )
