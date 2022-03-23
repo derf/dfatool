@@ -693,7 +693,12 @@ class ModelAttribute:
             ret["decision tree/nodes"] = 1
             ret["decision tree/max depth"] = 1
 
-        if type(self.model_function) in (df.LMTFunction,):
+        if type(self.model_function) in (
+            df.SplitFunction,
+            df.CARTFunction,
+            df.LMTFunction,
+            df.XGBoostFunction,
+        ):
             ret["decision tree/leaves"] = self.model_function.get_number_of_leaves()
 
         return ret
@@ -1257,7 +1262,6 @@ class ModelAttribute:
         if np.all(np.isinf(loss)):
             # all children have the same configuration. We shouldn't get here due to the threshold check above...
             if ffs_feasible:
-                logger.debug("ffs feasible, attempting to fit a leaf")
                 # try generating a function. if it fails, model_function is a StaticFunction.
                 ma = ModelAttribute(
                     self.name + "_",
