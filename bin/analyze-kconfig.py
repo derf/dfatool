@@ -317,13 +317,6 @@ def main():
         with open(args.export_webconf, "w") as f:
             json.dump(json_model, f, sort_keys=True, cls=dfatool.utils.NpEncoder)
 
-    if xv_method == "montecarlo":
-        static_quality, _ = xv.montecarlo(lambda m: m.get_static(), xv_count)
-    elif xv_method == "kfold":
-        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count)
-    else:
-        static_quality = model.assess(static_model)
-
     if args.export_dot:
         dfatool.cli.export_dot(model, args.export_dot)
 
