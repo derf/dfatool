@@ -277,7 +277,9 @@ class StaticFunction(ModelFunction):
         return ret
 
     def to_dot(self, pydot, graph, feature_names, parent=None):
-        graph.add_node(pydot.Node(str(id(self)), label=self.value, shape="rectangle"))
+        graph.add_node(
+            pydot.Node(str(id(self)), label=f"{self.value:.2f}", shape="rectangle")
+        )
 
     @classmethod
     def from_json(cls, data):
