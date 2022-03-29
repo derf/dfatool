@@ -164,18 +164,33 @@ def export_dot(model, dot_prefix):
                     print(dot_model, file=f)
 
 
+def export_pgf_unparam(model, pgf_prefix):
+    for name in model.names:
+        for attribute in model.attributes(name):
+            with open(f"{pgf_prefix}{name}-{attribute}.txt", "w") as f:
+                print("measurement value", file=f)
+                for i, value in enumerate(model.attr_by_name[name][attribute].data):
+                    print(f"{i} {value}", file=f)
+
+
 def add_standard_arguments(parser):
     parser.add_argument(
         "--export-dot",
         metavar="PREFIX",
         type=str,
-        help="Export model and model quality to LaTeX {PREFIX}{name}-{attribute}.dot",
+        help="Export tree-based model to {PREFIX}{name}-{attribute}.dot",
     )
     parser.add_argument(
         "--export-dref",
         metavar="FILE",
         type=str,
         help="Export model and model quality to LaTeX dataref file",
+    )
+    parser.add_argument(
+        "--export-pgf-unparam",
+        metavar="PREFIX",
+        type=str,
+        help="Export raw (parameter-independent) observations in tikz-pgf-compatible format to {PREFIX}{name}-{attribute}.txt",
     )
     parser.add_argument(
         "--export-xv",
