@@ -704,7 +704,11 @@ class ModelAttribute:
         return ret
 
     def to_dot(self):
-        if type(self.model_function) == df.SplitFunction:
+        if type(self.model_function) in (
+            df.SplitFunction,
+            df.StaticFunction,
+            df.AnalyticFunction,
+        ):
             import pydot
 
             graph = pydot.Dot("Regression Model Tree", graph_type="graph")
