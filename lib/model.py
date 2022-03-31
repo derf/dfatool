@@ -362,7 +362,11 @@ class AnalyticModel:
             ref = self.by_name
         for name, elem in sorted(ref.items()):
             detailed_results[name] = dict()
-            raw_results[name] = dict()
+            raw_results[name] = {
+                "paramValues": elem["param"],
+                "paramNames": self.parameters,
+                "attribute": dict(),
+            }
             for attribute in elem["attributes"]:
                 predicted_data = np.array(
                     list(
@@ -377,9 +381,9 @@ class AnalyticModel:
                 measures = regression_measures(predicted_data, elem[attribute])
                 detailed_results[name][attribute] = measures
                 if return_raw:
-                    raw_results[name][attribute] = {
-                        "ground_truth": list(elem[attribute]),
-                        "model_output": list(predicted_data),
+                    raw_results[name]["attribute"][attribute] = {
+                        "groundTruth": list(elem[attribute]),
+                        "modelOutput": list(predicted_data),
                     }
 
         if return_raw:
@@ -1055,7 +1059,7 @@ class PTAModel(AnalyticModel):
                     pairs.add((trace[i - 1]["name"], trace[i + 1]["name"]))
         return list(pairs)
 
-    def assess(self, model_function, ref=None):
+    def assess(self, model_function, ref=None, return_raw=False):
         """
         Calculate MAE, SMAPE, etc. of model_function for each by_name entry.
 
@@ -1070,7 +1074,12 @@ class PTAModel(AnalyticModel):
         """
         if ref is None:
             ref = self.by_name
-        detailed_results = super().assess(model_function, ref=ref)
+        if return_raw:
+            detailed_results, raw_results = super().assess(
+                model_function, ref=ref, return_raw=return_raw
+            )
+        else:
+            detailed_results = super().assess(model_function, ref=ref)
         for name, elem in sorted(ref.items()):
             if elem["isa"] == "transition":
                 predicted_data = np.array(
@@ -1088,7 +1097,14 @@ class PTAModel(AnalyticModel):
                     predicted_data, elem["power"] * elem["duration"]
                 )
                 detailed_results[name]["energy_Pt"] = measures
+                if return_raw:
+                    raw_results[name]["attribute"]["energy_Pt"] = {
+                        "groundTruth": list(elem["power"] * elem["duration"]),
+                        "modelOutput": list(predicted_data),
+                    }
 
+        if return_raw:
+            return detailed_results, raw_results
         return detailed_results
 
     def assess_states(
