@@ -168,9 +168,16 @@ def export_pgf_unparam(model, pgf_prefix):
     for name in model.names:
         for attribute in model.attributes(name):
             with open(f"{pgf_prefix}{name}-{attribute}.txt", "w") as f:
-                print("measurement value", file=f)
+                print("measurement value " + " ".join(model.parameters), file=f)
                 for i, value in enumerate(model.attr_by_name[name][attribute].data):
-                    print(f"{i} {value}", file=f)
+                    parameters = list()
+                    for param in model.attr_by_name[name][attribute].param_values[i]:
+                        if param is None:
+                            parameters.append("{}")
+                        else:
+                            parameters.append(str(param))
+                    parameters = " ".join(parameters)
+                    print(f"{i} {value} {parameters}", file=f)
 
 
 def add_standard_arguments(parser):
