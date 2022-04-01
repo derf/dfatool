@@ -11,19 +11,21 @@ class KConfigAttributes:
     def __init__(self, kconfig_path, datadir):
         experiments = list()
         failed_experiments = list()
-        for direntry in os.listdir(datadir):
-            config_path = f"{datadir}/{direntry}/.config"
-            attr_path = f"{datadir}/{direntry}/attributes.json"
-            metadata_path = f"{datadir}/{direntry}/metadata"
-            if os.path.exists(attr_path):
-                experiments.append((config_path, attr_path))
-            elif os.path.exists(config_path):
-                failed_experiments.append(config_path)
+        if not datadir is None:
+            for direntry in os.listdir(datadir):
+                config_path = f"{datadir}/{direntry}/.config"
+                attr_path = f"{datadir}/{direntry}/attributes.json"
+                metadata_path = f"{datadir}/{direntry}/metadata"
+                if os.path.exists(attr_path):
+                    experiments.append((config_path, attr_path))
+                elif os.path.exists(config_path):
+                    failed_experiments.append(config_path)
 
-        kconfig_dir = "/".join(kconfig_path.split("/")[:-1])
+        self.kconfig_root = "/".join(kconfig_path.split("/")[:-1])
+        kconfig_file = kconfig_path.split("/")[-1]
 
-        with cd(kconfig_dir):
-            kconf = kconfiglib.Kconfig(kconfig_path)
+        with cd(self.kconfig_root):
+            kconf = kconfiglib.Kconfig(kconfig_file)
         self.kconf = kconf
 
         self.kconfig_hash = self.file_hash(kconfig_path)
