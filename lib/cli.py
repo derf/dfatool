@@ -115,8 +115,8 @@ def model_quality_table(header, result_lists, info_list):
             header[2].center(19),
         )
     )
-    for state_or_tran in result_lists[0].keys():
-        for key in result_lists[0][state_or_tran].keys():
+    for state_or_tran in sorted(result_lists[0].keys()):
+        for key in sorted(result_lists[0][state_or_tran].keys()):
             buf = "{:20s} {:15s}".format(state_or_tran, key)
             for i, results in enumerate(result_lists):
                 info = info_list[i]
