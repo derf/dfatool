@@ -95,7 +95,7 @@ class ParamFit:
                     this_result["mean_rmsd"], this_result["median_rmsd"]
                 ):
                     logger.debug(
-                        "Not modeling {} as function of {}: best ({:.0f}) is not much better than ref ({:.0f}, {:.0f})".format(
+                        "Not modeling {} as function of {}: best ({:.0f} %) is not much better than ref ({:.0f} % mean, {:.0f} % median)".format(
                             result["key"][0],
                             result["key"][1],
                             this_result["best_rmsd"],
