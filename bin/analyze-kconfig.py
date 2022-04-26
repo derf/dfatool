@@ -8,6 +8,7 @@ Only boolean variables are supported at the moment.
 """
 
 import argparse
+import hashlib
 import json
 import kconfiglib
 import logging
@@ -304,8 +305,22 @@ def main():
         dfatool.cli.print_model_size(model)
 
     if args.export_webconf:
-        with open("nfpkeys.json", "r") as f:
-            nfpkeys = json.load(f)
+        attributes = KConfigAttributes(args.kconfig_path, None)
+        try:
+            with open(f"{attributes.kconfig_root}/nfpkeys.json", "r") as f:
+                nfpkeys = json.load(f)
+        except FileNotFoundError:
+            logging.error(
+                f"{attributes.kconfig_root}/nfpkeys.json is missing, webconf model will be incomplete"
+            )
+            nfpkeys = None
+        kconfig_hasher = hashlib.sha256()
+        with open(args.kconfig_path, "rb") as f:
+            kconfig_data = f.read()
+            while len(kconfig_data) > 0:
+                kconfig_hasher.update(kconfig_data)
+                kconfig_data = f.read()
+        kconfig_hash = str(kconfig_hasher.hexdigest())
         complete_json_model = model.to_json(
             with_param_name=True, param_names=parameter_names
         )
@@ -313,9 +328,18 @@ def main():
         for name, attribute_data in complete_json_model["name"].items():
             for attribute, data in attribute_data.items():
                 json_model[attribute] = data.copy()
-                json_model[attribute].update(nfpkeys[name][attribute])
+                if nfpkeys:
+                    json_model[attribute].update(nfpkeys[name][attribute])
+        out_model = {
+            "model": json_model,
+            "modelType": "dfatool-kconfig",
+            "project": "tbd",
+            "kconfigHash": kconfig_hash,
+            "symbols": attributes.symbol_names,
+            "choices": attributes.choice_names,
+        }
         with open(args.export_webconf, "w") as f:
-            json.dump(json_model, f, sort_keys=True, cls=dfatool.utils.NpEncoder)
+            json.dump(out_model, f, sort_keys=True, cls=dfatool.utils.NpEncoder)
 
     if args.export_dot:
         dfatool.cli.export_dot(model, args.export_dot)
