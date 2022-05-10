@@ -2,6 +2,8 @@ image: debian:bullseye
 
 stages:
   - test
+  - build
+  - deploy
 
 run_tests:
   stage: test
@@ -35,3 +37,35 @@ run_tests:
     paths:
     - htmlcov/
     expire_in: 1 week
+
+make_model:
+  stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: normal
+  script:
+  - apt-get update -qy
+  - apt-get install -y python3-dev python3-coverage python3-frozendict python3-numpy python3-scipy python3-sklearn python3-yaml python3-zbar wget
+  - wget -q https://ess.cs.uos.de/.private/dfatool/multipass.json.xz https://ess.cs.uos.de/.private/dfatool/multipass.kconfig
+  - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 bin/analyze-kconfig.py multipass.kconfig multipass.json.xz --export-webconf multipass-rmt.json
+  - wget -q https://ess.cs.uos.de/.private/dfatool/x264.json.xz https://ess.cs.uos.de/.private/dfatool/x264.kconfig https://ess.cs.uos.de/.private/dfatool/x264.nfpkeys.json
+  - mv x264.nfpkeys.json nfpkeys.json
+  - DFATOOL_DTREE_SKLEARN_CART=1 DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1 bin/analyze-kconfig.py x264.kconfig x264.json.xz --export-webconf x264-cart.json
+  - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 bin/analyze-kconfig.py x264.kconfig x264.json.xz --export-webconf x264-rmt.json
+  artifacts:
+    paths:
+    - multipass-rmt.json
+    - x264.kconfig
+    - x264-cart.json
+    - x264-rmt.json
+
+deploy_model:
+  stage: deploy
+  before_script:
+    - apt-get -y update
+    - apt-get -y install lftp
+    - mkdir -p ~/.ssh
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+    - chmod 600 "$STAGING_PRIVATE_KEY"
+  script:
+    - lftp -e "set sftp:connect-program 'ssh -a -x -i $STAGING_PRIVATE_KEY'; mkdir -p -f /dfatool/$CI_COMMIT_REF_NAME; put -e -O dfatool/$CI_COMMIT_REF_NAME x264.kconfig x264-cart.json x264-rmt.json; quit" --password invalid sftp://ci-deploy@ess.cs.uos.de
+
