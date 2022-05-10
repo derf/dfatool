@@ -47,3 +47,13 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS` | 0, **1** | Ignore parameters deemed irrelevant by stddev heuristic during regression tree generation |
 | `DFATOOL_DTREE_LOSS_IGNORE_SCALAR` | **0**, 1 | Ignore scalar parameters when computing the loss for split node candidates. Instead of computing the loss of a single partition for each `x_i == j`, compute the loss of partitions for `x_i == j` in which non-scalar parameters vary and scalar parameters are constant. This way, scalar parameters do not affect the decision about which non-scalar parameter to use for splitting. |
 | `DFATOOL_PARAM_CATEGORIAL_TO_SCALAR` | **0**, 1 | Some models (e.g. sklearn CART, XGBoost) do not support categorial parameters. Ignore them (0) or convert them to scalar indexes (1). |
+
+## Examples
+
+Suitable for kconfig-webconf
+
+### x264 Video Encoding
+
+* [Kconfig](https://ess.cs.uos.de/git-build/dfatool/master/x264.kconfig)
+* [CART](https://ess.cs.uos.de/git-build/dfatool/master/x264-cart.json)
+* [RMT](https://ess.cs.uos.de/git-build/dfatool/master/x264-rmt.json)
