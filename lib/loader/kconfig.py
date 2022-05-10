@@ -24,6 +24,9 @@ class KConfigAttributes:
         self.kconfig_root = "/".join(kconfig_path.split("/")[:-1])
         kconfig_file = kconfig_path.split("/")[-1]
 
+        if self.kconfig_root == "":
+            self.kconfig_root = "."
+
         with cd(self.kconfig_root):
             kconf = kconfiglib.Kconfig(kconfig_file)
         self.kconf = kconf
