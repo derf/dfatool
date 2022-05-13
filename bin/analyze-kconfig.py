@@ -298,8 +298,10 @@ def main():
         )
 
     print("Model Error on Training Data:")
-    for name in model.names:
-        for attribute, error in analytic_quality[name].items():
+    for name in sorted(model.names):
+        for attribute, error in sorted(
+            analytic_quality[name].items(), key=lambda kv: kv[0]
+        ):
             mae = error["mae"]
             smape = error["smape"]
             print(f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {smape:5.1f}%")
