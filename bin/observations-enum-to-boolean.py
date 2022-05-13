@@ -13,31 +13,7 @@ def main():
     with lzma.open(infile, "rt") as f:
         observations = json.load(f)
 
-    distinct_param_values = dict()
-    replace_map = dict()
-
-    for observation in observations:
-        for k, v in observation["param"].items():
-            if not k in distinct_param_values:
-                distinct_param_values[k] = set()
-            if v is not None:
-                distinct_param_values[k].add(v)
-
-    for param_name, distinct_values in distinct_param_values.items():
-        if len(distinct_values) > 2 and not all(
-            map(lambda x: x is None or dfatool.utils.is_numeric(x), distinct_values)
-        ):
-            replace_map[param_name] = distinct_values
-
-    for observation in observations:
-        binary_keys = set()
-        for k, v in replace_map.items():
-            enum_value = observation["param"].pop(k)
-            for binary_key in v:
-                observation["param"][binary_key] = int(enum_value == binary_key)
-                if binary_key in binary_keys:
-                    print(f"Error: key '{binary_key}' is not unique")
-                binary_keys.add(binary_key)
+    dfatool.utils.observations_enum_to_bool(observations)
 
     with lzma.open(outfile, "wt") as f:
         json.dump(observations, f)
