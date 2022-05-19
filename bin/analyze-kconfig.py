@@ -30,6 +30,11 @@ def main():
     )
     dfatool.cli.add_standard_arguments(parser)
     parser.add_argument(
+        "--boolean-parameters",
+        action="store_true",
+        help="Use boolean (not categorial) parameters when building the NFP model",
+    )
+    parser.add_argument(
         "--show-failing-symbols",
         action="store_true",
         help="Show Kconfig symbols related to build failures. Must be used with an experiment result directory.",
@@ -167,6 +172,9 @@ def main():
 
         with lzma.open(args.model, "rt") as f:
             observations = json.load(f)
+
+    if args.boolean_parameters:
+        dfatool.utils.observations_enum_to_bool(observations, kconfig=True)
 
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
 
