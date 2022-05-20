@@ -48,6 +48,20 @@ Depending on the value of the **DFATOOL_KCONF_WITH_CHOICE_NODES** environment va
 
 to be documented.
 
+## Dependencies
+
+Python 3.7 or newer with the following modules:
+
+* frozendict
+* matplotlib
+* numpy
+* scipy
+* scikit-learn
+* yaml
+* zbar
+
+On Debian Bullseye, all required modules are available as Debian packages.
+
 ## Code Style
 
 Please only commit blackened code. It's best to check this with a pre-commit
