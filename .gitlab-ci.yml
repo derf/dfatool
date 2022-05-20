@@ -1,4 +1,4 @@
-image: debian:bullseye
+image: derfnull/ci-dfatool:2022.05.22
 
 stages:
   - test
@@ -10,8 +10,6 @@ run_tests:
   variables:
     GIT_SUBMODULE_STRATEGY: normal
   script:
-  - apt-get update -qy
-  - apt-get install -y python3-dev python3-coverage python3-frozendict python3-numpy python3-scipy python3-pytest python3-pytest-cov python3-sklearn python3-yaml python3-zbar wget
   - mkdir test-data
   - wget -qO test-data/20161221_123347_mmparam.tar https://lib.finalrewind.org/energy-models/20161221_123347_mmparam.tar
   - wget -qO test-data/20170116_124500_LM75x.tar https://lib.finalrewind.org/energy-models/20170116_124500_LM75x.tar
@@ -38,13 +36,26 @@ run_tests:
     - htmlcov/
     expire_in: 1 week
 
+make_benchmark:
+  stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: normal
+  script:
+  - mkdir kconfig-static-data
+  - cd kconfig-static-data
+  - ../bin/explore-kconfig.py --log-level debug --random 5 --with-neighbourhood ${PWD}/../examples/kconfig-static
+  - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 DFATOOL_KCONF_WITH_CHOICE_NODES=0 ../bin/analyze-kconfig.py --export-webconf example-static-rmt.json ../examples/kconfig-static/Kconfig .
+  - cp ../examples/kconfig-static/Kconfig example-static.kconfig
+  artifacts:
+    paths:
+    - example-static.kconfig
+    - example-static-rmt.json
+
 make_model:
   stage: build
   variables:
     GIT_SUBMODULE_STRATEGY: normal
   script:
-  - apt-get update -qy
-  - apt-get install -y python3-dev python3-coverage python3-frozendict python3-numpy python3-scipy python3-sklearn python3-yaml python3-zbar wget
   - wget -q https://ess.cs.uos.de/.private/dfatool/multipass.json.xz https://ess.cs.uos.de/.private/dfatool/multipass.kconfig
   - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 bin/analyze-kconfig.py multipass.kconfig multipass.json.xz --export-webconf multipass-rmt.json
   - wget -q https://ess.cs.uos.de/.private/dfatool/x264.json.xz https://ess.cs.uos.de/.private/dfatool/x264.kconfig https://ess.cs.uos.de/.private/dfatool/x264.nfpkeys.json
@@ -60,6 +71,7 @@ make_model:
 
 deploy_model:
   stage: deploy
+  image: debian:bullseye
   before_script:
     - apt-get -y update
     - apt-get -y install lftp

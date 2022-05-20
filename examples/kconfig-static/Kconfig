@@ -1,0 +1,22 @@
+choice
+prompt "pi or tau?"
+
+config X5
+bool "X = 5"
+
+config X6
+bool "X = 6"
+depends on !Y0
+
+endchoice
+
+choice
+prompt "apples or oranges?"
+
+config Y4
+bool "Y = 4"
+
+config Y0
+bool "Y = 0"
+
+endchoice
