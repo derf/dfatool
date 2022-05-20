@@ -79,5 +79,5 @@ deploy_model:
     - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
     - chmod 600 "$STAGING_PRIVATE_KEY"
   script:
-    - lftp -e "set sftp:connect-program 'ssh -a -x -i $STAGING_PRIVATE_KEY'; mkdir -p -f /dfatool/$CI_COMMIT_REF_NAME; put -e -O dfatool/$CI_COMMIT_REF_NAME x264.kconfig x264-cart.json x264-rmt.json; quit" --password invalid sftp://ci-deploy@ess.cs.uos.de
+    - lftp -e "set sftp:connect-program 'ssh -a -x -i $STAGING_PRIVATE_KEY'; mkdir -p -f /dfatool/$CI_COMMIT_REF_NAME; put -e -O dfatool/$CI_COMMIT_REF_NAME example-static.kconfig example-static-rmt.json x264.kconfig x264-cart.json x264-rmt.json; quit" --password invalid sftp://ci-deploy@ess.cs.uos.de
 
