@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+VERSION="$(date +%Y.%m.%d)"
+docker build -t ci-dfatool:${VERSION} .
+docker build -t ci-dfatool:latest .
+docker tag ci-dfatool:${VERSION} derfnull/ci-dfatool:${VERSION}
+docker tag ci-dfatool:latest derfnull/ci-dfatool:latest
+docker push derfnull/ci-dfatool:${VERSION}
+docker push derfnull/ci-dfatool:latest

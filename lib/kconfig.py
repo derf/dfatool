@@ -108,15 +108,18 @@ class KConfig:
         return "unknown"
 
     def git_commit_id(self):
-        status = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=self.cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-        )
-        revision = status.stdout.strip()
-        return revision
+        try:
+            status = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=self.cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+            )
+            revision = status.stdout.strip()
+            return revision
+        except FileNotFoundError:
+            return "unknown"
 
     def file_hash(self, config_file):
         status = subprocess.run(
@@ -126,7 +129,12 @@ class KConfig:
             stderr=subprocess.PIPE,
             universal_newlines=True,
         )
-        sha256sum = status.stdout.split()[0]
+        try:
+            sha256sum = status.stdout.split()[0]
+        except IndexError:
+            raise RuntimeError(
+                f"Unable to extract hash from  'sha256sum {config_file}' output '{status.stdout}'"
+            )
         return sha256sum
 
     def run_nfpkeys(self):
