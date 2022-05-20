@@ -37,8 +37,6 @@ Now, you can use `.../dfatool/bin/explore-kconfig.py` to benchmark the non-funct
 .../dfatool/bin/explore-kconfig.py --log-level debug --random 500 --with-neighbourhood .../my-project
 ```
 
-Note that my-project must be an absolute path.
-
 This will benchmark 500 random configurations and additionaly explore the neighbourhood of each configuration by toggling boolean variables and exploring the range of int/hex variables.
 Ternary features (y/m/n, as employed by the Linux kernel) are not supported.
 The benchmark results (configurations and corresponding non-functional properties) are placed in the current working directory.

@@ -80,7 +80,7 @@ class ExploreConfig(AttributeExperiment):
 
 class KConfig:
     def __init__(self, working_directory):
-        self.cwd = working_directory
+        self.cwd = os.path.abspath(working_directory)
         self.clean_command = "make clean"
         self.build_command = "make"
         self.attribute_command = "make attributes"

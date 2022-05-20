@@ -43,7 +43,7 @@ make_benchmark:
   script:
   - mkdir kconfig-static-data
   - cd kconfig-static-data
-  - ../bin/explore-kconfig.py --log-level debug --random 5 --with-neighbourhood ${PWD}/../examples/kconfig-static
+  - ../bin/explore-kconfig.py --log-level debug --random 5 --with-neighbourhood ../examples/kconfig-static
   - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 DFATOOL_KCONF_WITH_CHOICE_NODES=0 ../bin/analyze-kconfig.py --export-webconf example-static-rmt.json ../examples/kconfig-static/Kconfig .
   - cp ../examples/kconfig-static/Kconfig example-static.kconfig
   artifacts:
