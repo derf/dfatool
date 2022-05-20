@@ -1,3 +1,55 @@
+# NFP Model Generation for Peripherals and Software Product Lines
+
+**dfatool** is a set of utilities for automated measurement of non-functional
+properties of software product lines and embedded peripherals, and automatic
+generation of NFP models based upon those.
+
+Measurements and models for peripherals generally focus on energy and timing
+behaviour expressed as a Priced Timed Automaton (PTA).
+
+Measurements and models for software product lines focus on ROM/RAM usage and
+may also include attributes such as throughput, latency, or energy.
+
+## Energy Model Generation
+
+to be documented.
+
+## NFP Model Generation
+
+### Running Benchmarks
+
+**bin/explore-kconfig.py** works with any product line that supports kconfig and is capable of describing the non-functional properties of individual products.
+To do so, it needs to support the **make**, **make clean**, **make randconfig**, **make nfpvalues** and **make nfpkeys** commands.
+**make nfpvalues** is expected to print a JSON dict describing the non-functional property values of the current build;
+**make nfpkeys** is expected to print a JSON dict with meta-data about those.
+All of these commands can be changed, see `bin/explore-kconfig.py --help`.
+
+See **examples/kconfig-static** for a simple example project, and [multipass](https://github.com/derf/multipass) and [kratos](https://ess.cs.uos.de/git/software/kratos/kratos) for more complex ones.
+The `make_benchmark` section of **.gitlab-ci.yml** shows how to run benchmarks and generate a model for the example project.
+
+As benchmark generation employs frequent recompilation, using a tmpfs is recommended.
+Check out the product line (i.e., the benchmark target) into a directory on the tmpfs.
+Next, create a second directory used for intermediate benchmark output, and `cd` to it.
+
+Now, you can use `.../dfatool/bin/explore-kconfig.py` to benchmark the non-functional properties of various configurations, like so:
+
+```
+.../dfatool/bin/explore-kconfig.py --log-level debug --random 500 --with-neighbourhood .../my-project
+```
+
+Note that my-project must be an absolute path.
+
+This will benchmark 500 random configurations and additionaly explore the neighbourhood of each configuration by toggling boolean variables and exploring the range of int/hex variables.
+Ternary features (y/m/n, as employed by the Linux kernel) are not supported.
+The benchmark results (configurations and corresponding non-functional properties) are placed in the current working directory.
+
+Once the benchmark is done, the observations can be compressed into a single file by running `.../dfatool/bin/analyze-kconfig.py --export-observations .../my-observations.json.xz --export-observations-only`.
+Depending on the value of the **DFATOOL_KCONF_WITH_CHOICE_NODES** environment variable (see below), `choice` nodes are either treated as enum variables or groups of boolean variables.
+
+### Generating Models
+
+to be documented.
+
 ## Code Style
 
 Please only commit blackened code. It's best to check this with a pre-commit
