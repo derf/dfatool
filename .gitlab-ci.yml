@@ -44,12 +44,13 @@ make_benchmark:
   - mkdir kconfig-static-data
   - cd kconfig-static-data
   - ../bin/explore-kconfig.py --log-level debug --random 5 --with-neighbourhood ../examples/kconfig-static
-  - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 DFATOOL_KCONF_WITH_CHOICE_NODES=0 ../bin/analyze-kconfig.py --export-webconf ../example-static-rmt.json ../examples/kconfig-static/Kconfig .
+  - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 DFATOOL_KCONF_WITH_CHOICE_NODES=0 ../bin/analyze-kconfig.py --export-webconf ../example-static-rmt.json --export-raw-predictions ../example-static-rmt-eval.json ../examples/kconfig-static/Kconfig .
   - cp ../examples/kconfig-static/Kconfig ../example-static.kconfig
   artifacts:
     paths:
     - example-static.kconfig
     - example-static-rmt.json
+    - example-static-rmt-eval.json
 
 make_model:
   stage: build
@@ -79,5 +80,5 @@ deploy_model:
     - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
     - chmod 600 "$STAGING_PRIVATE_KEY"
   script:
-    - lftp -e "set sftp:connect-program 'ssh -a -x -i $STAGING_PRIVATE_KEY'; mkdir -p -f /dfatool/$CI_COMMIT_REF_NAME; put -e -O dfatool/$CI_COMMIT_REF_NAME example-static.kconfig example-static-rmt.json x264.kconfig x264-cart.json x264-rmt.json; quit" --password invalid sftp://ci-deploy@ess.cs.uos.de
+    - lftp -e "set sftp:connect-program 'ssh -a -x -i $STAGING_PRIVATE_KEY'; mkdir -p -f /dfatool/$CI_COMMIT_REF_NAME; put -e -O dfatool/$CI_COMMIT_REF_NAME example-static.kconfig example-static-rmt.json example-static-rmt-eval.json x264.kconfig x264-cart.json x264-rmt.json; quit" --password invalid sftp://ci-deploy@ess.cs.uos.de
 
