@@ -56,14 +56,18 @@ class KConfigAttributes:
             )
         )
 
-        self.choice_names = sorted(
-            map(lambda choice: choice.name or choice.name_and_loc, kconf.choices)
-        )
+        unnamed_choice_index = 0
+        for choice in kconf.choices:
+            if choice.name is None:
+                choice.name = f"UNNAMED_CHOICE_{unnamed_choice_index}"
+                unnamed_choice_index += 1
+
+        self.choice_names = sorted(map(lambda choice: choice.name, kconf.choices))
 
         self.choice = dict()
         self.choice_symbol_names = list()
         for choice in kconf.choices:
-            self.choice[choice.name or choice.name_and_loc] = choice
+            self.choice[choice.name] = choice
             self.choice_symbol_names.extend(map(lambda sym: sym.name, choice.syms))
 
         self.symbol = dict()
