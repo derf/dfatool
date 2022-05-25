@@ -114,7 +114,17 @@ The following variables may be set to alter the behaviour of dfatool components.
 
 ## Examples
 
-Suitable for kconfig-webconf
+Suitable for [kconfig-webconf](https://ess.cs.uos.de/git-build/kconfig-webconf/master/)
+
+### Toy Example
+
+The NFP values should be exactly as described by the selected configuration options.
+
+* [Kconfig](https://ess.cs.uos.de/git-build/dfatool/main/example-static.kconfig)
+* [CART](https://ess.cs.uos.de/git-build/dfatool/main/example-static-cart-b.json) without choice nodes
+* [CART](https://ess.cs.uos.de/git-build/dfatool/main/example-static-cart-nb.json) with choice nodes
+* [RMT](https://ess.cs.uos.de/git-build/dfatool/main/example-static-rmt-b.json) without choice nodes
+* [RMT](https://ess.cs.uos.de/git-build/dfatool/main/example-static-rmt-nb.json) with choice nodes
 
 ### x264 Video Encoding
 
