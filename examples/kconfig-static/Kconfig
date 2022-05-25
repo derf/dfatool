@@ -1,3 +1,9 @@
+config XP23
+bool "X += 23"
+
+config YP42
+bool "Y += 42"
+
 choice
 prompt "pi or tau?"
 

@@ -19,4 +19,12 @@ if [ "$CONFIG_Y4" = y ]; then
 	Y=4
 fi
 
+if [ "$CONFIG_XP23" = y ]; then
+	X=$((X+23))
+fi
+
+if [ "$CONFIG_YP42" = y ]; then
+	Y=$((Y+42))
+fi
+
 echo '{"Synthetic": {"X": '$X', "Y": '$Y'}}'
