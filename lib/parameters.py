@@ -153,10 +153,8 @@ def _corr_by_param(attribute_data, param_values, param_index):
             # Building a correlation coefficient is pointless in this case
             # -> assume no correlation
             return 0.0
-        except ValueError:
-            logger.error(
-                "ValueError in _corr_by_param(param_index={})".format(param_index)
-            )
+        except (TypeError, ValueError) as e:
+            logger.error(f"{e} in _corr_by_param(param_index={param_index})")
             logger.error(
                 "while executing np.corrcoef({}, {}))".format(
                     attribute_data, param_values
