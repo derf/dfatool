@@ -143,7 +143,9 @@ def _corr_by_param(attribute_data, param_values, param_index):
     :param param_index: index of parameter in `by_name[*]['param']`
     """
     if _all_params_are_numeric(param_values, param_index):
-        param_values = np.array(list((map(lambda x: x[param_index], param_values))))
+        param_values = np.array(
+            list((map(lambda x: float(x[param_index]), param_values)))
+        )
         try:
             return np.corrcoef(attribute_data, param_values)[0, 1]
         except FloatingPointError:
