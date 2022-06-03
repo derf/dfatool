@@ -608,7 +608,7 @@ class FOLFunction(ModelFunction):
         self._num_args = num_args
         self.fit_success = False
 
-    def fit(self, param_values, data):
+    def fit(self, param_values, data, ignore_param_indexes=None):
         categorial_to_scalar = bool(
             int(os.getenv("DFATOOL_PARAM_CATEGORIAL_TO_SCALAR", "0"))
         )
@@ -616,6 +616,7 @@ class FOLFunction(ModelFunction):
             param_values,
             with_nan=False,
             categorial_to_scalar=categorial_to_scalar,
+            ignore_indexes=ignore_param_indexes,
         )
         self.categorial_to_index = categorial_to_index
         self.ignore_index = ignore_index

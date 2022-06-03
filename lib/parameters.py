@@ -880,8 +880,16 @@ class ModelAttribute:
         return ret
 
     def build_fol_model(self):
+        ignore_irrelevant = bool(
+            int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "1"))
+        )
+        ignore_param_indexes = list()
+        if ignore_irrelevant:
+            for i, param in enumerate(self.param_names):
+                if not self.stats.depends_on_param(param):
+                    ignore_param_indexes.append(i)
         x = df.FOLFunction(self.median, self.param_names)
-        x.fit(self.param_values, self.data)
+        x.fit(self.param_values, self.data, ignore_param_indexes=ignore_param_indexes)
         if x.fit_success:
             self.model_function = x
         else:
