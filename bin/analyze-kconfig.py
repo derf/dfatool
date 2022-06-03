@@ -293,6 +293,8 @@ def main():
                 info = param_info(name, attribute)
                 if type(info) is dfatool.cli.AnalyticFunction:
                     dfatool.cli.print_analyticinfo(f"{name:20s} {attribute:15s}", info)
+                elif type(info) is dfatool.cli.FOLFunction:
+                    dfatool.cli.print_analyticinfo(f"{name:20s} {attribute:15s}", info)
                 elif type(info) is dfatool.cli.SplitFunction:
                     dfatool.cli.print_splitinfo(
                         model.parameters, info, f"{name:20s} {attribute:15s}"

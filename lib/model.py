@@ -271,6 +271,7 @@ class AnalyticModel:
 
             paramfit = ParamFit()
             tree_allowed = bool(int(os.getenv("DFATOOL_DTREE_ENABLED", "1")))
+            use_fol = bool(int(os.getenv("DFATOOL_FIT_FOL", "0")))
             tree_required = dict()
 
             for name in self.names:
@@ -278,6 +279,8 @@ class AnalyticModel:
                 for attr in self.attr_by_name[name].keys():
                     if self.attr_by_name[name][attr].function_override is not None:
                         self.attr_by_name[name][attr].fit_override_function()
+                    elif use_fol:
+                        self.attr_by_name[name][attr].build_fol_model()
                     elif self.attr_by_name[name][
                         attr
                     ].all_relevant_parameters_are_none_or_numeric():

@@ -201,6 +201,57 @@ def partition_by_param(data, param_values, ignore_parameters=list()):
     return ret
 
 
+def param_to_ndarray(
+    param_tuples, with_nan=True, categorial_to_scalar=False, ignore_indexes=list()
+):
+    has_nan = dict()
+    has_non_numeric = dict()
+    distinct_values = dict()
+    category_to_scalar = dict()
+
+    for param_tuple in param_tuples:
+        for i, param in enumerate(param_tuple):
+            if not is_numeric(param):
+                if param is None:
+                    has_nan[i] = True
+                else:
+                    has_non_numeric[i] = True
+                if categorial_to_scalar and param is not None:
+                    if not i in distinct_values:
+                        distinct_values[i] = set()
+                    distinct_values[i].add(param)
+
+    for i, paramset in distinct_values.items():
+        distinct_values[i] = sorted(paramset)
+        category_to_scalar[i] = dict()
+        for j, param in enumerate(distinct_values[i]):
+            category_to_scalar[i][param] = j
+
+    ignore_index = dict()
+    for i in range(len(param_tuples[0])):
+        if has_non_numeric.get(i, False) and not categorial_to_scalar:
+            ignore_index[i] = True
+        elif not with_nan and has_nan.get(i, False):
+            ignore_index[i] = True
+        else:
+            ignore_index[i] = False
+
+    for i in ignore_indexes:
+        ignore_index[i] = True
+
+    ret_tuples = list()
+    for param_tuple in param_tuples:
+        ret_tuple = list()
+        for i, param in enumerate(param_tuple):
+            if not ignore_index[i]:
+                if i in category_to_scalar:
+                    ret_tuple.append(category_to_scalar[i][param])
+                else:
+                    ret_tuple.append(param)
+        ret_tuples.append(ret_tuple)
+    return np.asarray(ret_tuples), category_to_scalar, ignore_index
+
+
 def param_dict_to_list(param_dict, parameter_names, default=None):
     """
     Convert {"foo": 1, "bar": 2}, ["bar", "foo", "quux"] to [2, 1, None]

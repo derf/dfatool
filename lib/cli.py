@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
-from dfatool.functions import SplitFunction, AnalyticFunction, StaticFunction
+from dfatool.functions import (
+    SplitFunction,
+    AnalyticFunction,
+    StaticFunction,
+    FOLFunction,
+)
 
 
 def print_static(model, static_model, name, attribute):
