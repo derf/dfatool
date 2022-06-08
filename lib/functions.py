@@ -635,12 +635,21 @@ class FOLFunction(ModelFunction):
                     num_vars += 1
         else:
             num_vars = fit_parameters.shape[0]
-            funbuf = "lambda reg_param, model_param: 0"
+            funbuf = "0"
+            rawbuf = "0"
             for i in range(num_vars):
-                funbuf += f" + reg_param[{i}] * model_param[{i}]"
+                rawbuf += f" + reg_param[{i}] * model_param[{i}]"
+            i = 0
+            for j, param_name in enumerate(self.parameter_names):
+                if ignore_index[j]:
+                    continue
+                else:
+                    funbuf += f" + regression_arg({i}) * parameter({param_name})"
+                    i += 1
 
-        self._function_str = self.model_function = funbuf
-        self._function = eval(funbuf)
+        self.model_function = funbuf
+        self._function_str = "lambda reg_param, model_param:" + rawbuf
+        self._function = eval(self._function_str)
 
         error_function = lambda P, X, y: self._function(P, X) - y
         self.model_args = list(np.ones((num_vars)))
@@ -696,6 +705,19 @@ class FOLFunction(ModelFunction):
                 f"{e} when predicting {self._function_str}({param_list}), returning static value"
             )
             return self.value
+
+    def to_json(self, **kwargs):
+        ret = super().to_json(**kwargs)
+        ret.update(
+            {
+                "type": "analytic",
+                "functionStr": self.model_function,
+                "argCount": self._num_args,
+                "parameterNames": self.parameter_names,
+                "regressionModel": list(self.model_args),
+            }
+        )
+        return ret
 
 
 class AnalyticFunction(ModelFunction):

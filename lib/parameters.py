@@ -606,7 +606,7 @@ class ModelAttribute:
             "argCount": self.arg_count,
             "modelFunction": self.model_function.to_json(**kwargs),
         }
-        if type(self.model_function) == df.CARTFunction:
+        if type(self.model_function) in (df.CARTFunction, df.FOLFunction):
             feature_names = self.param_names
             feature_names += list(
                 map(
