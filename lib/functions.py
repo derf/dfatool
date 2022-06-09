@@ -626,13 +626,26 @@ class FOLFunction(ModelFunction):
         if second_order:
             num_param = fit_parameters.shape[0]
             num_vars = 0
-            funbuf = "lambda reg_param, model_param: 0"
+            funbuf = "0"
+            rawbuf = "0"
             for i in range(num_param):
-                funbuf += f" + reg_param[{num_vars}] * model_param[{i}]"
+                rawbuf += f" + reg_param[{num_vars}] * model_param[{i}]"
                 num_vars += 1
                 for j in range(i + 1, num_param):
-                    funbuf += f" + reg_param[{num_vars}] * model_param[{i}] * model_param[{j}]"
+                    rawbuf += f" + reg_param[{num_vars}] * model_param[{i}] * model_param[{j}]"
                     num_vars += 1
+            num_vars = 0
+            for j, param_name in enumerate(self.parameter_names):
+                if ignore_index[j]:
+                    continue
+                else:
+                    funbuf += f" + regression_arg({num_vars}) * parameter({param_name})"
+                    num_vars += 1
+                    for k in range(j + 1, len(self.parameter_names)):
+                        if ignore_index[j]:
+                            continue
+                        funbuf += f" + regression_arg({num_vars}) * parameter({param_name}) * parameter({self.parameter_names[k]})"
+                        num_vars += 1
         else:
             num_vars = fit_parameters.shape[0]
             funbuf = "0"
