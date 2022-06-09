@@ -141,6 +141,24 @@ class AnalyticModel:
 
         if compute_stats:
             self._compute_stats(by_name)
+        else:
+            for name, data in by_name.items():
+                self.attr_by_name[name] = dict()
+                for attr in data["attributes"]:
+                    model_attr = ModelAttribute(
+                        name,
+                        attr,
+                        data[attr],
+                        data["param"],
+                        self.parameters,
+                        self._num_args.get(name, 0),
+                        param_type=self.param_type_by_name[name],
+                    )
+                    self.attr_by_name[name][attr] = model_attr
+                    if (name, attr) in self.function_override:
+                        model_attr.function_override = self.function_override[
+                            (name, attr)
+                        ]
 
         if force_tree:
             for name in self.names:
