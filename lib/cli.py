@@ -259,6 +259,14 @@ def add_standard_arguments(parser):
         type=str,
         help="Adjust parameter values before passing them to model generation",
     )
+    parser.add_argument(
+        "--filter-param",
+        metavar="<parameter name>=<parameter value>[,<parameter name>=<parameter value>...]",
+        type=str,
+        help="Only consider measurements where <parameter name> is <parameter value>. "
+        "All other measurements (including those where it is None, that is, has not been set yet) are discarded. "
+        "Note that this may remove entire function calls from the model.",
+    )
 
 
 def parse_param_shift(raw_param_shift):

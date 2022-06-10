@@ -445,14 +445,6 @@ if __name__ == "__main__":
         "Creates a JSON file for each state and transition.",
     )
     parser.add_argument(
-        "--filter-param",
-        metavar="<parameter name>=<parameter value>[,<parameter name>=<parameter value>...]",
-        type=str,
-        help="Only consider measurements where <parameter name> is <parameter value>. "
-        "All other measurements (including those where it is None, that is, has not been set yet) are discarded. "
-        "Note that this may remove entire function calls from the model.",
-    )
-    parser.add_argument(
         "--with-safe-functions",
         action="store_true",
         help="Include 'safe' functions (safe_log, safe_inv, safe_sqrt) which are also defined for 0 and -1. "

@@ -181,6 +181,14 @@ def main():
     # Release memory
     del observations
 
+    if args.filter_param:
+        args.filter_param = list(
+            map(lambda x: x.split("="), args.filter_param.split(","))
+        )
+        dfatool.utils.filter_aggregate_by_param(
+            by_name, parameter_names, args.filter_param
+        )
+
     if args.max_std:
         max_std = dict()
         if "=" in args.max_std:
