@@ -173,6 +173,16 @@ def main():
         with lzma.open(args.model, "rt") as f:
             observations = json.load(f)
 
+        if bool(int(os.getenv("DFATOOL_KCONF_IGNORE_STRING", 0))):
+            attributes = KConfigAttributes(args.kconfig_path, None)
+            for observation in observations:
+                to_remove = list()
+                for param in observation["param"].keys():
+                    if param not in attributes.symbol_names:
+                        to_remove.append(param)
+                for param in to_remove:
+                    observation["param"].pop(param)
+
     if args.boolean_parameters:
         dfatool.utils.observations_enum_to_bool(observations, kconfig=True)
 
