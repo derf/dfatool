@@ -612,7 +612,7 @@ class FOLFunction(ModelFunction):
         categorial_to_scalar = bool(
             int(os.getenv("DFATOOL_PARAM_CATEGORIAL_TO_SCALAR", "0"))
         )
-        second_order = bool(int(os.getenv("DFATOOL_FOL_SECOND_ORDER", "0")))
+        second_order = int(os.getenv("DFATOOL_FOL_SECOND_ORDER", "0"))
         fit_parameters, categorial_to_index, ignore_index = param_to_ndarray(
             param_values,
             with_nan=False,
@@ -629,8 +629,9 @@ class FOLFunction(ModelFunction):
             funbuf = "0"
             rawbuf = "0"
             for i in range(num_param):
-                rawbuf += f" + reg_param[{num_vars}] * model_param[{i}]"
-                num_vars += 1
+                if second_order == 2:
+                    rawbuf += f" + reg_param[{num_vars}] * model_param[{i}]"
+                    num_vars += 1
                 for j in range(i + 1, num_param):
                     rawbuf += f" + reg_param[{num_vars}] * model_param[{i}] * model_param[{j}]"
                     num_vars += 1
@@ -639,8 +640,11 @@ class FOLFunction(ModelFunction):
                 if ignore_index[j]:
                     continue
                 else:
-                    funbuf += f" + regression_arg({num_vars}) * parameter({param_name})"
-                    num_vars += 1
+                    if second_order == 2:
+                        funbuf += (
+                            f" + regression_arg({num_vars}) * parameter({param_name})"
+                        )
+                        num_vars += 1
                     for k in range(j + 1, len(self.parameter_names)):
                         if ignore_index[j]:
                             continue
