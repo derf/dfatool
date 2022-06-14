@@ -13,6 +13,7 @@ import json
 import kconfiglib
 import logging
 import os
+import sys
 import time
 
 import numpy as np
@@ -224,6 +225,12 @@ def main():
         max_std=max_std,
     )
     constructor_duration = time.time() - constructor_start
+
+    if not model.names:
+        logging.error(
+            f"Model contains no names. Is --filter-param={args.filter_param} set too restrictive?"
+        )
+        sys.exit(1)
 
     if args.info:
         dfatool.cli.print_info_by_name(model, by_name)
