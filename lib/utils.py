@@ -403,6 +403,22 @@ def by_param_to_by_name(by_param: dict) -> dict:
     return by_name
 
 
+def shift_param_in_observations(observations, parameter_shift):
+    for param_name, param_shift_function in parameter_shift:
+        if param_name == "*":
+            for observation in observations:
+                for param_name in observation["param"].keys():
+                    observation["param"][param_name] = param_shift_function(
+                        observation["param"][param_name]
+                    )
+        else:
+            for observation in observations:
+                if observation["param"][param_name] is not None:
+                    observation["param"][param_name] = param_shift_function(
+                        observation["param"][param_name]
+                    )
+
+
 def shift_param_in_aggregate(aggregate, parameters, parameter_shift):
     """
     Remove entries which do not have certain parameter values from `aggregate`.

@@ -187,6 +187,10 @@ def main():
     if args.boolean_parameters:
         dfatool.utils.observations_enum_to_bool(observations, kconfig=True)
 
+    if args.param_shift:
+        param_shift = dfatool.cli.parse_param_shift(args.param_shift)
+        dfatool.utils.shift_param_in_observations(observations, param_shift)
+
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
 
     # Release memory
