@@ -651,12 +651,12 @@ class FOLFunction(ModelFunction):
                         funbuf += f" + regression_arg({num_vars}) * parameter({param_name}) * parameter({self.parameter_names[k]})"
                         num_vars += 1
         else:
-            num_vars = fit_parameters.shape[0]
-            funbuf = "0"
-            rawbuf = "0"
-            for i in range(num_vars):
-                rawbuf += f" + reg_param[{i}] * model_param[{i}]"
-            i = 0
+            num_vars = fit_parameters.shape[0] + 1
+            rawbuf = "reg_param[0]"
+            for i in range(1, num_vars):
+                rawbuf += f" + reg_param[{i}] * model_param[{i-1}]"
+            funbuf = "regression_arg(0)"
+            i = 1
             for j, param_name in enumerate(self.parameter_names):
                 if ignore_index[j]:
                     continue
