@@ -885,9 +885,12 @@ class ModelAttribute:
         )
         ignore_param_indexes = list()
         if ignore_irrelevant:
-            for i, param in enumerate(self.param_names):
+            for param_index, param in enumerate(self.param_names):
                 if not self.stats.depends_on_param(param):
-                    ignore_param_indexes.append(i)
+                    ignore_param_indexes.append(param_index)
+        for param_index, _ in enumerate(self.param_names):
+            if len(self.stats.distinct_values_by_param_index[param_index]) < 2:
+                ignore_param_indexes.append(param_index)
         x = df.FOLFunction(self.median, self.param_names)
         x.fit(self.param_values, self.data, ignore_param_indexes=ignore_param_indexes)
         if x.fit_success:
