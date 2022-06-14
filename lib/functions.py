@@ -625,9 +625,8 @@ class FOLFunction(ModelFunction):
 
         if second_order:
             num_param = fit_parameters.shape[0]
-            num_vars = 0
-            funbuf = "0"
-            rawbuf = "0"
+            rawbuf = "reg_param[0]"
+            num_vars = 1
             for i in range(num_param):
                 if second_order == 2:
                     rawbuf += f" + reg_param[{num_vars}] * model_param[{i}]"
@@ -635,7 +634,8 @@ class FOLFunction(ModelFunction):
                 for j in range(i + 1, num_param):
                     rawbuf += f" + reg_param[{num_vars}] * model_param[{i}] * model_param[{j}]"
                     num_vars += 1
-            num_vars = 0
+            funbuf = "regression_arg(0)"
+            num_vars = 1
             for j, param_name in enumerate(self.parameter_names):
                 if ignore_index[j]:
                     continue
