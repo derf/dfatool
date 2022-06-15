@@ -484,7 +484,7 @@ class SKLearnRegressionFunction(ModelFunction):
                             max(self.categorial_to_index[i].values()) + 1
                         )
                 else:
-                    actual_param_list.append(param)
+                    actual_param_list.append(int(param))
         predictions = self.regressor.predict(np.array([actual_param_list]))
         if predictions.shape == (1,):
             return predictions[0]
@@ -714,7 +714,7 @@ class FOLFunction(ModelFunction):
                             max(self.categorial_to_index[i].values()) + 1
                         )
                 else:
-                    actual_param_list.append(param)
+                    actual_param_list.append(int(param))
         try:
             return self._function(self.model_args, actual_param_list)
         except FloatingPointError as e:
