@@ -244,8 +244,10 @@ def param_to_ndarray(
         ret_tuple = list()
         for i, param in enumerate(param_tuple):
             if not ignore_index[i]:
-                if i in category_to_scalar:
+                if i in category_to_scalar and not is_numeric(param):
                     ret_tuple.append(category_to_scalar[i][param])
+                elif categorial_to_scalar:
+                    ret_tuple.append(soft_cast_int(param))
                 else:
                     ret_tuple.append(param)
         ret_tuples.append(ret_tuple)
