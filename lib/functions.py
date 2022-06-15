@@ -719,9 +719,14 @@ class FOLFunction(ModelFunction):
             return self._function(self.model_args, actual_param_list)
         except FloatingPointError as e:
             logger.error(
-                f"{e} when predicting {self._function_str}({param_list}), returning static value"
+                f"{e} when predicting {self._function_str}({self.model_args}, {actual_param_list}) for {param_list}, returning static value"
             )
             return self.value
+        except TypeError as e:
+            logger.error(
+                f"{e} when predicting {self._function_str}({self.model_args}, {actual_param_list}) for {param_list}"
+            )
+            raise
 
     def to_json(self, **kwargs):
         ret = super().to_json(**kwargs)
