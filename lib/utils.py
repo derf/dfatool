@@ -433,13 +433,21 @@ def shift_param_in_aggregate(aggregate, parameters, parameter_shift):
     :param parameter_filter: [[name, value], [name, value], ...] list of parameter values to keep, all others are removed. Values refer to normalizad parameter data.
     """
     for param_name, param_shift_function in parameter_shift:
-        param_index = parameters.index(param_name)
-        for name in aggregate.keys():
-            for param_list in aggregate[name]["param"]:
-                if param_list[param_index] is not None:
-                    param_list[param_index] = param_shift_function(
-                        param_list[param_index]
-                    )
+        if param_name == "*":
+            for name in aggregate.keys():
+                for param_list in aggregate[name]["param"]:
+                    for param_index in range(len(param_list)):
+                        param_list[param_index] = param_shift_function(
+                            param_list[param_index]
+                        )
+        else:
+            param_index = parameters.index(param_name)
+            for name in aggregate.keys():
+                for param_list in aggregate[name]["param"]:
+                    if param_list[param_index] is not None:
+                        param_list[param_index] = param_shift_function(
+                            param_list[param_index]
+                        )
 
 
 def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
