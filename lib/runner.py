@@ -522,6 +522,24 @@ class KRATOS:
             max_overflow,
         )
 
+    def get_nfpvalues(self) -> list:
+        """
+        Return Kratos "make nfpvalues" output.
+
+        Returns a dict.
+        """
+        command = ["make", "nfpvalues"]
+        logger.debug(f"Getting nfpvalues: {' '.join(command)}")
+        res = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        if res.returncode != 0:
+            raise RuntimeError(f"make nfpvalues Failure. command = {command}")
+        return json.loads(res.stdout)
+
 
 class Multipass:
     def __init__(self, name, opts=list()):
@@ -654,6 +672,26 @@ class Multipass:
         if res.returncode != 0:
             raise RuntimeError(f"make info Failure. command = {command}")
         return res.stdout.split("\n")
+
+    def get_nfpvalues(self, app, opts=list()) -> list:
+        """
+        Return multipass "make nfpvalues" output.
+
+        Returns a dict.
+        """
+        command = ["make", f"arch={self.name}", f"app={app}", "nfpvalues"]
+        command.extend(self.opts)
+        command.extend(opts)
+        logger.debug(f"Getting nfpvalues: {' '.join(command)}")
+        res = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        if res.returncode != 0:
+            raise RuntimeError(f"make nfpvalues Failure. command = {command}")
+        return json.loads(res.stdout)
 
     def _cached_info(self, opts=list()) -> list:
         if len(opts):
