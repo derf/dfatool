@@ -169,10 +169,20 @@ def main():
     else:
         # show-failing-symbols, show-nop-symbols, DFATOOL_KCONF_WITH_CHOICE_NODES, DFATOOL_KCONF_IGNORE_NUMERIC, and DFATOOL_KCONF_IGNORE_STRING have no effect
         # in this branch.
-        import lzma
 
-        with lzma.open(args.model, "rt") as f:
-            observations = json.load(f)
+        if args.model.endswith("xz"):
+            import lzma
+
+            with lzma.open(args.model, "rt") as f:
+                observations = json.load(f)
+        elif args.model.endswith("ubjson"):
+            import ubjson
+
+            with open(args.model, "rb") as f:
+                observations = ubjson.load(f)
+        else:
+            with open(args.model, "r") as f:
+                observations = json.load(f)
 
         if bool(int(os.getenv("DFATOOL_KCONF_IGNORE_STRING", 0))):
             attributes = KConfigAttributes(args.kconfig_path, None)
