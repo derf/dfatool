@@ -25,6 +25,24 @@ from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 
 
+def write_csv(f, model, attr):
+    model_attr = model.attr_by_name[attr]
+    attributes = sorted(model_attr.keys())
+    print(", ".join(model.parameters) + ",     " + ", ".join(attributes), file=f)
+
+    # by convention, model_attr[attr].param_values is the same regardless of 'attr'
+    for param_tuple in model_attr[attributes[0]].param_values:
+        param_data = map(
+            lambda a: model_attr[a].by_param.get(tuple(param_tuple), list()), attributes
+        )
+        print(
+            ", ".join(map(str, param_tuple))
+            + ",     "
+            + ", ".join(map(str, map(np.mean, param_data))),
+            file=f,
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
@@ -55,6 +73,17 @@ def main():
         type=str,
         metavar="VALUE_OR_MAP",
         help="Specify desired maximum standard deviation for decision tree generation, either as float (global) or <key>/<attribute>=<value>[,<key>/<attribute>=<value>,...]",
+    )
+    parser.add_argument(
+        "--export-csv",
+        type=str,
+        metavar="FILE",
+        help="Export observations aggregated by parameter to FILE",
+    )
+    parser.add_argument(
+        "--export-csv-only",
+        action="store_true",
+        help="Exit after exporting observations to CSV file",
     )
     parser.add_argument(
         "--export-observations",
@@ -288,6 +317,15 @@ def main():
         else:
             logging.warning(f"Skipping LUT model: {e}")
         lut_model = None
+
+    if args.export_csv:
+        for name in model.names:
+            target = f"{args.export_csv}-{name}.csv"
+            print(f"Exporting aggregated data to {target}")
+            with open(target, "w") as f:
+                write_csv(f, model, name)
+        if args.export_csv_only:
+            return
 
     fit_start_time = time.time()
     param_model, param_info = model.get_fitted()
