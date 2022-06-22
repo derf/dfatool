@@ -302,6 +302,12 @@ def observations_enum_to_bool(observations: list, kconfig=False):
                 binary_keys.add(binary_key)
 
 
+def observations_ignore_param(observations: list, ignored_parameters: list) -> list:
+    for observation in observations:
+        for ignored_parameter in ignored_parameters:
+            observation["param"].pop(ignored_parameter)
+
+
 def observations_to_by_name(observations: list):
     """
     Convert observation list to by_name dictionary for AnalyticModel analysis
