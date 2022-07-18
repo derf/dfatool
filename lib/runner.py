@@ -766,20 +766,26 @@ class Multipass:
     def get_counter_limits_us(self, opts=list()) -> tuple:
         """Return duration of one counter step and one counter overflow in us."""
         cpu_freq = 0
+        counter_freq = 0
         overflow_value = 0
         max_overflow = 0
         for line in self._cached_info(opts):
             match = re.match(r"CPU\s+Freq:\s+(.*)\s+Hz", line)
             if match:
                 cpu_freq = int(match.group(1))
+            match = re.match(r"Count\s+Freq:\s+(.*)\s+Hz", line)
+            if match:
+                counter_freq = int(match.group(1))
             match = re.match(r"Counter Overflow:\s+([^/]*)/(.*)", line)
             if match:
                 overflow_value = int(match.group(1))
                 max_overflow = int(match.group(2))
-        if cpu_freq and overflow_value:
+        if cpu_freq and not counter_freq:
+            counter_freq = cpu_freq
+        if counter_freq and overflow_value:
             return (
-                1_000_000 / cpu_freq,
-                overflow_value * 1_000_000 / cpu_freq,
+                1_000_000 / counter_freq,
+                overflow_value * 1_000_000 / counter_freq,
                 max_overflow,
             )
         raise RuntimeError("Did not find Counter Overflow limits")
