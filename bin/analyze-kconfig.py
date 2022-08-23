@@ -25,10 +25,15 @@ from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 
 
-def write_csv(f, model, attr):
+def write_csv(f, model, attr, precision=None):
     model_attr = model.attr_by_name[attr]
     attributes = sorted(model_attr.keys())
     print(", ".join(model.parameters) + ",     " + ", ".join(attributes), file=f)
+
+    if precision is not None:
+        data_wrapper = lambda x: f"{x:.{precision}f}"
+    else:
+        data_wrapper = str
 
     # by convention, model_attr[attr].param_values is the same regardless of 'attr'
     for param_tuple in model_attr[attributes[0]].param_values:
@@ -38,7 +43,7 @@ def write_csv(f, model, attr):
         print(
             ", ".join(map(str, param_tuple))
             + ",     "
-            + ", ".join(map(str, map(np.mean, param_data))),
+            + ", ".join(map(data_wrapper, map(np.mean, param_data))),
             file=f,
         )
 
@@ -73,6 +78,12 @@ def main():
         type=str,
         metavar="VALUE_OR_MAP",
         help="Specify desired maximum standard deviation for decision tree generation, either as float (global) or <key>/<attribute>=<value>[,<key>/<attribute>=<value>,...]",
+    )
+    parser.add_argument(
+        "--csv-precision",
+        type=int,
+        metavar="NDIGITS",
+        help="Precision (number of decimal digits) for CSV export",
     )
     parser.add_argument(
         "--export-csv",
@@ -323,7 +334,7 @@ def main():
             target = f"{args.export_csv}-{name}.csv"
             print(f"Exporting aggregated data to {target}")
             with open(target, "w") as f:
-                write_csv(f, model, name)
+                write_csv(f, model, name, args.csv_precision)
         if args.export_csv_only:
             return
 
