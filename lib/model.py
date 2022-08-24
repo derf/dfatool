@@ -177,6 +177,11 @@ class AnalyticModel:
                     )
             self.fit_done = True
 
+    def get_by_param(self):
+        if not "by_param" in self.cache:
+            self.cache["by_param"] = by_name_to_by_param(self.by_name)
+        return self.cache["by_param"]
+
     def __repr__(self):
         names = ", ".join(self.by_name.keys())
         return f"AnalyticModel<names=[{names}]>"
@@ -738,6 +743,9 @@ class PTAModel(AnalyticModel):
                 self.cluster_substates(name)
 
         np.seterr("raise")
+
+    def get_by_param(self):
+        return self.by_param
 
     def __repr__(self):
         states = ", ".join(self.states)

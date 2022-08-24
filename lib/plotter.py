@@ -198,7 +198,7 @@ def plot_param(
 
     legend_sanitizer = re.compile(r"[^0-9a-zA-Z]+")
 
-    for k, v in model.by_param.items():
+    for k, v in model.get_by_param().items():
         if k[0] == state_or_trans:
             other_param_key = (*k[1][:param_idx], *k[1][param_idx + 1 :])
             if other_param_key not in by_other_param:
