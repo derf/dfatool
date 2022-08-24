@@ -153,6 +153,16 @@ def main():
         type=str,
         help="Ignore listed parameters during model generation",
     )
+    parser.add_argument(
+        "--plot-param",
+        metavar="<name> <attribute> <parameter> [gplearn function][;<name> <attribute> <parameter> [function];...])",
+        type=str,
+        help="Plot measurements for <name> <attribute> by <parameter>. "
+        "X axis is parameter value. "
+        "Plots the model function as one solid line for each combination of non-<parameter> parameters. "
+        "Also plots the corresponding measurements. "
+        "If gplearn function is set, it is plotted using dashed lines.",
+    )
     parser.add_argument("kconfig_path", type=str, help="Path to Kconfig file")
     parser.add_argument(
         "model",
@@ -303,6 +313,30 @@ def main():
 
     if args.export_pgf_unparam:
         dfatool.cli.export_pgf_unparam(model, args.export_pgf_unparam)
+
+    if args.plot_param:
+        from dfatool import plotter
+
+        for kv in args.plot_param.split(";"):
+            try:
+                state_or_trans, attribute, param_name, *function = kv.split(" ")
+            except ValueError:
+                print(
+                    "Usage: --plot-param='state_or_trans attribute param_name [additional function spec]'",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            if len(function):
+                function = gplearn_to_function(" ".join(function))
+            else:
+                function = None
+            plotter.plot_param(
+                model,
+                state_or_trans,
+                attribute,
+                model.param_index(param_name),
+                extra_function=function,
+            )
 
     if args.cross_validate:
         xv_method, xv_count = args.cross_validate.split(":")
