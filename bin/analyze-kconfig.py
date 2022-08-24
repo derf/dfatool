@@ -441,14 +441,15 @@ def main():
             [None, param_info, None],
         )
 
-    print("Model Error on Training Data:")
-    for name in sorted(model.names):
-        for attribute, error in sorted(
-            analytic_quality[name].items(), key=lambda kv: kv[0]
-        ):
-            mae = error["mae"]
-            smape = error["smape"]
-            print(f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {smape:5.1f}%")
+    if not args.show_quality:
+        print("Model Error on Training Data:")
+        for name in sorted(model.names):
+            for attribute, error in sorted(
+                analytic_quality[name].items(), key=lambda kv: kv[0]
+            ):
+                mae = error["mae"]
+                smape = error["smape"]
+                print(f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {smape:5.1f}%")
 
     if args.show_model_size:
         dfatool.cli.print_model_size(model)
