@@ -436,7 +436,7 @@ def main():
 
     if "table" in args.show_quality or "all" in args.show_quality:
         if xv_method is not None:
-            print(f"Model error after cross validation ({xv_method}, xv_count}):")
+            print(f"Model error after cross validation ({xv_method}, {xv_count}):")
         else:
             print("Model error on training data:")
         dfatool.cli.model_quality_table(
