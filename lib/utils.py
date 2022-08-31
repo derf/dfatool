@@ -303,9 +303,17 @@ def observations_enum_to_bool(observations: list, kconfig=False):
 
 
 def observations_ignore_param(observations: list, ignored_parameters: list) -> list:
+    unpoppable_params = set()
     for observation in observations:
         for ignored_parameter in ignored_parameters:
-            observation["param"].pop(ignored_parameter)
+            try:
+                observation["param"].pop(ignored_parameter)
+            except KeyError:
+                unpoppable_params.add(ignored_parameter)
+    if unpoppable_params:
+        logger.info(
+            f"ignore_param: Parameters {unpoppable_params} were not part of the observations to begin with"
+        )
 
 
 def observations_to_by_name(observations: list):
