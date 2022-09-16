@@ -2,13 +2,17 @@
 
 **dfatool** is a set of utilities for automated measurement of non-functional
 properties of software product lines and embedded peripherals, and automatic
-generation of NFP models based upon those.
+generation of performance models based upon those.
 
 Measurements and models for peripherals generally focus on energy and timing
 behaviour expressed as a Priced Timed Automaton (PTA).
 
 Measurements and models for software product lines focus on ROM/RAM usage and
-may also include attributes such as throughput, latency, or energy.
+may also include attributes such as throughput, latency, or energy. The
+variability model of the software product line must be expressed in the
+[Kconfig
+language](https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt).
+Generated models can be used with [kconfig-webconf](https://ess.cs.uos.de/git/software/kconfig-webconf).
 
 ## Energy Model Generation
 
