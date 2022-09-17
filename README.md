@@ -5,7 +5,8 @@ properties of software product lines and embedded peripherals, and automatic
 generation of performance models based upon those.
 
 Measurements and models for peripherals generally focus on energy and timing
-behaviour expressed as a Priced Timed Automaton (PTA).
+behaviour expressed as a [Priced Timed Automaton (PTA)](https://ess.cs.uos.de/static/papers/Friesel_2018_sies.pdf)
+with [Regression Model Trees (RMT)](https://ess.cs.uos.de/static/papers/Friesel-2022-CPSIoTBench.pdf).
 
 Measurements and models for software product lines focus on ROM/RAM usage and
 may also include attributes such as throughput, latency, or energy. The
@@ -13,6 +14,7 @@ variability model of the software product line must be expressed in the
 [Kconfig
 language](https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt).
 Generated models can be used with [kconfig-webconf](https://ess.cs.uos.de/git/software/kconfig-webconf).
+This allows for [Retrofitting Performance Models onto Kconfig-based Software Product Lines](https://ess.cs.uos.de/static/papers/Friesel-2022-SPLC.pdf).
 
 ## Energy Model Generation
 
@@ -50,7 +52,8 @@ Depending on the value of the **DFATOOL_KCONF_WITH_CHOICE_NODES** environment va
 
 ### Generating Models
 
-to be documented.
+To be documented.
+In the meantime, we have a short [video example](https://ess.cs.uos.de/static/videos/splc22-kconfig-webconf.mp4).
 
 ## Dependencies
 
