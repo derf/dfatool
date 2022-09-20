@@ -316,7 +316,17 @@ def observations_ignore_param(observations: list, ignored_parameters: list) -> l
         )
 
 
-def observations_to_by_name(observations: list):
+def observation_dict_to_by_name(observation):
+    parameter_names = observation["param_names"]
+    by_name = observation["by_name"]
+    assert parameter_names == sorted(parameter_names)
+    for name in by_name:
+        for attribute in by_name[name]["attributes"]:
+            by_name[name][attribute] = np.array(by_name[name][attribute])
+    return by_name, parameter_names
+
+
+def observations_to_by_name(observations):
     """
     Convert observation list to by_name dictionary for AnalyticModel analysis
 
@@ -330,6 +340,8 @@ def observations_to_by_name(observations: list):
 
     :returns: tuple (by_name, parameter_names) which can be passed to AnalyticModel
     """
+    if type(observations) is dict:
+        return observation_dict_to_by_name(observations)
     parameter_names = set()
     attributes_by_name = dict()
     by_name = dict()
