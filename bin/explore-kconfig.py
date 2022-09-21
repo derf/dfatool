@@ -101,18 +101,23 @@ def main():
         kconf.enumerate()
 
     if args.random:
-        for i in range(args.random):
-            logging.info(f"Running randconfig {i+1} of {args.random}")
+        num_successful = 0
+        # Assumption: At least 1% of builds are successful
+        for i in range(args.random * 100):
+            logging.info(f"Running randconfig {num_successful+1} of {args.random}")
             status = kconf.run_randconfig()
+            if status["success"]:
+                num_successful += 1
             if args.with_neighbourhood and status["success"]:
                 config_filename = status["config_path"]
                 logging.info(f"Exploring neighbourhood of {config_filename}")
                 kconf.run_exploration_from_file(
                     config_filename, with_initial_config=False
                 )
+            if num_successful + 1 == args.random:
+                break
 
     if args.neighbourhood:
-        # TODO also explore range of numeric options
         if os.path.isfile(args.neighbourhood):
             kconf.run_exploration_from_file(args.neighbourhood)
         elif os.path.isdir(args.neighbourhood):
