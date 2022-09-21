@@ -321,6 +321,8 @@ def observation_dict_to_by_name(observation):
     by_name = observation["by_name"]
     assert parameter_names == sorted(parameter_names)
     for name in by_name:
+        for entry in by_name[name]["param"]:
+            assert len(entry) == len(parameter_names)
         for attribute in by_name[name]["attributes"]:
             by_name[name][attribute] = np.array(by_name[name][attribute])
     return by_name, parameter_names
