@@ -30,7 +30,7 @@ To do so, it needs to support the **make**, **make clean**, **make randconfig**,
 **make nfpkeys** is expected to print a JSON dict with meta-data about those.
 All of these commands can be changed, see `bin/explore-kconfig.py --help`.
 
-See **examples/kconfig-static** for a simple example project, and [multipass](https://github.com/derf/multipass) and [kratos](https://ess.cs.uos.de/git/software/kratos/kratos) for more complex ones.
+See **examples/kconfig-static** for a simple example project, and **examples/busybox.sh** for a more complex one.
 The `make_benchmark` section of **.gitlab-ci.yml** shows how to run benchmarks and generate a model for the example project.
 
 As benchmark generation employs frequent recompilation, using a tmpfs is recommended.
