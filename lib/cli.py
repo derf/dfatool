@@ -126,7 +126,7 @@ def model_quality_table(header, result_lists, info_list):
             for i, results in enumerate(result_lists):
                 info = info_list[i]
                 buf += "  |||  "
-                if (
+                if results is not None and (
                     info is None
                     or (
                         key != "energy_Pt"
