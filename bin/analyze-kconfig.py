@@ -301,6 +301,7 @@ def main():
         max_std=max_std,
     )
     constructor_duration = time.time() - constructor_start
+    logging.debug(f"AnalyticModel(...) took {constructor_duration : 7.1f} seconds")
 
     if not model.names:
         logging.error(
@@ -375,6 +376,7 @@ def main():
     fit_start_time = time.time()
     param_model, param_info = model.get_fitted()
     fit_duration = time.time() - fit_start_time
+    logging.debug(f"model.get_fitted(...) took {fit_duration : 7.1f} seconds")
 
     if xv_method == "montecarlo":
         static_quality, _ = xv.montecarlo(lambda m: m.get_static(), xv_count)
@@ -401,16 +403,25 @@ def main():
             lambda m: m.get_fitted()[0], xv_count
         )
     else:
+        assess_start = time.time()
         static_quality = model.assess(static_model)
+        assess_duration = time.time() - assess_start
+        logging.debug(f"model.assess(static) took {assess_duration : 7.1f} seconds")
         if args.export_raw_predictions:
             analytic_quality, raw_results = model.assess(param_model, return_raw=True)
             with open(args.export_raw_predictions, "w") as f:
                 json.dump(raw_results, f, cls=dfatool.utils.NpEncoder)
         else:
+            assess_start = time.time()
             analytic_quality = model.assess(param_model)
+            assess_duration = time.time() - assess_start
+            logging.debug(f"model.assess(param) took {assess_duration : 7.1f} seconds")
         xv_analytic_models = [model]
         if lut_model:
+            assess_start = time.time()
             lut_quality = model.assess(lut_model)
+            assess_duration = time.time() - assess_start
+            logging.debug(f"model.assess(lut) took {assess_duration : 7.1f} seconds")
         else:
             lut_quality = None
 
