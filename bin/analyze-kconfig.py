@@ -468,7 +468,10 @@ def main():
         )
 
     if not args.show_quality:
-        print("Model Error on Training Data:")
+        if xv_method is not None:
+            print(f"Model Error after Cross Validation ({xv_method}, {xv_count}):")
+        else:
+            print("Model Error on Training Data:")
         for name in sorted(model.names):
             for attribute, error in sorted(
                 analytic_quality[name].items(), key=lambda kv: kv[0]
