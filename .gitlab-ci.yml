@@ -43,14 +43,7 @@ make_benchmark:
   script:
   - mkdir -p kconfig-static-data models
   - cd kconfig-static-data
-  - ../bin/explore-kconfig.py --log-level debug --random 10 --with-neighbourhood ../examples/kconfig-static
-  - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 DFATOOL_KCONF_WITH_CHOICE_NODES=0 ../bin/analyze-kconfig.py --export-webconf ../models/example-static-rmt-b.json --export-raw-predictions ../models/example-static-rmt-b-eval.json ../examples/kconfig-static/Kconfig .
-  - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 DFATOOL_KCONF_WITH_CHOICE_NODES=1 ../bin/analyze-kconfig.py --export-webconf ../models/example-static-rmt-nb.json --export-raw-predictions ../models/example-static-rmt-nb-eval.json ../examples/kconfig-static/Kconfig .
-  - DFATOOL_DTREE_SKLEARN_CART=1 DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1 DFATOOL_KCONF_WITH_CHOICE_NODES=0 ../bin/analyze-kconfig.py --export-webconf ../models/example-static-cart-b.json --export-raw-predictions ../models/example-static-cart-b-eval.json ../examples/kconfig-static/Kconfig .
-  - DFATOOL_DTREE_SKLEARN_CART=1 DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1 DFATOOL_KCONF_WITH_CHOICE_NODES=1 ../bin/analyze-kconfig.py --export-webconf ../models/example-static-cart-nb.json --export-raw-predictions ../models/example-static-cart-nb-eval.json ../examples/kconfig-static/Kconfig .
-  - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1 DFATOOL_FIT_FOL=1 DFATOOL_KCONF_WITH_CHOICE_NODES=0 ../bin/analyze-kconfig.py --export-webconf ../models/example-static-fol-b.json --export-raw-predictions ../models/example-static-fol-b-eval.json ../examples/kconfig-static/Kconfig .
-  - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1 DFATOOL_FIT_FOL=1 DFATOOL_KCONF_WITH_CHOICE_NODES=1 ../bin/analyze-kconfig.py --export-webconf ../models/example-static-fol-nb.json --export-raw-predictions ../models/example-static-fol-nb-eval.json ../examples/kconfig-static/Kconfig .
-  - cp ../examples/kconfig-static/Kconfig ../models/example-static.kconfig
+  - examples/explore-and-model-static
   artifacts:
     paths:
     - models
