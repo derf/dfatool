@@ -283,8 +283,11 @@ class CrossValidator:
             training, self.parameters, *self.args, **self.kwargs
         )
         training_model = model_getter(training_data)
+        kwargs = self.kwargs.copy()
+        kwargs["compute_stats"] = False
+        kwargs["force_tree"] = False
         validation_data = self.model_class(
-            validation, self.parameters, *self.args, **self.kwargs
+            validation, self.parameters, *self.args, **kwargs
         )
 
         return training_data, validation_data.assess(training_model)
