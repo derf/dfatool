@@ -13,10 +13,14 @@ git clone --recursive https://ess.cs.uos.de/git/software/dfatool.git
 
 dfatool/bin/kconfig-expand-includes busybox-1.35.0/Config.in > busybox-1.35.0/Kconfig
 
+cat > busybox-1.35.0/nfpkeys.json <<__EOF__
+{"ELF": {"Size": {"unit": "B", "description": "Binary Size", "minimize": true}, "RAM": {"unit": "B", "description": "static RAM", "minimize": true}}}
+__EOF__
+
 cat > busybox-1.35.0/Makefile.local << __EOF__
 .PHONY: nfpkeys
 nfpkeys:
-	@echo '{"ELF": {"Size": {"unit": "B", "description": "Binary Size", "minimize": true}, "RAM": {"unit": "B", "description": "static RAM", "minimize": true}}}'
+	@cat nfpkeys.json
 
 .PHONY: nfpvalues
 nfpvalues:
