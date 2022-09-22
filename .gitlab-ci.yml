@@ -43,7 +43,7 @@ make_benchmark:
   script:
   - mkdir -p kconfig-static-data models
   - cd kconfig-static-data
-  - examples/explore-and-model-static
+  - ../examples/explore-and-model-static
   artifacts:
     paths:
     - models
