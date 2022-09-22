@@ -160,6 +160,8 @@ class NormalizationFunction:
 
 
 class ModelFunction:
+    always_predictable = False
+    has_eval_arr = False
     """
     Encapsulates the behaviour of a single model attribute, e.g. TX power or write duration.
 
@@ -190,6 +192,9 @@ class ModelFunction:
         raise NotImplementedError
 
     def eval(self, param_list):
+        raise NotImplementedError
+
+    def eval_arr(self, params):
         raise NotImplementedError
 
     def eval_mae(self, param_list):
@@ -254,6 +259,9 @@ class ModelFunction:
 
 
 class StaticFunction(ModelFunction):
+    always_predictable = True
+    has_eval_arr = True
+
     def is_predictable(self, param_list=None):
         """
         Return whether the model function can be evaluated on the given parameter values.
@@ -270,6 +278,9 @@ class StaticFunction(ModelFunction):
 
         """
         return self.value
+
+    def eval_arr(self, params):
+        return [self.value for p in params]
 
     def to_json(self, **kwargs):
         ret = super().to_json(**kwargs)
@@ -447,6 +458,9 @@ class SubstateFunction(ModelFunction):
 
 
 class SKLearnRegressionFunction(ModelFunction):
+    always_predictable = True
+    has_eval_arr = True
+
     def __init__(self, value, regressor, categorial_to_index, ignore_index):
         super().__init__(value)
         self.regressor = regressor
@@ -488,6 +502,28 @@ class SKLearnRegressionFunction(ModelFunction):
         predictions = self.regressor.predict(np.array([actual_param_list]))
         if predictions.shape == (1,):
             return predictions[0]
+        return predictions
+
+    def eval_arr(self, params):
+        actual_params = list()
+        for param_tuple in params:
+            actual_param_list = list()
+            for i, param in enumerate(param_tuple):
+                if not self.ignore_index[i]:
+                    if i in self.categorial_to_index:
+                        try:
+                            actual_param_list.append(self.categorial_to_index[i][param])
+                        except KeyError:
+                            # param was not part of training data. substitute an unused scalar.
+                            # Note that all param values which were not part of training data map to the same scalar this way.
+                            # This should be harmless.
+                            actual_param_list.append(
+                                max(self.categorial_to_index[i].values()) + 1
+                            )
+                    else:
+                        actual_param_list.append(int(param))
+            actual_params.append(actual_param_list)
+        predictions = self.regressor.predict(np.array(actual_params))
         return predictions
 
 
@@ -602,6 +638,8 @@ class XGBoostFunction(SKLearnRegressionFunction):
 
 # first-order linear function (no feature interaction)
 class FOLFunction(ModelFunction):
+    always_predictable = True
+
     def __init__(self, value, parameters, num_args=0):
         super().__init__(value)
         self.parameter_names = parameters
