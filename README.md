@@ -20,7 +20,7 @@ to be documented.
 
 ### Running Benchmarks
 
-[[bin/explore-kconfig.py]] works with any product line that supports Kconfig and is capable of describing the non-functional properties of individual products.
+[explore-kconfig.py](bin/explore-kconfig.py) works with any product line that supports Kconfig and is capable of describing the non-functional properties of individual products.
 To do so, it needs to provide the **make**, **make clean**, **make randconfig**, **make nfpvalues** and **make nfpkeys** commands.
 **make nfpvalues** is expected to print a JSON dict describing the non-functional property values of the current build;
 **make nfpkeys** is expected to print a JSON dict with meta-data about those.
