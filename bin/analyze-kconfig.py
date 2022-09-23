@@ -421,10 +421,12 @@ def main():
     logging.debug(f"model.get_fitted(...) took {fit_duration : 7.1f} seconds")
 
     if xv_method == "montecarlo":
-        static_quality, _ = xv.montecarlo(lambda m: m.get_static(), xv_count)
+        static_quality, _ = xv.montecarlo(
+            lambda m: m.get_static(), xv_count, static=True
+        )
         if lut_model:
             lut_quality, _ = xv.montecarlo(
-                lambda m: m.get_param_lut(fallback=True), xv_count
+                lambda m: m.get_param_lut(fallback=True), xv_count, static=True
             )
         else:
             lut_quality = None
@@ -433,10 +435,10 @@ def main():
             lambda m: m.get_fitted()[0], xv_count
         )
     elif xv_method == "kfold":
-        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count)
+        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count, static=True)
         if lut_model:
             lut_quality, _ = xv.kfold(
-                lambda m: m.get_param_lut(fallback=True), xv_count
+                lambda m: m.get_param_lut(fallback=True), xv_count, static=True
             )
         else:
             lut_quality = None
