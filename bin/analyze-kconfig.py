@@ -262,10 +262,6 @@ def main():
                 for param in to_remove:
                     observation["param"].pop(param)
 
-    if args.param_shift:
-        param_shift = dfatool.cli.parse_param_shift(args.param_shift)
-        dfatool.utils.shift_param_in_observations(observations, param_shift)
-
     if args.boolean_parameters:
         if type(observations) is list:
             logging.warning("--boolean-parameters is deprecated")
@@ -280,6 +276,10 @@ def main():
 
     if args.ignore_param:
         dfatool.utils.ignore_param(by_name, parameter_names, args.ignore_param)
+
+    if args.param_shift:
+        param_shift = dfatool.cli.parse_param_shift(args.param_shift)
+        shift_param_in_aggregate(by_name, parameters, param_shift)
 
     # Release memory
     del observations
