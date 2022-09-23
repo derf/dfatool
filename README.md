@@ -21,13 +21,12 @@ to be documented.
 ### Running Benchmarks
 
 [explore-kconfig.py](bin/explore-kconfig.py) works with any product line that supports Kconfig and is capable of describing the non-functional properties of individual products.
-To do so, it needs to provide the **make**, **make clean**, **make randconfig**, **make nfpvalues** and **make nfpkeys** commands.
+To do so, the product line's build system must provide the **make**, **make clean**, **make randconfig**, **make nfpvalues** and **make nfpkeys** commands.
 **make nfpvalues** is expected to print a JSON dict describing the non-functional property values of the current build;
 **make nfpkeys** is expected to print a JSON dict with meta-data about those.
 All of these commands can be changed, see `bin/explore-kconfig.py --help`.
 
-See [[examples/kconfig-static]] for a simple example project, and [[examples/busybox.sh]] for a more complex one.
-The `make_benchmark` section of **.gitlab-ci.yml** shows how to run benchmarks and generate a model for the example project.
+See [explore-and-model-static](examples/explore-and-model-static) for a simple example project, and [busybox.sh](examples/busybox.sh) for a more complex one.
 
 As benchmark generation employs frequent recompilation, using a tmpfs is recommended.
 Check out the product line (i.e., the benchmark target) into a directory on the tmpfs.
