@@ -268,6 +268,8 @@ def observations_enum_to_bool(observations: list, kconfig=False):
     """
     Convert enum / categorial observations to boolean-only ones.
     'observations' is altered in-place.
+
+    DEPRECATED.
     """
     distinct_param_values = dict()
     replace_map = dict()
