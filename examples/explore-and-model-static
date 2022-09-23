@@ -1,5 +1,11 @@
 #!/bin/sh
 
+# Run this file from a directory that may be filled with benchmark output, like so:
+# > cd .../dfatool
+# > mkdir -p kconfig-static-data models
+# > cd kconfig-static-data
+# > ../examples/explore-and-model-static
+
 set -ex
 
 # Benchmark 10 random configurations and their neighbourhood
