@@ -302,14 +302,26 @@ def observations_enum_to_bool(observations: list, kconfig=False):
                 binary_keys.add(binary_key)
 
 
-def observations_ignore_param(observations: list, ignored_parameters: list) -> list:
-    unpoppable_params = set()
-    for observation in observations:
-        for ignored_parameter in ignored_parameters:
-            try:
-                observation["param"].pop(ignored_parameter)
-            except KeyError:
-                unpoppable_params.add(ignored_parameter)
+def ignore_param(by_name: dict, parameter_names: list, ignored_parameters: list):
+    ignored_indexes = list()
+    unpoppable_params = list()
+    for param_name in sorted(ignored_parameters):
+        try:
+            ignored_indexes.append(parameter_names.index(param_name))
+        except ValueError:
+            unpoppable_params.append(param_name)
+
+    assert ignored_indexes == sorted(ignored_indexes)
+    ignored_indexes = sorted(ignored_indexes, reverse=True)
+
+    for name in by_name:
+        for param in by_name[name]["param"]:
+            for ignored_index in ignored_indexes:
+                param.pop(ignored_index)
+
+    for ignored_index in ignored_indexes:
+        parameter_names.pop(ignored_index)
+
     if unpoppable_params:
         logger.info(
             f"ignore_param: Parameters {unpoppable_params} were not part of the observations to begin with"
