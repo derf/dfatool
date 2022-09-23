@@ -1,26 +1,16 @@
 # NFP Model Generation for Peripherals and Software Product Lines
 
-**dfatool** is a set of utilities for automated measurement of non-functional
-properties of software product lines and embedded peripherals, and automatic
-generation of performance models based upon those.
+**dfatool** is a set of utilities for automated measurement of non-functional properties of software product lines and embedded peripherals, and automatic generation of performance models based upon those.
 
-Measurements and models for peripherals generally focus on energy and timing
-behaviour expressed as a [Priced Timed Automaton (PTA)](https://ess.cs.uos.de/static/papers/Friesel_2018_sies.pdf)
-with [Regression Model Trees (RMT)](https://ess.cs.uos.de/static/papers/Friesel-2022-CPSIoTBench.pdf).
+Measurements and models for peripherals generally focus on energy and timing behaviour expressed as a [Priced Timed Automaton (PTA)](https://ess.cs.uos.de/static/papers/Friesel_2018_sies.pdf) with [Regression Model Trees (RMT)](https://ess.cs.uos.de/static/papers/Friesel-2022-CPSIoTBench.pdf).
 
-Measurements and models for software product lines focus on ROM/RAM usage and
-may also include attributes such as throughput, latency, or energy. The
-variability model of the software product line must be expressed in the
-[Kconfig
-language](https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt).
+Measurements and models for software product lines focus on ROM/RAM usage and may also include attributes such as throughput, latency, or energy.
+The variability model of the software product line must be expressed in the [Kconfig language](https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt).
 Generated models can be used with [kconfig-webconf](https://ess.cs.uos.de/git/software/kconfig-webconf).
 This allows for [Retrofitting Performance Models onto Kconfig-based Software Product Lines](https://ess.cs.uos.de/static/papers/Friesel-2022-SPLC.pdf).
 
-The name **dfatool** comes from the fact that benchmark generation for embedded
-peripherals relies on a deterministic finite automaton (DFA) that specifies the
-peripheral's behaviour (i.e., states and transitions caused by driver functions
-or signalled by interrupts). It is meaningless in the context of software
-product lines.
+The name **dfatool** comes from the fact that benchmark generation for embedded peripherals relies on a deterministic finite automaton (DFA) that specifies the peripheral's behaviour (i.e., states and transitions caused by driver functions or signalled by interrupts).
+It is meaningless in the context of software product lines.
 
 ## Energy Model Generation
 
@@ -30,13 +20,13 @@ to be documented.
 
 ### Running Benchmarks
 
-**bin/explore-kconfig.py** works with any product line that supports kconfig and is capable of describing the non-functional properties of individual products.
-To do so, it needs to support the **make**, **make clean**, **make randconfig**, **make nfpvalues** and **make nfpkeys** commands.
+[[bin/explore-kconfig.py]] works with any product line that supports Kconfig and is capable of describing the non-functional properties of individual products.
+To do so, it needs to provide the **make**, **make clean**, **make randconfig**, **make nfpvalues** and **make nfpkeys** commands.
 **make nfpvalues** is expected to print a JSON dict describing the non-functional property values of the current build;
 **make nfpkeys** is expected to print a JSON dict with meta-data about those.
 All of these commands can be changed, see `bin/explore-kconfig.py --help`.
 
-See **examples/kconfig-static** for a simple example project, and **examples/busybox.sh** for a more complex one.
+See [[examples/kconfig-static]] for a simple example project, and [[examples/busybox.sh]] for a more complex one.
 The `make_benchmark` section of **.gitlab-ci.yml** shows how to run benchmarks and generate a model for the example project.
 
 As benchmark generation employs frequent recompilation, using a tmpfs is recommended.
