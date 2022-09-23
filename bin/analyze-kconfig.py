@@ -102,6 +102,17 @@ def main():
         help="Exit after exporting observations to CSV file",
     )
     parser.add_argument(
+        "--export-aggregate",
+        type=str,
+        metavar="FILE.json.xz",
+        help="Export aggregated observations (intermediate and generic benchmark data representation) to FILE. Exported observations are affected by --param-shift and --ignore-param.",
+    )
+    parser.add_argument(
+        "--export-aggregate-only",
+        action="store_true",
+        help="Exit after exporting aggregated observations",
+    )
+    parser.add_argument(
         "--export-observations",
         type=str,
         metavar="FILE.json.xz",
@@ -280,6 +291,19 @@ def main():
     if args.param_shift:
         param_shift = dfatool.cli.parse_param_shift(args.param_shift)
         shift_param_in_aggregate(by_name, parameters, param_shift)
+
+    if args.export_aggregate:
+        import lzma
+
+        print(f"Exporting aggregate to {args.export_aggregate}")
+        with lzma.open(args.export_aggregate, "wt") as f:
+            json.dump(
+                {"by_name": by_name, "param_names": parameter_names},
+                f,
+                cls=dfatool.utils.NpEncoder,
+            )
+        if args.export_aggregate_only:
+            return
 
     # Release memory
     del observations
