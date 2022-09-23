@@ -16,6 +16,12 @@ language](https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt).
 Generated models can be used with [kconfig-webconf](https://ess.cs.uos.de/git/software/kconfig-webconf).
 This allows for [Retrofitting Performance Models onto Kconfig-based Software Product Lines](https://ess.cs.uos.de/static/papers/Friesel-2022-SPLC.pdf).
 
+The name **dfatool** comes from the fact that benchmark generation for embedded
+peripherals relies on a deterministic finite automaton (DFA) that specifies the
+peripheral's behaviour (i.e., states and transitions caused by driver functions
+or signalled by interrupts). It is meaningless in the context of software
+product lines.
+
 ## Energy Model Generation
 
 to be documented.
