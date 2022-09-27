@@ -114,7 +114,7 @@ def main():
                 kconf.run_exploration_from_file(
                     config_filename, with_initial_config=False
                 )
-            if num_successful + 1 == args.random:
+            if num_successful == args.random:
                 break
 
     if args.neighbourhood:
