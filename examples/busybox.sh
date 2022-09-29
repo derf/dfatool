@@ -101,4 +101,12 @@ Alternatively, you can run multiple build processes in parallel.
 > cd data
 > for i in {1..10}; do ../dfatool/bin/explore-kconfig.py --random 1000 ../busybox-build-\${i} & done
 
+Once everything is done, you have various options for generating a kconfig-webconf performance model.
+To do so, call bin/analyze-kconfig.py from the data directory.
+For example, to generate a CART:
+
+> DFATOOL_DTREE_SKLEARN_CART=1 DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1 DFATOOL_KCONF_IGNORE_STRING=1 DFATOOL_KCONF_WITH_CHOICE_NODES=0 ~/var/ess/aemr/dfatool/bin/analyze-kconfig.py --force-tree --skip-param-stats --export-webconf /tmp/busybox-cart.json ../busybox-1.35.0/Kconfig .
+
+By adding the option "--cross-validation kfold:10", you can determine the model prediction error.
+
 __EOF__
