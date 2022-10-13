@@ -510,8 +510,14 @@ def main():
                 analytic_quality[name].items(), key=lambda kv: kv[0]
             ):
                 mae = error["mae"]
+                mape = error["mape"]
                 smape = error["smape"]
-                print(f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {smape:5.1f}%")
+                if mape is not None:
+                    print(f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {mape:5.1f}%")
+                else:
+                    print(
+                        f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {smape:5.1f}% SMAPE"
+                    )
 
     if args.show_model_size:
         dfatool.cli.print_model_size(model)
