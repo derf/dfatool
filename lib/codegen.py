@@ -166,7 +166,7 @@ class SimulatedAccountingMethod:
         )
 
     def _sleep_duration(self, duration_us):
-        u"""
+        """
         Return the sleep duration a timer with the configured timer frequency would measure, according to the configured granularity.
 
         I.e., for a 35us sleep with a 50kHz timer (-> one tick per 20us) and 1us time resolution, the OS would likely measure one tick == 20us.
