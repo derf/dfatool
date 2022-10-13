@@ -44,11 +44,22 @@ The benchmark results (configurations and corresponding non-functional propertie
 
 Once the benchmark is done, the observations can be compressed into a single file by running `.../dfatool/bin/analyze-kconfig.py --export-observations .../my-observations.json.xz --export-observations-only`.
 Depending on the value of the **DFATOOL_KCONF_WITH_CHOICE_NODES** environment variable (see below), `choice` nodes are either treated as enum variables or groups of boolean variables.
+Most approaches in the literature use boolean variables.
 
 ### Generating Models
 
-To be documented.
-In the meantime, we have a short [video example](https://ess.cs.uos.de/static/videos/splc22-kconfig-webconf.mp4).
+[analyze-kconfig.py](bin/analyze-kconfig.py) builds, evaluates, and exports NFP models from explore-kconfig measurements.
+Command-line options and environment variables determine which kind of NFP model it generates.
+
+For example, the following command generates a CART model for busybox.
+Classification and Regression Trees (CART) are capable of generating accurate models from a relatively small amount of samples, but only annotate important features.
+Hence, after loading a CART model into kconfig-webconf, only a small subset of busybox features will be annotated with NFP deltas.
+
+```
+DFATOOL_DTREE_SKLEARN_CART=1 DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1 DFATOOL_KCONF_WITH_CHOICE_NODES=0 ~/var/ess/aemr/dfatool/bin/analyze-kconfig.py --export-webconf busybox.json --force-tree ../busybox-1.35.0/Kconfig .
+```
+
+We also have a short [video example](https://ess.cs.uos.de/static/videos/splc22-kconfig-webconf.mp4) illustrating this workflow.
 
 ## Dependencies
 
