@@ -29,6 +29,9 @@ def distinct_param_values(param_tuples):
     write() or similar has not been called yet. Other parameters should always
     be initialized when leaving UNINITIALIZED.
     """
+    if not len(param_tuples):
+        logger.warning("distinct_param_values called with param_tuples=[]")
+        return list()
     distinct_values = [OrderedDict() for i in range(len(param_tuples[0]))]
     for param_tuple in param_tuples:
         for i in range(len(param_tuple)):
@@ -253,6 +256,14 @@ def codependent_param_dict(param_values):
         ((param 1 value 1, param 2 value 1, ...), (param 1 value 2, param 2 value 2, ...), ...)
     :returns: dict of codependent parameter pairs. dict[(param 1 index, param 2 index)] is True iff param 1 and param 2 are codependent.
     """
+    if not len(param_values):
+        logger.warning("codependent_param_dict called with param_values=[]")
+        return dict()
+    if bool(int(os.getenv("DFATOOL_SKIP_CODEPENDENT_CHECK", 0))):
+        logger.info(
+            "codependent_param_dict: returning empty dict due to DFATOOL_SKIP_CODEPENDENT_CHECK"
+        )
+        return dict()
     lut = [dict() for i in param_values[0]]
     for param_index in range(len(param_values[0])):
         uniqs = set(map(lambda param_tuple: param_tuple[param_index], param_values))
