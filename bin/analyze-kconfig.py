@@ -460,7 +460,7 @@ def main():
             analytic_quality = model.assess(param_model)
             assess_duration = time.time() - assess_start
             logging.debug(f"model.assess(param) took {assess_duration : 7.1f} seconds")
-        xv_analytic_models = [model]
+        xv_analytic_models = None
         if lut_model:
             assess_start = time.time()
             lut_quality = model.assess(lut_model)

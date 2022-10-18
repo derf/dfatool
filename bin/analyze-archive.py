@@ -911,7 +911,7 @@ if __name__ == "__main__":
                 json.dump(raw_results, f, cls=NpEncoder)
         else:
             analytic_quality = model.assess(param_model)
-        xv_analytic_models = [model]
+        xv_analytic_models = None
 
     if "tex" in show_models or "tex" in show_quality:
         print_text_model_data(
