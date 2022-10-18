@@ -290,7 +290,7 @@ def main():
 
     if args.param_shift:
         param_shift = dfatool.cli.parse_param_shift(args.param_shift)
-        shift_param_in_aggregate(by_name, parameters, param_shift)
+        dfatool.utils.shift_param_in_aggregate(by_name, parameter_names, param_shift)
 
     if args.export_aggregate:
         import lzma
