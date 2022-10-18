@@ -40,7 +40,9 @@ def main():
         help="Set log level",
     )
     parser.add_argument(
-        "--enumerate", action="store_true", help="Enumerate all valid configurations"
+        "--enumerate",
+        action="store_true",
+        help="Enumerate all valid configurations (DEPRECATED and UNMAINTAINED)",
     )
     parser.add_argument(
         "--random",
