@@ -197,6 +197,9 @@ class ModelFunction:
     def eval_arr(self, params):
         raise NotImplementedError
 
+    def get_complexity_score(self):
+        raise NotImplementedError
+
     def eval_mae(self, param_list):
         """Return model Mean Absolute Error (MAE) for `param_list`."""
         if self.is_predictable(param_list):
@@ -281,6 +284,9 @@ class StaticFunction(ModelFunction):
 
     def eval_arr(self, params):
         return [self.value for p in params]
+
+    def get_complexity_score(self):
+        return 1
 
     def to_json(self, **kwargs):
         ret = super().to_json(**kwargs)
@@ -375,6 +381,14 @@ class SplitFunction(ModelFunction):
                 ret += v.get_number_of_leaves()
             else:
                 ret += 1
+        return ret
+
+    def get_complexity_score(self):
+        if not self.child:
+            return 1
+        ret = 0
+        for v in self.child.values():
+            ret += v.get_complexity_score()
         return ret
 
     def to_dot(self, pydot, graph, feature_names, parent=None):
@@ -537,6 +551,9 @@ class CARTFunction(SKLearnRegressionFunction):
     def get_max_depth(self):
         return self.regressor.get_depth()
 
+    def get_complexity_score(self):
+        return self.get_number_of_leaves()
+
     def to_json(self, feature_names=None, **kwargs):
         import sklearn.tree
 
@@ -588,6 +605,9 @@ class LMTFunction(SKLearnRegressionFunction):
     def get_number_of_leaves(self):
         return len(self.regressor._leaves.keys())
 
+    # def get_complexity_score(self):
+    #    FIXME
+
     def get_max_depth(self):
         return max(map(len, self.regressor._leaves.keys())) + 1
 
@@ -634,6 +654,9 @@ class XGBoostFunction(SKLearnRegressionFunction):
         for child in data.get("children", list()):
             ret.append(self._get_max_depth(child))
         return 1 + max(ret)
+
+    def get_complexity_score(self):
+        return self.get_number_of_leaves()
 
 
 # first-order linear function (no feature interaction)
@@ -765,6 +788,9 @@ class FOLFunction(ModelFunction):
                 f"{e} when predicting {self._function_str}({self.model_args}, {actual_param_list}) for {param_list}"
             )
             raise
+
+    def get_complexity_score(self):
+        return len(self.model_args)
 
     def to_json(self, **kwargs):
         ret = super().to_json(**kwargs)
@@ -977,6 +1003,9 @@ class AnalyticFunction(ModelFunction):
                 f"{e} when predicting {self._function_str}({param_list}), returning static value"
             )
             return self.value
+
+    def get_complexity_score(self):
+        return len(self.model_args)
 
     def webconf_function_map(self):
         js_buf = self.model_function

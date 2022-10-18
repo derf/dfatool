@@ -642,6 +642,9 @@ class ModelAttribute:
     def to_dref(self, unit=None):
         ret = {"mean": (self.mean, unit), "median": (self.median, unit)}
 
+        if issubclass(type(self.model_function), df.ModelFunction):
+            ret["complexity"] = self.model_function.get_complexity_score()
+
         if type(self.model_function) in (
             df.SplitFunction,
             df.CARTFunction,
