@@ -249,6 +249,11 @@ def main():
         # show-failing-symbols, show-nop-symbols, DFATOOL_KCONF_WITH_CHOICE_NODES, DFATOOL_KCONF_IGNORE_NUMERIC, and DFATOOL_KCONF_IGNORE_STRING have no effect
         # in this branch.
 
+        if os.path.exists(args.kconfig_path):
+            attributes = KConfigAttributes(args.kconfig_path, None)
+            if args.export_dref:
+                dref.update(attributes.to_dref())
+
         if args.model.endswith("xz"):
             import lzma
 

@@ -132,3 +132,35 @@ class KConfigAttributes:
         )
         sha256sum = status.stdout.split()[0]
         return sha256sum
+
+    def to_dref(self) -> dict:
+        type_count = {
+            "bool": 0,
+            "tristate": 0,
+            "numeric": 0,
+            "string": 0,
+            "enum": 0,
+        }
+        for param_name in self.param_names:
+            if param_name in self.symbol:
+                str_type = kconfiglib.TYPE_TO_STR[self.symbol[param_name].type]
+                if str_type in type_count:
+                    type_count[str_type] += 1
+                elif str_type in ("int", "hex"):
+                    type_count["numeric"] += 1
+                else:
+                    raise RuntimeError(
+                        f"param {param_name} has unknown type: {str_type}"
+                    )
+            else:
+                type_count["enum"] += 1
+        return {
+            "raw measurements/valid": len(self.configs),
+            "raw measurements/total": len(self.configs) + len(self.failures),
+            "kconfig/num_features/total": len(self.param_names),
+            "kconfig/num_features/bool": type_count["bool"],
+            "kconfig/num_features/tristate": type_count["tristate"],
+            "kconfig/num_features/string": type_count["string"],
+            "kconfig/num_features/numeric": type_count["numeric"],
+            "kconfig/num_features/enum": type_count["enum"],
+        }
