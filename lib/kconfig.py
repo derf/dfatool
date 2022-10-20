@@ -3,6 +3,7 @@
 import kconfiglib
 import logging
 import itertools
+import numpy as np
 import os
 import re
 import shutil
@@ -66,6 +67,15 @@ class RandomConfig(AttributeExperiment):
     }
 
 
+class RepeatableRandomConfig(RandomConfig):
+    inputs = RandomConfig.inputs.copy()
+    inputs.update(
+        {
+            "random": String("FIXME"),
+        }
+    )
+
+
 class ExploreConfig(AttributeExperiment):
     inputs = {
         "config_hash": String("FIXME"),
@@ -78,6 +88,15 @@ class ExploreConfig(AttributeExperiment):
     }
 
 
+class RepeatableExploreConfig(ExploreConfig):
+    inputs = ExploreConfig.inputs.copy()
+    inputs.update(
+        {
+            "random": String("FIXME"),
+        }
+    )
+
+
 class KConfig:
     def __init__(self, working_directory):
         self.cwd = os.path.abspath(working_directory)
@@ -86,6 +105,9 @@ class KConfig:
         self.attribute_command = "make attributes"
         self.randconfig_command = "make randconfig"
         self.kconfig = "Kconfig"
+        self.repeatable = False
+        self.repeat = 0
+        self.rng = np.random.default_rng()
 
     def randconfig(self):
         status = subprocess.run(
@@ -144,28 +166,38 @@ class KConfig:
 
     def run_randconfig(self):
         """Run a randomconfig experiment in the selected project. Results are written to the current working directory."""
-        experiment = RandomConfig()
-        experiment(
-            [
-                "--randconfig_seed",
-                self.randconfig(),
-                "--config_hash",
-                self.file_hash(f"{self.cwd}/.config"),
-                "--kconfig_hash",
-                self.file_hash(f"{self.cwd}/{self.kconfig}"),
-                "--project_version",
-                self.git_commit_id(),
-                "--project_root",
-                self.cwd,
-                "--clean_command",
-                self.clean_command,
-                "--build_command",
-                self.build_command,
-                "--attr_command",
-                self.attribute_command,
-            ]
-        )
+        args = [
+            "--randconfig_seed",
+            self.randconfig(),
+            "--config_hash",
+            self.file_hash(f"{self.cwd}/.config"),
+            "--kconfig_hash",
+            self.file_hash(f"{self.cwd}/{self.kconfig}"),
+            "--project_version",
+            self.git_commit_id(),
+            "--project_root",
+            self.cwd,
+            "--clean_command",
+            self.clean_command,
+            "--build_command",
+            self.build_command,
+            "--attr_command",
+            self.attribute_command,
+        ]
+        if self.repeatable:
+            experiment = RepeatableRandomConfig()
+            args += ["--random", self.rng.random()]
+        else:
+            experiment = RandomConfig()
+        experiment(args)
         success = os.path.exists(experiment.attributes.path)
+        if success and self.repeat:
+            for i in range(self.repeat):
+                logger.debug(f"Running repetition {i+1} of {self.repeat}")
+                new_args = args.copy()
+                new_args[-1] = self.rng.random()
+                new_experiment = RepeatableRandomConfig()
+                new_experiment(new_args)
         return {"success": success, "config_path": experiment.config.path}
 
     def config_is_functional(self, kconf):
@@ -184,25 +216,35 @@ class KConfig:
             kconf.load_config(config_file)
             return
         kconf.write_config(f"{self.cwd}/.config")
-        experiment = ExploreConfig()
-        experiment(
-            [
-                "--config_hash",
-                self.file_hash(f"{self.cwd}/.config"),
-                "--kconfig_hash",
-                kconf_hash,
-                "--project_version",
-                self.git_commit_id(),
-                "--project_root",
-                self.cwd,
-                "--clean_command",
-                self.clean_command,
-                "--build_command",
-                self.build_command,
-                "--attr_command",
-                self.attribute_command,
-            ]
-        )
+        args = [
+            "--config_hash",
+            self.file_hash(f"{self.cwd}/.config"),
+            "--kconfig_hash",
+            kconf_hash,
+            "--project_version",
+            self.git_commit_id(),
+            "--project_root",
+            self.cwd,
+            "--clean_command",
+            self.clean_command,
+            "--build_command",
+            self.build_command,
+            "--attr_command",
+            self.attribute_command,
+        ]
+        if self.repeatable:
+            experiment = RepeatableExploreConfig()
+            args += ["--random", self.rng.random()]
+        else:
+            experiment = ExploreConfig()
+        experiment(args)
+        if self.repeat:
+            for i in range(self.repeat):
+                logger.debug(f"Running repetition {i+1} of {self.repeat}")
+                new_args = args.copy()
+                new_args[-1] = self.rng.random()
+                new_experiment = RepeatableExploreConfig()
+                new_experiment(new_args)
         kconf.load_config(config_file)
 
     def _can_be_handled_by_bdd(self, symbol):
@@ -401,26 +443,36 @@ class KConfig:
         kconf.load_config(config_file)
 
         if with_initial_config:
-            experiment = ExploreConfig()
+            args = [
+                "--config_hash",
+                self.file_hash(config_file),
+                "--kconfig_hash",
+                kconfig_hash,
+                "--project_version",
+                self.git_commit_id(),
+                "--project_root",
+                self.cwd,
+                "--clean_command",
+                self.clean_command,
+                "--build_command",
+                self.build_command,
+                "--attr_command",
+                self.attribute_command,
+            ]
+            if self.repeatable:
+                experiment = RepeatableExploreConfig()
+                args += ["--random", self.rng.random()]
+            else:
+                experiment = ExploreConfig()
             shutil.copyfile(config_file, f"{self.cwd}/.config")
-            experiment(
-                [
-                    "--config_hash",
-                    self.file_hash(config_file),
-                    "--kconfig_hash",
-                    kconfig_hash,
-                    "--project_version",
-                    self.git_commit_id(),
-                    "--project_root",
-                    self.cwd,
-                    "--clean_command",
-                    self.clean_command,
-                    "--build_command",
-                    self.build_command,
-                    "--attr_command",
-                    self.attribute_command,
-                ]
-            )
+            experiment(args)
+            if self.repeat:
+                for i in range(self.repeat):
+                    logger.debug(f"Running repetition {i+1} of {self.repeat}")
+                    new_args = args.copy()
+                    new_args[-1] = self.rng.random()
+                    new_experiment = RepeatableExploreConfig()
+                    new_experiment(new_args)
 
         for symbol in kconf.syms.values():
             if kconfiglib.TYPE_TO_STR[symbol.type] == "bool":

@@ -55,6 +55,17 @@ def main():
         help="Explore neighbourhood of successful random configurations",
     )
     parser.add_argument(
+        "--repeatable",
+        action="store_true",
+        help="Allow repeated measurements of already benchmarked configurations",
+    )
+    parser.add_argument(
+        "--repeat",
+        type=int,
+        metavar="N",
+        help="Run each benchmark N times. Implies --repeatable",
+    )
+    parser.add_argument(
         "--clean-command", type=str, help="Clean command", default="make clean"
     )
     parser.add_argument(
@@ -96,6 +107,11 @@ def main():
         kconf.randconfig_command = args.randconfig_command
     if args.kconfig_file:
         kconf.kconfig = args.kconfig_file
+    if args.repeatable:
+        kconf.repeatable = args.repeatable
+    if args.repeat:
+        kconf.repeat = args.repeat - 1
+        kconf.repeatable = True
 
     kconf.run_nfpkeys()
 
