@@ -497,7 +497,7 @@ class KConfig:
                         if step_size == 0:
                             step_size = 1
                         for val in range(min_val, max_val + 1, step_size):
-                            print(f"Set {symbol.name} to {val}")
+                            logger.debug(f"Set {symbol.name} to {val}")
                             symbol.set_value(str(val))
                             self._run_explore_experiment(
                                 kconf, kconfig_hash, config_file
