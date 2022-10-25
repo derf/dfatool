@@ -157,10 +157,10 @@ class KConfigAttributes:
         return {
             "raw measurements/valid": len(self.configs),
             "raw measurements/total": len(self.configs) + len(self.failures),
-            "kconfig/num_features/total": len(self.param_names),
-            "kconfig/num_features/bool": type_count["bool"],
-            "kconfig/num_features/tristate": type_count["tristate"],
-            "kconfig/num_features/string": type_count["string"],
-            "kconfig/num_features/numeric": type_count["numeric"],
-            "kconfig/num_features/enum": type_count["enum"],
+            "kconfig/features/total": len(self.param_names),
+            "kconfig/features/bool": type_count["bool"],
+            "kconfig/features/tristate": type_count["tristate"],
+            "kconfig/features/string": type_count["string"],
+            "kconfig/features/numeric": type_count["numeric"],
+            "kconfig/features/enum": type_count["enum"],
         }
