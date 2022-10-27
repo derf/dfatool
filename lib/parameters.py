@@ -643,7 +643,9 @@ class ModelAttribute:
         ret = {"mean": (self.mean, unit), "median": (self.median, unit)}
 
         if issubclass(type(self.model_function), df.ModelFunction):
-            ret["complexity"] = self.model_function.get_complexity_score()
+            ret["model/complexity"] = self.model_function.get_complexity_score()
+        if self.by_param:
+            ret["lut/complexity"] = len(self.by_param.keys()) + 1
 
         if type(self.model_function) in (
             df.SplitFunction,
