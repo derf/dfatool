@@ -272,13 +272,27 @@ def main():
             int(os.getenv("DFATOOL_KCONF_IGNORE_NUMERIC", 0))
         ):
             attributes = KConfigAttributes(args.kconfig_path, None)
-            for observation in observations:
-                to_remove = list()
-                for param in observation["param"].keys():
-                    if param not in attributes.symbol_names:
-                        to_remove.append(param)
-                for param in to_remove:
-                    observation["param"].pop(param)
+            if type(observations) is dict:
+                ignore_index = dict()
+                new_param_names = list()
+                for i, param in enumerate(observations["param_names"]):
+                    if param in attributes.symbol_names:
+                        new_param_names.append(param)
+                    else:
+                        ignore_index[i] = True
+                observations["param_names"] = new_param_names
+                for data in observations["by_name"].values():
+                    for i in range(len(data["param"])):
+                        for j in sorted(ignore_index.keys(), reverse=True):
+                            data["param"][i].pop(j)
+            else:
+                for observation in observations:
+                    to_remove = list()
+                    for param in observation["param"].keys():
+                        if param not in attributes.symbol_names:
+                            to_remove.append(param)
+                    for param in to_remove:
+                        observation["param"].pop(param)
 
     if args.boolean_parameters:
         if type(observations) is list:
