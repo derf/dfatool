@@ -246,7 +246,7 @@ def main():
             if args.export_observations_only:
                 return
     else:
-        # show-failing-symbols, show-nop-symbols, DFATOOL_KCONF_WITH_CHOICE_NODES, DFATOOL_KCONF_IGNORE_NUMERIC, and DFATOOL_KCONF_IGNORE_STRING have no effect
+        # show-failing-symbols, show-nop-symbols, DFATOOL_KCONF_WITH_CHOICE_NODES have no effect
         # in this branch.
 
         if os.path.exists(args.kconfig_path):
@@ -268,7 +268,9 @@ def main():
             with open(args.model, "r") as f:
                 observations = json.load(f)
 
-        if bool(int(os.getenv("DFATOOL_KCONF_IGNORE_STRING", 0))):
+        if bool(int(os.getenv("DFATOOL_KCONF_IGNORE_STRING", 0))) or bool(
+            int(os.getenv("DFATOOL_KCONF_IGNORE_NUMERIC", 0))
+        ):
             attributes = KConfigAttributes(args.kconfig_path, None)
             for observation in observations:
                 to_remove = list()
