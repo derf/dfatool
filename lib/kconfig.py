@@ -109,7 +109,7 @@ class KConfig:
         self.repeat = 0
         self.rng = np.random.default_rng()
 
-    def randconfig(self):
+    def randconfig(self, with_random_int=False):
         status = subprocess.run(
             self.randconfig_command.split(),
             cwd=self.cwd,
@@ -125,6 +125,29 @@ class KConfig:
             match = re.match("KCONFIG_SEED=(.*)", line)
             if match:
                 seed = match.group(1)
+        if with_random_int:
+            kconfig_file = f"{self.cwd}/{self.kconfig}"
+            config_file = f"{self.cwd}/.config"
+            with cd(self.cwd):
+                kconf = kconfiglib.Kconfig(kconfig_file)
+            kconf.load_config(config_file)
+            for symbol in kconf.syms.values():
+                if (
+                    kconfiglib.TYPE_TO_STR[symbol.type] == "int"
+                    and symbol.visibility
+                    and symbol.ranges
+                ):
+                    for min_val, max_val, condition in symbol.ranges:
+                        if kconfiglib.expr_value(condition):
+                            min_val = int(min_val.str_value, 0)
+                            max_val = int(max_val.str_value, 0)
+                            symbol.set_value(
+                                str(
+                                    min_val
+                                    + int(self.rng.random() * (max_val - min_val))
+                                )
+                            )
+            kconf.write_config(config_file)
         if seed:
             return seed
         return "unknown"
@@ -164,11 +187,12 @@ class KConfig:
         with open(nfpkeys.path, "w") as out_fd:
             subprocess.check_call(["make", "nfpkeys"], cwd=self.cwd, stdout=out_fd)
 
-    def run_randconfig(self):
+    def run_randconfig(self, with_random_int=False):
         """Run a randomconfig experiment in the selected project. Results are written to the current working directory."""
+        seed = self.randconfig(with_random_int=with_random_int)
         args = [
             "--randconfig_seed",
-            self.randconfig(),
+            seed,
             "--config_hash",
             self.file_hash(f"{self.cwd}/.config"),
             "--kconfig_hash",

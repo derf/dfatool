@@ -50,6 +50,11 @@ def main():
         help="Explore a number of random configurations (make randconfig)",
     )
     parser.add_argument(
+        "--random-int",
+        action="store_true",
+        help="Randomize integers after running make randconfig",
+    )
+    parser.add_argument(
         "--with-neighbourhood",
         action="store_true",
         help="Explore neighbourhood of successful random configurations",
@@ -123,7 +128,7 @@ def main():
         # Assumption: At least 1% of builds are successful
         for i in range(args.random * 100):
             logging.info(f"Running randconfig {num_successful+1} of {args.random}")
-            status = kconf.run_randconfig()
+            status = kconf.run_randconfig(with_random_int=args.random_int)
             if status["success"]:
                 num_successful += 1
             if args.with_neighbourhood and status["success"]:
