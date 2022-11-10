@@ -164,12 +164,6 @@ def main():
         "tex: print tex/pgfplots-compatible model quality data on stdout.",
     )
     parser.add_argument(
-        "--ignore-param",
-        metavar="<parameter name>[,<parameter name>,...]",
-        type=str,
-        help="Ignore listed parameters during model generation",
-    )
-    parser.add_argument(
         "--plot-param",
         metavar="<name> <attribute> <parameter> [gplearn function][;<name> <attribute> <parameter> [function];...])",
         type=str,
@@ -201,9 +195,6 @@ def main():
 
     if args.export_dref:
         dref = dict()
-
-    if args.ignore_param:
-        args.ignore_param = args.ignore_param.split(",")
 
     if os.path.isdir(args.model):
         attributes = KConfigAttributes(args.kconfig_path, args.model)
@@ -307,6 +298,7 @@ def main():
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
 
     if args.ignore_param:
+        args.ignore_param = args.ignore_param.split(",")
         dfatool.utils.ignore_param(by_name, parameter_names, args.ignore_param)
 
     if args.param_shift:

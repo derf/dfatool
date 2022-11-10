@@ -267,6 +267,12 @@ def add_standard_arguments(parser):
         "All other measurements (including those where it is None, that is, has not been set yet) are discarded. "
         "Note that this may remove entire function calls from the model.",
     )
+    parser.add_argument(
+        "--ignore-param",
+        metavar="<parameter name>[,<parameter name>,...]",
+        type=str,
+        help="Ignore listed parameters during model generation",
+    )
 
 
 def parse_param_shift(raw_param_shift):

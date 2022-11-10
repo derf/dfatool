@@ -44,6 +44,7 @@ import re
 import sys
 import time
 import dfatool.cli
+import dfatool.utils
 from dfatool import plotter
 from dfatool.loader import RawData, pta_trace_to_aggregate
 from dfatool.functions import (
@@ -55,13 +56,6 @@ from dfatool.functions import (
 )
 from dfatool.model import PTAModel
 from dfatool.validation import CrossValidator
-from dfatool.utils import (
-    filter_aggregate_by_param,
-    shift_param_in_aggregate,
-    detect_outliers_in_aggregate,
-    NpEncoder,
-    is_numeric,
-)
 from dfatool.automata import PTA
 
 
@@ -307,7 +301,7 @@ def get_kconfig(model):
         buf += f'  prompt "{param_name}"\n'
         if unique_values == {0, 1}:
             buf += "  bool\n"
-        elif all(map(is_numeric, unique_values)):
+        elif all(map(dfatool.utils.is_numeric, unique_values)):
             buf += "  int\n"
             buf += f"  range {min(unique_values)} {max(unique_values)}\n"
         else:
@@ -605,13 +599,17 @@ if __name__ == "__main__":
         preprocessed_data, ignored_trace_indexes
     )
 
-    filter_aggregate_by_param(by_name, parameters, args.filter_param)
+    if args.ignore_param:
+        args.ignore_param = args.ignore_param.split(",")
+        dfatool.utils.ignore_param(by_name, parameters, args.ignore_param)
+
+    dfatool.utils.filter_aggregate_by_param(by_name, parameters, args.filter_param)
 
     if args.param_shift:
         param_shift = dfatool.cli.parse_param_shift(args.param_shift)
-        shift_param_in_aggregate(by_name, parameters, param_shift)
+        dfatool.utils.shift_param_in_aggregate(by_name, parameters, param_shift)
 
-    detect_outliers_in_aggregate(
+    dfatool.utils.detect_outliers_in_aggregate(
         by_name, z_limit=args.z_score, remove_outliers=args.remove_outliers
     )
 
@@ -908,7 +906,7 @@ if __name__ == "__main__":
         if args.export_raw_predictions:
             analytic_quality, raw_results = model.assess(param_model, return_raw=True)
             with open(args.export_raw_predictions, "w") as f:
-                json.dump(raw_results, f, cls=NpEncoder)
+                json.dump(raw_results, f, cls=dfatool.utils.NpEncoder)
         else:
             analytic_quality = model.assess(param_model)
         xv_analytic_models = None
@@ -1046,7 +1044,9 @@ if __name__ == "__main__":
                 "Note: v0 measurements do not embed the PTA used for benchmark generation. Estimating PTA from recorded observations."
             )
         json_model = model.to_json()
-        json_model_str = json.dumps(json_model, indent=2, sort_keys=True, cls=NpEncoder)
+        json_model_str = json.dumps(
+            json_model, indent=2, sort_keys=True, cls=dfatool.utils.NpEncoder
+        )
         for function_str, function_body in model.webconf_function_map():
             json_model_str = json_model_str.replace(function_str, function_body)
 
@@ -1066,7 +1066,9 @@ if __name__ == "__main__":
             )
         json_model = model.to_json()
         with open(args.export_energymodel, "w") as f:
-            json.dump(json_model, f, indent=2, sort_keys=True, cls=NpEncoder)
+            json.dump(
+                json_model, f, indent=2, sort_keys=True, cls=dfatool.utils.NpEncoder
+            )
 
     if args.export_dot:
         dfatool.cli.export_dot(model, args.export_dot)
