@@ -82,7 +82,7 @@ def main():
         "--max-std",
         type=str,
         metavar="VALUE_OR_MAP",
-        help="Specify desired maximum standard deviation for decision tree generation, either as float (global) or <key>/<attribute>=<value>[,<key>/<attribute>=<value>,...]",
+        help="Specify desired maximum standard deviation for RMT generation, either as float (global) or <key>/<attribute>=<value>[,<key>/<attribute>=<value>,...]. Has no effect when using CART, LMT or XGBoost.",
     )
     parser.add_argument(
         "--csv-precision",
