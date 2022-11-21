@@ -607,7 +607,6 @@ class LMTFunction(SKLearnRegressionFunction):
 
     def get_complexity_score(self):
         ret = 0
-        print(self.regressor._leaves)
         for leaf in self.regressor._leaves.values():
             ret += len(
                 list(
