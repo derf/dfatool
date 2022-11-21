@@ -605,8 +605,16 @@ class LMTFunction(SKLearnRegressionFunction):
     def get_number_of_leaves(self):
         return len(self.regressor._leaves.keys())
 
-    # def get_complexity_score(self):
-    #    FIXME
+    def get_complexity_score(self):
+        ret = 0
+        print(self.regressor._leaves)
+        for leaf in self.regressor._leaves.values():
+            ret += len(
+                list(
+                    filter(lambda x: x > 0, leaf.model.coef_ + [leaf.model.intercept_])
+                )
+            )
+        return ret
 
     def get_max_depth(self):
         return max(map(len, self.regressor._leaves.keys())) + 1
