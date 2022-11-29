@@ -267,7 +267,7 @@ def main():
                 ignore_index = dict()
                 new_param_names = list()
                 for i, param in enumerate(observations["param_names"]):
-                    if param in attributes.symbol_names:
+                    if param in attributes.param_names:
                         new_param_names.append(param)
                     else:
                         ignore_index[i] = True
@@ -280,7 +280,7 @@ def main():
                 for observation in observations:
                     to_remove = list()
                     for param in observation["param"].keys():
-                        if param not in attributes.symbol_names:
+                        if param not in attributes.param_names:
                             to_remove.append(param)
                     for param in to_remove:
                         observation["param"].pop(param)
