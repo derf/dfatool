@@ -45,6 +45,7 @@ The benchmark results (configurations and corresponding non-functional propertie
 Once the benchmark is done, the observations can be compressed into a single file by running `.../dfatool/bin/analyze-kconfig.py --export-observations .../my-observations.json.xz --export-observations-only`.
 Depending on the value of the **DFATOOL_KCONF_WITH_CHOICE_NODES** environment variable (see below), `choice` nodes are either treated as enum variables or groups of boolean variables.
 Most approaches in the literature use boolean variables.
+Note that, when working with exported observations, **DFATOOL_KCONF_WITH_CHOICE_NODES** must have the same value in the `--export-observations` call and in subsequent `analyze-kconfig.py` calls using these observations.
 
 ### Generating Models
 
@@ -117,7 +118,6 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_USE_XGBOOST` | **0**, 1 | Use Extreme Gradient Boosting algorithm for decision forest generation. |
 | `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. |
 | `DFATOOL_XGB_MAX_DEPTH` | 2 .. **10** ** *n* | Maximum XGBoost tree depth. |
-| `DFATOOL_KCONF_WITH_CHOICE_NODES` | 0, **1** | Generate enum parameters from kconfig choice nodes; ignore corresponding boolean config options. |
 | `DFATOOL_KCONF_IGNORE_NUMERIC` | **0**, 1 | Ignore numeric (int/hex) configuration options. Useful for comparison with CART/DECART. |
 | `DFATOOL_KCONF_IGNORE_STRING` | **0**, 1 | Ignore string configuration options. Useful for comparison with CART/DECART. |
 | `DFATOOL_FIT_LINEAR_ONLY` | **0**, 1 | Only consider linear functions (a + bx) in regression analysis. Useful for comparison with Linear Model Trees / M5. |
