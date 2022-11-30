@@ -386,7 +386,7 @@ class SplitFunction(ModelFunction):
     def get_complexity_score(self):
         if not self.child:
             return 1
-        ret = 0
+        ret = 1
         for v in self.child.values():
             ret += v.get_complexity_score()
         return ret
@@ -552,7 +552,7 @@ class CARTFunction(SKLearnRegressionFunction):
         return self.regressor.get_depth()
 
     def get_complexity_score(self):
-        return self.get_number_of_leaves()
+        return self.get_number_of_nodes()
 
     def to_json(self, feature_names=None, **kwargs):
         import sklearn.tree
@@ -606,7 +606,7 @@ class LMTFunction(SKLearnRegressionFunction):
         return len(self.regressor._leaves.keys())
 
     def get_complexity_score(self):
-        ret = 0
+        ret = self.get_number_of_nodes() - self.get_number_of_leaves()
         for leaf in self.regressor._leaves.values():
             ret += len(
                 list(
@@ -663,7 +663,7 @@ class XGBoostFunction(SKLearnRegressionFunction):
         return 1 + max(ret)
 
     def get_complexity_score(self):
-        return self.get_number_of_leaves()
+        return self.get_number_of_nodes()
 
 
 # first-order linear function (no feature interaction)
