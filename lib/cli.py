@@ -6,6 +6,7 @@ from dfatool.functions import (
     StaticFunction,
     FOLFunction,
 )
+import numpy as np
 
 
 def print_static(model, static_model, name, attribute):
@@ -148,7 +149,7 @@ def model_quality_table(header, result_lists, info_list):
             print(buf)
 
 
-def export_dataref(dref_file, dref):
+def export_dataref(dref_file, dref, precision=None):
     with open(dref_file, "w") as f:
         for k, v in sorted(dref.items()):
             if type(v) is not tuple:
@@ -157,7 +158,11 @@ def export_dataref(dref_file, dref):
                 prefix = r"\drefset{"
             else:
                 prefix = r"\drefset" + f"[unit={v[1]}]" + "{"
-            print(f"{prefix}/{k}" + "}{" + str(v[0]) + "}", file=f)
+            if type(v[0]) in (float, np.float64) and precision is not None:
+                print(f"Limiting precision to {precision}")
+                print(f"{prefix}/{k}" + "}{" + f"{v[0]:.{precision}f}" + "}", file=f)
+            else:
+                print(f"{prefix}/{k}" + "}{" + str(v[0]) + "}", file=f)
 
 
 def export_dot(model, dot_prefix):
@@ -211,6 +216,12 @@ def add_standard_arguments(parser):
         metavar="PREFIX",
         type=str,
         help="Export raw (parameter-independent) observations in tikz-pgf-compatible format to {PREFIX}{name}-{attribute}.txt",
+    )
+    parser.add_argument(
+        "--dref-precision",
+        metavar="NDIG",
+        type=int,
+        help="Limit precision of dataref export to NDIG decimals",
     )
     parser.add_argument(
         "--export-xv",

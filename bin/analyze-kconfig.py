@@ -586,7 +586,9 @@ def main():
         )
         dref["constructor duration"] = (constructor_duration, r"\second")
         dref["regression duration"] = (fit_duration, r"\second")
-        dfatool.cli.export_dataref(args.export_dref, dref)
+        dfatool.cli.export_dataref(
+            args.export_dref, dref, precision=args.dref_precision
+        )
 
     if args.config:
         kconf = kconfiglib.Kconfig(args.kconfig_path)
