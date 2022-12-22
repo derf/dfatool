@@ -159,7 +159,6 @@ def export_dataref(dref_file, dref, precision=None):
             else:
                 prefix = r"\drefset" + f"[unit={v[1]}]" + "{"
             if type(v[0]) in (float, np.float64) and precision is not None:
-                print(f"Limiting precision to {precision}")
                 print(f"{prefix}/{k}" + "}{" + f"{v[0]:.{precision}f}" + "}", file=f)
             else:
                 print(f"{prefix}/{k}" + "}{" + str(v[0]) + "}", file=f)
