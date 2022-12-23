@@ -239,7 +239,8 @@ def _compute_param_statistics(
                 ret["_depends_on_arg"].append(False)
             else:
                 ret["_depends_on_arg"].append(
-                    ret["std_param_lut"] / ret["std_by_arg"][arg_index] < 0.5
+                    ret["std_param_lut"] / ret["std_by_arg"][arg_index]
+                    < relevance_threshold
                 )
 
     return ret
