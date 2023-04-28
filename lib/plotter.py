@@ -222,7 +222,7 @@ def plot_param(
         v = by_other_param[k]
         v["X"] = np.array(v["X"])
         v["Y"] = np.array(v["Y"])
-        plt.plot(v["X"], v["Y"], "ro", color=cm(i), markersize=3)
+        plt.plot(v["X"], v["Y"], "o", color=cm(i), markersize=3)
         YY2_legend.append(legend_sanitizer.sub("_", "X_{}".format(k)))
         YY2.append(v["X"])
         YY2_legend.append(legend_sanitizer.sub("_", "Y_{}".format(k)))
