@@ -7,6 +7,7 @@ foo
 
 import argparse
 import dfatool.cli
+import dfatool.plotter
 import dfatool.utils
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
@@ -55,6 +56,23 @@ def main():
     )
     dfatool.cli.add_standard_arguments(parser)
     parser.add_argument(
+        "--plot-unparam",
+        metavar="<name>:<attribute>:<Y axis label>[;<name>:<attribute>:<label>;...]",
+        type=str,
+        help="Plot all mesurements for <name> <attribute> without regard for parameter values. "
+        "X axis is measurement number/id.",
+    )
+    parser.add_argument(
+        "--plot-param",
+        metavar="<name> <attribute> <parameter> [gplearn function][;<name> <attribute> <parameter> [function];...])",
+        type=str,
+        help="Plot measurements for <name> <attribute> by <parameter>. "
+        "X axis is parameter value. "
+        "Plots the model function as one solid line for each combination of non-<parameter> parameters. "
+        "Also plots the corresponding measurements. "
+        "If gplearn function is set, it is plotted using dashed lines.",
+    )
+    parser.add_argument(
         "--show-model",
         choices=["static", "paramdetection", "param", "all"],
         action="append",
@@ -81,9 +99,18 @@ def main():
     parser.add_argument("logfile", type=str, help="Path to benchmark output")
     args = parser.parse_args()
 
+    if args.filter_param:
+        args.filter_param = list(
+            map(lambda x: x.split("="), args.filter_param.split(","))
+        )
+    else:
+        args.filter_param = list()
+
     observations = parse_logfile(args.logfile)
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
     del observations
+
+    dfatool.utils.filter_aggregate_by_param(by_name, parameter_names, args.filter_param)
 
     model = AnalyticModel(
         by_name,
@@ -96,6 +123,17 @@ def main():
 
     if args.export_pgf_unparam:
         dfatool.cli.export_pgf_unparam(model, args.export_pgf_unparam)
+
+    if args.plot_unparam:
+        for kv in args.plot_unparam.split(";"):
+            state_or_trans, attribute, ylabel = kv.split(":")
+            fname = "param_y_{}_{}.pdf".format(state_or_trans, attribute)
+            dfatool.plotter.plot_y(
+                model.by_name[state_or_trans][attribute],
+                xlabel="measurement #",
+                ylabel=ylabel,
+                # output=fname,
+            )
 
     if args.cross_validate:
         xv_method, xv_count = args.cross_validate.split(":")
@@ -147,6 +185,23 @@ def main():
             [static_quality, analytic_quality, lut_quality],
             [None, param_info, None],
         )
+
+    if args.plot_param:
+        for kv in args.plot_param.split(";"):
+            try:
+                state_or_trans, attribute, param_name = kv.split(":")
+            except ValueError:
+                print(
+                    "Usage: --plot-param='state_or_trans:attribute:param_name'",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            dfatool.plotter.plot_param(
+                model,
+                state_or_trans,
+                attribute,
+                model.param_index(param_name),
+            )
 
 
 if __name__ == "__main__":
