@@ -33,15 +33,16 @@ def parse_logfile(filename):
 
     with open(filename, "r") as f:
         for line in f:
-            m = re.search(r"\[::\] ([^|]*) [|] (.*)", line)
+            m = re.search(r"\[::\] *([^|]*?) *[|] *([^|]*?) *[|] *(.*)", line)
             if m:
-                param_str = m.group(1)
-                attr_str = m.group(2)
+                name_str = m.group(1)
+                param_str = m.group(2)
+                attr_str = m.group(3)
                 param = dict(map(kv_to_param_i, param_str.split(" ")))
                 attr = dict(map(kv_to_param_f, attr_str.split(" ")))
                 observations.append(
                     {
-                        "name": "Benchmark",
+                        "name": name_str,
                         "param": param,
                         "attribute": attr,
                     }
