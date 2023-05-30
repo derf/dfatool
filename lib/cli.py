@@ -18,8 +18,9 @@ def print_static(model, static_model, name, attribute):
     elif attribute == "substate_count":
         unit = "su"
     print(
-        "{:10s}: {:.0f} {:s}  ({:.2f})".format(
+        "{:10s}: {:28s} : {:.0f} {:s}  ({:.2f})".format(
             name,
+            attribute,
             static_model(name, attribute),
             unit,
             model.attr_by_name[name][attribute].stats.generic_param_dependence_ratio(),
@@ -27,8 +28,9 @@ def print_static(model, static_model, name, attribute):
     )
     for param in model.parameters:
         print(
-            "{:10s}  dependence on {:15s}: {:.2f}".format(
+            "{:10s}  {:13s} {:15s}: {:.2f}".format(
                 "",
+                "dependence on",
                 param,
                 model.attr_by_name[name][attribute].stats.param_dependence_ratio(param),
             )
