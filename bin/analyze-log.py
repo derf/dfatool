@@ -11,6 +11,7 @@ import dfatool.plotter
 import dfatool.utils
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
+from functools import reduce
 import re
 
 
@@ -97,7 +98,9 @@ def main():
         action="store_true",
         help="Build decision tree without checking for analytic functions first",
     )
-    parser.add_argument("logfile", type=str, help="Path to benchmark output")
+    parser.add_argument(
+        "logfiles", nargs="+", type=str, help="Path to benchmark output"
+    )
     args = parser.parse_args()
 
     if args.filter_param:
@@ -107,7 +110,7 @@ def main():
     else:
         args.filter_param = list()
 
-    observations = parse_logfile(args.logfile)
+    observations = reduce(lambda a, b: a + b, map(parse_logfile, args.logfiles))
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
     del observations
 
