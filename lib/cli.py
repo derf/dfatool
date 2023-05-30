@@ -18,7 +18,7 @@ def print_static(model, static_model, name, attribute):
     elif attribute == "substate_count":
         unit = "su"
     print(
-        "{:10s}: {:28s} : {:.0f} {:s}  ({:.2f})".format(
+        "{:10s}: {:28s} : {:.2f} {:s}  ({:.2f})".format(
             name,
             attribute,
             static_model(name, attribute),
