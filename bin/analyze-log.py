@@ -33,21 +33,28 @@ def parse_logfile(filename):
     observations = list()
 
     with open(filename, "r") as f:
-        for line in f:
+        for lineno, line in enumerate(f):
             m = re.search(r"\[::\] *([^|]*?) *[|] *([^|]*?) *[|] *(.*)", line)
             if m:
                 name_str = m.group(1)
                 param_str = m.group(2)
                 attr_str = m.group(3)
-                param = dict(map(kv_to_param_i, param_str.split(" ")))
-                attr = dict(map(kv_to_param_f, attr_str.split(" ")))
-                observations.append(
-                    {
-                        "name": name_str,
-                        "param": param,
-                        "attribute": attr,
-                    }
-                )
+                try:
+                    param = dict(map(kv_to_param_i, param_str.split(" ")))
+                    attr = dict(map(kv_to_param_f, attr_str.split(" ")))
+                    observations.append(
+                        {
+                            "name": name_str,
+                            "param": param,
+                            "attribute": attr,
+                        }
+                    )
+                except ValueError:
+                    print(
+                        f"Error parsing {filename}: invalid key-value pair in line {lineno+1}"
+                    )
+                    print(f"Offending entry:\n{line}")
+                    raise
 
     return observations
 
@@ -115,6 +122,11 @@ def main():
     del observations
 
     dfatool.utils.filter_aggregate_by_param(by_name, parameter_names, args.filter_param)
+
+    if args.param_shift:
+        param_shift = dfatool.cli.parse_param_shift(args.param_shift)
+        print(param_shift)
+        dfatool.utils.shift_param_in_aggregate(by_name, parameter_names, param_shift)
 
     model = AnalyticModel(
         by_name,
