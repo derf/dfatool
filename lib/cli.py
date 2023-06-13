@@ -272,6 +272,12 @@ def add_standard_arguments(parser):
         help="Adjust parameter values before passing them to model generation",
     )
     parser.add_argument(
+        "--normalize-nfp",
+        metavar="<newkey>=<oldkey>=<+|-|*|/><value>|none-to-0;...",
+        type=str,
+        help="Normalize observation values before passing them to model generation",
+    )
+    parser.add_argument(
         "--filter-param",
         metavar="<parameter name>=<parameter value>[,<parameter name>=<parameter value>...]",
         type=str,
@@ -287,25 +293,38 @@ def add_standard_arguments(parser):
     )
 
 
+def parse_shift_function(param_name, param_shift):
+    if param_shift.startswith("+"):
+        param_shift_value = float(param_shift[1:])
+        return lambda p: p + param_shift_value
+    elif param_shift.startswith("-"):
+        param_shift_value = float(param_shift[1:])
+        return lambda p: p - param_shift_value
+    elif param_shift.startswith("*"):
+        param_shift_value = float(param_shift[1:])
+        return lambda p: p * param_shift_value
+    elif param_shift.startswith("/"):
+        param_shift_value = float(param_shift[1:])
+        return lambda p: p / param_shift_value
+    elif param_shift == "none-to-0":
+        return lambda p: p or 0
+    else:
+        raise ValueError(f"Unsupported shift operation {param_name}={param_shift}")
+
+
+def parse_nfp_normalization(raw_normalization):
+    norm_list = list()
+    for norm_pair in raw_normalization.split(";"):
+        new_name, old_name, norm_val = norm_pair.split("=")
+        norm_function = parse_shift_function(new_name, norm_val)
+        norm_list.append((new_name, old_name, norm_function))
+    return norm_list
+
+
 def parse_param_shift(raw_param_shift):
     shift_list = list()
     for shift_pair in raw_param_shift.split(";"):
         param_name, param_shift = shift_pair.split("=")
-        if param_shift.startswith("+"):
-            param_shift_value = float(param_shift[1:])
-            param_shift_function = lambda p: p + param_shift_value
-        elif param_shift.startswith("-"):
-            param_shift_value = float(param_shift[1:])
-            param_shift_function = lambda p: p - param_shift_value
-        elif param_shift.startswith("*"):
-            param_shift_value = float(param_shift[1:])
-            param_shift_function = lambda p: p * param_shift_value
-        elif param_shift.startswith("/"):
-            param_shift_value = float(param_shift[1:])
-            param_shift_function = lambda p: p / param_shift_value
-        elif param_shift == "none-to-0":
-            param_shift_function = lambda p: p or 0
-        else:
-            raise ValueError(f"Unsupported shift operation {param_name}={param_shift}")
+        param_shift_function = parse_shift_function(param_name, param_shift)
         shift_list.append((param_name, param_shift_function))
     return shift_list

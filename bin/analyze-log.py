@@ -125,8 +125,11 @@ def main():
 
     if args.param_shift:
         param_shift = dfatool.cli.parse_param_shift(args.param_shift)
-        print(param_shift)
         dfatool.utils.shift_param_in_aggregate(by_name, parameter_names, param_shift)
+
+    if args.normalize_nfp:
+        norm = dfatool.cli.parse_nfp_normalization(args.normalize_nfp)
+        dfatool.utils.normalize_nfp_in_aggregate(by_name, norm)
 
     model = AnalyticModel(
         by_name,

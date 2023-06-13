@@ -447,6 +447,15 @@ def by_param_to_by_name(by_param: dict) -> dict:
     return by_name
 
 
+def normalize_nfp_in_aggregate(aggregate, nfp_norm):
+    for name in aggregate.keys():
+        for new_name, old_name, norm_function in nfp_norm:
+            if old_name in aggregate[name]["attributes"]:
+                aggregate[name][new_name] = norm_function(aggregate[name].pop(old_name))
+                aggregate[name]["attributes"].remove(old_name)
+                aggregate[name]["attributes"].append(new_name)
+
+
 def shift_param_in_aggregate(aggregate, parameters, parameter_shift):
     """
     Remove entries which do not have certain parameter values from `aggregate`.
