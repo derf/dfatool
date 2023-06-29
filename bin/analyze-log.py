@@ -12,6 +12,7 @@ import dfatool.utils
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 from functools import reduce
+import json
 import re
 
 
@@ -104,6 +105,9 @@ def main():
         "--force-tree",
         action="store_true",
         help="Build decision tree without checking for analytic functions first",
+    )
+    parser.add_argument(
+        "--export-model", metavar="FILE", type=str, help="Export JSON model to FILE"
     )
     parser.add_argument(
         "logfiles", nargs="+", type=str, help="Path to benchmark output"
@@ -208,6 +212,14 @@ def main():
             [static_quality, analytic_quality, lut_quality],
             [None, param_info, None],
         )
+
+    if args.export_model:
+        print(f"Exportding model to {args.export_model}")
+        json_model = model.to_json()
+        with open(args.export_model, "w") as f:
+            json.dump(
+                json_model, f, indent=2, sort_keys=True, cls=dfatool.utils.NpEncoder
+            )
 
     if args.plot_param:
         for kv in args.plot_param.split(";"):
