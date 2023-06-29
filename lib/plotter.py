@@ -180,6 +180,7 @@ def plot_param(
     if ylabel is not None:
         ax1.set_ylabel(ylabel)
     plt.subplots_adjust(left=0.1, bottom=0.1, right=0.99, top=0.99)
+    handles = list()
 
     param_name = model.param_name(param_idx)
 
@@ -222,13 +223,16 @@ def plot_param(
         v = by_other_param[k]
         v["X"] = np.array(v["X"])
         v["Y"] = np.array(v["Y"])
-        plt.plot(v["X"], v["Y"], "o", color=cm(i), markersize=3)
+        sanitized_k = legend_sanitizer.sub("_", str(k))
+        (handle,) = plt.plot(
+            v["X"], v["Y"], "o", color=cm(i), markersize=3, label=str(k)
+        )
+        handles.append(handle)
         YY2_legend.append(legend_sanitizer.sub("_", "X_{}".format(k)))
         YY2.append(v["X"])
         YY2_legend.append(legend_sanitizer.sub("_", "Y_{}".format(k)))
         YY2.append(v["Y"])
 
-        sanitized_k = legend_sanitizer.sub("_", str(k))
         # with open("{}_{}.txt".format(data_filename_base, sanitized_k), "w") as f:
         #    print("X Y", file=f)
         #    for i in range(len(v["X"])):
@@ -254,6 +258,7 @@ def plot_param(
             YY.append(ysp)
             YY_legend.append(legend_sanitizer.sub("_", "symb_{}".format(k)))
 
+    plt.legend(handles=handles)
 
     # with open(function_filename, "w") as f:
     #    print(" ".join(YY_legend), file=f)
