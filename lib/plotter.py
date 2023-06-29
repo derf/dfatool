@@ -127,7 +127,7 @@ def plot_y(Y, **kwargs):
 def plot_xy(X, Y, xlabel=None, ylabel=None, title=None, output=None, family=False):
     fig, ax1 = plt.subplots(figsize=(10, 6))
     if title is not None:
-        fig.canvas.set_window_title(title)
+        ax1.set_title(title)
     if xlabel is not None:
         ax1.set_xlabel(xlabel)
     if ylabel is not None:
@@ -174,7 +174,7 @@ def plot_param(
 ):
     fig, ax1 = plt.subplots(figsize=(10, 6))
     if title is not None:
-        fig.canvas.set_window_title(title)
+        ax1.set_title(title)
     if xlabel is not None:
         ax1.set_xlabel(xlabel)
     if ylabel is not None:
