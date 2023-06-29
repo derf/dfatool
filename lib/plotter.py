@@ -229,10 +229,10 @@ def plot_param(
         YY2.append(v["Y"])
 
         sanitized_k = legend_sanitizer.sub("_", str(k))
-        with open("{}_{}.txt".format(data_filename_base, sanitized_k), "w") as f:
-            print("X Y", file=f)
-            for i in range(len(v["X"])):
-                print("{} {}".format(v["X"][i], v["Y"][i]), file=f)
+        # with open("{}_{}.txt".format(data_filename_base, sanitized_k), "w") as f:
+        #    print("X Y", file=f)
+        #    for i in range(len(v["X"])):
+        #        print("{} {}".format(v["X"][i], v["Y"][i]), file=f)
 
         # x_range = int((v['X'].max() - v['X'].min()) * 10)
         # xsp = np.linspace(v['X'].min(), v['X'].max(), x_range)
@@ -254,12 +254,12 @@ def plot_param(
             YY.append(ysp)
             YY_legend.append(legend_sanitizer.sub("_", "symb_{}".format(k)))
 
-    with open(function_filename, "w") as f:
-        print(" ".join(YY_legend), file=f)
-        for elem in np.array(YY).T:
-            print(" ".join(map(str, elem)), file=f)
 
-    print(data_filename_base, function_filename)
+    # with open(function_filename, "w") as f:
+    #    print(" ".join(YY_legend), file=f)
+    #    for elem in np.array(YY).T:
+    #        print(" ".join(map(str, elem)), file=f)
+
     if output:
         plt.savefig(output)
         print(f"plot saved to {output}")
