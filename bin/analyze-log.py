@@ -121,6 +121,10 @@ def main():
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
     del observations
 
+    if args.ignore_param:
+        args.ignore_param = args.ignore_param.split(",")
+        dfatool.utils.ignore_param(by_name, parameter_names, args.ignore_param)
+
     dfatool.utils.filter_aggregate_by_param(by_name, parameter_names, args.filter_param)
 
     if args.param_shift:
