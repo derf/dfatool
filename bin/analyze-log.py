@@ -9,6 +9,7 @@ import argparse
 import dfatool.cli
 import dfatool.plotter
 import dfatool.utils
+import dfatool.functions as df
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 from functools import reduce
@@ -201,6 +202,17 @@ def main():
         for name in model.names:
             for attribute in model.attributes(name):
                 dfatool.cli.print_static(model, static_model, name, attribute)
+
+    if "param" in args.show_model or "all" in args.show_model:
+        for name in model.names:
+            for attribute in model.attributes(name):
+                info = param_info(name, attribute)
+                if type(info) is df.AnalyticFunction:
+                    dfatool.cli.print_analyticinfo(f"{name:10s} {attribute:15s}", info)
+                elif type(info) is df.SplitFunction:
+                    dfatool.cli.print_splitinfo(
+                        model.parameters, info, f"{name:10s} {attribute:15s}"
+                    )
 
     if "table" in args.show_quality or "all" in args.show_quality:
         if xv_method is not None:
