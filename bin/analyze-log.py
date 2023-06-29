@@ -171,8 +171,6 @@ def main():
             by_name,
             parameter_names,
             force_tree=args.force_tree,
-            max_std=max_std,
-            compute_stats=not args.skip_param_stats,
         )
         xv.parameter_aware = args.parameter_aware_cross_validation
     else:
@@ -248,6 +246,10 @@ def main():
                 state_or_trans,
                 attribute,
                 model.param_index(param_name),
+                title=state_or_trans,
+                ylabel=attribute,
+                xlabel=param_name,
+                output=f"{state_or_trans} {attribute} {param_name}.pdf",
             )
 
 
