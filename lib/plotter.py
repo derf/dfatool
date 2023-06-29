@@ -211,7 +211,9 @@ def plot_param(
             XX.extend(by_other_param[other_param_key]["X"])
 
     XX = np.array(XX)
-    x_range = int((XX.max() - XX.min()) * 10)
+    x_range = int((XX.max() - XX.min()) / 10)
+    while x_range > 1000000:
+        x_range //= 10
     xsp = np.linspace(XX.min(), XX.max(), x_range)
     YY = [xsp]
     YY_legend = [param_name]
