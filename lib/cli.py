@@ -199,6 +199,22 @@ def export_pgf_unparam(model, pgf_prefix):
                     print(f"{i} {value} {parameters}", file=f)
 
 
+def export_json_unparam(model, filename):
+    import json
+    from dfatool.utils import NpEncoder
+
+    ret = {"paramNames": model.parameters, "byName": dict()}
+    for name in model.names:
+        ret["byName"][name] = dict()
+        for attribute in model.attributes(name):
+            ret["byName"][name][attribute] = {
+                "paramValues": model.attr_by_name[name][attribute].param_values,
+                "data": model.attr_by_name[name][attribute].data,
+            }
+    with open(filename, "w") as f:
+        json.dump(ret, f, cls=NpEncoder)
+
+
 def add_standard_arguments(parser):
     parser.add_argument(
         "--export-dot",
@@ -217,6 +233,12 @@ def add_standard_arguments(parser):
         metavar="PREFIX",
         type=str,
         help="Export raw (parameter-independent) observations in tikz-pgf-compatible format to {PREFIX}{name}-{attribute}.txt",
+    )
+    parser.add_argument(
+        "--export-json-unparam",
+        metavar="FILENAME",
+        type=str,
+        help="Export raw (parameter-independent) observations in JSON format to FILENAME",
     )
     parser.add_argument(
         "--dref-precision",

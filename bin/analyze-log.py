@@ -152,6 +152,9 @@ def main():
     if args.export_pgf_unparam:
         dfatool.cli.export_pgf_unparam(model, args.export_pgf_unparam)
 
+    if args.export_json_unparam:
+        dfatool.cli.export_json_unparam(model, args.export_json_unparam)
+
     if args.plot_unparam:
         for kv in args.plot_unparam.split(";"):
             state_or_trans, attribute, ylabel = kv.split(":")
