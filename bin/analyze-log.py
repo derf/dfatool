@@ -200,13 +200,13 @@ def main():
 
     if "static" in args.show_model or "all" in args.show_model:
         print("--- static model ---")
-        for name in model.names:
-            for attribute in model.attributes(name):
+        for name in sorted(model.names):
+            for attribute in sorted(model.attributes(name)):
                 dfatool.cli.print_static(model, static_model, name, attribute)
 
     if "param" in args.show_model or "all" in args.show_model:
-        for name in model.names:
-            for attribute in model.attributes(name):
+        for name in sorted(model.names):
+            for attribute in sorted(model.attributes(name)):
                 info = param_info(name, attribute)
                 if type(info) is df.AnalyticFunction:
                     dfatool.cli.print_analyticinfo(f"{name:10s} {attribute:15s}", info)
