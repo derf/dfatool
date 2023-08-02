@@ -14,6 +14,7 @@ from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 from functools import reduce
 import json
+import sys
 import re
 
 
@@ -53,9 +54,10 @@ def parse_logfile(filename):
                     )
                 except ValueError:
                     print(
-                        f"Error parsing {filename}: invalid key-value pair in line {lineno+1}"
+                        f"Error parsing {filename}: invalid key-value pair in line {lineno+1}",
+                        file=sys.stderr,
                     )
-                    print(f"Offending entry:\n{line}")
+                    print(f"Offending entry:\n{line}", file=sys.stderr)
                     raise
 
     return observations
