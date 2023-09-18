@@ -690,7 +690,9 @@ class Multipass:
             universal_newlines=True,
         )
         if res.returncode != 0:
-            raise RuntimeError(f"make nfpvalues Failure. command = {command}")
+            raise RuntimeError(
+                f"'make nfpvalues' exited with a non-zero status of {res.returncode}. command = {command}, stderr = '{res.stderr}', stdout = '{res.stdout}'"
+            )
         return json.loads(res.stdout)
 
     def _cached_info(self, opts=list()) -> list:
