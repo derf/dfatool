@@ -251,7 +251,7 @@ class MIMOSAMonitor(SerialMonitor):
             res = subprocess.run(cmd)
             if res.returncode != 0:
                 raise RuntimeError(
-                    "{} returned {}".format(" ".join(cmd), res.returncode)
+                    f"'{' '.join(cmd)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
                 )
 
     def _mimosacmd(self, opts):
@@ -259,7 +259,9 @@ class MIMOSAMonitor(SerialMonitor):
         cmd.extend(opts)
         res = subprocess.run(cmd)
         if res.returncode != 0:
-            raise RuntimeError("{} returned {}".format(" ".join(cmd), res.returncode))
+            raise RuntimeError(
+                f"'{' '.join(cmd)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
+            )
 
     def _start_mimosa(self):
         self._mimosactl("disconnect")
@@ -439,7 +441,7 @@ class KRATOS:
         )
         if res.returncode != 0:
             raise RuntimeError(
-                "Build failure, executing {}:\n".format(command) + res.stderr
+                f"'{' '.join(command)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
             )
         command = ["make"]
         command.extend(self.opts)
@@ -453,7 +455,7 @@ class KRATOS:
         )
         if res.returncode != 0:
             raise RuntimeError(
-                "Build failure, executing {}:\n ".format(command) + res.stderr
+                f"'{' '.join(command)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
             )
         return command
 
@@ -469,7 +471,9 @@ class KRATOS:
             universal_newlines=True,
         )
         if res.returncode != 0:
-            raise RuntimeError("Flash failure")
+            raise RuntimeError(
+                f"'{' '.join(command)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
+            )
         return command
 
     def get_monitor(self, **kwargs) -> object:
@@ -537,7 +541,9 @@ class KRATOS:
             universal_newlines=True,
         )
         if res.returncode != 0:
-            raise RuntimeError(f"make nfpvalues Failure. command = {command}")
+            raise RuntimeError(
+                f"'{' '.join(command)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
+            )
         return json.loads(res.stdout)
 
 
@@ -620,7 +626,7 @@ class Multipass:
         )
         if res.returncode != 0:
             raise RuntimeError(
-                "Build failure, executing {}:\n".format(command) + res.stderr
+                f"'{' '.join(command)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
             )
         command = ["make", "-B", "arch={}".format(self.name), "app={}".format(app)]
         command.extend(self.opts)
@@ -634,7 +640,7 @@ class Multipass:
         )
         if res.returncode != 0:
             raise RuntimeError(
-                "Build failure, executing {}:\n ".format(command) + res.stderr
+                f"'{' '.join(command)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
             )
         return command
 
@@ -650,7 +656,9 @@ class Multipass:
             universal_newlines=True,
         )
         if res.returncode != 0:
-            raise RuntimeError("Flash failure")
+            raise RuntimeError(
+                f"'{' '.join(command)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
+            )
         return command
 
     def get_info(self, opts=list()) -> list:
@@ -670,7 +678,9 @@ class Multipass:
             universal_newlines=True,
         )
         if res.returncode != 0:
-            raise RuntimeError(f"make info Failure. command = {command}")
+            raise RuntimeError(
+                f"'{' '.join(command)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
+            )
         return res.stdout.split("\n")
 
     def get_nfpvalues(self, app, opts=list()) -> list:
@@ -691,7 +701,7 @@ class Multipass:
         )
         if res.returncode != 0:
             raise RuntimeError(
-                f"'make nfpvalues' exited with a non-zero status of {res.returncode}. command = {command}, stderr = '{res.stderr}', stdout = '{res.stdout}'"
+                f"'{' '.join(command)}' exited with a non-zero status of {res.returncode}. stderr = '{res.stderr}', stdout = '{res.stdout}'"
             )
         return json.loads(res.stdout)
 
