@@ -3,8 +3,11 @@
 from .. import kconfiglib
 from dfatool.utils import cd
 import json
+import logging
 import os
 import subprocess
+
+logger = logging.getLogger(__name__)
 
 
 class KConfigAttributes:
@@ -76,7 +79,13 @@ class KConfigAttributes:
 
         if int(os.getenv("DFATOOL_KCONF_WITH_CHOICE_NODES", 1)):
             for sym_name in self.choice_symbol_names:
-                self.symbol_names.remove(sym_name)
+                try:
+                    self.symbol_names.remove(sym_name)
+                except ValueError:
+                    logger.error(
+                        f"Trying to remove choice {sym_name}, but it is not present in the symbol list"
+                    )
+                    raise
             self.param_names = self.symbol_names + self.choice_names
         else:
             self.param_names = self.symbol_names
