@@ -211,6 +211,7 @@ def main():
                 dfatool.cli.print_static(model, static_model, name, attribute)
 
     if "param" in args.show_model or "all" in args.show_model:
+        print("--- param model ---")
         for name in sorted(model.names):
             for attribute in sorted(model.attributes(name)):
                 info = param_info(name, attribute)
