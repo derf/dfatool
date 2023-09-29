@@ -19,9 +19,13 @@ import re
 
 
 def kv_to_param(kv_str, cast):
-    key, value = kv_str.split("=")
-    value = cast(value)
-    return key, value
+    try:
+        key, value = kv_str.split("=")
+        value = cast(value)
+        return key, value
+    except ValueError:
+        print(f"Invalid key-value pair: {kv_str}")
+        raise
 
 
 def kv_to_param_f(kv_str):
