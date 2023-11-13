@@ -75,6 +75,23 @@ Parameter names may be different -- parameters that are present in other lines o
 
 Use `bin/analyze-log.py file1.txt file2.txt ...` for analysis.
 
+## Model Types
+
+dfatool supports six types of performance models:
+
+* CART: Regression Trees
+* DECART: Regression Trees with exclusively binary features/parameters
+* XGB: Regression Forests
+* LMT: Linear Model Trees
+* RMT: Regression Model Trees
+* Least-Squares Regression
+
+Least-Squares Regression is essentially a subset of RMT with just a single tree node.
+LMT and RMT differ significantly, as LMT uses a learning algorithm that starts out with a DECART and uses bottom-up pruning to turn it into an LMT, whereas RMT build a DECART that only considers parameters that are not suitable for least-squares regression and then uses least-squares regression to find and fit leaf functions.
+
+By default, dfatool uses heuristics to determine whether it should generate a simple least-squares regression function or a fully-fledge RMT.
+Use arguments (e.g. `--force-tree`) and environment variables (see below) to change which kinds of models it considers.
+
 ## Dependencies
 
 Python 3.7 or newer with the following modules:
