@@ -146,10 +146,17 @@ def main():
         norm = dfatool.cli.parse_nfp_normalization(args.normalize_nfp)
         dfatool.utils.normalize_nfp_in_aggregate(by_name, norm)
 
+    function_override = dict()
+    if args.function_override:
+        for function_desc in args.function_override.split(";"):
+            state_or_tran, attribute, *function_str = function_desc.split(" ")
+            function_override[(state_or_tran, attribute)] = " ".join(function_str)
+
     model = AnalyticModel(
         by_name,
         parameter_names,
         force_tree=args.force_tree,
+        function_override=function_override,
     )
 
     if args.info:
