@@ -2,15 +2,18 @@
 
 **dfatool** is a set of utilities for automated measurement of non-functional properties of software product lines and embedded peripherals, and automatic generation of performance models based upon those.
 
-Measurements and models for peripherals generally focus on energy and timing behaviour expressed as a [Priced Timed Automaton (PTA)](https://ess.cs.uos.de/static/papers/Friesel_2018_sies.pdf) with [Regression Model Trees (RMT)](https://ess.cs.uos.de/static/papers/Friesel-2022-CPSIoTBench.pdf).
+Measurements and models for peripherals (`generate-dfa-benchmark.py` and `analyze-archive.py`) generally focus on energy and timing behaviour expressed as a [Priced Timed Automaton (PTA)](https://ess.cs.uos.de/static/papers/Friesel_2018_sies.pdf) with [Regression Model Trees (RMT)](https://ess.cs.uos.de/static/papers/Friesel-2022-CPSIoTBench.pdf).
 
-Measurements and models for software product lines focus on ROM/RAM usage and may also include attributes such as throughput, latency, or energy.
+Measurements and models for software product lines (`explore-kconfig.py` and `analyze-kconfig.py`) focus on ROM/RAM usage and may also include attributes such as throughput, latency, or energy.
 The variability model of the software product line must be expressed in the [Kconfig language](https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt).
 Generated models can be used with [kconfig-webconf](https://ess.cs.uos.de/git/software/kconfig-webconf).
 This allows for [Retrofitting Performance Models onto Kconfig-based Software Product Lines](https://ess.cs.uos.de/static/papers/Friesel-2022-SPLC.pdf).
 
+Models for other kinds of configurable components (`analyze-log.py`) are also supported and work with logfiles that contain "`[::]` *Key* *Attribute* | *parameters* | *NFP values*" lines.
+Here, only analysis and model generation are automated, and users have to generate the logfiles by themselves.
+
 The name **dfatool** comes from the fact that benchmark generation for embedded peripherals relies on a deterministic finite automaton (DFA) that specifies the peripheral's behaviour (i.e., states and transitions caused by driver functions or signalled by interrupts).
-It is meaningless in the context of software product lines.
+It is meaningless in the context of software product lines and other configurable components.
 
 ## Energy Model Generation
 
@@ -63,6 +66,13 @@ DFATOOL_DTREE_SKLEARN_CART=1 DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1 DFATOOL_KCONF_
 Refer to the [kconfig-webconf README](https://ess.cs.uos.de/git/software/kconfig-webconf/-/blob/master/README.md#user-content-performance-aware-configuration) for details on using the generated model.
 
 We also have a short [video example](https://ess.cs.uos.de/static/videos/splc22-kconfig-webconf.mp4) illustrating this workflow.
+
+## Log-Based Performance Model Generation
+
+Here, dfatool works with lines of the form "`[::]` *Key* *Attribute* | *parameters* | *NFP values*", where *parameters* is a space-separated series of *param=value* entries (i.e., benchmark configuration) and *NFP values* is a space-separate series of *NFP=value* entries (i.e., benchmark output).
+All measurements of a given *Key* must use the same set of parameter names and NFP names.
+
+Use `bin/analyze-log.py file1.txt file2.txt ...` for analysis.
 
 ## Dependencies
 
