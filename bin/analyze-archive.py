@@ -424,14 +424,6 @@ if __name__ == "__main__":
         "1 is the first trace, 2 the second, and so on.",
     )
     parser.add_argument(
-        "--function-override",
-        metavar="<name> <attribute> <function>[;<name> <attribute> <function>;...]",
-        type=str,
-        help="Manually specify the function to fit for <name> <attribute>. "
-        "A function specified this way bypasses parameter detection: "
-        "It is always assigned, even if the model seems to be independent of the parameters it references.",
-    )
-    parser.add_argument(
         "--export-traces",
         metavar="DIRECTORY",
         type=str,

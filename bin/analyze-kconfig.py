@@ -173,14 +173,6 @@ def main():
         "Also plots the corresponding measurements. "
         "If gplearn function is set, it is plotted using dashed lines.",
     )
-    parser.add_argument(
-        "--function-override",
-        metavar="<name> <attribute> <function>[;<name> <attribute> <function>;...]",
-        type=str,
-        help="Manually specify the function to fit for <name> <attribute>. "
-        "A function specified this way bypasses parameter detection: "
-        "It is always assigned, even if the model seems to be independent of the parameters it references.",
-    )
     parser.add_argument("kconfig_path", type=str, help="Path to Kconfig file")
     parser.add_argument(
         "model",
