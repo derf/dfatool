@@ -173,6 +173,14 @@ def main():
         "Also plots the corresponding measurements. "
         "If gplearn function is set, it is plotted using dashed lines.",
     )
+    parser.add_argument(
+        "--function-override",
+        metavar="<name> <attribute> <function>[;<name> <attribute> <function>;...]",
+        type=str,
+        help="Manually specify the function to fit for <name> <attribute>. "
+        "A function specified this way bypasses parameter detection: "
+        "It is always assigned, even if the model seems to be independent of the parameters it references.",
+    )
     parser.add_argument("kconfig_path", type=str, help="Path to Kconfig file")
     parser.add_argument(
         "model",
@@ -295,6 +303,12 @@ def main():
             )
             sys.exit(1)
 
+    function_override = dict()
+    if args.function_override:
+        for function_desc in args.function_override.split(";"):
+            state_or_tran, attribute, *function_str = function_desc.split(" ")
+            function_override[(state_or_tran, attribute)] = " ".join(function_str)
+
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
 
     if args.ignore_param:
@@ -353,6 +367,7 @@ def main():
         force_tree=args.force_tree,
         max_std=max_std,
         compute_stats=not args.skip_param_stats,
+        function_override=function_override,
     )
     constructor_duration = time.time() - constructor_start
     logging.debug(f"AnalyticModel(...) took {constructor_duration : 7.1f} seconds")
