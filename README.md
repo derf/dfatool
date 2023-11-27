@@ -17,16 +17,16 @@ It is meaningless in the context of software product lines and other configurabl
 
 ## Data Acquisition
 
-* [Measuring non-functional properties ("performance attributes") of software product lines](doc/acquisition-nfp)
+* [Measuring non-functional properties ("performance attributes") of software product lines](doc/acquisition-nfp.md)
 
 Legacy documentation; may be outdated:
-* [Energy Benchmarks with Kratos](doc/energy-kratos) (DE)
-* [Energy Benchmarks with Multipass](doc/energy-multipass) (DE)
-* [Performance Benchmarks for Multipass](doc/nfp-multipass) (DE)
+* [Energy Benchmarks with Kratos](doc/energy-kratos.md) (DE)
+* [Energy Benchmarks with Multipass](doc/energy-multipass.md) (DE)
+* [Performance Benchmarks for Multipass](doc/nfp-multipass.md) (DE)
 
 ## Model Generation
 
-* [Generating performance models for software product lines](doc/analysis-nfp)
+* [Generating performance models for software product lines](doc/analysis-nfp.md)
 
 ## Log-Based Performance Model Generation
 
