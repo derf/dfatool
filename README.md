@@ -1,4 +1,4 @@
-# NFP Model Generation for Peripherals and Software Product Lines
+# Performance Model Generation for Peripherals and Software Product Lines
 
 **dfatool** is a set of utilities for automated measurement of non-functional properties of software product lines and embedded peripherals, and automatic generation of performance models based upon those.
 
@@ -9,63 +9,24 @@ The variability model of the software product line must be expressed in the [Kco
 Generated models can be used with [kconfig-webconf](https://ess.cs.uos.de/git/software/kconfig-webconf).
 This allows for [Retrofitting Performance Models onto Kconfig-based Software Product Lines](https://ess.cs.uos.de/static/papers/Friesel-2022-SPLC.pdf).
 
-Models for other kinds of configurable components (`analyze-log.py`) are also supported and work with logfiles that contain "`[::]` *Key* *Attribute* | *parameters* | *NFP values*" lines.
+Models for arbitrary other kinds of configurable components (`analyze-log.py`) are also supported and work with logfiles that contain "`[::]` *Key* *Attribute* | *parameters* | *NFP values*" lines.
 Here, only analysis and model generation are automated, and users have to generate the logfiles by themselves.
 
 The name **dfatool** comes from the fact that benchmark generation for embedded peripherals relies on a deterministic finite automaton (DFA) that specifies the peripheral's behaviour (i.e., states and transitions caused by driver functions or signalled by interrupts).
 It is meaningless in the context of software product lines and other configurable components.
 
-## Energy Model Generation
+## Data Acquisition
 
-to be documented.
+* [Measuring non-functional properties ("performance attributes") of software product lines](doc/acquisition-nfp)
 
-## NFP Model Generation
+Legacy documentation; may be outdated:
+* [Energy Benchmarks with Kratos](doc/energy-kratos) (DE)
+* [Energy Benchmarks with Multipass](doc/energy-multipass) (DE)
+* [Performance Benchmarks for Multipass](doc/nfp-multipass) (DE)
 
-### Running Benchmarks
+## Model Generation
 
-[explore-kconfig.py](bin/explore-kconfig.py) works with any product line that supports Kconfig and is capable of describing the non-functional properties of individual products.
-To do so, the product line's build system must provide the **make**, **make clean**, **make randconfig**, **make nfpvalues** and **make nfpkeys** commands.
-**make nfpvalues** is expected to print a JSON dict describing the non-functional property values of the current build;
-**make nfpkeys** is expected to print a JSON dict with meta-data about those.
-All of these commands can be changed, see `bin/explore-kconfig.py --help`.
-
-See [explore-and-model-static](examples/explore-and-model-static) for a simple example project, and [busybox.sh](examples/busybox.sh) for a more complex one.
-
-As benchmark generation employs frequent recompilation, using a tmpfs is recommended.
-Check out the product line (i.e., the benchmark target) into a directory on the tmpfs.
-Next, create a second directory used for intermediate benchmark output, and `cd` to it.
-
-Now, you can use `.../dfatool/bin/explore-kconfig.py` to benchmark the non-functional properties of various configurations, like so:
-
-```
-.../dfatool/bin/explore-kconfig.py --log-level debug --random 500 --with-neighbourhood .../my-project
-```
-
-This will benchmark 500 random configurations and additionaly explore the neighbourhood of each configuration by toggling boolean variables and exploring the range of int/hex variables.
-Ternary features (y/m/n, as employed by the Linux kernel) are not supported.
-The benchmark results (configurations and corresponding non-functional properties) are placed in the current working directory.
-
-Once the benchmark is done, the observations can be compressed into a single file by running `.../dfatool/bin/analyze-kconfig.py --export-observations .../my-observations.json.xz --export-observations-only`.
-Depending on the value of the **DFATOOL_KCONF_WITH_CHOICE_NODES** environment variable (see below), `choice` nodes are either treated as enum variables or groups of boolean variables.
-Most approaches in the literature use boolean variables.
-Note that, when working with exported observations, **DFATOOL_KCONF_WITH_CHOICE_NODES** must have the same value in the `--export-observations` call and in subsequent `analyze-kconfig.py` calls using these observations.
-
-### Generating Models
-
-[analyze-kconfig.py](bin/analyze-kconfig.py) builds, evaluates, and exports NFP models from explore-kconfig measurements.
-Command-line options and environment variables determine which kind of NFP model it generates.
-
-For example, when called in the benchmark data directory from the previous section, the following command generates a CART model for busybox and stores it in a kconfig-webconf-compatible format in `busybox.json`.
-Classification and Regression Trees (CART) are capable of generating accurate models from a relatively small amount of samples, but only annotate important features.
-Hence, after loading a CART model into kconfig-webconf, only a small subset of busybox features will be annotated with NFP deltas.
-
-```
-DFATOOL_DTREE_SKLEARN_CART=1 DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1 DFATOOL_KCONF_WITH_CHOICE_NODES=0 .../dfatool/bin/analyze-kconfig.py --export-webconf busybox.json --force-tree ../busybox-1.35.0/Kconfig .
-```
-
-Refer to the [kconfig-webconf README](https://ess.cs.uos.de/git/software/kconfig-webconf/-/blob/master/README.md#user-content-performance-aware-configuration) for details on using the generated model.
-
-We also have a short [video example](https://ess.cs.uos.de/static/videos/splc22-kconfig-webconf.mp4) illustrating this workflow.
+* [Generating performance models for software product lines](doc/analysis-nfp)
 
 ## Log-Based Performance Model Generation
 
