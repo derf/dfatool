@@ -63,6 +63,14 @@ def print_info_by_name(model, by_name):
                         ],
                     )
                 )
+        for attr in sorted(model.attributes(name)):
+            print(
+                "    Observation {} ∈ [{:.2f}, {:.2f}]".format(
+                    attr,
+                    model.attr_by_name[name][attr].min(),
+                    model.attr_by_name[name][attr].max(),
+                )
+            )
 
 
 def print_analyticinfo(prefix, info):

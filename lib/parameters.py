@@ -742,6 +742,12 @@ class ModelAttribute:
             )
         return None
 
+    def min(self):
+        return np.min(self.data)
+
+    def max(self):
+        return np.max(self.data)
+
     def webconf_function_map(self):
         return self.model_function.webconf_function_map()
 
