@@ -1,6 +1,11 @@
 # Performance Model Generation for Peripherals and Software Product Lines
 
-**dfatool** is a set of utilities for automated measurement of non-functional properties of software product lines and embedded peripherals, and automatic generation of performance models based upon those.
+**dfatool** is a set of utilities for automated performance model generation.
+It supports a wide range of application domains, including
+
+* unattened energy measurements and energy model generation for embedded peripherals,
+* unattended performance (“non-functional property”) measurements and NFP model generation for software product lines and SPL-like software projects, and
+* data analysis and performance model generation for arbitrary data sets out of text-based log files.
 
 Measurements and models for peripherals (`generate-dfa-benchmark.py` and `analyze-archive.py`) generally focus on energy and timing behaviour expressed as a [Priced Timed Automaton (PTA)](https://ess.cs.uos.de/static/papers/Friesel_2018_sies.pdf) with [Regression Model Trees (RMT)](https://ess.cs.uos.de/static/papers/Friesel-2022-CPSIoTBench.pdf).
 
@@ -9,11 +14,13 @@ The variability model of the software product line must be expressed in the [Kco
 Generated models can be used with [kconfig-webconf](https://ess.cs.uos.de/git/software/kconfig-webconf).
 This allows for [Retrofitting Performance Models onto Kconfig-based Software Product Lines](https://ess.cs.uos.de/static/papers/Friesel-2022-SPLC.pdf).
 
-Models for arbitrary other kinds of configurable components (`analyze-log.py`) are also supported and work with logfiles that contain "`[::]` *Key* *Attribute* | *parameters* | *NFP values*" lines.
+Models for arbitrary other kinds of configurable components (`analyze-log.py`) rely on logfiles that contain "`[::]` *Key* *Attribute* | *parameters* | *NFP values*" lines.
 Here, only analysis and model generation are automated, and users have to generate the logfiles by themselves.
 
 The name **dfatool** comes from the fact that benchmark generation for embedded peripherals relies on a deterministic finite automaton (DFA) that specifies the peripheral's behaviour (i.e., states and transitions caused by driver functions or signalled by interrupts).
 It is meaningless in the context of software product lines and other configurable components.
+
+The remainder of this README references domain-specific data acquisition and model generation how-tos as well as dependencies and global options and environment variables.
 
 ## Data Acquisition
 
@@ -25,18 +32,6 @@ Legacy documentation; may be outdated:
 * [Performance Benchmarks for Multipass](doc/nfp-multipass.md) (DE)
 
 ## Model Generation
-
-* [Generating performance models for software product lines](doc/analysis-nfp.md)
-
-## Log-Based Performance Model Generation
-
-Here, dfatool works with lines of the form "`[::]` *Key* *Attribute* | *parameters* | *NFP values*", where *parameters* is a space-separated series of *param=value* entries (i.e., benchmark configuration) and *NFP values* is a space-separate series of *NFP=value* entries (i.e., benchmark output).
-All measurements of a given *Key* *Attribute* combination must use the same set of NFP names.
-Parameter names may be different -- parameters that are present in other lines of the same *Key* *Attribute* will be treated as undefined in those lines where they are missing.
-
-Use `bin/analyze-log.py file1.txt file2.txt ...` for analysis.
-
-## Model Types
 
 dfatool supports six types of performance models:
 
@@ -50,8 +45,11 @@ dfatool supports six types of performance models:
 Least-Squares Regression is essentially a subset of RMT with just a single tree node.
 LMT and RMT differ significantly, as LMT uses a learning algorithm that starts out with a DECART and uses bottom-up pruning to turn it into an LMT, whereas RMT build a DECART that only considers parameters that are not suitable for least-squares regression and then uses least-squares regression to find and fit leaf functions.
 
-By default, dfatool uses heuristics to determine whether it should generate a simple least-squares regression function or a fully-fledge RMT.
+By default, dfatool uses heuristics to determine whether it should generate a simple least-squares regression function or a fully-fledged RMT.
 Use arguments (e.g. `--force-tree`) and environment variables (see below) to change which kinds of models it considers.
+
+* [Generating performance models for software product lines](doc/analysis-nfp.md)
+* [Data Analysis and Performance Model Generation from Log Files](doc/analysis-logs.md)
 
 ## Dependencies
 
