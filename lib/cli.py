@@ -9,7 +9,7 @@ from dfatool.functions import (
 import numpy as np
 
 
-def print_static(model, static_model, name, attribute):
+def print_static(model, static_model, name, attribute, with_dependence=False):
     unit = "  "
     if attribute == "power":
         unit = "µW"
@@ -26,15 +26,18 @@ def print_static(model, static_model, name, attribute):
             model.attr_by_name[name][attribute].stats.generic_param_dependence_ratio(),
         )
     )
-    for param in model.parameters:
-        print(
-            "{:10s}  {:13s} {:15s}: {:.2f}".format(
-                "",
-                "dependence on",
-                param,
-                model.attr_by_name[name][attribute].stats.param_dependence_ratio(param),
+    if with_dependence:
+        for param in model.parameters:
+            print(
+                "{:10s}  {:13s} {:15s}: {:.2f}".format(
+                    "",
+                    "dependence on",
+                    param,
+                    model.attr_by_name[name][attribute].stats.param_dependence_ratio(
+                        param
+                    ),
+                )
             )
-        )
 
 
 def print_info_by_name(model, by_name):

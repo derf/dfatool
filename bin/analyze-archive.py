@@ -651,13 +651,23 @@ if __name__ == "__main__":
     if "static" in show_models or "all" in show_models:
         for state in model.states:
             for attribute in model.attributes(state):
-                dfatool.cli.print_static(model, static_model, state, attribute)
+                dfatool.cli.print_static(
+                    model,
+                    static_model,
+                    state,
+                    attribute,
+                    with_dependence="all" in show_models,
+                )
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
                 for substate in submodel.states:
                     for subattribute in submodel.attributes(substate):
                         dfatool.cli.print_static(
-                            submodel, submodel.get_static(), substate, subattribute
+                            submodel,
+                            submodel.get_static(),
+                            substate,
+                            subattribut,
+                            with_dependence="all" in show_modelse,
                         )
 
         for trans in model.transitions:

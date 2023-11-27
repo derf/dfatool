@@ -215,7 +215,13 @@ def main():
         print("--- static model ---")
         for name in sorted(model.names):
             for attribute in sorted(model.attributes(name)):
-                dfatool.cli.print_static(model, static_model, name, attribute)
+                dfatool.cli.print_static(
+                    model,
+                    static_model,
+                    name,
+                    attribute,
+                    with_dependence="all" in args.show_model,
+                )
 
     if "param" in args.show_model or "all" in args.show_model:
         print("--- param model ---")
