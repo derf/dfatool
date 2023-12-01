@@ -47,8 +47,8 @@ def parse_logfile(filename):
                 param_str = m.group(2)
                 attr_str = m.group(3)
                 try:
-                    param = dict(map(kv_to_param_i, param_str.split(" ")))
-                    attr = dict(map(kv_to_param_f, attr_str.split(" ")))
+                    param = dict(map(kv_to_param_i, param_str.split()))
+                    attr = dict(map(kv_to_param_f, attr_str.split()))
                     observations.append(
                         {
                             "name": name_str,
