@@ -31,6 +31,14 @@ Legacy documentation; may be outdated:
 * [Energy Benchmarks with Multipass](doc/energy-multipass.md) (DE)
 * [Performance Benchmarks for Multipass](doc/nfp-multipass.md) (DE)
 
+## Data Analysis
+
+It can be helpful to visualize acquired data points to get a feel for how the observed performance attributes behave.
+Most of the options and methods documented here work for all three scripts: analyze-archive, analyze-kconfig, and analyze-log.
+
+* [Textual Data Analysis](doc/analysis-textual.md)
+* [Visual Data Analysis](doc/analysis-visual.md)
+
 ## Model Generation
 
 dfatool supports six types of performance models:
