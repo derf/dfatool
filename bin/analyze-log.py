@@ -179,6 +179,22 @@ def main():
                 # output=fname,
             )
 
+    if args.boxplot_unparam:
+        for name in model.names:
+            attr_names = sorted(model.attributes(name))
+            dfatool.plotter.boxplot(
+                attr_names,
+                [model.by_name[name][attr] for attr in attr_names],
+                xlabel="Attribute",
+                output=f"{args.boxplot_unparam}{name}.pdf",
+            )
+            for attribute in attr_names:
+                dfatool.plotter.boxplot(
+                    [attribute],
+                    [model.by_name[name][attribute]],
+                    output=f"{args.boxplot_unparam}{name}-{attribute}.pdf",
+                )
+
     if args.cross_validate:
         xv_method, xv_count = args.cross_validate.split(":")
         xv_count = int(xv_count)

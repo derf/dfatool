@@ -258,6 +258,12 @@ def add_standard_arguments(parser):
         help="Limit precision of dataref export to NDIG decimals",
     )
     parser.add_argument(
+        "--boxplot-unparam",
+        metavar="PREFIX",
+        type=str,
+        help="Export boxplots of raw (parameter-independent) observations to {PREFIX}{name}-{attribute}.pdf",
+    )
+    parser.add_argument(
         "--export-xv",
         metavar="FILE",
         type=str,
