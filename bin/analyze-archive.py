@@ -645,6 +645,38 @@ if __name__ == "__main__":
                 output=fname,
             )
 
+    if args.boxplot_unparam:
+        plotter.boxplot(
+            model.names,
+            [model.by_name[name]["power"] for name in model.names],
+            xlabel="State/Transition",
+            ylabel="Average Power [µW]",
+            output=f"{args.boxplot_unparam}power.pdf",
+        )
+        plotter.boxplot(
+            model.transitions,
+            [model.by_name[name]["duration"] for name in model.transitions],
+            xlabel="Transition",
+            ylabel="Duration [µs]",
+            output=f"{args.boxplot_unparam}duration.pdf",
+        )
+        for name in model.names:
+            plotter.boxplot(
+                [name],
+                [model.by_name[name]["power"]],
+                xlabel="State/Transition",
+                ylabel="Average Power [µW]",
+                output=f"{args.boxplot_unparam}{name}-power.pdf",
+            )
+        for trans in model.transitions:
+            plotter.boxplot(
+                [trans],
+                [model.by_name[trans]["duration"]],
+                xlabel="Transition",
+                ylabel="duration [µs]",
+                output=f"{args.boxplot_unparam}{trans}-duration.pdf",
+            )
+
     if len(show_models):
         print("--- simple static model ---")
     static_model = model.get_static()
