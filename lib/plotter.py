@@ -420,3 +420,5 @@ def boxplot(ticks, measurements, xlabel="", ylabel="", modeldata=None, output=No
         print(f"plot saved to {output}")
     else:
         plt.show()
+
+    plt.close()
