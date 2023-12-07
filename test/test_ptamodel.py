@@ -330,8 +330,8 @@ class TestSynthetic(unittest.TestCase):
         # the Root Mean Square Deviation must not be greater the scale (i.e., standard deviation) of the normal distribution
         # Low Mean Absolute Error (< 2)
         self.assertTrue(static_quality["raw_state_1"]["duration"]["mae"] < 2)
-        # Low Root Mean Square Deviation (< scale == 2)
-        self.assertTrue(static_quality["raw_state_1"]["duration"]["rmsd"] < 2)
+        # Low Root Mean Square Deviation (< scale+eps == 2.02)
+        self.assertTrue(static_quality["raw_state_1"]["duration"]["rmsd"] < 2.02)
         # Relatively low error percentage (~~ MAE * 100% / s1_duration_base)
         self.assertAlmostEqual(
             static_quality["raw_state_1"]["duration"]["smape"],

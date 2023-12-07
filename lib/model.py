@@ -430,8 +430,8 @@ class AnalyticModel:
                 detailed_results[name][attribute] = measures
                 if return_raw:
                     raw_results[name]["attribute"][attribute] = {
-                        "groundTruth": list(elem[attribute]),
-                        "modelOutput": list(predicted_data),
+                        "groundTruth": elem[attribute],
+                        "modelOutput": predicted_data,
                     }
 
         if return_raw:
@@ -1150,8 +1150,8 @@ class PTAModel(AnalyticModel):
                 detailed_results[name]["energy_Pt"] = measures
                 if return_raw:
                     raw_results[name]["attribute"]["energy_Pt"] = {
-                        "groundTruth": list(elem["power"] * elem["duration"]),
-                        "modelOutput": list(predicted_data),
+                        "groundTruth": elem["power"] * elem["duration"],
+                        "modelOutput": predicted_data,
                     }
 
         if return_raw:
