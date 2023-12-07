@@ -288,18 +288,22 @@ class CrossValidator:
             for idx in validation_subset:
                 validation[name]["param"].append(self.by_name[name]["param"][idx])
 
+        logger.debug("Creating training model instance")
         kwargs = self.kwargs.copy()
         if static:
             kwargs["force_tree"] = False
         training_data = self.model_class(
             training, self.parameters, *self.args, **kwargs
         )
+        logger.debug("Building trainig model")
         training_model = model_getter(training_data)
         kwargs = self.kwargs.copy()
         kwargs["compute_stats"] = False
         kwargs["force_tree"] = False
+        logger.debug("Creating validation model instance")
         validation_data = self.model_class(
             validation, self.parameters, *self.args, **kwargs
         )
+        logger.debug("Done")
 
         return training_data, validation_data.assess(training_model, return_raw=True)

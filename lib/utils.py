@@ -209,6 +209,10 @@ def param_to_ndarray(
     distinct_values = dict()
     category_to_scalar = dict()
 
+    logger.debug(
+        f"converting param_to_ndarray(with_nan={with_nan}, categorial_to_scalar={categorial_to_scalar}, ignore_indexes={ignore_indexes})"
+    )
+
     for param_tuple in param_tuples:
         for i, param in enumerate(param_tuple):
             if not is_numeric(param):
@@ -336,7 +340,11 @@ def observation_dict_to_by_name(observation):
     assert parameter_names == sorted(parameter_names)
     for name in by_name:
         for entry in by_name[name]["param"]:
-            assert len(entry) == len(parameter_names)
+            if len(entry) != len(parameter_names):
+                logger.error(
+                    f"by_name[{name}] has an entry with {len(entry)} parameters. I expect {len(parameter_names)} parameters."
+                )
+                assert len(entry) == len(parameter_names)
         for attribute in by_name[name]["attributes"]:
             by_name[name][attribute] = np.array(by_name[name][attribute])
     return by_name, parameter_names
