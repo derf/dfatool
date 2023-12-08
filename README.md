@@ -113,6 +113,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_USE_XGBOOST` | **0**, 1 | Use Extreme Gradient Boosting algorithm for decision forest generation. |
 | `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. |
 | `DFATOOL_XGB_MAX_DEPTH` | 2 .. **10** ** *n* | Maximum XGBoost tree depth. |
+| `OMP_NUM_THREADS` | *number of CPU cores* | Maximum number of threads used per XGBoost learner. A limit of 4 threads appears to be ideal. Note that dfatool may spawn several XGBoost instances at the same time. |
 | `DFATOOL_KCONF_IGNORE_NUMERIC` | **0**, 1 | Ignore numeric (int/hex) configuration options. Useful for comparison with CART/DECART. |
 | `DFATOOL_KCONF_IGNORE_STRING` | **0**, 1 | Ignore string configuration options. Useful for comparison with CART/DECART. |
 | `DFATOOL_FIT_LINEAR_ONLY` | **0**, 1 | Only consider linear functions (a + bx) in regression analysis. Useful for comparison with Linear Model Trees / M5. |
