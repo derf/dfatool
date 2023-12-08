@@ -37,32 +37,40 @@ def kv_to_param_i(kv_str):
 
 
 def parse_logfile(filename):
-    observations = list()
+    if filename.endswith("xz"):
+        import lzma
 
+        with lzma.open(filename, "rt") as f:
+            return parse_loghandle(f)
     with open(filename, "r") as f:
-        for lineno, line in enumerate(f):
-            m = re.search(r"\[::\] *([^|]*?) *[|] *([^|]*?) *[|] *(.*)", line)
-            if m:
-                name_str = m.group(1)
-                param_str = m.group(2)
-                attr_str = m.group(3)
-                try:
-                    param = dict(map(kv_to_param_i, param_str.split()))
-                    attr = dict(map(kv_to_param_f, attr_str.split()))
-                    observations.append(
-                        {
-                            "name": name_str,
-                            "param": param,
-                            "attribute": attr,
-                        }
-                    )
-                except ValueError:
-                    print(
-                        f"Error parsing {filename}: invalid key-value pair in line {lineno+1}",
-                        file=sys.stderr,
-                    )
-                    print(f"Offending entry:\n{line}", file=sys.stderr)
-                    raise
+        return parse_loghandle(f)
+
+
+def parse_loghandle(handle):
+    observations = list()
+    for lineno, line in enumerate(handle):
+        m = re.search(r"\[::\] *([^|]*?) *[|] *([^|]*?) *[|] *(.*)", line)
+        if m:
+            name_str = m.group(1)
+            param_str = m.group(2)
+            attr_str = m.group(3)
+            try:
+                param = dict(map(kv_to_param_i, param_str.split()))
+                attr = dict(map(kv_to_param_f, attr_str.split()))
+                observations.append(
+                    {
+                        "name": name_str,
+                        "param": param,
+                        "attribute": attr,
+                    }
+                )
+            except ValueError:
+                print(
+                    f"Error parsing {filename}: invalid key-value pair in line {lineno+1}",
+                    file=sys.stderr,
+                )
+                print(f"Offending entry:\n{line}", file=sys.stderr)
+                raise
 
     return observations
 
@@ -117,7 +125,10 @@ def main():
         "--export-model", metavar="FILE", type=str, help="Export JSON model to FILE"
     )
     parser.add_argument(
-        "logfiles", nargs="+", type=str, help="Path to benchmark output"
+        "logfiles",
+        nargs="+",
+        type=str,
+        help="Path to benchmark output (.txt or .txt.xz)",
     )
     args = parser.parse_args()
 
