@@ -44,7 +44,7 @@ def main():
     )
     parser.add_argument(
         "--plot-param",
-        metavar="<name> <attribute> <parameter> [gplearn function][;<name> <attribute> <parameter> [function];...])",
+        metavar="<name>:<attribute>:<parameter>[;<name>:<attribute>:<parameter>;...])",
         type=str,
         help="Plot measurements for <name> <attribute> by <parameter>. "
         "X axis is parameter value. "
@@ -78,6 +78,9 @@ def main():
     )
     parser.add_argument(
         "--export-model", metavar="FILE", type=str, help="Export JSON model to FILE"
+    )
+    parser.add_argument(
+        "--non-interactive", action="store_true", help="Do not show interactive plots"
     )
     parser.add_argument(
         "logfiles",
@@ -143,6 +146,7 @@ def main():
                 xlabel="measurement #",
                 ylabel=ylabel,
                 # output=fname,
+                show=not args.non_interactive,
             )
 
     if args.boxplot_unparam:
@@ -153,12 +157,14 @@ def main():
                 [model.by_name[name][attr] for attr in attr_names],
                 xlabel="Attribute",
                 output=f"{args.boxplot_unparam}{name}.pdf",
+                show=not args.non_interactive,
             )
             for attribute in attr_names:
                 dfatool.plotter.boxplot(
                     [attribute],
                     [model.by_name[name][attribute]],
                     output=f"{args.boxplot_unparam}{name}-{attribute}.pdf",
+                    show=not args.non_interactive,
                 )
 
     if args.cross_validate:
@@ -255,6 +261,7 @@ def main():
                 ylabel=attribute,
                 xlabel=param_name,
                 output=f"{state_or_trans} {attribute} {param_name}.pdf",
+                show=not args.non_interactive,
             )
 
 
