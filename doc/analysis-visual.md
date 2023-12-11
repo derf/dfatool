@@ -22,4 +22,4 @@ parameter name. It shows each distinct configuration (parameter/NFP value) in
 a different colour. Combining it with `--filter-param` and `--ignore-param`
 may help de-clutter the plot.
 
-[!](/media/n_dpus-dpu_alloc-1.png)
+![](/media/n_dpus-dpu_alloc-1.png)
