@@ -124,7 +124,9 @@ def plot_y(Y, **kwargs):
         plot_xy(np.arange(len(Y)), Y, **kwargs)
 
 
-def plot_xy(X, Y, xlabel=None, ylabel=None, title=None, output=None, family=False):
+def plot_xy(
+    X, Y, xlabel=None, ylabel=None, title=None, output=None, family=False, show=True
+):
     fig, ax1 = plt.subplots(figsize=(10, 6))
     if title is not None:
         ax1.set_title(title)
@@ -145,13 +147,16 @@ def plot_xy(X, Y, xlabel=None, ylabel=None, title=None, output=None, family=Fals
         plt.plot(X, Y, "bo", markersize=2)
     if output:
         plt.savefig(output)
+        print(f"plot saved to {output}")
         with open("{}.txt".format(output), "w") as f:
             print("X Y", file=f)
             for i in range(len(X)):
                 print("{} {}".format(X[i], Y[i]), file=f)
-        print(f"plot saved to {output}")
-    else:
+        print(f"data saved to {output}.txt")
+    if show:
         plt.show()
+
+    plt.close()
 
 
 def _param_slice_eq(a, b, index):
@@ -171,6 +176,7 @@ def plot_param(
     title=None,
     extra_function=None,
     output=None,
+    show=True,
 ):
     fig, ax1 = plt.subplots(figsize=(10, 6))
     if title is not None:
@@ -270,8 +276,10 @@ def plot_param(
     if output:
         plt.savefig(output)
         print(f"plot saved to {output}")
-    else:
+    if show:
         plt.show()
+
+    plt.close()
 
 
 def plot_param_fit(
@@ -330,7 +338,9 @@ def plot_param_fit(
     plt.show()
 
 
-def boxplot(ticks, measurements, xlabel="", ylabel="", modeldata=None, output=None):
+def boxplot(
+    ticks, measurements, xlabel="", ylabel="", modeldata=None, output=None, show=True
+):
     fig, ax1 = plt.subplots(figsize=(10, 6))
     ax1.set_title(f"dfatool unparam (n={len(measurements[0])})")
     plt.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1)
@@ -412,13 +422,14 @@ def boxplot(ticks, measurements, xlabel="", ylabel="", modeldata=None, output=No
 
     if output:
         plt.savefig(output)
+        print(f"plot saved to {output}")
         with open("{}.txt".format(output), "w") as f:
             print("X Y", file=f)
             for i, data in enumerate(measurements):
                 for value in data:
                     print("{} {}".format(ticks[i], value), file=f)
-        print(f"plot saved to {output}")
-    else:
+        print(f"data saved to {output}.txt")
+    if show:
         plt.show()
 
     plt.close()
