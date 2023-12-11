@@ -18,61 +18,16 @@ import sys
 import re
 
 
-def kv_to_param(kv_str, cast):
-    try:
-        key, value = kv_str.split("=")
-        value = cast(value)
-        return key, value
-    except ValueError:
-        print(f"Invalid key-value pair: {kv_str}")
-        raise
-
-
-def kv_to_param_f(kv_str):
-    return kv_to_param(kv_str, dfatool.utils.soft_cast_float)
-
-
-def kv_to_param_i(kv_str):
-    return kv_to_param(kv_str, dfatool.utils.soft_cast_int)
-
-
 def parse_logfile(filename):
+    lf = dfatool.utils.Logfile()
+
     if filename.endswith("xz"):
         import lzma
 
         with lzma.open(filename, "rt") as f:
-            return parse_loghandle(f)
+            return lf.load(f)
     with open(filename, "r") as f:
-        return parse_loghandle(f)
-
-
-def parse_loghandle(handle):
-    observations = list()
-    for lineno, line in enumerate(handle):
-        m = re.search(r"\[::\] *([^|]*?) *[|] *([^|]*?) *[|] *(.*)", line)
-        if m:
-            name_str = m.group(1)
-            param_str = m.group(2)
-            attr_str = m.group(3)
-            try:
-                param = dict(map(kv_to_param_i, param_str.split()))
-                attr = dict(map(kv_to_param_f, attr_str.split()))
-                observations.append(
-                    {
-                        "name": name_str,
-                        "param": param,
-                        "attribute": attr,
-                    }
-                )
-            except ValueError:
-                print(
-                    f"Error parsing {filename}: invalid key-value pair in line {lineno+1}",
-                    file=sys.stderr,
-                )
-                print(f"Offending entry:\n{line}", file=sys.stderr)
-                raise
-
-    return observations
+        return lf.load(f)
 
 
 def main():
