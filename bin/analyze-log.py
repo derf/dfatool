@@ -176,10 +176,13 @@ def main():
 
     if args.boxplot_param:
         title_suffix = None
+        param_is_filtered = dict()
         if args.filter_param:
             title_suffix = "filter: " + ", ".join(
                 map(lambda kv: f"{kv[0]}={kv[1]}", args.filter_param)
             )
+            for param_name, _ in args.filter_param:
+                param_is_filtered[param_name] = True
         by_param = model.get_by_param()
         for name in model.names:
             attr_names = sorted(model.attributes(name))
@@ -191,7 +194,11 @@ def main():
                     lambda param_key: ", ".join(
                         map(
                             lambda ip: f"{model.param_name(ip[0])}={ip[1]}",
-                            enumerate(param_key),
+                            filter(
+                                lambda ip: model.param_name(ip[0])
+                                not in param_is_filtered,
+                                enumerate(param_key),
+                            ),
                         )
                     ),
                     param_keys,
