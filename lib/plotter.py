@@ -339,10 +339,20 @@ def plot_param_fit(
 
 
 def boxplot(
-    ticks, measurements, xlabel="", ylabel="", modeldata=None, output=None, show=True
+    ticks,
+    measurements,
+    xlabel="",
+    ylabel="",
+    modeldata=None,
+    output=None,
+    show=True,
+    title_suffix=None,
 ):
     fig, ax1 = plt.subplots(figsize=(10, 6))
-    ax1.set_title(f"dfatool unparam (n={len(measurements[0])})")
+    if title_suffix:
+        ax1.set_title(f"dfatool unparam (n={len(measurements[0])}, {title_suffix})")
+    else:
+        ax1.set_title(f"dfatool unparam (n={len(measurements[0])})")
     plt.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1)
 
     bp = plt.boxplot(measurements, notch=0, sym="+", vert=1, whis=1.5)

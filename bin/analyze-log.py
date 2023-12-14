@@ -150,6 +150,11 @@ def main():
             )
 
     if args.boxplot_unparam:
+        title_suffix = None
+        if args.filter_param:
+            title_suffix = "filter: " + ", ".join(
+                map(lambda kv: f"{kv[0]}={kv[1]}", args.filter_param)
+            )
         for name in model.names:
             attr_names = sorted(model.attributes(name))
             dfatool.plotter.boxplot(
@@ -157,6 +162,7 @@ def main():
                 [model.by_name[name][attr] for attr in attr_names],
                 xlabel="Attribute",
                 output=f"{args.boxplot_unparam}{name}.pdf",
+                title_suffix=title_suffix,
                 show=not args.non_interactive,
             )
             for attribute in attr_names:
@@ -164,6 +170,7 @@ def main():
                     [attribute],
                     [model.by_name[name][attribute]],
                     output=f"{args.boxplot_unparam}{name}-{attribute}.pdf",
+                    title_suffix=title_suffix,
                     show=not args.non_interactive,
                 )
 
