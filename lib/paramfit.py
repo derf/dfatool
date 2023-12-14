@@ -2,6 +2,7 @@
 
 import logging
 import numpy as np
+import os
 from multiprocessing import Pool
 from scipy import optimize
 from .functions import analytic
@@ -15,6 +16,7 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+best_fit_metric = os.getenv("DFATOOL_ULS_ERROR_METRIC", "rmsd")
 
 
 class ParamFit:
@@ -78,29 +80,29 @@ class ParamFit:
                 result["key"][0] == key and result["result"]["best"] is not None
             ):  # dürfte an ['best'] != None liegen-> Fit für gefilterten Kram schlägt fehl?
                 this_result = result["result"]
-                if this_result["best_rmsd"] >= min(
-                    this_result["mean_rmsd"], this_result["median_rmsd"]
+                if this_result["best_err"] >= min(
+                    this_result["mean_err"], this_result["median_err"]
                 ):
                     logger.debug(
                         "Not modeling {} as function of {}: best ({:.0f}) is worse than ref ({:.0f}, {:.0f})".format(
                             result["key"][0],
                             result["key"][1],
-                            this_result["best_rmsd"],
-                            this_result["mean_rmsd"],
-                            this_result["median_rmsd"],
+                            this_result["best_err"],
+                            this_result["mean_err"],
+                            this_result["median_err"],
                         )
                     )
                 # See notes on depends_on_param
-                elif this_result["best_rmsd"] >= 0.8 * min(
-                    this_result["mean_rmsd"], this_result["median_rmsd"]
+                elif this_result["best_err"] >= 0.8 * min(
+                    this_result["mean_err"], this_result["median_err"]
                 ):
                     logger.debug(
                         "Not modeling {} as function of {}: best ({:.0f} %) is not much better than ref ({:.0f} % mean, {:.0f} % median)".format(
                             result["key"][0],
                             result["key"][1],
-                            this_result["best_rmsd"],
-                            this_result["mean_rmsd"],
-                            this_result["median_rmsd"],
+                            this_result["best_err"],
+                            this_result["mean_err"],
+                            this_result["median_err"],
                         )
                     )
                 else:
@@ -130,9 +132,9 @@ def _try_fits(
 
     :returns:  a dictionary with the following elements:
         best -- name of the best-fitting function (see `analytic.functions`). `None` in case of insufficient data.
-        best_rmsd -- mean Root Mean Square Deviation of best-fitting function over all combinations of the remaining parameters
-        mean_rmsd -- mean Root Mean Square Deviation of a reference model using the mean of its respective input data as model value
-        median_rmsd -- mean Root Mean Square Deviation of a reference model using the median of its respective input data as model value
+        best_err -- mean error of best-fitting function over all combinations of the remaining parameters
+        mean_err -- mean error of a reference model using the mean of its respective input data as model value
+        median_err -- mean error of a reference model using the median of its respective input data as model value
         results -- mean goodness-of-fit measures for the individual functions. See `analytic.functions` for keys and `aggregate_measures` for values
 
     :param n_by_param: measurements of a specific model attribute partitioned by parameter values.
@@ -222,16 +224,16 @@ def _try_fits(
                     raw_results[function_name][measure].append(error_rate)
                 # print(function_name, res, measures)
             mean_measures = aggregate_measures(np.mean(Y), Y)
-            ref_results["mean"].append(mean_measures["rmsd"])
+            ref_results["mean"].append(mean_measures[best_fit_metric])
             raw_results_by_param[other_parameters]["mean"] = mean_measures
             median_measures = aggregate_measures(np.median(Y), Y)
-            ref_results["median"].append(median_measures["rmsd"])
+            ref_results["median"].append(median_measures[best_fit_metric])
             raw_results_by_param[other_parameters]["median"] = median_measures
 
     if not len(ref_results["mean"]):
         # Insufficient data for fitting
         # print('[W] Insufficient data for fitting {}'.format(param_index))
-        return {"best": None, "best_rmsd": np.inf, "results": results}
+        return {"best": None, "best_err": np.inf, "results": results}
 
     for (
         other_parameter_combination,
@@ -243,15 +245,15 @@ def _try_fits(
         for function_name, result in other_parameter_results.items():
             if len(result) > 0:
                 results[function_name] = result
-                rmsd = result["rmsd"]
-                if rmsd < best_fit_val:
-                    best_fit_val = rmsd
+                err = result[best_fit_metric]
+                if err < best_fit_val:
+                    best_fit_val = err
                     best_fit_name = function_name
         results_by_param[other_parameter_combination] = {
             "best": best_fit_name,
-            "best_rmsd": best_fit_val,
-            "mean_rmsd": results["mean"]["rmsd"],
-            "median_rmsd": results["median"]["rmsd"],
+            "best_err": best_fit_val,
+            "mean_err": results["mean"][best_fit_metric],
+            "median_err": results["median"][best_fit_metric],
             "results": results,
         }
 
@@ -263,16 +265,16 @@ def _try_fits(
             results[function_name] = {}
             for measure in result.keys():
                 results[function_name][measure] = np.mean(result[measure])
-            rmsd = results[function_name]["rmsd"]
-            if rmsd < best_fit_val:
-                best_fit_val = rmsd
+            err = results[function_name][best_fit_metric]
+            if err < best_fit_val:
+                best_fit_val = err
                 best_fit_name = function_name
 
     return {
         "best": best_fit_name,
-        "best_rmsd": best_fit_val,
-        "mean_rmsd": np.mean(ref_results["mean"]),
-        "median_rmsd": np.mean(ref_results["median"]),
+        "best_err": best_fit_val,
+        "mean_err": np.mean(ref_results["mean"]),
+        "median_err": np.mean(ref_results["median"]),
         "results": results,
         "results_by_other_param": results_by_param,
     }

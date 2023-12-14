@@ -110,6 +110,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_DTREE_SKLEARN_DECART` | **0**, 1 | Use sklearn CART ("Decision Tree Regression") algorithm for decision tree generation. Ignore scalar parameters, thus emulating the DECART algorithm. |
 | `DFATOOL_DTREE_LMT` | **0**, 1 | Use [Linear Model Tree](https://github.com/cerlymarco/linear-tree) algorithm for regression tree generation. Uses binary nodes and linear functions. Overrides `FUNCTION_LEAVES` (=0) and `NONBINARY_NODES` (=0). |
 | `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default: unlimited. |
+| `DFATOOL_ULS_ERROR_METRIC` | **rmsd**, mae, p50, p90 | Error metric to use when selecting best-fitting function during unsupervised least squares (ULS) regression. Least squares regression itself minimzes root mean square deviation (rmsd), hence rmsd is the default. |
 | `DFATOOL_USE_XGBOOST` | **0**, 1 | Use Extreme Gradient Boosting algorithm for decision forest generation. |
 | `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. |
 | `DFATOOL_XGB_MAX_DEPTH` | 2 .. **10** ** *n* | Maximum XGBoost tree depth. |
