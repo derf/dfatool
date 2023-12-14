@@ -264,6 +264,12 @@ def add_standard_arguments(parser):
         help="Export boxplots of raw (parameter-independent) observations to {PREFIX}{name}-{attribute}.pdf",
     )
     parser.add_argument(
+        "--boxplot-param",
+        metavar="PREFIX",
+        type=str,
+        help="Export boxplots of observations to {PREFIX}{name}-{attribute}.pdf, with one boxplot per parameter combination",
+    )
+    parser.add_argument(
         "--export-xv",
         metavar="FILE",
         type=str,

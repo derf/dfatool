@@ -174,6 +174,39 @@ def main():
                     show=not args.non_interactive,
                 )
 
+    if args.boxplot_param:
+        title_suffix = None
+        if args.filter_param:
+            title_suffix = "filter: " + ", ".join(
+                map(lambda kv: f"{kv[0]}={kv[1]}", args.filter_param)
+            )
+        by_param = model.get_by_param()
+        for name in model.names:
+            attr_names = sorted(model.attributes(name))
+            param_keys = list(
+                map(lambda kv: kv[1], filter(lambda kv: kv[0] == name, by_param.keys()))
+            )
+            param_desc = list(
+                map(
+                    lambda param_key: ", ".join(
+                        map(
+                            lambda ip: f"{model.param_name(ip[0])}={ip[1]}",
+                            enumerate(param_key),
+                        )
+                    ),
+                    param_keys,
+                )
+            )
+            for attribute in attr_names:
+                dfatool.plotter.boxplot(
+                    param_desc,
+                    list(map(lambda k: by_param[(name, k)][attribute], param_keys)),
+                    output=f"{args.boxplot_param}{name}-{attribute}.pdf",
+                    title_suffix=title_suffix,
+                    ylabel=attribute,
+                    show=not args.non_interactive,
+                )
+
     if args.cross_validate:
         xv_method, xv_count = args.cross_validate.split(":")
         xv_count = int(xv_count)
