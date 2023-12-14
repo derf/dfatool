@@ -167,9 +167,7 @@ def _try_fits(
 
     # for each parameter combination:
     for param_key in filter(
-        lambda x: remove_index_from_tuple(x, param_index)
-        not in seen_parameter_combinations
-        and len(n_by_param[x])
+        lambda x: len(n_by_param[x])
         and match_parameter_values(n_by_param[x][0], param_filter),
         n_by_param.keys(),
     ):
@@ -180,6 +178,11 @@ def _try_fits(
 
         # Ensure that each parameter combination is only optimized once. Otherwise, with parameters (1, 2, 5), (1, 3, 5), (1, 4, 5) and param_index == 1,
         # the parameter combination (1, *, 5) would be optimized three times, both wasting time and biasing results towards more frequently occuring combinations of non-param_index parameters
+        if (
+            remove_index_from_tuple(param_key, param_index)
+            in seen_parameter_combinations
+        ):
+            continue
         seen_parameter_combinations.add(remove_index_from_tuple(param_key, param_index))
 
         # for each value of the parameter denoted by param_index (all other parameters remain the same):
