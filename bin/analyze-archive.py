@@ -106,50 +106,6 @@ def model_summary_table(result_list):
     print(buf)
 
 
-def print_text_model_data(model, pm, pq, lm, lq, am, ai, aq):
-    print("")
-    print(r"key attribute $1 - \frac{\sigma_X}{...}$")
-    for state_or_tran in model.by_name.keys():
-        for attribute in model.attributes(state_or_tran):
-            print(
-                "{} {} {:.8f}".format(
-                    state_or_tran,
-                    attribute,
-                    model.attr_by_name[state_or_tran][
-                        attr_by_name
-                    ].stats.generic_param_dependence_ratio(),
-                )
-            )
-
-    print("")
-    print(r"key attribute parameter $1 - \frac{...}{...}$")
-    for state_or_tran in model.by_name.keys():
-        for attribute in model.attributes(state_or_tran):
-            for param in model.parameters:
-                print(
-                    "{} {} {} {:.8f}".format(
-                        state_or_tran,
-                        attribute,
-                        param,
-                        model.attr_by_name[state_or_tran][
-                            attribute
-                        ].stats.param_dependence_ratio(param),
-                    )
-                )
-            if state_or_tran in model._num_args:
-                for arg_index in range(model._num_args[state_or_tran]):
-                    print(
-                        "{} {} {:d} {:.8f}".format(
-                            state_or_tran,
-                            attribute,
-                            arg_index,
-                            model.attr_by_name[state_or_tran][
-                                attribute
-                            ].stats.arg_dependence_ratio(arg_index),
-                        )
-                    )
-
-
 def print_html_model_data(raw_data, model, pm, pq, lm, lq, am, ai, aq):
     state_attributes = model.attributes(model.states[0])
     trans_attributes = model.attributes(model.transitions[0])
@@ -342,7 +298,6 @@ def plot_traces(preprocessed_data, sot_name):
 
 
 if __name__ == "__main__":
-
     ignored_trace_indexes = []
     safe_functions_enabled = False
     function_override = {}
@@ -396,14 +351,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--show-models",
-        choices=["static", "paramdetection", "param", "all", "tex", "html"],
+        choices=["static", "paramdetection", "param", "all", "html"],
         action="append",
         default=list(),
         help="static: show static model values as well as parameter detection heuristic.\n"
         "paramdetection: show stddev of static/lut/fitted model\n"
         "param: show parameterized model functions and regression variable values\n"
         "all: all of the above\n"
-        "tex: print tex/pgfplots-compatible model data on stdout\n"
         "html: print model and quality data as HTML table on stdout",
     )
     parser.add_argument(
@@ -413,8 +367,7 @@ if __name__ == "__main__":
         default=list(),
         help="table: show static/fitted/lut SMAPE and MAE for each name and attribute.\n"
         "summary: show static/fitted/lut SMAPE and MAE for each attribute, averaged over all states/transitions.\n"
-        "all: all of the above.\n"
-        "tex: print tex/pgfplots-compatible model quality data on stdout.",
+        "all: all of the above.\n",
     )
     parser.add_argument(
         "--ignored-trace-indexes",
@@ -944,18 +897,6 @@ if __name__ == "__main__":
         else:
             analytic_quality = model.assess(param_model)
         xv_analytic_models = None
-
-    if "tex" in show_models or "tex" in show_quality:
-        print_text_model_data(
-            model,
-            static_model,
-            static_quality,
-            lut_model,
-            lut_quality,
-            param_model,
-            param_info,
-            analytic_quality,
-        )
 
     if "html" in show_models or "html" in show_quality:
         print_html_model_data(
