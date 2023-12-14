@@ -346,13 +346,13 @@ def boxplot(
     modeldata=None,
     output=None,
     show=True,
-    title_suffix=None,
+    title=None,
 ):
     fig, ax1 = plt.subplots(figsize=(10, 6))
-    if title_suffix:
-        ax1.set_title(f"dfatool unparam (n={len(measurements[0])}, {title_suffix})")
+    if title:
+        ax1.set_title(f"{title} (n={len(measurements[0])})")
     else:
-        ax1.set_title(f"dfatool unparam (n={len(measurements[0])})")
+        ax1.set_title(f"n={len(measurements[0])}")
     plt.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1)
 
     bp = plt.boxplot(measurements, notch=0, sym="+", vert=1, whis=1.5)

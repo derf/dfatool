@@ -150,9 +150,9 @@ def main():
             )
 
     if args.boxplot_unparam:
-        title_suffix = None
+        title = None
         if args.filter_param:
-            title_suffix = "filter: " + ", ".join(
+            title = "filter: " + ", ".join(
                 map(lambda kv: f"{kv[0]}={kv[1]}", args.filter_param)
             )
         for name in model.names:
@@ -162,7 +162,7 @@ def main():
                 [model.by_name[name][attr] for attr in attr_names],
                 xlabel="Attribute",
                 output=f"{args.boxplot_unparam}{name}.pdf",
-                title_suffix=title_suffix,
+                title=title,
                 show=not args.non_interactive,
             )
             for attribute in attr_names:
@@ -170,15 +170,15 @@ def main():
                     [attribute],
                     [model.by_name[name][attribute]],
                     output=f"{args.boxplot_unparam}{name}-{attribute}.pdf",
-                    title_suffix=title_suffix,
+                    title=title,
                     show=not args.non_interactive,
                 )
 
     if args.boxplot_param:
-        title_suffix = None
+        title = None
         param_is_filtered = dict()
         if args.filter_param:
-            title_suffix = "filter: " + ", ".join(
+            title = "filter: " + ", ".join(
                 map(lambda kv: f"{kv[0]}={kv[1]}", args.filter_param)
             )
             for param_name, _ in args.filter_param:
@@ -209,7 +209,7 @@ def main():
                     param_desc,
                     list(map(lambda k: by_param[(name, k)][attribute], param_keys)),
                     output=f"{args.boxplot_param}{name}-{attribute}.pdf",
-                    title_suffix=title_suffix,
+                    title=title,
                     ylabel=attribute,
                     show=not args.non_interactive,
                 )
