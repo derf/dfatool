@@ -187,7 +187,6 @@ class AnalyticModel:
         return f"AnalyticModel<names=[{names}]>"
 
     def _compute_stats(self, by_name):
-
         paramstats = ParallelParamStats()
 
         for name, data in by_name.items():
@@ -302,7 +301,6 @@ class AnalyticModel:
         """
 
         if not self.fit_done:
-
             paramfit = ParamFit()
             tree_allowed = bool(int(os.getenv("DFATOOL_DTREE_ENABLED", "1")))
             use_fol = bool(int(os.getenv("DFATOOL_FIT_FOL", "0")))
@@ -439,7 +437,6 @@ class AnalyticModel:
         return detailed_results
 
     def build_dtree(self, name, attribute, threshold=100, **kwargs):
-
         if name not in self.attr_by_name:
             self.attr_by_name[name] = dict()
 
@@ -506,7 +503,11 @@ class AnalyticModel:
                 for k, v in attr.to_dref(unit).items():
                     ret[f"data/{name}/{attr_name}/{k}"] = v
                 e_static = static_quality[name][attr_name]
-                ret[f"error/static/{name}/{attr_name}/mae"] = (e_static["mae"], unit)
+                for metric in "mae p50 p90 p95 p99".split():
+                    ret[f"error/static/{name}/{attr_name}/{metric}"] = (
+                        e_static[metric],
+                        unit,
+                    )
                 ret[f"error/static/{name}/{attr_name}/mape"] = (
                     e_static["mape"],
                     r"\percent",
@@ -525,7 +526,11 @@ class AnalyticModel:
 
                 if lut_quality is not None:
                     e_lut = lut_quality[name][attr_name]
-                    ret[f"error/lut/{name}/{attr_name}/mae"] = (e_lut["mae"], unit)
+                    for metric in "mae p50 p90 p95 p99".split():
+                        ret[f"error/lut/{name}/{attr_name}/{metric}"] = (
+                            e_lut[metric],
+                            unit,
+                        )
                     ret[f"error/lut/{name}/{attr_name}/mape"] = (
                         e_lut["mape"],
                         r"\percent",
@@ -543,7 +548,11 @@ class AnalyticModel:
                         logger.warning(f"{name} {attr_name} LUT model has no MAPE")
 
                 e_model = model_quality[name][attr_name]
-                ret[f"error/model/{name}/{attr_name}/mae"] = (e_model["mae"], unit)
+                for metric in "mae p50 p90 p95 p99".split():
+                    ret[f"error/model/{name}/{attr_name}/{metric}"] = (
+                        e_model[metric],
+                        unit,
+                    )
                 ret[f"error/model/{name}/{attr_name}/mape"] = (
                     e_model["mape"],
                     r"\percent",

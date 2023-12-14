@@ -129,10 +129,9 @@ class CrossValidator:
             'by_name' : {
                 for each name: {
                     for each attribute: {
-                        'mae' : mean of all mean absolute errors
-                        'mae_list' : list of the individual MAE values encountered during cross-validation
-                        'smape' : mean of all symmetric mean absolute percentage errors
-                        'smape_list' : list of the individual SMAPE values encountered during cross-validation
+                        'groundTruth': [...]
+                        'modelOutput': [...]
+                        see dfatool.utils.regression_measures
                     }
                 }
             }
@@ -186,10 +185,9 @@ class CrossValidator:
             'by_name' : {
                 for each name: {
                     for each attribute: {
-                        'mae' : mean of all mean absolute errors
-                        'mae_list' : list of the individual MAE values encountered during cross-validation
-                        'smape' : mean of all symmetric mean absolute percentage errors
-                        'smape_list' : list of the individual SMAPE values encountered during cross-validation
+                        'groundTruth': [...]
+                        'modelOutput': [...]
+                        see dfatool.utils.regression_measures for additional items
                     }
                 }
             }

@@ -673,6 +673,11 @@ def regression_measures(predicted: np.ndarray, actual: np.ndarray):
             if all items in actual are non-zero (NaN otherwise)
     smape -- Symmetric Mean Absolute Percentage Error,
              if no 0,0-pairs are present in actual and predicted (NaN otherwise)
+    p50 -- Median Absolute Error (as in: the median of the list of absolute
+           prediction errors aka. 50th percentile error)
+    p90 -- 90th percentile absolute error
+    p95 -- 95th percentile absolute error
+    p99 -- 99th percentile absolute error
     msd -- Mean Square Deviation
     rmsd -- Root Mean Square Deviation
     ssr -- Sum of Squared Residuals
@@ -687,8 +692,13 @@ def regression_measures(predicted: np.ndarray, actual: np.ndarray):
     # mean = np.mean(actual)
     if len(deviations) == 0:
         return {}
+    p50, p90, p95, p99 = np.percentile(np.abs(deviations), (50, 90, 95, 99))
     measures = {
         "mae": np.mean(np.abs(deviations), dtype=np.float64),
+        "p50": p50,
+        "p90": p90,
+        "p95": p95,
+        "p99": p99,
         "msd": np.mean(deviations**2, dtype=np.float64),
         "rmsd": np.sqrt(np.mean(deviations**2), dtype=np.float64),
         "ssr": np.sum(deviations**2, dtype=np.float64),
