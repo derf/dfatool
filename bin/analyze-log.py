@@ -230,6 +230,7 @@ def main():
     static_model = model.get_static()
     try:
         lut_model = model.get_param_lut()
+        lut_quality = model.assess(lut_model)
     except RuntimeError as e:
         if args.force_tree:
             # this is to be expected
@@ -237,14 +238,21 @@ def main():
         else:
             logging.warning(f"Skipping LUT model: {e}")
         lut_model = None
+        lut_quality = None
 
     param_model, param_info = model.get_fitted()
-    static_quality = model.assess(static_model)
-    analytic_quality = model.assess(param_model)
-    if lut_model:
-        lut_quality = model.assess(lut_model)
+
+    if xv_method == "montecarlo":
+        static_quality, _ = xv.montecarlo(
+            lambda m: m.get_static(), xv_count, static=True
+        )
+        analytic_quality, _ = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
+    elif xv_method == "kfold":
+        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count, static=True)
+        analytic_quality, _ = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
     else:
-        lut_quality = None
+        static_quality = model.assess(static_model)
+        analytic_quality = model.assess(param_model)
 
     if "static" in args.show_model or "all" in args.show_model:
         print("--- static model ---")
