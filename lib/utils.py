@@ -428,7 +428,7 @@ def observations_to_by_name(observations):
         "param": {"parameter name": parameter value, ...},
         "attribute:" {"attribute name": attribute value, ...}
 
-    :param attributes: observed attributes (i.e., actual measurements). Each measurement dict must have an
+    :param attributes: observed attributes (i.e., ground truth). Each measurement dict must have an
         entry holding the data value for each attribute. It should not be None.
 
     :returns: tuple (by_name, parameter_names) which can be passed to AnalyticModel
@@ -644,35 +644,35 @@ def detect_outliers_in_aggregate(aggregate, z_limit=10, remove_outliers=False):
             )
 
 
-def aggregate_measures(aggregate: float, actual: list) -> dict:
+def aggregate_measures(predicted: float, ground_truth: list) -> dict:
     """
-    Calculate error measures for model value on data list.
+    Calculate error measures for a single predicted value compared to a ground truth list
 
     arguments:
-    aggregate -- model value (float or int)
-    actual -- real-world / reference values (list of float or int)
+    predicted -- predicted value, i.e. model output (float or int)
+    ground_truth -- real-world / reference values (list of float or int)
 
     return value:
     See regression_measures
     """
-    aggregate_array = np.array([aggregate] * len(actual))
-    return regression_measures(aggregate_array, np.array(actual))
+    predicted_array = np.array([predicted] * len(ground_truth))
+    return regression_measures(predicted_array, np.array(ground_truth))
 
 
-def regression_measures(predicted: np.ndarray, actual: np.ndarray):
+def regression_measures(predicted: np.ndarray, ground_truth: np.ndarray):
     """
-    Calculate error measures by comparing model values to reference values.
+    Calculate error measures by comparing predicted values to ground truth.
 
     arguments:
-    predicted -- model values (np.ndarray)
-    actual -- real-world / reference values (np.ndarray)
+    predicted -- model output (np.ndarray)
+    ground_truth -- real-world / reference values (np.ndarray)
 
     Returns a dict containing the following measures:
     mae -- Mean Absolute Error
     mape -- Mean Absolute Percentage Error,
-            if all items in actual are non-zero (NaN otherwise)
+            if all items in ground_truth are non-zero (NaN otherwise)
     smape -- Symmetric Mean Absolute Percentage Error,
-             if no 0,0-pairs are present in actual and predicted (NaN otherwise)
+             if no 0,0-pairs are present in ground_truth and predicted (NaN otherwise)
     p50 -- Median Absolute Error (as in: the median of the list of absolute
            prediction errors aka. 50th percentile error)
     p90 -- 90th percentile absolute error
@@ -685,13 +685,20 @@ def regression_measures(predicted: np.ndarray, actual: np.ndarray):
     count -- Number of values
     """
     if type(predicted) != np.ndarray:
-        raise ValueError("first arg must be ndarray, is {}".format(type(predicted)))
-    if type(actual) != np.ndarray:
-        raise ValueError("second arg must be ndarray, is {}".format(type(actual)))
-    deviations = predicted - actual
-    # mean = np.mean(actual)
+        raise ValueError(
+            "first arg ('predicted') must be ndarray, is {}".format(type(predicted))
+        )
+    if type(ground_truth) != np.ndarray:
+        raise ValueError(
+            "second arg ('ground_truth') must be ndarray, is {}".format(
+                type(ground_truth)
+            )
+        )
+
+    deviations = predicted - ground_truth
     if len(deviations) == 0:
         return {}
+
     p50, p90, p95, p99 = np.percentile(np.abs(deviations), (50, 90, 95, 99))
     measures = {
         "mae": np.mean(np.abs(deviations), dtype=np.float64),
@@ -702,25 +709,25 @@ def regression_measures(predicted: np.ndarray, actual: np.ndarray):
         "msd": np.mean(deviations**2, dtype=np.float64),
         "rmsd": np.sqrt(np.mean(deviations**2), dtype=np.float64),
         "ssr": np.sum(deviations**2, dtype=np.float64),
-        "rsq": r2_score(actual, predicted),
-        "count": len(actual),
+        "rsq": r2_score(ground_truth, predicted),
+        "count": len(ground_truth),
     }
 
-    # rsq_quotient = np.sum((actual - mean)**2, dtype=np.float64) * np.sum((predicted - mean)**2, dtype=np.float64)
-
-    if np.all(actual != 0):
-        measures["mape"] = np.mean(np.abs(deviations / actual)) * 100  # bad measure
+    if np.all(ground_truth != 0):
+        # MAPE is generalle considered to be a bad metric
+        measures["mape"] = np.mean(np.abs(deviations / ground_truth)) * 100
     else:
         measures["mape"] = np.nan
-    if np.all(np.abs(predicted) + np.abs(actual) != 0):
+
+    if np.all(np.abs(predicted) + np.abs(ground_truth) != 0):
         measures["smape"] = (
-            np.mean(np.abs(deviations) / ((np.abs(predicted) + np.abs(actual)) / 2))
+            np.mean(
+                np.abs(deviations) / ((np.abs(predicted) + np.abs(ground_truth)) / 2)
+            )
             * 100
         )
     else:
         measures["smape"] = np.nan
-    # if np.all(rsq_quotient != 0):
-    #    measures['rsq'] = (np.sum((actual - mean) * (predicted - mean), dtype=np.float64)**2) / rsq_quotient
 
     return measures
 
