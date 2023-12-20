@@ -129,8 +129,8 @@ def format_quality_measures(result, measure="smape", col_len=8):
 
 
 def model_quality_table(lut, model, static, model_info, xv_method=None):
-    key_len = 0
-    attr_len = 0
+    key_len = len("Key")
+    attr_len = len("Attribute")
     for key in static.keys():
         if len(key) > key_len:
             key_len = len(key)
