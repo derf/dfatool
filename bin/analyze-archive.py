@@ -626,15 +626,7 @@ if __name__ == "__main__":
     if len(show_models):
         print("--- LUT ---")
     lut_model = model.get_param_lut()
-
-    if xv_method == "montecarlo":
-        lut_quality, _ = xv.montecarlo(
-            lambda m: m.get_param_lut(fallback=True), xv_count
-        )
-    elif xv_method == "kfold":
-        lut_quality, _ = xv.kfold(lambda m: m.get_param_lut(fallback=True), xv_count)
-    else:
-        lut_quality = model.assess(lut_model)
+    lut_quality = model.assess(lut_model)
 
     if len(show_models):
         print("--- param model ---")
@@ -772,9 +764,11 @@ if __name__ == "__main__":
 
     if "table" in show_quality or "all" in show_quality:
         dfatool.cli.model_quality_table(
-            ["static", "parameterized", "LUT"],
-            [static_quality, analytic_quality, lut_quality],
-            [None, param_info, None],
+            lut=lut_quality,
+            model=analytic_quality,
+            static=static_quality,
+            model_info=param_info,
+            xv_method=xv_method,
         )
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
@@ -785,9 +779,10 @@ if __name__ == "__main__":
                 sub_param_model, sub_param_info = submodel.get_fitted()
                 sub_analytic_quality = submodel.assess(sub_param_model)
                 dfatool.cli.model_quality_table(
-                    ["static", "parameterized", "LUT"],
-                    [sub_static_quality, sub_analytic_quality, sub_lut_quality],
-                    [None, sub_param_info, None],
+                    lut=sub_lut_quality,
+                    model=sub_analytic_quality,
+                    static=sub_static_quality,
+                    model_info=sub_param_info,
                 )
 
     if "overall" in show_quality or "all" in show_quality:

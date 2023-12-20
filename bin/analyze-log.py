@@ -284,9 +284,11 @@ def main():
         else:
             print("Model error on training data:")
         dfatool.cli.model_quality_table(
-            ["static", "parameterized", "LUT"],
-            [static_quality, analytic_quality, lut_quality],
-            [None, param_info, None],
+            lut=lut_quality,
+            model=analytic_quality,
+            static=static_quality,
+            model_info=param_info,
+            xv_method=xv_method,
         )
 
     if args.export_model:

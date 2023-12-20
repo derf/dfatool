@@ -418,6 +418,7 @@ def main():
     static_model = model.get_static()
     try:
         lut_model = model.get_param_lut()
+        lut_quality = model.assess(lut_model)
     except RuntimeError as e:
         if args.force_tree:
             # this is to be expected
@@ -425,6 +426,7 @@ def main():
         else:
             logging.warning(f"Skipping LUT model: {e}")
         lut_model = None
+        lut_quality = None
 
     if args.export_csv:
         for name in model.names:
@@ -444,24 +446,12 @@ def main():
         static_quality, _ = xv.montecarlo(
             lambda m: m.get_static(), xv_count, static=True
         )
-        if lut_model:
-            lut_quality, _ = xv.montecarlo(
-                lambda m: m.get_param_lut(fallback=True), xv_count, static=True
-            )
-        else:
-            lut_quality = None
         xv.export_filename = args.export_xv
         analytic_quality, xv_analytic_models = xv.montecarlo(
             lambda m: m.get_fitted()[0], xv_count
         )
     elif xv_method == "kfold":
         static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count, static=True)
-        if lut_model:
-            lut_quality, _ = xv.kfold(
-                lambda m: m.get_param_lut(fallback=True), xv_count, static=True
-            )
-        else:
-            lut_quality = None
         xv.export_filename = args.export_xv
         analytic_quality, xv_analytic_models = xv.kfold(
             lambda m: m.get_fitted()[0], xv_count
@@ -521,9 +511,11 @@ def main():
         else:
             print("Model error on training data:")
         dfatool.cli.model_quality_table(
-            ["static", "parameterized", "LUT"],
-            [static_quality, analytic_quality, lut_quality],
-            [None, param_info, None],
+            lut=lut_quality,
+            model=analytic_quality,
+            static=static_quality,
+            model_info=param_info,
+            xv_method=xv_method,
         )
 
     if not args.show_quality:
