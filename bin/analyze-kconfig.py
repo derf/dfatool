@@ -155,13 +155,10 @@ def main():
     )
     parser.add_argument(
         "--show-quality",
-        choices=["table", "summary", "all", "tex", "html"],
+        choices=["table"],
         action="append",
         default=list(),
-        help="table: show static/fitted/lut SMAPE and MAE for each name and attribute.\n"
-        "summary: show static/fitted/lut SMAPE and MAE for each attribute, averaged over all states/transitions.\n"
-        "all: all of the above.\n"
-        "tex: print tex/pgfplots-compatible model quality data on stdout.",
+        help="table: show LUT, model, and static prediction error for each key and attribute.",
     )
     parser.add_argument(
         "--plot-param",

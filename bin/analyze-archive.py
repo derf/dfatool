@@ -234,12 +234,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--show-quality",
-        choices=["table", "summary", "all", "tex"],
+        choices=["table", "summary"],
         action="append",
         default=list(),
-        help="table: show static/fitted/lut SMAPE and MAE for each name and attribute.\n"
-        "summary: show static/fitted/lut SMAPE and MAE for each attribute, averaged over all states/transitions.\n"
-        "all: all of the above.\n",
+        help="table: show LUT, model, and static prediction error for each state/transition and attribute.\n"
+        "summary: show static/fitted/lut SMAPE and MAE for each attribute, averaged over all states/transitions.",
     )
     parser.add_argument(
         "--ignored-trace-indexes",
