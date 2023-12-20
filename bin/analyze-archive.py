@@ -768,6 +768,7 @@ if __name__ == "__main__":
             static=static_quality,
             model_info=param_info,
             xv_method=xv_method,
+            error_metric=args.error_metric,
         )
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
@@ -782,6 +783,7 @@ if __name__ == "__main__":
                     model=sub_analytic_quality,
                     static=sub_static_quality,
                     model_info=sub_param_info,
+                    error_metric=args.error_metric,
                 )
 
     if "overall" in show_quality or "all" in show_quality:
