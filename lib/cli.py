@@ -176,6 +176,20 @@ def model_quality_table(lut, model, static, model_info, xv_method=None):
                     buf += format_quality_measures(result)
                 else:
                     buf += f"""{"----":>7s} """
+            if type(model_info(key, attr)) is not StaticFunction:
+                if model[key][attr]["mae"] > static[key][attr]["mae"]:
+                    buf += "  :-("
+                elif (
+                    model[key][attr]["mae"] <= 2 * lut[key][attr]["mae"]
+                    and static[key][attr]["mae"] > 4 * lut[key][attr]["mae"]
+                ):
+                    buf += "  :-D"
+                elif (
+                    static[key][attr]["mae"] - model[key][attr]["mae"]
+                    > model[key][attr]["mae"] - lut[key][attr]["mae"]
+                    and static[key][attr]["mae"] > 1.1 * lut[key][attr]["mae"]
+                ):
+                    buf += "  :-)"
             print(buf)
 
 
