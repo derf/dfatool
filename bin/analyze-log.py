@@ -78,9 +78,6 @@ def main():
         "--export-model", metavar="FILE", type=str, help="Export JSON model to FILE"
     )
     parser.add_argument(
-        "--non-interactive", action="store_true", help="Do not show interactive plots"
-    )
-    parser.add_argument(
         "logfiles",
         nargs="+",
         type=str,

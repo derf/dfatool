@@ -303,6 +303,9 @@ def add_standard_arguments(parser):
         help="Export boxplots of observations to {PREFIX}{name}-{attribute}.pdf, with one boxplot per parameter combination",
     )
     parser.add_argument(
+        "--non-interactive", action="store_true", help="Do not show interactive plots"
+    )
+    parser.add_argument(
         "--export-xv",
         metavar="FILE",
         type=str,

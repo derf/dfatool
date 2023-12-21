@@ -19,6 +19,7 @@ import time
 import numpy as np
 
 import dfatool.cli
+import dfatool.plotter
 import dfatool.utils
 from dfatool.loader.kconfig import KConfigAttributes
 from dfatool.model import AnalyticModel
@@ -373,9 +374,72 @@ def main():
     if args.export_pgf_unparam:
         dfatool.cli.export_pgf_unparam(model, args.export_pgf_unparam)
 
-    if args.plot_param:
-        from dfatool import plotter
+    if args.boxplot_unparam:
+        title = None
+        if args.filter_param:
+            title = "filter: " + ", ".join(
+                map(lambda kv: f"{kv[0]}={kv[1]}", args.filter_param)
+            )
+        for name in model.names:
+            attr_names = sorted(model.attributes(name))
+            dfatool.plotter.boxplot(
+                attr_names,
+                [model.by_name[name][attr] for attr in attr_names],
+                xlabel="Attribute",
+                output=f"{args.boxplot_unparam}{name}.pdf",
+                title=title,
+                show=not args.non_interactive,
+            )
+            for attribute in attr_names:
+                dfatool.plotter.boxplot(
+                    [attribute],
+                    [model.by_name[name][attribute]],
+                    output=f"{args.boxplot_unparam}{name}-{attribute}.pdf",
+                    title=title,
+                    show=not args.non_interactive,
+                )
 
+    if args.boxplot_param:
+        title = None
+        param_is_filtered = dict()
+        if args.filter_param:
+            title = "filter: " + ", ".join(
+                map(lambda kv: f"{kv[0]}={kv[1]}", args.filter_param)
+            )
+            for param_name, _ in args.filter_param:
+                param_is_filtered[param_name] = True
+        by_param = model.get_by_param()
+        for name in model.names:
+            attr_names = sorted(model.attributes(name))
+            param_keys = list(
+                map(lambda kv: kv[1], filter(lambda kv: kv[0] == name, by_param.keys()))
+            )
+            param_desc = list(
+                map(
+                    lambda param_key: ", ".join(
+                        map(
+                            lambda ip: f"{model.param_name(ip[0])}={ip[1]}",
+                            filter(
+                                lambda ip: model.param_name(ip[0])
+                                not in param_is_filtered,
+                                enumerate(param_key),
+                            ),
+                        )
+                    ),
+                    param_keys,
+                )
+            )
+            for attribute in attr_names:
+                dfatool.plotter.boxplot(
+                    param_desc,
+                    list(map(lambda k: by_param[(name, k)][attribute], param_keys)),
+                    output=f"{args.boxplot_param}{name}-{attribute}.pdf",
+                    title=title,
+                    ylabel=attribute,
+                    show=not args.non_interactive,
+                )
+
+    if args.plot_param:
         for kv in args.plot_param.split(";"):
             try:
                 state_or_trans, attribute, param_name, *function = kv.split(":")
@@ -389,7 +453,7 @@ def main():
                 function = gplearn_to_function(" ".join(function))
             else:
                 function = None
-            plotter.plot_param(
+            dfatool.plotter.plot_param(
                 model,
                 state_or_trans,
                 attribute,
