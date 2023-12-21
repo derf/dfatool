@@ -20,6 +20,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 
 from dfatool import kconfig
 
@@ -125,18 +126,29 @@ def main():
 
     if args.random:
         num_successful = 0
+        total_randconfig_seconds = 0
         # Assumption: At least 1% of builds are successful
         for i in range(args.random * 100):
             logging.info(f"Running randconfig {num_successful+1} of {args.random}")
+            if total_randconfig_seconds and num_successful:
+                seconds_per_randconfig = total_randconfig_seconds / num_successful
+                remaining_minutes = (
+                    int(seconds_per_randconfig * (args.random - num_successful)) // 60
+                )
+                logging.info(
+                    f"Estimated remaining exploration time: {remaining_minutes // (24*60):2d} days {(remaining_minutes % (24*60)) // 60:2d} hours {remaining_minutes % 60:2d} minutes"
+                )
+            randconfig_start_time = time.time()
             status = kconf.run_randconfig(with_random_int=args.random_int)
             if status["success"]:
                 num_successful += 1
             if args.with_neighbourhood and status["success"]:
                 config_filename = status["config_path"]
-                logging.info(f"Exploring neighbourhood of {config_filename}")
+                logging.debug(f"Exploring neighbourhood of {config_filename}")
                 kconf.run_exploration_from_file(
                     config_filename, with_initial_config=False
                 )
+            total_randconfig_seconds += time.time() - randconfig_start_time
             if num_successful == args.random:
                 break
 
@@ -146,7 +158,7 @@ def main():
         elif os.path.isdir(args.neighbourhood):
             for filename in os.listdir(args.neighbourhood):
                 config_filename = f"{args.neighbourhood}/{filename}"
-                logging.info(f"Exploring neighbourhood of {config_filename}")
+                logging.debug(f"Exploring neighbourhood of {config_filename}")
                 kconf.run_exploration_from_file(config_filename)
         else:
             print(
