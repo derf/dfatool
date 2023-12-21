@@ -162,7 +162,7 @@ def main():
     )
     parser.add_argument(
         "--plot-param",
-        metavar="<name> <attribute> <parameter> [gplearn function][;<name> <attribute> <parameter> [function];...])",
+        metavar="<name>:<attribute>:<parameter>[:gplearn function][;<name>:<attribute>:<parameter>:[function];...])",
         type=str,
         help="Plot measurements for <name> <attribute> by <parameter>. "
         "X axis is parameter value. "
@@ -378,7 +378,7 @@ def main():
 
         for kv in args.plot_param.split(";"):
             try:
-                state_or_trans, attribute, param_name, *function = kv.split(" ")
+                state_or_trans, attribute, param_name, *function = kv.split(":")
             except ValueError:
                 print(
                     "Usage: --plot-param='state_or_trans attribute param_name [additional function spec]'",
