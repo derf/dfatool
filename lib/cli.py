@@ -6,7 +6,10 @@ from dfatool.functions import (
     StaticFunction,
     FOLFunction,
 )
+import logging
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 def print_static(model, static_model, name, attribute, with_dependence=False):
@@ -214,15 +217,20 @@ def export_dot(model, dot_prefix):
     for name in model.names:
         for attribute in model.attributes(name):
             dot_model = model.attr_by_name[name][attribute].to_dot()
-            if not dot_model is None:
-                with open(f"{dot_prefix}{name}-{attribute}.dot", "w") as f:
+            if dot_model is None:
+                logger.debug(f"{name} {attribute} does not have a dot model")
+            else:
+                filename = f"{dot_prefix}{name}-{attribute}.dot"
+                with open(filename, "w") as f:
                     print(dot_model, file=f)
+                logger.info(f"Dot export of model saved to {filename}")
 
 
 def export_pgf_unparam(model, pgf_prefix):
     for name in model.names:
         for attribute in model.attributes(name):
-            with open(f"{pgf_prefix}{name}-{attribute}.txt", "w") as f:
+            filename = f"{pgf_prefix}{name}-{attribute}.txt"
+            with open(filename, "w") as f:
                 print(
                     "measurement value "
                     + " ".join(model.parameters)
@@ -241,6 +249,7 @@ def export_pgf_unparam(model, pgf_prefix):
                             parameters.append(str(param))
                     parameters = " ".join(parameters)
                     print(f"{i} {value} {parameters}", file=f)
+            logger.info(f"PGF unparam data saved to {filename}")
 
 
 def export_json_unparam(model, filename):
