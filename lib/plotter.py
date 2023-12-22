@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
 import itertools
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import re
+
+logger = logging.getLogger(__name__)
 
 
 def is_state(aggregate, name):
@@ -147,12 +150,12 @@ def plot_xy(
         plt.plot(X, Y, "bo", markersize=2)
     if output:
         plt.savefig(output)
-        print(f"plot saved to {output}")
+        logger.info(f"XY plot saved to {output}")
         with open("{}.txt".format(output), "w") as f:
             print("X Y", file=f)
             for i in range(len(X)):
                 print("{} {}".format(X[i], Y[i]), file=f)
-        print(f"data saved to {output}.txt")
+        logger.info(f"XY plot data saved to {output}.txt")
     if show:
         plt.show()
 
@@ -275,7 +278,7 @@ def plot_param(
 
     if output:
         plt.savefig(output)
-        print(f"plot saved to {output}")
+        logger.info(f"Param plot saved to {output}")
     if show:
         plt.show()
 
@@ -432,13 +435,13 @@ def boxplot(
 
     if output:
         plt.savefig(output)
-        print(f"plot saved to {output}")
+        logger.info(f"Boxplot saved to {output}")
         with open("{}.txt".format(output), "w") as f:
             print("X Y", file=f)
             for i, data in enumerate(measurements):
                 for value in data:
                     print("{} {}".format(ticks[i], value), file=f)
-        print(f"data saved to {output}.txt")
+        logger.info(f"Boxplot data saved to {output}.txt")
     if show:
         plt.show()
 
