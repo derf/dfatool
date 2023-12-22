@@ -267,6 +267,9 @@ def main():
             error_metric=args.error_metric,
         )
 
+    if args.show_model_size:
+        dfatool.cli.print_model_size(model)
+
     if args.export_model:
         print(f"Exportding model to {args.export_model}")
         json_model = model.to_json()
