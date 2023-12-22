@@ -305,6 +305,9 @@ def main():
                 json_model, f, indent=2, sort_keys=True, cls=dfatool.utils.NpEncoder
             )
 
+    if args.export_dot:
+        dfatool.cli.export_dot(model, args.export_dot)
+
     if args.plot_param:
         for kv in args.plot_param.split(";"):
             try:
