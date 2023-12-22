@@ -6,6 +6,7 @@ from dfatool.functions import (
     StaticFunction,
     FOLFunction,
 )
+import dfatool.plotter
 import logging
 import numpy as np
 
@@ -267,6 +268,46 @@ def export_json_unparam(model, filename):
     with open(filename, "w") as f:
         json.dump(ret, f, cls=NpEncoder)
     logger.info(f"JSON unparam data saved to {filename}")
+
+
+def boxplot_param(args, model):
+    title = None
+    param_is_filtered = dict()
+    if args.filter_param:
+        title = "filter: " + ", ".join(
+            map(lambda kv: f"{kv[0]}={kv[1]}", args.filter_param)
+        )
+        for param_name, _ in args.filter_param:
+            param_is_filtered[param_name] = True
+    by_param = model.get_by_param()
+    for name in model.names:
+        attr_names = sorted(model.attributes(name))
+        param_keys = list(
+            map(lambda kv: kv[1], filter(lambda kv: kv[0] == name, by_param.keys()))
+        )
+        param_desc = list(
+            map(
+                lambda param_key: ", ".join(
+                    map(
+                        lambda ip: f"{model.param_name(ip[0])}={ip[1]}",
+                        filter(
+                            lambda ip: model.param_name(ip[0]) not in param_is_filtered,
+                            enumerate(param_key),
+                        ),
+                    )
+                ),
+                param_keys,
+            )
+        )
+        for attribute in attr_names:
+            dfatool.plotter.boxplot(
+                param_desc,
+                list(map(lambda k: by_param[(name, k)][attribute], param_keys)),
+                output=f"{args.boxplot_param}{name}-{attribute}.pdf",
+                title=title,
+                ylabel=attribute,
+                show=not args.non_interactive,
+            )
 
 
 def add_standard_arguments(parser):
