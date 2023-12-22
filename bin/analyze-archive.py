@@ -425,6 +425,10 @@ if __name__ == "__main__":
         param_shift = dfatool.cli.parse_param_shift(args.param_shift)
         dfatool.utils.shift_param_in_aggregate(by_name, parameters, param_shift)
 
+    if args.normalize_nfp:
+        norm = dfatool.cli.parse_nfp_normalization(args.normalize_nfp)
+        dfatool.utils.normalize_nfp_in_aggregate(by_name, norm)
+
     dfatool.utils.detect_outliers_in_aggregate(
         by_name, z_limit=args.z_score, remove_outliers=args.remove_outliers
     )
