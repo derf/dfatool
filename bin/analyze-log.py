@@ -212,9 +212,11 @@ def main():
         static_quality, _ = xv.montecarlo(
             lambda m: m.get_static(), xv_count, static=True
         )
+        xv.export_filename = args.export_xv
         analytic_quality, _ = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
     elif xv_method == "kfold":
         static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count, static=True)
+        xv.export_filename = args.export_xv
         analytic_quality, _ = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
     else:
         static_quality = model.assess(static_model)
