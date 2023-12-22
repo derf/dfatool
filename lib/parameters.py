@@ -383,6 +383,7 @@ class ParallelParamStats:
 
         Statistics are computed in parallel with one process per core. Results are written to each ModelAttribute wich was passed via enqueue().
         """
+        logger.debug("Computing param stats in parallel")
         with Pool() as pool:
             results = pool.map(_compute_param_statistics_parallel, self.queue)
 
@@ -774,7 +775,7 @@ class ModelAttribute:
             param2_values = map(lambda pv: pv[param2_index], self.param_values)
             param2_numeric_count = sum(map(is_numeric, param2_values))
             # If all occurences of (param1, param2) are either (None, None) or (not None, not None), removing one of them is sensible.
-            # Otherwise, one parameter may decide whether the other one has an effect or not (or what kind of effect it has). This is importent for
+            # Otherwise, one parameter may decide whether the other one has an effect or not (or what kind of effect it has). This is important for
             # decision-tree models, so do not remove parameters in that case.
             params_are_pairwise_none = all(
                 map(
@@ -1067,10 +1068,12 @@ class ModelAttribute:
                 )
                 self.model_function = df.StaticFunction(np.mean(data))
                 return
+            logger.debug("Fitting sklearn CART ...")
             cart.fit(fit_parameters, data)
             self.model_function = df.CARTFunction(
                 np.mean(data), cart, category_to_index, ignore_index
             )
+            logger.debug("Fitted sklearn CART")
             return
 
         if with_xgboost:
@@ -1122,12 +1125,14 @@ class ModelAttribute:
                 )
                 self.model_function = df.StaticFunction(np.mean(data))
                 return
+            logger.debug("Fitting LMT ...")
             try:
                 lmt.fit(fit_parameters, data)
             except np.linalg.LinAlgError as e:
                 logger.error(f"LMT generation for {self.name} {self.attr} failed: {e}")
                 self.model_function = df.StaticFunction(np.mean(data))
                 return
+            logger.debug("Fitted LMT")
             self.model_function = df.LMTFunction(
                 np.mean(data), lmt, category_to_index, ignore_index
             )
