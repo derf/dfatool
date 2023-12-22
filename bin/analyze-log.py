@@ -37,13 +37,6 @@ def main():
     )
     dfatool.cli.add_standard_arguments(parser)
     parser.add_argument(
-        "--plot-unparam",
-        metavar="<name>:<attribute>:<Y axis label>[;<name>:<attribute>:<label>;...]",
-        type=str,
-        help="Plot all mesurements for <name> <attribute> without regard for parameter values. "
-        "X axis is measurement number/id.",
-    )
-    parser.add_argument(
         "--plot-param",
         metavar="<name>:<attribute>:<parameter>[;<name>:<attribute>:<parameter>;...])",
         type=str,

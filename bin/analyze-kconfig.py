@@ -381,6 +381,18 @@ def main():
     if args.export_json_unparam:
         dfatool.cli.export_json_unparam(model, args.export_json_unparam)
 
+    if args.plot_unparam:
+        for kv in args.plot_unparam.split(";"):
+            state_or_trans, attribute, ylabel = kv.split(":")
+            fname = "param_y_{}_{}.pdf".format(state_or_trans, attribute)
+            dfatool.plotter.plot_y(
+                model.by_name[state_or_trans][attribute],
+                xlabel="measurement #",
+                ylabel=ylabel,
+                # output=fname,
+                show=not args.non_interactive,
+            )
+
     if args.boxplot_unparam:
         title = None
         if args.filter_param:

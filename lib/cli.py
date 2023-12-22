@@ -342,6 +342,13 @@ def add_standard_arguments(parser):
         help="Limit precision of dataref export to NDIG decimals",
     )
     parser.add_argument(
+        "--plot-unparam",
+        metavar="<name>:<attribute>:<Y axis label>[;<name>:<attribute>:<label>;...]",
+        type=str,
+        help="Plot all mesurements for <name> <attribute> without regard for parameter values. "
+        "X axis is measurement number/id.",
+    )
+    parser.add_argument(
         "--boxplot-unparam",
         metavar="PREFIX",
         type=str,

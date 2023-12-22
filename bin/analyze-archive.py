@@ -189,13 +189,6 @@ if __name__ == "__main__":
         "--no-cache", action="store_true", help="Do not load cached measurement results"
     )
     parser.add_argument(
-        "--plot-unparam",
-        metavar="<name>:<attribute>:<Y axis label>[;<name>:<attribute>:<label>;...]",
-        type=str,
-        help="Plot all mesurements for <name> <attribute> without regard for parameter values. "
-        "X axis is measurement number/id.",
-    )
-    parser.add_argument(
         "--plot-param",
         metavar="<name>:<attribute>:<parameter>[:gplearn function][;<name>:<attribute>:<parameter>:[function];...])",
         type=str,
