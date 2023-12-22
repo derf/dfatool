@@ -13,6 +13,7 @@ import dfatool.functions as df
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 from functools import reduce
+import logging
 import json
 import sys
 import re
@@ -84,6 +85,13 @@ def main():
         help="Path to benchmark output (.txt or .txt.xz)",
     )
     args = parser.parse_args()
+
+    if args.log_level:
+        numeric_level = getattr(logging, args.log_level.upper(), None)
+        if not isinstance(numeric_level, int):
+            print(f"Invalid log level: {args.log_level}", file=sys.stderr)
+            sys.exit(1)
+        logging.basicConfig(level=numeric_level)
 
     if args.filter_param:
         args.filter_param = list(
