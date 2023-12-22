@@ -308,6 +308,12 @@ def main():
     if args.export_dot:
         dfatool.cli.export_dot(model, args.export_dot)
 
+    if args.export_dref:
+        dref = model.to_dref(static_quality, lut_quality, analytic_quality)
+        dfatool.cli.export_dataref(
+            args.export_dref, dref, precision=args.dref_precision
+        )
+
     if args.plot_param:
         for kv in args.plot_param.split(";"):
             try:
