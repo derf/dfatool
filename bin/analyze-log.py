@@ -220,7 +220,12 @@ def main():
         analytic_quality, _ = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
     else:
         static_quality = model.assess(static_model)
-        analytic_quality = model.assess(param_model)
+        if args.export_raw_predictions:
+            analytic_quality, raw_results = model.assess(param_model, return_raw=True)
+            with open(args.export_raw_predictions, "w") as f:
+                json.dump(raw_results, f, cls=dfatool.utils.NpEncoder)
+        else:
+            analytic_quality = model.assess(param_model)
 
     if "static" in args.show_model or "all" in args.show_model:
         print("--- static model ---")
