@@ -448,6 +448,9 @@ if __name__ == "__main__":
     if args.export_pgf_unparam:
         dfatool.cli.export_pgf_unparam(model, args.export_pgf_unparam)
 
+    if args.export_json_unparam:
+        dfatool.cli.export_json_unparam(model, args.export_json_unparam)
+
     if args.cross_validate:
         xv_method, xv_count = args.cross_validate.split(":")
         xv_count = int(xv_count)

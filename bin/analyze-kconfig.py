@@ -374,6 +374,9 @@ def main():
     if args.export_pgf_unparam:
         dfatool.cli.export_pgf_unparam(model, args.export_pgf_unparam)
 
+    if args.export_json_unparam:
+        dfatool.cli.export_json_unparam(model, args.export_json_unparam)
+
     if args.boxplot_unparam:
         title = None
         if args.filter_param:

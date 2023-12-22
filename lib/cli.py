@@ -266,6 +266,7 @@ def export_json_unparam(model, filename):
             }
     with open(filename, "w") as f:
         json.dump(ret, f, cls=NpEncoder)
+    logger.info(f"JSON unparam data saved to {filename}")
 
 
 def add_standard_arguments(parser):
