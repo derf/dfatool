@@ -388,6 +388,16 @@ def add_standard_arguments(parser):
         help="Set log level",
     )
     parser.add_argument(
+        "--show-model",
+        choices=["static", "paramdetection", "param", "all"],
+        action="append",
+        default=list(),
+        help="static: show static model values as well as parameter detection heuristic.\n"
+        "paramdetection: show stddev of static/lut/fitted model\n"
+        "param: show parameterized model functions and regression variable values\n"
+        "all: all of the above",
+    )
+    parser.add_argument(
         "--show-model-size",
         action="store_true",
         help="Show model size (e.g. regression tree height and node count)",

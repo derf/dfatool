@@ -174,7 +174,6 @@ if __name__ == "__main__":
     ignored_trace_indexes = []
     safe_functions_enabled = False
     function_override = {}
-    show_models = []
     show_quality = []
     pta = None
     energymodel_export_file = None
@@ -214,16 +213,6 @@ if __name__ == "__main__":
         type=int,
         default=10,
         help="Configure z score for outlier detection (and optional removel)",
-    )
-    parser.add_argument(
-        "--show-model",
-        choices=["static", "paramdetection", "param", "all"],
-        action="append",
-        default=list(),
-        help="static: show static model values as well as parameter detection heuristic.\n"
-        "paramdetection: show stddev of static/lut/fitted model\n"
-        "param: show parameterized model functions and regression variable values\n"
-        "all: all of the above",
     )
     parser.add_argument(
         "--show-quality",
@@ -309,7 +298,6 @@ if __name__ == "__main__":
             state_or_tran, attribute, *function_str = function_desc.split(" ")
             function_override[(state_or_tran, attribute)] = " ".join(function_str)
 
-    show_models = args.show_models
     show_quality = args.show_quality
 
     if args.filter_param:
@@ -501,10 +489,9 @@ if __name__ == "__main__":
                 output=f"{args.boxplot_unparam}{trans}-duration.pdf",
             )
 
-    if len(show_models):
-        print("--- simple static model ---")
     static_model = model.get_static()
-    if "static" in show_models or "all" in show_models:
+    if "static" in args.show_model or "all" in args.show_model:
+        print("--- simple static model ---")
         for state in model.states:
             for attribute in model.attributes(state):
                 dfatool.cli.print_static(
@@ -512,7 +499,7 @@ if __name__ == "__main__":
                     static_model,
                     state,
                     attribute,
-                    with_dependence="all" in show_models,
+                    with_dependence="all" in args.show_model,
                 )
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
@@ -523,7 +510,7 @@ if __name__ == "__main__":
                             submodel.get_static(),
                             substate,
                             subattribut,
-                            with_dependence="all" in show_modelse,
+                            with_dependence="all" in args.show_model,
                         )
 
         for trans in model.transitions:
@@ -622,12 +609,12 @@ if __name__ == "__main__":
     else:
         static_quality = model.assess(static_model)
 
-    if len(show_models):
+    if len(args.show_model):
         print("--- LUT ---")
     lut_model = model.get_param_lut()
     lut_quality = model.assess(lut_model)
 
-    if len(show_models):
+    if len(args.show_model):
         print("--- param model ---")
 
     # get_fitted_sub -> with sub-state detection and modeling
@@ -637,7 +624,7 @@ if __name__ == "__main__":
     )
     fit_duration = time.time() - fit_start_time
 
-    if "paramdetection" in show_models or "all" in show_models:
+    if "paramdetection" in args.show_model or "all" in args.show_model:
         for name in model.names:
             for attribute in model.attributes(name):
                 info = param_info(name, attribute)
@@ -694,7 +681,7 @@ if __name__ == "__main__":
                                 )
                             )
 
-    if "param" in show_models or "all" in show_models:
+    if "param" in args.show_model or "all" in args.show_model:
         for state in model.states:
             for attribute in model.attributes(state):
                 info = param_info(state, attribute)

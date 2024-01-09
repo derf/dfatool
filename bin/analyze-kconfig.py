@@ -143,18 +143,6 @@ def main():
         metavar="N",
     )
     parser.add_argument(
-        "--show-model",
-        choices=["static", "paramdetection", "param", "all", "tex", "html"],
-        action="append",
-        default=list(),
-        help="static: show static model values as well as parameter detection heuristic.\n"
-        "paramdetection: show stddev of static/lut/fitted model\n"
-        "param: show parameterized model functions and regression variable values\n"
-        "all: all of the above\n"
-        "tex: print tex/pgfplots-compatible model data on stdout\n"
-        "html: print model and quality data as HTML table on stdout",
-    )
-    parser.add_argument(
         "--show-quality",
         choices=["table"],
         action="append",

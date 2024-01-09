@@ -47,16 +47,6 @@ def main():
         "If gplearn function is set, it is plotted using dashed lines.",
     )
     parser.add_argument(
-        "--show-model",
-        choices=["static", "paramdetection", "param", "all"],
-        action="append",
-        default=list(),
-        help="static: show static model values as well as parameter detection heuristic.\n"
-        "paramdetection: show stddev of static/lut/fitted model\n"
-        "param: show parameterized model functions and regression variable values\n"
-        "all: all of the above\n",
-    )
-    parser.add_argument(
         "--show-quality",
         choices=["table"],
         action="append",
