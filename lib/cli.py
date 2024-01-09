@@ -86,6 +86,10 @@ def print_analyticinfo(prefix, info):
     print(f"{empty:{len(prefix)}s}  {info.model_args}")
 
 
+def print_staticinfo(prefix, info):
+    print(f"{prefix}: {info.value}")
+
+
 def print_splitinfo(param_names, info, prefix=""):
     if type(info) is SplitFunction:
         for k, v in info.child.items():

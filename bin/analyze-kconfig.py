@@ -535,6 +535,8 @@ def main():
                     dfatool.cli.print_splitinfo(
                         model.parameters, info, f"{name:20s} {attribute:15s}"
                     )
+                elif type(info) is dfatool.cli.StaticFunction:
+                    dfatool.cli.print_staticinfo(f"{state:10s} {attribute:15s}", info)
 
     if "table" in args.show_quality or "all" in args.show_quality:
         if xv_method is not None:

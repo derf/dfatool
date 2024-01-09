@@ -691,6 +691,8 @@ if __name__ == "__main__":
                     dfatool.cli.print_splitinfo(
                         model.parameters, info, f"{state:10s} {attribute:15s}"
                     )
+                elif type(info) is StaticFunction:
+                    dfatool.cli.print_staticinfo(f"{state:10s} {attribute:15s}", info)
                 elif type(info) is SubstateFunction:
                     print(f"{state:10s} {attribute:15s}: Substate (TODO)")
         for trans in model.transitions:
