@@ -47,7 +47,7 @@ dfatool supports six types of performance models:
 * DECART: Regression Trees with exclusively binary features/parameters
 * XGB: Regression Forests
 * LMT: Linear Model Trees
-* RMT: Regression Model Trees
+* RMT: [Regression Model Trees](https://ess.cs.uos.de/static/papers/Friesel-2022-CPSIoTBench.pdf) with [non-binary nodes](https://ess.cs.uos.de/static/papers/Friesel-2022-CAIN.pdf)
 * Least-Squares Regression
 
 Least-Squares Regression is essentially a subset of RMT with just a single tree node.
