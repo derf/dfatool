@@ -216,7 +216,7 @@ if __name__ == "__main__":
         help="Configure z score for outlier detection (and optional removel)",
     )
     parser.add_argument(
-        "--show-models",
+        "--show-model",
         choices=["static", "paramdetection", "param", "all"],
         action="append",
         default=list(),
