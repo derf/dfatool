@@ -81,9 +81,13 @@ def print_info_by_name(model, by_name):
 
 
 def print_analyticinfo(prefix, info):
-    empty = ""
-    print(f"{prefix}: {info.model_function}")
-    print(f"{empty:{len(prefix)}s}  {info.model_args}")
+    model_function = info.model_function.removeprefix("0 + ")
+    for i in range(len(info.model_args)):
+        model_function = model_function.replace(
+            f"regression_arg({i})", str(info.model_args[i])
+        )
+    model_function = model_function.replace("+ -", "- ")
+    print(f"{prefix}: {model_function}")
 
 
 def print_staticinfo(prefix, info):
