@@ -168,6 +168,7 @@ def main():
     )
 
     args = parser.parse_args()
+    dfatool.cli.sanity_check(args)
 
     if args.skip_param_stats and not args.force_tree:
         print("--skip-param-stats requires --force-tree", file=sys.stderr)

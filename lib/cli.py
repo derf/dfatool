@@ -4,8 +4,18 @@ import dfatool.functions as df
 import dfatool.plotter
 import logging
 import numpy as np
+import os
+import sys
 
 logger = logging.getLogger(__name__)
+
+
+def sanity_check(args):
+    if args.force_tree and bool(int(os.getenv("DFATOOL_FIT_FOL", "0"))):
+        print(
+            "--force-tree and DFATOOL_FIT_FOL=1 are mutually exclusive", file=sys.stderr
+        )
+        sys.exit(1)
 
 
 def print_static(model, static_model, name, attribute, with_dependence=False):

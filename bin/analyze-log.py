@@ -68,6 +68,7 @@ def main():
         help="Path to benchmark output (.txt or .txt.xz)",
     )
     args = parser.parse_args()
+    dfatool.cli.sanity_check(args)
 
     if args.log_level:
         numeric_level = getattr(logging, args.log_level.upper(), None)
