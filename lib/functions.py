@@ -1023,7 +1023,7 @@ class AnalyticFunction(ModelFunction):
                     f"Fit failed: {res.message} (function: {self.model_function})"
                 )
         else:
-            logger.warning("Insufficient amount of valid parameter keys, cannot fit")
+            logger.debug("Insufficient amount of valid parameter keys, cannot fit")
 
     def is_predictable(self, param_list):
         """
