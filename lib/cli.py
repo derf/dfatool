@@ -108,12 +108,12 @@ def _print_cartinfo(prefix, model, feature_names):
         print(f"""{prefix}: {model["value"]}""")
     else:
         _print_cartinfo(
-            f"""{prefix} {model["paramName"]}<{model["paramDecisionValue"]} """,
+            f"""{prefix} {model["paramName"]}≤{model["paramDecisionValue"]} """,
             model["left"],
             feature_names,
         )
         _print_cartinfo(
-            f"""{prefix} {model["paramName"]}≥{model["paramDecisionValue"]} """,
+            f"""{prefix} {model["paramName"]}>{model["paramDecisionValue"]} """,
             model["right"],
             feature_names,
         )
