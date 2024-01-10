@@ -1218,8 +1218,10 @@ class ModelAttribute:
                 continue
 
             if ignore_irrelevant_parameters:
-                std_by_param = _mean_std_by_param(
-                    by_param, distinct_values_by_param_index, param_index
+                std_by_param = _mean_std_by_params(
+                    by_param,
+                    distinct_values_by_param_index,
+                    list(self.ignore_param.keys()) + [param_index],
                 )
                 if not _depends_on_param(
                     None, std_by_param, std_lut, relevance_threshold
