@@ -45,15 +45,9 @@ import sys
 import time
 import dfatool.cli
 import dfatool.utils
+import dfatool.functions as df
 from dfatool import plotter
 from dfatool.loader import RawData, pta_trace_to_aggregate
-from dfatool.functions import (
-    gplearn_to_function,
-    SplitFunction,
-    AnalyticFunction,
-    SubstateFunction,
-    StaticFunction,
-)
 from dfatool.model import PTAModel
 from dfatool.validation import CrossValidator
 from dfatool.automata import PTA
@@ -666,7 +660,7 @@ if __name__ == "__main__":
                             ],
                         )
                     )
-                if type(info) is AnalyticFunction:
+                if type(info) is df.AnalyticFunction:
                     for param_name in sorted(info.fit_by_param.keys(), key=str):
                         param_fit = info.fit_by_param[param_name]["results"]
                         for function_type in sorted(param_fit.keys()):
@@ -685,26 +679,34 @@ if __name__ == "__main__":
         for state in model.states:
             for attribute in model.attributes(state):
                 info = param_info(state, attribute)
-                if type(info) is AnalyticFunction:
+                if type(info) is df.AnalyticFunction:
                     dfatool.cli.print_analyticinfo(f"{state:10s} {attribute:15s}", info)
-                elif type(info) is SplitFunction:
+                elif type(info) is df.CARTFunction:
+                    dfatool.cli.print_cartinfo(
+                        f"{state:10s} {attribute:15s}", info, model.parameters
+                    )
+                elif type(info) is df.SplitFunction:
                     dfatool.cli.print_splitinfo(
                         model.parameters, info, f"{state:10s} {attribute:15s}"
                     )
-                elif type(info) is StaticFunction:
+                elif type(info) is df.StaticFunction:
                     dfatool.cli.print_staticinfo(f"{state:10s} {attribute:15s}", info)
-                elif type(info) is SubstateFunction:
+                elif type(info) is df.SubstateFunction:
                     print(f"{state:10s} {attribute:15s}: Substate (TODO)")
         for trans in model.transitions:
             for attribute in model.attributes(trans):
                 info = param_info(trans, attribute)
-                if type(info) is AnalyticFunction:
+                if type(info) is df.AnalyticFunction:
                     dfatool.cli.print_analyticinfo(f"{trans:10s} {attribute:15s}", info)
-                elif type(info) is SplitFunction:
+                elif type(info) is df.CARTFunction:
+                    dfatool.cli.print_cartinfo(
+                        f"{trans:10s} {attribute:15s}", info, model.parameters
+                    )
+                elif type(info) is df.SplitFunction:
                     dfatool.cli.print_splitinfo(
                         model.parameters, info, f"{trans:10s} {attribute:15s}"
                     )
-                elif type(info) is SubstateFunction:
+                elif type(info) is df.SubstateFunction:
                     print(f"{state:10s} {attribute:15s}: Substate (TODO)")
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
@@ -712,7 +714,7 @@ if __name__ == "__main__":
                 for substate in submodel.states:
                     for subattribute in submodel.attributes(substate):
                         info = sub_param_info(substate, subattribute)
-                        if type(info) is AnalyticFunction:
+                        if type(info) is df.AnalyticFunction:
                             print(
                                 "{:10s} {:15s}: {}".format(
                                     substate, subattribute, info.model_function
@@ -724,7 +726,7 @@ if __name__ == "__main__":
         for state in model.states:
             if (
                 type(model.attr_by_name[state]["power"].model_function)
-                is SubstateFunction
+                is df.SubstateFunction
             ):
                 # sub-state models need to know the duration of the state / transition. only needed for eval.
                 model.attr_by_name[state]["power"].model_function.static_duration = (
@@ -835,7 +837,7 @@ if __name__ == "__main__":
                 )
                 sys.exit(1)
             if len(function):
-                function = gplearn_to_function(" ".join(function))
+                function = df.gplearn_to_function(" ".join(function))
             else:
                 function = None
             plotter.plot_param(

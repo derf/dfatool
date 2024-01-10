@@ -94,6 +94,26 @@ def print_staticinfo(prefix, info):
     print(f"{prefix}: {info.value}")
 
 
+def print_cartinfo(prefix, info, feature_names):
+    _print_cartinfo(prefix, info.to_json(feature_names=feature_names), feature_names)
+
+
+def _print_cartinfo(prefix, model, feature_names):
+    if model["type"] == "static":
+        print(f"""{prefix}: {model["value"]}""")
+    else:
+        _print_cartinfo(
+            f"""{prefix} {model["paramName"]}<{model["paramDecisionValue"]} """,
+            model["left"],
+            feature_names,
+        )
+        _print_cartinfo(
+            f"""{prefix} {model["paramName"]}≥{model["paramDecisionValue"]} """,
+            model["right"],
+            feature_names,
+        )
+
+
 def print_splitinfo(param_names, info, prefix=""):
     if type(info) is SplitFunction:
         for k, v in info.child.items():

@@ -21,6 +21,7 @@ import numpy as np
 import dfatool.cli
 import dfatool.plotter
 import dfatool.utils
+import dfatool.functions as df
 from dfatool.loader.kconfig import KConfigAttributes
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
@@ -527,15 +528,19 @@ def main():
         for name in model.names:
             for attribute in model.attributes(name):
                 info = param_info(name, attribute)
-                if type(info) is dfatool.cli.AnalyticFunction:
+                if type(info) is df.AnalyticFunction:
                     dfatool.cli.print_analyticinfo(f"{name:20s} {attribute:15s}", info)
-                elif type(info) is dfatool.cli.FOLFunction:
+                elif type(info) is df.CARTFunction:
+                    dfatool.cli.print_cartinfo(
+                        f"{name:20s} {attribute:15s}", info, model.parameters
+                    )
+                elif type(info) is df.FOLFunction:
                     dfatool.cli.print_analyticinfo(f"{name:20s} {attribute:15s}", info)
-                elif type(info) is dfatool.cli.SplitFunction:
+                elif type(info) is df.SplitFunction:
                     dfatool.cli.print_splitinfo(
                         model.parameters, info, f"{name:20s} {attribute:15s}"
                     )
-                elif type(info) is dfatool.cli.StaticFunction:
+                elif type(info) is df.StaticFunction:
                     dfatool.cli.print_staticinfo(f"{state:10s} {attribute:15s}", info)
 
     if "table" in args.show_quality or "all" in args.show_quality:

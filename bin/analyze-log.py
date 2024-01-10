@@ -229,6 +229,10 @@ def main():
                 info = param_info(name, attribute)
                 if type(info) is df.AnalyticFunction:
                     dfatool.cli.print_analyticinfo(f"{name:10s} {attribute:15s}", info)
+                elif type(info) is df.CARTFunction:
+                    dfatool.cli.print_cartinfo(
+                        f"{name:10s} {attribute:15s}", info, model.parameters
+                    )
                 elif type(info) is df.SplitFunction:
                     dfatool.cli.print_splitinfo(
                         model.parameters, info, f"{name:10s} {attribute:15s}"
