@@ -681,6 +681,7 @@ class ModelAttribute:
             df.SplitFunction,
             df.StaticFunction,
             df.AnalyticFunction,
+            df.FOLFunction,
         ):
             import pydot
 

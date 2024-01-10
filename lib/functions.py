@@ -834,6 +834,16 @@ class FOLFunction(ModelFunction):
     def get_complexity_score(self):
         return len(self.model_args)
 
+    def to_dot(self, pydot, graph, feature_names, parent=None):
+        model_function = self.model_function
+        for i, arg in enumerate(self.model_args):
+            model_function = model_function.replace(
+                f"regression_arg({i})", f"{arg:.2f}"
+            )
+        graph.add_node(
+            pydot.Node(str(id(self)), label=model_function, shape="rectangle")
+        )
+
     def to_json(self, **kwargs):
         ret = super().to_json(**kwargs)
         ret.update(
