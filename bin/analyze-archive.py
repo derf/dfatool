@@ -679,35 +679,15 @@ if __name__ == "__main__":
         for state in model.states:
             for attribute in model.attributes(state):
                 info = param_info(state, attribute)
-                if type(info) is df.AnalyticFunction:
-                    dfatool.cli.print_analyticinfo(f"{state:10s} {attribute:15s}", info)
-                elif type(info) is df.CARTFunction:
-                    dfatool.cli.print_cartinfo(
-                        f"{state:10s} {attribute:15s}", info, model.parameters
-                    )
-                elif type(info) is df.SplitFunction:
-                    dfatool.cli.print_splitinfo(
-                        model.parameters, info, f"{state:10s} {attribute:15s}"
-                    )
-                elif type(info) is df.StaticFunction:
-                    dfatool.cli.print_staticinfo(f"{state:10s} {attribute:15s}", info)
-                elif type(info) is df.SubstateFunction:
-                    print(f"{state:10s} {attribute:15s}: Substate (TODO)")
+                dfatool.cli.print_model(
+                    f"{state:10s} {attribute:15s}", info, model.parameters
+                )
         for trans in model.transitions:
             for attribute in model.attributes(trans):
                 info = param_info(trans, attribute)
-                if type(info) is df.AnalyticFunction:
-                    dfatool.cli.print_analyticinfo(f"{trans:10s} {attribute:15s}", info)
-                elif type(info) is df.CARTFunction:
-                    dfatool.cli.print_cartinfo(
-                        f"{trans:10s} {attribute:15s}", info, model.parameters
-                    )
-                elif type(info) is df.SplitFunction:
-                    dfatool.cli.print_splitinfo(
-                        model.parameters, info, f"{trans:10s} {attribute:15s}"
-                    )
-                elif type(info) is df.SubstateFunction:
-                    print(f"{state:10s} {attribute:15s}: Substate (TODO)")
+                dfatool.cli.print_model(
+                    f"{trans:10s} {attribute:15s}", info, model.parameters
+                )
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
                 sub_param_model, sub_param_info = submodel.get_fitted()

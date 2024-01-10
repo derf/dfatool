@@ -528,20 +528,9 @@ def main():
         for name in model.names:
             for attribute in model.attributes(name):
                 info = param_info(name, attribute)
-                if type(info) is df.AnalyticFunction:
-                    dfatool.cli.print_analyticinfo(f"{name:20s} {attribute:15s}", info)
-                elif type(info) is df.CARTFunction:
-                    dfatool.cli.print_cartinfo(
-                        f"{name:20s} {attribute:15s}", info, model.parameters
-                    )
-                elif type(info) is df.FOLFunction:
-                    dfatool.cli.print_analyticinfo(f"{name:20s} {attribute:15s}", info)
-                elif type(info) is df.SplitFunction:
-                    dfatool.cli.print_splitinfo(
-                        model.parameters, info, f"{name:20s} {attribute:15s}"
-                    )
-                elif type(info) is df.StaticFunction:
-                    dfatool.cli.print_staticinfo(f"{name:10s} {attribute:15s}", info)
+                dfatool.cli.print_model(
+                    f"{name:20s} {attribute:15s}", info, model.parameters
+                )
 
     if "table" in args.show_quality or "all" in args.show_quality:
         if xv_method is not None:
