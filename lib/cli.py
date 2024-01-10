@@ -270,6 +270,14 @@ def export_dot(model, dot_prefix):
             dot_model = model.attr_by_name[name][attribute].to_dot()
             if dot_model is None:
                 logger.debug(f"{name} {attribute} does not have a dot model")
+            elif type(dot_model) is list:
+                # A Forest
+                for i, tree in enumerate(dot_model):
+                    filename = f"{dot_prefix}{name}-{attribute}.{i:03d}.dot"
+                    with open(filename, "w") as f:
+                        print(tree, file=f)
+                filename = filename.replace(f".{len(dot_model)-1:03d}.", ".*.")
+                logger.info(f"Dot exports of model saved to {filename}")
             else:
                 filename = f"{dot_prefix}{name}-{attribute}.dot"
                 with open(filename, "w") as f:
