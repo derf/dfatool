@@ -1218,7 +1218,7 @@ class ModelAttribute:
                 continue
 
             if ignore_irrelevant_parameters:
-                std_by_param = _mean_std_by_params(
+                std_by_param = _mean_std_by_param(
                     by_param,
                     distinct_values_by_param_index,
                     list(self.ignore_param.keys()) + [param_index],
