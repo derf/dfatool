@@ -1087,9 +1087,11 @@ class ModelAttribute:
             xgb = xgboost.XGBRegressor(
                 n_estimators=int(os.getenv("DFATOOL_XGB_N_ESTIMATORS", "100")),
                 max_depth=int(os.getenv("DFATOOL_XGB_MAX_DEPTH", "10")),
-                subsample=0.7,
-                gamma=0.01,
-                reg_alpha=0.0006,
+                subsample=float(os.getenv("DFATOOL_XGB_SUBSAMPLE", "0.7")),
+                eta=float(os.getenv("DFATOOL_XGB_ETA", "0.3")),
+                gamma=float(os.getenv("DFATOOL_XGB_GAMMA", "0.01")),
+                reg_alpha=float(os.getenv("DFATOOL_XGB_REG_ALPHA", "0.0006")),
+                reg_lambda=float(os.getenv("DFATOOL_XGB_REG_LAMBDA", "1")),
             )
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
                 parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar

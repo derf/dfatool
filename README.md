@@ -54,8 +54,15 @@ Least-Squares Regression is essentially a subset of RMT with just a single tree 
 LMT and RMT differ significantly, as LMT uses a learning algorithm that starts out with a DECART and uses bottom-up pruning to turn it into an LMT, whereas RMT build a DECART that only considers parameters that are not suitable for least-squares regression and then uses least-squares regression to find and fit leaf functions.
 
 By default, dfatool uses heuristics to determine whether it should generate a simple least-squares regression function or a fully-fledged RMT.
-Use arguments (e.g. `--force-tree`) and environment variables (see below) to change which kinds of models it considers.
+Arguments such as `--force-tree` and environment variables (below) can be used to generate a different flavour of performance model; see [Modeling Method Selection](doc/modeling-method.md).
+Again, most of the options and methods documented here work for all three scripts: analyze-archive, analyze-kconfig, and analyze-log.
 
+* [Model Visualization and Export](doc/model-visual.md)
+* [Modeling Method Selection](doc/modeling-method.md)
+
+## Model Application
+
+Legacy documentation; may be outdated:
 * [Generating performance models for software product lines](doc/analysis-nfp.md)
 * [Data Analysis and Performance Model Generation from Log Files](doc/analysis-logs.md)
 
@@ -109,11 +116,16 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_DTREE_SKLEARN_CART` | **0**, 1 | Use sklearn CART ("Decision Tree Regression") algorithm for decision tree generation. Uses binary nodes and supports splits on scalar variables. Overrides `FUNCTION_LEAVES` (=0) and `NONBINARY_NODES` (=0). |
 | `DFATOOL_DTREE_SKLEARN_DECART` | **0**, 1 | Use sklearn CART ("Decision Tree Regression") algorithm for decision tree generation. Ignore scalar parameters, thus emulating the DECART algorithm. |
 | `DFATOOL_DTREE_LMT` | **0**, 1 | Use [Linear Model Tree](https://github.com/cerlymarco/linear-tree) algorithm for regression tree generation. Uses binary nodes and linear functions. Overrides `FUNCTION_LEAVES` (=0) and `NONBINARY_NODES` (=0). |
-| `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default: unlimited. |
+| `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default (0): unlimited. |
 | `DFATOOL_ULS_ERROR_METRIC` | **rmsd**, mae, p50, p90 | Error metric to use when selecting best-fitting function during unsupervised least squares (ULS) regression. Least squares regression itself minimzes root mean square deviation (rmsd), hence rmsd is the default. |
 | `DFATOOL_USE_XGBOOST` | **0**, 1 | Use Extreme Gradient Boosting algorithm for decision forest generation. |
-| `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. |
-| `DFATOOL_XGB_MAX_DEPTH` | 2 .. **10** ** *n* | Maximum XGBoost tree depth. |
+| `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. Mandatory. |
+| `DFATOOL_XGB_MAX_DEPTH` | 2 .. **10** .. *n* | Maximum XGBoost tree depth. XGBoost default: 6 |
+| `DFATOOL_XGB_SUBSAMPLE` | 0 .. **0.7** .. 1 | XGBoost subsampling ratio. XGBoost default: 1 |
+| `DFATOOL_XGB_ETA` | 0 .. **0.3** .. 1 | XGBoost learning rate (shrinkage). XGboost default: 0.3 |
+| `DFATOOL_XGB_GAMMA` | 0 .. **0.01** .. *n* | XGBoost minimum loss reduction required to to make a further partition on a leaf node. XGBoost default: 0 |
+| `DFATOOL_XGB_REG_ALPHA` | 0 .. **0.0006** .. *n* | XGBoost L1 regularization term on weights. |
+| `DFATOOL_XGB_REG_LAMBDA` | 0 .. **1** .. *n* | XGBoost L2 regularization term on weight. |
 | `OMP_NUM_THREADS` | *number of CPU cores* | Maximum number of threads used per XGBoost learner. A limit of 4 threads appears to be ideal. Note that dfatool may spawn several XGBoost instances at the same time. |
 | `DFATOOL_KCONF_IGNORE_NUMERIC` | **0**, 1 | Ignore numeric (int/hex) configuration options. Useful for comparison with CART/DECART. |
 | `DFATOOL_KCONF_IGNORE_STRING` | **0**, 1 | Ignore string configuration options. Useful for comparison with CART/DECART. |
