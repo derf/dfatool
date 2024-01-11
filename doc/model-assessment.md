@@ -20,3 +20,6 @@ and is always reported without cross-validation.
 metrics to a [dataref](https://ctan.org/pkg/dataref) file. Again, it may be a
 good idea to also specify `--cross-validate=kfold:10` and possibly
 `--parameter-aware-cross-validation`.
+
+`--dref-precision` can be used to limit the number of decimals in the exported
+values.

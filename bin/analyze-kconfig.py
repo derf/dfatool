@@ -432,6 +432,7 @@ def main():
         xv.parameter_aware = args.parameter_aware_cross_validation
     else:
         xv_method = None
+        xv_count = None
 
     static_model = model.get_static()
     try:

@@ -172,7 +172,6 @@ if __name__ == "__main__":
     pta = None
     energymodel_export_file = None
     trace_export_dir = None
-    xv_count = 10
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
@@ -429,6 +428,7 @@ if __name__ == "__main__":
         xv.parameter_aware = args.parameter_aware_cross_validation
     else:
         xv_method = None
+        xv_count = None
 
     if args.plot_unparam:
         for kv in args.plot_unparam.split(";"):
