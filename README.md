@@ -59,6 +59,7 @@ Again, most of the options and methods documented here work for all three script
 
 * [Model Visualization and Export](doc/model-visual.md)
 * [Modeling Method Selection](doc/modeling-method.md)
+* [Assessing Model Quality](doc/model-assessment.md)
 
 ## Model Application
 
