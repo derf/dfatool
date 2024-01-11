@@ -530,8 +530,8 @@ def main():
             error_metric=args.error_metric,
         )
 
-    if args.show_model_size:
-        dfatool.cli.print_model_size(model)
+    if args.show_model_complexity:
+        dfatool.cli.print_model_complexity(model)
 
     if args.export_webconf:
         attributes = KConfigAttributes(args.kconfig_path, None)

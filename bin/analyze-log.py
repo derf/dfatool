@@ -227,8 +227,8 @@ def main():
             error_metric=args.error_metric,
         )
 
-    if args.show_model_size:
-        dfatool.cli.print_model_size(model)
+    if args.show_model_complexity:
+        dfatool.cli.print_model_complexity(model)
 
     if args.export_model:
         print(f"Exportding model to {args.export_model}")

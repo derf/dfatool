@@ -791,8 +791,8 @@ if __name__ == "__main__":
             ]
         )
 
-    if args.show_model_size:
-        dfatool.cli.print_model_size(model)
+    if args.show_model_complexity:
+        dfatool.cli.print_model_complexity(model)
 
     if args.boxplot_param:
         dfatool.cli.boxplot_param(args, model)

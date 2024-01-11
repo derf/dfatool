@@ -150,23 +150,25 @@ def print_model(prefix, info, feature_names):
         print(f"{prefix}: {type(info)} UNIMPLEMENTED")
 
 
-def print_model_size(model):
+def print_model_complexity(model):
+    key_len = len("Key")
+    attr_len = len("Attribute")
+    for name in model.names:
+        if len(name) > key_len:
+            key_len = len(name)
+        for attr in model.attributes(name):
+            if len(attr) > attr_len:
+                attr_len = len(attr)
     for name in model.names:
         for attribute in model.attributes(name):
+            mf = model.attr_by_name[name][attribute].model_function
+            prefix = f"{name:{key_len}s} {attribute:{attr_len}s}: {mf.get_complexity_score():7d}"
             try:
-                num_nodes = model.attr_by_name[name][
-                    attribute
-                ].model_function.get_number_of_nodes()
-                max_depth = model.attr_by_name[name][
-                    attribute
-                ].model_function.get_max_depth()
-                print(
-                    f"{name:15s} {attribute:20s}: {num_nodes:6d} nodes @ {max_depth:3d} max depth"
-                )
+                num_nodes = mf.get_number_of_nodes()
+                max_depth = mf.get_max_depth()
+                print(f"{prefix}  ({num_nodes:6d} nodes @ {max_depth:3d} max depth)")
             except AttributeError:
-                print(
-                    f"{name:15s} {attribute:20s}: {model.attr_by_name[name][attribute].model_function}"
-                )
+                print(prefix)
 
 
 def format_quality_measures(result, error_metric="smape", col_len=8):
@@ -483,16 +485,15 @@ def add_standard_arguments(parser):
         help="Show model error compared to LUT (lower bound) and static (reference) models",
     )
     parser.add_argument(
-        "--show-model-size",
+        "--show-model-complexity",
         action="store_true",
-        help="Show model size (e.g. regression tree height and node count)",
+        help="Show model complexity score and details (e.g. regression tree height and node count)",
     )
     parser.add_argument(
         "--cross-validate",
         metavar="<method>:<count>",
         type=str,
-        help="Perform cross validation when computing model quality. "
-        "Only works with --show-quality=table at the moment.",
+        help="Perform cross validation when computing model quality",
     )
     parser.add_argument(
         "--parameter-aware-cross-validation",
