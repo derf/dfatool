@@ -37,13 +37,6 @@ def main():
     )
     dfatool.cli.add_standard_arguments(parser)
     parser.add_argument(
-        "--show-quality",
-        choices=["table"],
-        action="append",
-        default=list(),
-        help="table: show LUT, model, and static prediction error for each key and attribute.",
-    )
-    parser.add_argument(
         "--force-tree",
         action="store_true",
         help="Build decision tree without checking for analytic functions first",
@@ -222,7 +215,7 @@ def main():
                     f"{name:10s} {attribute:15s}", info, model.parameters
                 )
 
-    if "table" in args.show_quality or "all" in args.show_quality:
+    if args.show_model_error:
         dfatool.cli.model_quality_table(
             lut=lut_quality,
             model=analytic_quality,

@@ -45,5 +45,5 @@ analysiert werden:
 
 ```
 cd dfatool
-bin/analyze-archive.py --info --show-model=all --show-quality=table ../data/...-radio.tar
+bin/analyze-archive.py --info --show-model=all --show-model-error ../data/...-radio.tar
 ```

@@ -478,6 +478,11 @@ def add_standard_arguments(parser):
         "all: all of the above",
     )
     parser.add_argument(
+        "--show-model-error",
+        action="store_true",
+        help="Show model error compared to LUT (lower bound) and static (reference) models",
+    )
+    parser.add_argument(
         "--show-model-size",
         action="store_true",
         help="Show model size (e.g. regression tree height and node count)",

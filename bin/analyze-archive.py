@@ -200,11 +200,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--show-quality",
-        choices=["table", "summary"],
+        choices=["overall", "summary"],
         action="append",
         default=list(),
-        help="table: show LUT, model, and static prediction error for each state/transition and attribute.\n"
-        "summary: show static/fitted/lut SMAPE and MAE for each attribute, averaged over all states/transitions.",
+        help="summary: show static/fitted/lut SMAPE and MAE for each attribute, averaged over all states/transitions.",
     )
     parser.add_argument(
         "--ignored-trace-indexes",
@@ -723,7 +722,7 @@ if __name__ == "__main__":
             analytic_quality = model.assess(param_model)
         xv_analytic_models = None
 
-    if "table" in show_quality or "all" in show_quality:
+    if args.show_model_error:
         dfatool.cli.model_quality_table(
             lut=lut_quality,
             model=analytic_quality,

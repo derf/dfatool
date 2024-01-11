@@ -143,13 +143,6 @@ def main():
         help="Restrict model generation to N random samples",
         metavar="N",
     )
-    parser.add_argument(
-        "--show-quality",
-        choices=["table"],
-        action="append",
-        default=list(),
-        help="table: show LUT, model, and static prediction error for each key and attribute.",
-    )
     parser.add_argument("kconfig_path", type=str, help="Path to Kconfig file")
     parser.add_argument(
         "model",
@@ -525,7 +518,7 @@ def main():
                     f"{name:20s} {attribute:15s}", info, model.parameters
                 )
 
-    if "table" in args.show_quality or "all" in args.show_quality:
+    if args.show_model_error:
         dfatool.cli.model_quality_table(
             lut=lut_quality,
             model=analytic_quality,
@@ -535,25 +528,6 @@ def main():
             xv_count=xv_count,
             error_metric=args.error_metric,
         )
-
-    if not args.show_quality:
-        if xv_method is not None:
-            print(f"Model Error after Cross Validation ({xv_method}, {xv_count}):")
-        else:
-            print("Model Error on Training Data:")
-        for name in sorted(model.names):
-            for attribute, error in sorted(
-                analytic_quality[name].items(), key=lambda kv: kv[0]
-            ):
-                mae = error["mae"]
-                mape = error["mape"]
-                smape = error["smape"]
-                if mape is not None:
-                    print(f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {mape:5.1f}%")
-                else:
-                    print(
-                        f"{name:15s} {attribute:20s}  ± {mae:10.2}  /  {smape:5.1f}% SMAPE"
-                    )
 
     if args.show_model_size:
         dfatool.cli.print_model_size(model)

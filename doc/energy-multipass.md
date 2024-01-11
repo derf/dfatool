@@ -76,7 +76,7 @@ analysiert werden:
 
 ```
 cd dfatool
-bin/analyze-archive.py --info --show-model=all --show-quality=table ../data/...-sharp96.tar
+bin/analyze-archive.py --info --show-model=all --show-model-error ../data/...-sharp96.tar
 ```
 
 Sofern sich die LED-Leistungsaufnahme des verwendeten Launchpads im üblichen
