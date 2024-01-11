@@ -19,5 +19,7 @@ In case of regression forests (XGBoost), dfatool exports the individual trees to
 
 ## Plotting Model Predictions for Individual Configurations
 
-`--plot-param name:attribute:label` displays both raw readings (as points, see
-[[analysis-visual.md]]) and the corresponding performance model (as lines).
+`--plot-param name:attribute:parameter` displays both raw readings (as points,
+see [[analysis-visual.md]]) and the corresponding performance model (as lines).
+The plot is saved to (name)-(attribute)-(parameter).pdf and shown interactively
+unless `--non-interactive` has been specified.

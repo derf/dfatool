@@ -817,6 +817,8 @@ if __name__ == "__main__":
                 attribute,
                 model.param_index(param_name),
                 extra_function=function,
+                output=f"{state_or_trans}-{attribute}-{param_name}.pdf",
+                show=not args.non_interactive,
             )
 
     if args.export_dref:

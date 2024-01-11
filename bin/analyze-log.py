@@ -276,7 +276,7 @@ def main():
                 title=state_or_trans,
                 ylabel=attribute,
                 xlabel=param_name,
-                output=f"{state_or_trans} {attribute} {param_name}.pdf",
+                output=f"{state_or_trans}-{attribute}-{param_name}.pdf",
                 show=not args.non_interactive,
             )
 
