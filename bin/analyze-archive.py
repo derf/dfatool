@@ -182,16 +182,6 @@ if __name__ == "__main__":
         "--no-cache", action="store_true", help="Do not load cached measurement results"
     )
     parser.add_argument(
-        "--plot-param",
-        metavar="<name>:<attribute>:<parameter>[:gplearn function][;<name>:<attribute>:<parameter>:[function];...])",
-        type=str,
-        help="Plot measurements for <name> <attribute> by <parameter>. "
-        "X axis is parameter value. "
-        "Plots the model function as one solid line for each combination of non-<parameter> parameters. "
-        "Also plots the corresponding measurements. "
-        "If gplearn function is set, it is plotted using dashed lines.",
-    )
-    parser.add_argument(
         "--plot-traces",
         metavar="NAME",
         type=str,

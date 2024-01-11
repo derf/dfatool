@@ -407,6 +407,15 @@ def add_standard_arguments(parser):
         "X axis is measurement number/id.",
     )
     parser.add_argument(
+        "--plot-param",
+        metavar="<name>:<attribute>:<parameter>[;<name>:<attribute>:<parameter>;...])",
+        type=str,
+        help="Plot measurements for <name> <attribute> by <parameter>. "
+        "X axis is parameter value. "
+        "Plots the model function as one solid line for each combination of non-<parameter> parameters. "
+        "Also plots the corresponding measurements. ",
+    )
+    parser.add_argument(
         "--boxplot-unparam",
         metavar="PREFIX",
         type=str,

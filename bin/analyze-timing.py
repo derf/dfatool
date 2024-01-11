@@ -14,13 +14,6 @@ Options:
     Plot all mesurements for <name> <attribute> without regard for parameter values.
     X axis is measurement number/id.
 
---plot-param=<name> <attribute> <parameter> [gplearn function][;<name> <attribute> <parameter> [function];...]
-    Plot measurements for <name> <attribute> by <parameter>.
-    X axis is parameter value.
-    Plots the model function as one solid line for each combination of non-<parameter>
-    parameters. Also plots the corresponding measurements.
-    If gplearn function is set, it is plotted using dashed lines.
-
 --info
     Show parameter names and values
 

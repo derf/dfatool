@@ -150,16 +150,6 @@ def main():
         default=list(),
         help="table: show LUT, model, and static prediction error for each key and attribute.",
     )
-    parser.add_argument(
-        "--plot-param",
-        metavar="<name>:<attribute>:<parameter>[:gplearn function][;<name>:<attribute>:<parameter>:[function];...])",
-        type=str,
-        help="Plot measurements for <name> <attribute> by <parameter>. "
-        "X axis is parameter value. "
-        "Plots the model function as one solid line for each combination of non-<parameter> parameters. "
-        "Also plots the corresponding measurements. "
-        "If gplearn function is set, it is plotted using dashed lines.",
-    )
     parser.add_argument("kconfig_path", type=str, help="Path to Kconfig file")
     parser.add_argument(
         "model",

@@ -37,16 +37,6 @@ def main():
     )
     dfatool.cli.add_standard_arguments(parser)
     parser.add_argument(
-        "--plot-param",
-        metavar="<name>:<attribute>:<parameter>[;<name>:<attribute>:<parameter>;...])",
-        type=str,
-        help="Plot measurements for <name> <attribute> by <parameter>. "
-        "X axis is parameter value. "
-        "Plots the model function as one solid line for each combination of non-<parameter> parameters. "
-        "Also plots the corresponding measurements. "
-        "If gplearn function is set, it is plotted using dashed lines.",
-    )
-    parser.add_argument(
         "--show-quality",
         choices=["table"],
         action="append",
