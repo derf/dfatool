@@ -258,6 +258,10 @@ def main():
             args.export_dref, dref, precision=args.dref_precision
         )
 
+    if args.export_json:
+        with open(args.export_json, "w") as f:
+            json.dump(model.to_json(), f, sort_keys=True, cls=dfatool.utils.NpEncoder)
+
     if args.plot_param:
         for kv in args.plot_param.split(";"):
             try:

@@ -618,6 +618,10 @@ def main():
             args.export_dref, dref, precision=args.dref_precision
         )
 
+    if args.export_json:
+        with open(args.export_json, "w") as f:
+            json.dump(model.to_json(), f, sort_keys=True, cls=dfatool.utils.NpEncoder)
+
     if args.config:
         kconf = kconfiglib.Kconfig(args.kconfig_path)
         kconf.load_config(args.config)

@@ -23,3 +23,8 @@ In case of regression forests (XGBoost), dfatool exports the individual trees to
 see [[analysis-visual.md]]) and the corresponding performance model (as lines).
 The plot is saved to (name)-(attribute)-(parameter).pdf and shown interactively
 unless `--non-interactive` has been specified.
+
+## JSON Export
+
+Use `--export-json FILENAME` to export the performance model to FILENAME.
+The model for NAME ATTRIBUTE is located in .name.NAME.ATTRIBUTE.modelFunction.

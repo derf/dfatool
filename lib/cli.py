@@ -394,6 +394,12 @@ def add_standard_arguments(parser):
         help="Export raw (parameter-independent) observations in JSON format to FILENAME",
     )
     parser.add_argument(
+        "--export-json",
+        metavar="FILENAME",
+        type=str,
+        help="Export model in JSON format to FILENAME",
+    )
+    parser.add_argument(
         "--dref-precision",
         metavar="NDIG",
         type=int,
