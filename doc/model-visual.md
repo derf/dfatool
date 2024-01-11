@@ -16,3 +16,8 @@ accessible via `dot -Tpng filename.dot | feh -`.
 
 In case of regression forests (XGBoost), dfatool exports the individual trees to
 `PREFIX(name)-(attribute).(index).dot`.
+
+## Plotting Model Predictions for Individual Configurations
+
+`--plot-param name:attribute:label` displays both raw readings (as points, see
+[[analysis-visual.md]]) and the corresponding performance model (as lines).

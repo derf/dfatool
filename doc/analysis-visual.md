@@ -22,4 +22,7 @@ parameter name. It shows each distinct configuration (parameter/NFP value) in
 a different colour. Combining it with `--filter-param` and `--ignore-param`
 may help de-clutter the plot.
 
+dfatool will additionally plot the predicted performance for each distinct
+configuration as a solid line.
+
 ![](/media/n_dpus-dpu_alloc-1.png)

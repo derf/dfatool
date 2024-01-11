@@ -39,6 +39,8 @@ All of these are valid regression model trees.
 * `--force-tree` builds a tree structure even if dfatool's heuristic indicates that no non-integer parameter affects the modeled performance attribute.
 * `DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0` disables the relevant parameter detection heuristic when building the tree structure. By default, irrelevant parameters cannot end up as decision nodes.
 * `DFATOOL_FIT_LINEAR_ONLY=1` makes RMT behave more like LMT by only considering linear functions in leaf nodes.
+* `DFATOOL_FIT_FOL=1`
+* `DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1`
 * `DFATOOL_SKIP_CODEPENDENT_CHECK=1`
 * `DFATOOL_REGRESSION_SAFE_FUNCTIONS=1`
 
