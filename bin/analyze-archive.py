@@ -730,6 +730,7 @@ if __name__ == "__main__":
             static=static_quality,
             model_info=param_info,
             xv_method=xv_method,
+            xv_count=xv_count,
             error_metric=args.error_metric,
         )
         if args.with_substates:

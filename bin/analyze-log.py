@@ -223,18 +223,13 @@ def main():
                 )
 
     if "table" in args.show_quality or "all" in args.show_quality:
-        if xv_method is not None:
-            print(
-                f"Model error ({args.error_metric}) after cross validation ({xv_method}, {xv_count}):"
-            )
-        else:
-            print(f"Model error ({args.error_metric}) on training data:")
         dfatool.cli.model_quality_table(
             lut=lut_quality,
             model=analytic_quality,
             static=static_quality,
             model_info=param_info,
             xv_method=xv_method,
+            xv_count=xv_count,
             error_metric=args.error_metric,
         )
 

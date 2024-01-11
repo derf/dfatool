@@ -181,7 +181,7 @@ def format_quality_measures(result, error_metric="smape", col_len=8):
 
 
 def model_quality_table(
-    lut, model, static, model_info, xv_method=None, error_metric="smape"
+    lut, model, static, model_info, xv_method=None, xv_count=None, error_metric="smape"
 ):
     key_len = len("Key")
     attr_len = len("Attribute")
@@ -200,6 +200,13 @@ def model_quality_table(
         xv_header = "XV"
     else:
         xv_header = "training"
+
+    if xv_method is not None:
+        print(
+            f"Model error ({error_metric}) after cross validation ({xv_method}, {xv_count}):"
+        )
+    else:
+        print(f"Model error ({error_metric}) on training data:")
 
     print(
         f"""{"":>{key_len}s} {"":>{attr_len}s}   {"training":>8s}   {xv_header:>8s}   {xv_header:>8s}"""
