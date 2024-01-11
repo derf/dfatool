@@ -219,6 +219,24 @@ def remove_index_from_tuple(parameters, index):
     return (*parameters[:index], *parameters[index + 1 :])
 
 
+def remove_indexes_from_tuple(parameters, indexes):
+    """
+    Remove the elements at `indexes` from tuple `parameters`.
+
+    :param parameters: tuple
+    :param indexes: list or tuple: indexes of element which are to be removed
+    :returns: parameters tuple without the elements at indexes
+    """
+    indexes = sorted(indexes)
+    ret = list()
+    last_index = 0
+    for index in indexes:
+        ret.extend(parameters[last_index:index])
+        last_index = index + 1
+    ret.extend(parameters[last_index:])
+    return tuple(ret)
+
+
 def param_slice_eq(a, b, index):
     """
     Check if by_param keys a and b are identical, ignoring the parameter at index.
