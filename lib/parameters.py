@@ -8,7 +8,7 @@ from copy import deepcopy
 from multiprocessing import Pool
 import dfatool.functions as df
 from .paramfit import ParamFit
-from .utils import remove_index_from_tuple, is_numeric
+from .utils import remove_indexes_from_tuple, is_numeric
 from .utils import filter_aggregate_by_param, partition_by_param
 from .utils import param_to_ndarray
 
@@ -69,10 +69,29 @@ def _mean_std_by_param(n_by_param, all_param_values, param_index):
         this function returns the mean of the standard deviations of (a=1, b=*, c=1),
         (a=1, b=*, c=2), and so on.
     """
+    return _mean_std_by_params(n_by_param, all_param_values, [param_index])
+
+
+def _mean_std_by_params(n_by_param, all_param_values, param_indexes):
+    """
+    Calculate the mean standard deviation for a static model where all parameters but `param_indexes` are constant.
+
+    :param n_by_param: measurements of a specific model attribute partitioned by parameter values.
+        Example: `{(0, 2): [2], (0, 4): [4], (0, 6): [6]}`
+    :param all_param_values: distinct values of each parameter.
+        E.g. for two parameters, the first being None, FOO, or BAR, and the second being 1, 2, 3, or 4, the argument is
+        `[[None, 'FOO', 'BAR'], [1, 2, 3, 4]]`.
+    :param param_indexes: indexes of variable parameters
+    :returns: mean stddev
+        *mean stddev* is the mean standard deviation of all measurements where parameters `param_indexes` are dynamic and all other parameters are fixed.
+        E.g., if parameters are a, b, c ∈ {1,2,3} and 'indexes' corresponds to b and c, then
+        this function returns the mean of the standard deviations of (a=1, b=*, c=*),
+        (a=2, b=*, c=*), and so on.
+    """
     partition_by_tuple = dict()
 
     for k, v in n_by_param.items():
-        tuple_key = (*k[:param_index], *k[param_index + 1 :])
+        tuple_key = remove_indexes_from_tuple(k, param_indexes)
         if not tuple_key in partition_by_tuple:
             partition_by_tuple[tuple_key] = list()
         partition_by_tuple[tuple_key].extend(v)
@@ -1218,7 +1237,7 @@ class ModelAttribute:
                 continue
 
             if ignore_irrelevant_parameters:
-                std_by_param = _mean_std_by_param(
+                std_by_param = _mean_std_by_params(
                     by_param,
                     distinct_values_by_param_index,
                     list(self.ignore_param.keys()) + [param_index],
