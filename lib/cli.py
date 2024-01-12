@@ -566,6 +566,11 @@ def add_standard_arguments(parser):
         "ssr    : Sum of Squared Residuals\n"
         "rsq    : R² Score",
     )
+    parser.add_argument(
+        "--force-tree",
+        action="store_true",
+        help="Build regression tree without checking whether static/analytic functions are sufficient.",
+    )
 
 
 def parse_shift_function(param_name, param_shift):

@@ -71,11 +71,6 @@ def main():
         help="Show Kconfig symbols which are only present in a single configuration. Must be used with an experiment result directory.",
     )
     parser.add_argument(
-        "--force-tree",
-        action="store_true",
-        help="Build decision tree without checking for analytic functions first. Use this for large kconfig files.",
-    )
-    parser.add_argument(
         "--skip-param-stats",
         action="store_true",
         help="Do not compute param stats that are required for RMT. Use this for large kconfig files.",

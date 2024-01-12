@@ -254,11 +254,6 @@ if __name__ == "__main__":
         type=str,
         help="Perform substate analysis",
     )
-    parser.add_argument(
-        "--force-tree",
-        action="store_true",
-        help="Build regression tree without checking whether static/analytic functions are sufficient.",
-    )
     parser.add_argument("measurement", nargs="+")
 
     args = parser.parse_args()

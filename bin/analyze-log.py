@@ -37,11 +37,6 @@ def main():
     )
     dfatool.cli.add_standard_arguments(parser)
     parser.add_argument(
-        "--force-tree",
-        action="store_true",
-        help="Build decision tree without checking for analytic functions first",
-    )
-    parser.add_argument(
         "--export-model", metavar="FILE", type=str, help="Export JSON model to FILE"
     )
     parser.add_argument(
