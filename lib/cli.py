@@ -260,6 +260,8 @@ def model_quality_table(
 
 def export_dataref(dref_file, dref, precision=None):
     with open(dref_file, "w") as f:
+        for arg in sys.argv:
+            print(f"% {arg}", file=f)
         for k, v in sorted(dref.items()):
             if type(v) is not tuple:
                 v = (v, None)
