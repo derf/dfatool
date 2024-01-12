@@ -13,6 +13,12 @@ There are two ways of visualizing all measured data independent of their paramet
   Useful to identify trends (especially when the parameter variation scheme is known as well) and interference.
   The plot is shown interactively, but not written to the filesystem.
 
+## LaTeX TikZ/PGF raw data visualization
+
+`--export-pgf-unparam PREFIX` writes measurement index, attribute value,
+and parameter values to PREFIX(name)-(attribute).txt.
+This is essentially `--boxplot-unparam` for TikZ/PGF.
+
 ## Influence of a single Non-Functional Property on a Performance Attribute
 
 Assume that we want to see how the number of requested UPMEM DPUs (`n_dpus`)

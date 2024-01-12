@@ -14,7 +14,7 @@ It is generally a good idea to combine `--show-model-error` with
 ("lowest achievable prediction error" / underlying measurement uncertainty)
 and is always reported without cross-validation.
 
-## Dataref export
+## LaTeX dataref export
 
 `--export-dref=filename.tex` exports model statistics and all available error
 metrics to a [dataref](https://ctan.org/pkg/dataref) file. Again, it may be a
