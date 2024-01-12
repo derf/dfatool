@@ -604,7 +604,11 @@ class ModelAttribute:
 
         # There must be at least 3 distinct data values (≠ None) if an analytic model
         # is to be fitted. For 2 (or fewer) values, decision trees are better.
-        self.min_values_for_analytic_model = 3
+        # Exceptions such as DFATOOL_FIT_LINEAR_ONLY=1 (2 values sufficient)
+        # can be handled via DFATOOL_ULS_MIN_DISTINCT_VALUES
+        self.min_values_for_analytic_model = int(
+            os.getenv("DFATOOL_ULS_MIN_DISTINCT_VALUES", "3")
+        )
 
     def __repr__(self):
         mean = np.mean(self.data)
