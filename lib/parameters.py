@@ -209,7 +209,7 @@ def _compute_param_statistics(
 
     np.seterr("raise")
 
-    relevance_threshold = float(os.getenv("DFATOOL_PARAM_RELEVANCE_TRESHOLD", 0.5))
+    relevance_threshold = float(os.getenv("DFATOOL_PARAM_RELEVANCE_THRESHOLD", 0.5))
 
     for param_idx, param in enumerate(param_names):
         if param_idx < len(codependent_params) and codependent_params[param_idx]:
@@ -1154,7 +1154,7 @@ class ModelAttribute:
                 "build_dtree {self.name} {self.attr} called with loss_ignore_scalar=True, with_function_leaves=False. This does not make sense."
             )
 
-        relevance_threshold = float(os.getenv("DFATOOL_PARAM_RELEVANCE_TRESHOLD", 0.5))
+        relevance_threshold = float(os.getenv("DFATOOL_PARAM_RELEVANCE_THRESHOLD", 0.5))
 
         self.model_function = self._build_dtree(
             parameters,
