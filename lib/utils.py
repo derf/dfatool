@@ -580,6 +580,23 @@ def shift_param_in_aggregate(aggregate, parameters, parameter_shift):
                         )
 
 
+def filter_aggregate_by_observation(aggregate, observation_filter):
+    if observation_filter is None:
+        return
+    to_pop = dict()
+    for name in aggregate.keys():
+        to_pop[name] = list()
+        for attribute in aggregate[name]["attributes"]:
+            if (name, attribute) not in observation_filter:
+                to_pop[name].append(attribute)
+    for name, attributes in to_pop.items():
+        for attribute in attributes:
+            aggregate[name]["attributes"].remove(attribute)
+            aggregate[name].pop(attribute)
+        if len(aggregate[name]["attributes"]) == 0:
+            aggregate.pop(name)
+
+
 def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
     """
     Remove entries which do not have certain parameter values from `aggregate`.

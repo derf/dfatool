@@ -305,6 +305,12 @@ def main():
             by_name, parameter_names, args.filter_param
         )
 
+    if args.filter_observation:
+        args.filter_observation = list(
+            map(lambda x: tuple(x.split(":")), args.filter_observation.split(","))
+        )
+        dfatool.utils.filter_aggregate_by_observation(by_name, args.filter_observation)
+
     if args.max_std:
         max_std = dict()
         if "=" in args.max_std:

@@ -62,6 +62,11 @@ def main():
     else:
         args.filter_param = list()
 
+    if args.filter_observation:
+        args.filter_observation = list(
+            map(lambda x: tuple(x.split(":")), args.filter_observation.split(","))
+        )
+
     observations = reduce(lambda a, b: a + b, map(parse_logfile, args.logfiles))
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
     del observations
@@ -71,6 +76,7 @@ def main():
         dfatool.utils.ignore_param(by_name, parameter_names, args.ignore_param)
 
     dfatool.utils.filter_aggregate_by_param(by_name, parameter_names, args.filter_param)
+    dfatool.utils.filter_aggregate_by_observation(by_name, args.filter_observation)
 
     if args.param_shift:
         param_shift = dfatool.cli.parse_param_shift(args.param_shift)

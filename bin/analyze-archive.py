@@ -285,6 +285,11 @@ if __name__ == "__main__":
     else:
         args.filter_param = list()
 
+    if args.filter_observation:
+        args.filter_observation = list(
+            map(lambda x: tuple(x.split(":")), args.filter_observation.split(","))
+        )
+
     if args.with_safe_functions is not None:
         safe_functions_enabled = True
 
@@ -379,6 +384,7 @@ if __name__ == "__main__":
         dfatool.utils.ignore_param(by_name, parameters, args.ignore_param)
 
     dfatool.utils.filter_aggregate_by_param(by_name, parameters, args.filter_param)
+    dfatool.utils.filter_aggregate_by_observation(by_name, args.filter_observation)
 
     if args.param_shift:
         param_shift = dfatool.cli.parse_param_shift(args.param_shift)

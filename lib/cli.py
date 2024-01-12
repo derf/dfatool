@@ -523,6 +523,12 @@ def add_standard_arguments(parser):
         "Note that this may remove entire function calls from the model.",
     )
     parser.add_argument(
+        "--filter-observation",
+        metavar="<key>:<attribute>[,<key>:<attribute>...]",
+        type=str,
+        help="Only consider measurements of <key> <attribute>",
+    )
+    parser.add_argument(
         "--ignore-param",
         metavar="<parameter name>[,<parameter name>,...]",
         type=str,
