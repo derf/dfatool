@@ -1141,7 +1141,7 @@ class PTAModel(AnalyticModel):
         else:
             detailed_results = super().assess(model_function, ref=ref)
         for name, elem in sorted(ref.items()):
-            if elem["isa"] == "transition":
+            if elem["isa"] == "transition" and "power" in elem and "duration" in elem:
                 predicted_data = np.array(
                     list(
                         map(
