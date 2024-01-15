@@ -1325,17 +1325,17 @@ class ModelAttribute:
             )
             child_parameters = list(map(lambda i: parameters[i], indexes))
             child_data = list(map(lambda i: data[i], indexes))
-            if len(child_data):
-                child[value] = self._build_dtree(
-                    child_parameters,
-                    child_data,
-                    with_function_leaves=with_function_leaves,
-                    with_nonbinary_nodes=with_nonbinary_nodes,
-                    ignore_irrelevant_parameters=ignore_irrelevant_parameters,
-                    loss_ignore_scalar=loss_ignore_scalar,
-                    threshold=threshold,
-                    level=level + 1,
-                )
+            assert len(child_data)
+            child[value] = self._build_dtree(
+                child_parameters,
+                child_data,
+                with_function_leaves=with_function_leaves,
+                with_nonbinary_nodes=with_nonbinary_nodes,
+                ignore_irrelevant_parameters=ignore_irrelevant_parameters,
+                loss_ignore_scalar=loss_ignore_scalar,
+                threshold=threshold,
+                level=level + 1,
+            )
 
         assert len(child.values()) >= 2
 
