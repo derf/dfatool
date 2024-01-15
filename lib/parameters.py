@@ -283,9 +283,6 @@ def codependent_param_dict(param_values):
         logger.warning("codependent_param_dict called with param_values=[]")
         return dict()
     if bool(int(os.getenv("DFATOOL_SKIP_CODEPENDENT_CHECK", 0))):
-        logger.info(
-            "codependent_param_dict: returning empty dict due to DFATOOL_SKIP_CODEPENDENT_CHECK"
-        )
         return dict()
     lut = [dict() for i in param_values[0]]
     for param_index in range(len(param_values[0])):
@@ -543,7 +540,6 @@ class ModelAttribute:
         codependent_param=dict(),
         param_type=dict(),
     ):
-
         # Data for model generation
         self.data = np.array(data)
 
@@ -804,7 +800,7 @@ class ModelAttribute:
             ):
                 self.ignore_param[param2_index] = True
                 self.codependent_params[param1_index].append(param2_index)
-                logger.info(
+                logger.debug(
                     f"{self.name} {self.attr}: parameters ({self.log_param_names[param1_index]}, {self.log_param_names[param2_index]}) are codependent. Ignoring {self.log_param_names[param2_index]}"
                 )
             elif (
@@ -813,7 +809,7 @@ class ModelAttribute:
             ):
                 self.ignore_param[param1_index] = True
                 self.codependent_params[param2_index].append(param1_index)
-                logger.info(
+                logger.debug(
                     f"{self.name} {self.attr}: parameters ({self.log_param_names[param1_index]}, {self.log_param_names[param2_index]}) are codependent. Ignoring {self.log_param_names[param1_index]}"
                 )
 
