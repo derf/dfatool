@@ -1207,8 +1207,25 @@ class ModelAttribute:
             )  # required, "unique_values" in for loop is insufficient for std_by_param foo
             std_static = np.std(data)
             std_lut = np.mean([np.std(v) for v in by_param.values()])
-        for param_index in range(param_count):
 
+        if loss_ignore_scalar:
+            ffs_eligible_params = list()
+            ffs_unsuitable_params = list()
+            for param_index in range(param_count):
+                if param_index in self.ignore_param:
+                    continue
+                unique_values = list(set(map(lambda p: p[param_index], parameters)))
+                if None in unique_values:
+                    ffs_unsuitable_params.append(param_index)
+                elif (
+                    self.param_type[param_index] == ParamType.SCALAR
+                    and len(unique_values) >= self.min_values_for_analytic_model
+                ):
+                    ffs_eligible_params.append(param_index)
+                else:
+                    ffs_unsuitable_params.append(param_index)
+
+        for param_index in range(param_count):
             if param_index in self.ignore_param:
                 loss.append(np.inf)
                 continue
@@ -1272,7 +1289,8 @@ class ModelAttribute:
                     child_data_by_scalar = partition_by_param(
                         child_data,
                         child_param,
-                        ignore_parameters=self.nonscalar_param_indexes,
+                        ignore_parameters=list(self.ignore_param.keys())
+                        + ffs_unsuitable_params,
                     )
                     for sub_data in child_data_by_scalar.values():
                         children.extend((np.array(sub_data) - np.mean(sub_data)) ** 2)
