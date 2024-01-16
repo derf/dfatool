@@ -1303,10 +1303,8 @@ class ModelAttribute:
                 else:
                     children.extend((np.array(child_data) - np.mean(child_data)) ** 2)
 
-            if np.any(np.isnan(children)):
-                loss.append(np.inf)
-            else:
-                loss.append(np.sum(children))
+            assert not np.any(np.isnan(children))
+            loss.append(np.sum(children))
 
         if np.all(np.isinf(loss)):
             if ffs_feasible:
