@@ -256,7 +256,7 @@ def plot_param(
             for x in xsp:
                 xarg = [*k[:param_idx], x, *k[param_idx:]]
                 ysp.append(param_model(state_or_trans, attribute, param=xarg))
-            plt.plot(xsp, ysp, "r-", color=cm(i), linewidth=0.5)
+            plt.plot(xsp, ysp, "-", color=cm(i), linewidth=0.5)
             YY.append(ysp)
             YY_legend.append(legend_sanitizer.sub("_", "regr_{}".format(k)))
         if extra_function is not None:
