@@ -167,7 +167,7 @@ class AnalyticModel:
                     if max_std and name in max_std and attr in max_std[name]:
                         threshold = max_std[name][attr]
                     elif compute_stats:
-                        threshold = (self.attr_by_name[name][attr].stats.std_param_lut,)
+                        threshold = self.attr_by_name[name][attr].stats.std_param_lut
                     else:
                         threshold = 0
                     logger.debug(f"build_dtree({name}, {attr}, threshold={threshold})")
