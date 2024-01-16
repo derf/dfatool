@@ -3,9 +3,10 @@
 import logging
 import numpy as np
 import os
-from .automata import PTA, ModelAttribute
+from .automata import PTA
 from .functions import StaticFunction, SubstateFunction, SplitFunction
 from .parameters import (
+    ModelAttribute,
     ParamType,
     ParallelParamStats,
     ParamStats,
