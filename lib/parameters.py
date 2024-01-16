@@ -611,7 +611,11 @@ class ModelAttribute:
         return f"ModelAttribute<{self.name}, {self.attr}, mean={mean}>"
 
     def to_json(self, **kwargs):
-        if type(self.model_function) in (df.CARTFunction, df.XGBoostFunction):
+        if type(self.model_function) in (
+            df.CARTFunction,
+            df.LMTFunction,
+            df.XGBoostFunction,
+        ):
             import sklearn.tree
 
             feature_names = list(
