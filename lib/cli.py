@@ -103,6 +103,30 @@ def print_cartinfo(prefix, info, feature_names):
     _print_cartinfo(prefix, info.to_json(feature_names=feature_names), feature_names)
 
 
+def print_lmtinfo(prefix, info, feature_names):
+    _print_lmtinfo(prefix, info.to_json(feature_names=feature_names))
+
+
+def _print_lmtinfo(prefix, model):
+    if model["type"] == "static":
+        print(f"""{prefix}: {model["value"]}""")
+    elif model["type"] == "scalarSplit":
+        _print_lmtinfo(
+            f"""{prefix} {model["paramName"]}≤{model["paramDecisionValue"]} """,
+            model["left"],
+        )
+        _print_lmtinfo(
+            f"""{prefix} {model["paramName"]}>{model["paramDecisionValue"]} """,
+            model["right"],
+        )
+    else:
+        model_function = model["functionStr"].removeprefix("0 + ")
+        for i, coef in enumerate(model["regressionModel"]):
+            model_function = model_function.replace(f"regression_arg({i})", str(coef))
+        model_function = model_function.replace("+ -", "- ")
+        print(f"{prefix}: {model_function}")
+
+
 def _print_cartinfo(prefix, model, feature_names):
     if model["type"] == "static":
         print(f"""{prefix}: {model["value"]}""")
@@ -146,6 +170,8 @@ def print_model(prefix, info, feature_names):
         print_cartinfo(prefix, info, feature_names)
     elif type(info) is df.SplitFunction:
         print_splitinfo(feature_names, info, prefix)
+    elif type(info) is df.LMTFunction:
+        print_lmtinfo(prefix, info, feature_names)
     else:
         print(f"{prefix}: {type(info)} UNIMPLEMENTED")
 
