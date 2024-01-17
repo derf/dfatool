@@ -1306,7 +1306,9 @@ class ModelAttribute:
             assert not np.any(np.isnan(children))
             loss.append(np.sum(children))
 
-        if np.all(np.isinf(loss)):
+        if np.all(np.isinf(loss)) or np.min(loss) >= np.sum(
+            (np.array(data) - np.mean(data)) ** 2
+        ):
             if ffs_feasible:
                 # try generating a function. if it fails, model_function is a StaticFunction.
                 ma = ModelAttribute(
