@@ -1197,6 +1197,7 @@ class ModelAttribute:
         """
 
         param_count = len(self.param_names) + self.arg_count
+        # TODO eigentlich muss threshold hier auf Basis der aktuellen Messdatenpartition neu berechnet werden
         if param_count == 0 or np.std(data) <= threshold:
             return df.StaticFunction(np.mean(data))
             # sf.value_error["std"] = np.std(data)
@@ -1206,11 +1207,9 @@ class ModelAttribute:
         ffs_feasible = False
         if ignore_irrelevant_parameters:
             by_param = partition_by_param(data, parameters)
-            distinct_values_by_param_index = distinct_param_values(
-                parameters
-            )  # required, "unique_values" in for loop is insufficient for std_by_param foo
-            std_static = np.std(data)
+            distinct_values_by_param_index = distinct_param_values(parameters)
             std_lut = np.mean([np.std(v) for v in by_param.values()])
+            irrelevant_params = list()
 
         if loss_ignore_scalar:
             ffs_eligible_params = list()
@@ -1261,11 +1260,12 @@ class ModelAttribute:
                 std_by_param = _mean_std_by_params(
                     by_param,
                     distinct_values_by_param_index,
-                    list(self.ignore_param.keys()) + [param_index],
+                    list(self.ignore_param.keys()) + irrelevant_params + [param_index],
                 )
                 if not _depends_on_param(
                     None, std_by_param, std_lut, relevance_threshold
                 ):
+                    irrelevant_params.append(param_index)
                     loss.append(np.inf)
                     continue
 
