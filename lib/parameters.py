@@ -923,7 +923,7 @@ class ModelAttribute:
 
     def build_fol_model(self):
         ignore_irrelevant = bool(
-            int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "1"))
+            int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "0"))
         )
         ignore_param_indexes = list()
         if ignore_irrelevant:
@@ -1048,7 +1048,7 @@ class ModelAttribute:
             with_xgboost = bool(int(os.getenv("DFATOOL_USE_XGBOOST", "0")))
         if ignore_irrelevant_parameters is None:
             ignore_irrelevant_parameters = bool(
-                int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "1"))
+                int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "0"))
             )
         if loss_ignore_scalar is None:
             loss_ignore_scalar = bool(
