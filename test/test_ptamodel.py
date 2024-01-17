@@ -1026,7 +1026,7 @@ class TestFromFile(unittest.TestCase):
                         None,
                     ],
                 ),
-                1473,
+                1475,
                 places=0,
             )
         for tx_power in range(18):
@@ -1050,7 +1050,7 @@ class TestFromFile(unittest.TestCase):
                         None,
                     ],
                 ),
-                5030,
+                5032,
                 places=0,
             )
         for tx_power in range(18):
@@ -1125,7 +1125,7 @@ class TestFromFile(unittest.TestCase):
                         None,
                     ],
                 ),
-                19172,
+                19174,
                 places=0,
             )
 
@@ -1136,7 +1136,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 0, None, None, 250, 0, None, 9, 1, None],
             ),
-            16692,
+            16679,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1145,7 +1145,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 0, None, None, 250, 12, None, 9, 1, None],
             ),
-            22317,
+            22299,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1154,7 +1154,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 5, None, None, 250, 0, None, 9, 1, None],
             ),
-            26361,
+            26335,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1163,7 +1163,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 5, None, None, 250, 12, None, 9, 1, None],
             ),
-            35292,
+            35256,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1172,7 +1172,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 5, None, None, 2750, 0, None, 9, 1, None],
             ),
-            7931,
+            7980,
             places=0,
         )
         self.assertAlmostEqual(
@@ -1181,7 +1181,7 @@ class TestFromFile(unittest.TestCase):
                 "power",
                 param=[1, None, 1000, None, 5, None, None, 2750, 12, None, 9, 1, None],
             ),
-            10356,
+            10422,
             places=0,
         )
 
