@@ -163,7 +163,6 @@ def _try_fits(
     raw_results_by_param = dict()
     ref_results = {"mean": list(), "median": list()}
     results = dict()
-    results_by_param = dict()
 
     seen_parameter_combinations = set()
 
@@ -202,7 +201,6 @@ def _try_fits(
             Y = np.array(Y)
             other_parameters = remove_index_from_tuple(k, param_index)
             raw_results_by_param[other_parameters] = dict()
-            results_by_param[other_parameters] = dict()
             for function_name, param_function in functions.items():
                 if function_name not in raw_results:
                     raw_results[function_name] = dict()
@@ -249,13 +247,6 @@ def _try_fits(
                 if err < best_fit_val:
                     best_fit_val = err
                     best_fit_name = function_name
-        results_by_param[other_parameter_combination] = {
-            "best": best_fit_name,
-            "best_err": best_fit_val,
-            "mean_err": results["mean"][best_fit_metric],
-            "median_err": results["median"][best_fit_metric],
-            "results": results,
-        }
 
     best_fit_val = np.inf
     best_fit_name = None
@@ -276,5 +267,4 @@ def _try_fits(
         "mean_err": np.mean(ref_results["mean"]),
         "median_err": np.mean(ref_results["median"]),
         "results": results,
-        "results_by_other_param": results_by_param,
     }
