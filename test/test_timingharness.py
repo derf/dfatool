@@ -31,8 +31,11 @@ class TestModels(unittest.TestCase):
 
         param_model, param_info = model.get_fitted()
         self.assertIsInstance(param_info("setPALevel", "duration"), StaticFunction)
-        self.assertIsInstance(param_info("setRetries", "duration"), StaticFunction)
         self.assertIsInstance(param_info("setup", "duration"), StaticFunction)
+        self.assertEqual(
+            param_info("setRetries", "duration").model_function,
+            "0 + regression_arg(0) + regression_arg(1) * np.log(function_arg(0) + 1) + regression_arg(2) * np.log(function_arg(1) + 1) + regression_arg(3) * np.log(function_arg(0) + 1) * np.log(function_arg(1) + 1)",
+        )
         self.assertEqual(
             param_info("write", "duration").model_function,
             "0 + regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * function_arg(1) + regression_arg(4) * parameter(max_retry_count) * parameter(retry_delay) + regression_arg(5) * parameter(max_retry_count) * function_arg(1) + regression_arg(6) * parameter(retry_delay) * function_arg(1) + regression_arg(7) * parameter(max_retry_count) * parameter(retry_delay) * function_arg(1)",
@@ -90,8 +93,11 @@ class TestModels(unittest.TestCase):
         param_model, param_info = model.get_fitted()
         self.assertIsInstance(param_info("getObserveTx", "duration"), StaticFunction)
         self.assertIsInstance(param_info("setPALevel", "duration"), StaticFunction)
-        self.assertIsInstance(param_info("setRetries", "duration"), StaticFunction)
         self.assertIsInstance(param_info("setup", "duration"), StaticFunction)
+        self.assertEqual(
+            param_info("setRetries", "duration").model_function,
+            "0 + regression_arg(0) + regression_arg(1) * np.log(function_arg(0) + 1) + regression_arg(2) * np.log(function_arg(1) + 1) + regression_arg(3) * np.log(function_arg(0) + 1) * np.log(function_arg(1) + 1)",
+        )
         self.assertEqual(
             param_info("write", "duration").model_function,
             "0 + regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * function_arg(1) + regression_arg(4) * parameter(max_retry_count) * parameter(retry_delay) + regression_arg(5) * parameter(max_retry_count) * function_arg(1) + regression_arg(6) * parameter(retry_delay) * function_arg(1) + regression_arg(7) * parameter(max_retry_count) * parameter(retry_delay) * function_arg(1)",
@@ -159,9 +165,15 @@ class TestModels(unittest.TestCase):
 
         param_model, param_info = model.get_fitted()
         self.assertIsInstance(param_info("setAutoAck", "duration"), StaticFunction)
-        self.assertIsInstance(param_info("setPALevel", "duration"), StaticFunction)
-        self.assertIsInstance(param_info("setRetries", "duration"), StaticFunction)
         self.assertIsInstance(param_info("setup", "duration"), StaticFunction)
+        self.assertEqual(
+            param_info("setRetries", "duration").model_function,
+            "0 + regression_arg(0) + regression_arg(1) * np.exp(function_arg(0)) + regression_arg(2) * np.log(function_arg(1) + 1) + regression_arg(3) * np.exp(function_arg(0)) * np.log(function_arg(1) + 1)",
+        )
+        self.assertEqual(
+            param_info("setPALevel", "duration").model_function,
+            "0 + regression_arg(0) + regression_arg(1) * 1/(parameter(retry_delay))",
+        )
         self.assertEqual(
             param_info("write", "duration").model_function,
             "(parameter(auto_ack!) * (regression_arg(0) + regression_arg(1) * parameter(max_retry_count) + regression_arg(2) * parameter(retry_delay) + regression_arg(3) * parameter(max_retry_count) * parameter(retry_delay))) + ((1 - parameter(auto_ack!)) * regression_arg(4))",
