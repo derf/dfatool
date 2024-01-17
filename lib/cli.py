@@ -250,11 +250,11 @@ def model_quality_table(
                 if results is not None and (
                     info is None
                     or (
-                        key != "energy_Pt"
+                        attr != "energy_Pt"
                         and type(info(key, attr)) is not df.StaticFunction
                     )
                     or (
-                        key == "energy_Pt"
+                        attr == "energy_Pt"
                         and (
                             type(info(key, "power")) is not df.StaticFunction
                             or type(info(key, "duration")) is not df.StaticFunction
