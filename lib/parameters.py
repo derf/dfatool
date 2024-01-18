@@ -1196,7 +1196,8 @@ class ModelAttribute:
         :returns: ModelFunction
         """
 
-        param_count = len(self.param_names) + self.arg_count
+        nonarg_count = len(self.param_names)
+        param_count = nonarg_count + self.arg_count
         # TODO eigentlich muss threshold hier auf Basis der aktuellen Messdatenpartition neu berechnet werden
         if param_count == 0 or np.std(data) <= threshold:
             return df.StaticFunction(np.mean(data))
@@ -1229,7 +1230,11 @@ class ModelAttribute:
                     ffs_unsuitable_params.append(param_index)
 
         for param_index in range(param_count):
-            if param_index in self.ignore_codependent_param:
+            if (
+                param_index >= nonarg_count
+                and self.param_type[param_index] == ParamType.ENUM
+            ):
+                # do not split on non-numeric function arguments
                 loss.append(np.inf)
                 continue
 
