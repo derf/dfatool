@@ -574,7 +574,7 @@ class ModelAttribute:
         # In this case, only one of them must be used for parameter-dependent model attribute detection and modeling
         self.codependent_param_pair = codependent_param
         self.codependent_params = [list() for x in self.log_param_names]
-        self.ignore_param = dict()
+        self.ignore_codependent_param = dict()
 
         # Static model used as lower bound of model accuracy
         if data is not None:
@@ -802,7 +802,7 @@ class ModelAttribute:
                 param1_numeric_count >= param2_numeric_count
                 and params_are_pairwise_none
             ):
-                self.ignore_param[param2_index] = True
+                self.ignore_codependent_param[param2_index] = True
                 self.codependent_params[param1_index].append(param2_index)
                 logger.debug(
                     f"{self.name} {self.attr}: parameters ({self.log_param_names[param1_index]}, {self.log_param_names[param2_index]}) are codependent. Ignoring {self.log_param_names[param2_index]}"
@@ -811,7 +811,7 @@ class ModelAttribute:
                 param2_numeric_count >= param1_numeric_count
                 and params_are_pairwise_none
             ):
-                self.ignore_param[param1_index] = True
+                self.ignore_codependent_param[param1_index] = True
                 self.codependent_params[param2_index].append(param1_index)
                 logger.debug(
                     f"{self.name} {self.attr}: parameters ({self.log_param_names[param1_index]}, {self.log_param_names[param2_index]}) are codependent. Ignoring {self.log_param_names[param1_index]}"
@@ -864,7 +864,7 @@ class ModelAttribute:
         for param_index, param_name in enumerate(self.param_names):
             if (
                 self.stats.depends_on_param(param_name)
-                and not param_index in self.ignore_param
+                and not param_index in self.ignore_codependent_param
             ):
                 return True
         return False
@@ -873,7 +873,7 @@ class ModelAttribute:
         for param_index, param_name in enumerate(self.param_names):
             if (
                 self.stats.depends_on_param(param_name)
-                and not param_index in self.ignore_param
+                and not param_index in self.ignore_codependent_param
             ):
                 param_values = list(map(lambda x: x[param_index], self.param_values))
                 if not all(map(lambda n: n is None or is_numeric(n), param_values)):
@@ -891,7 +891,7 @@ class ModelAttribute:
         for param_index, param_name in enumerate(self.param_names):
             if (
                 self.stats.depends_on_param(param_name)
-                and not param_index in self.ignore_param
+                and not param_index in self.ignore_codependent_param
             ):
                 by_param = self._by_param_for_index(param_index)
                 ret.append(
@@ -907,7 +907,7 @@ class ModelAttribute:
                 param_index = len(self.param_names) + arg_index
                 if (
                     self.stats.depends_on_arg(arg_index)
-                    and not param_index in self.ignore_param
+                    and not param_index in self.ignore_codependent_param
                 ):
                     by_param = self._by_param_for_index(param_index)
                     ret.append(
@@ -1215,7 +1215,7 @@ class ModelAttribute:
             ffs_eligible_params = list()
             ffs_unsuitable_params = list()
             for param_index in range(param_count):
-                if param_index in self.ignore_param:
+                if param_index in self.ignore_codependent_param:
                     continue
                 unique_values = list(set(map(lambda p: p[param_index], parameters)))
                 if None in unique_values:
@@ -1229,7 +1229,7 @@ class ModelAttribute:
                     ffs_unsuitable_params.append(param_index)
 
         for param_index in range(param_count):
-            if param_index in self.ignore_param:
+            if param_index in self.ignore_codependent_param:
                 loss.append(np.inf)
                 continue
 
@@ -1260,7 +1260,9 @@ class ModelAttribute:
                 std_by_param = _mean_std_by_params(
                     by_param,
                     distinct_values_by_param_index,
-                    list(self.ignore_param.keys()) + irrelevant_params + [param_index],
+                    list(self.ignore_codependent_param.keys())
+                    + irrelevant_params
+                    + [param_index],
                 )
                 if not _depends_on_param(
                     None, std_by_param, std_lut, relevance_threshold
@@ -1293,7 +1295,7 @@ class ModelAttribute:
                     child_data_by_scalar = partition_by_param(
                         child_data,
                         child_param,
-                        ignore_parameters=list(self.ignore_param.keys())
+                        ignore_parameters=list(self.ignore_codependent_param.keys())
                         + ffs_unsuitable_params,
                     )
                     logger.debug(f"got {len(child_data_by_scalar)} partitions")
@@ -1335,7 +1337,7 @@ class ModelAttribute:
             data_by_scalar = partition_by_param(
                 data,
                 parameters,
-                ignore_parameters=list(self.ignore_param.keys())
+                ignore_parameters=list(self.ignore_codependent_param.keys())
                 + ffs_unsuitable_params,
             )
             if np.all(
