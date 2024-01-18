@@ -130,7 +130,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_XGB_REG_LAMBDA` | 0 .. **1** .. *n* | XGBoost L2 regularization term on weight. |
 | `OMP_NUM_THREADS` | *number of CPU cores* | Maximum number of threads used per XGBoost learner. A limit of 4 threads appears to be ideal. Note that dfatool may spawn several XGBoost instances at the same time. |
 | `DFATOOL_KCONF_IGNORE_NUMERIC` | **0**, 1 | Ignore numeric (int/hex) configuration options. Useful for comparison with CART/DECART. |
-| `DFATOOL_KCONF_IGNORE_STRING` | **0**, 1 | Ignore string configuration options. Useful for comparison with CART/DECART. |
+| `DFATOOL_KCONF_IGNORE_STRING` | 0, **1** | Ignore string configuration options. These often hold compiler paths and other not really helpful information. |
 | `DFATOOL_FIT_LINEAR_ONLY` | **0**, 1 | Only consider linear functions (a + bx) in regression analysis. Useful for comparison with Linear Model Trees / M5. |
 | `DFATOOL_REGRESSION_SAFE_FUNCTIONS` | **0**, 1 | Use safe functions only (e.g. 1/x returnning 1 for x==0) |
 | `DFATOOL_DTREE_NONBINARY_NODES` | 0, **1** | Enable non-binary nodes (i.e., nodes with more than two children corresponding to enum variables) in decision trees |

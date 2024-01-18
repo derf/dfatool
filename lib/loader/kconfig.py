@@ -45,7 +45,7 @@ class KConfigAttributes:
             accepted_symbol_types.remove("int")
             accepted_symbol_types.remove("hex")
 
-        if bool(int(os.getenv("DFATOOL_KCONF_IGNORE_STRING", 0))):
+        if bool(int(os.getenv("DFATOOL_KCONF_IGNORE_STRING", 1))):
             accepted_symbol_types.remove("string")
 
         self.symbol_names = sorted(

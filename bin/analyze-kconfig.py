@@ -225,7 +225,7 @@ def main():
             with open(args.model, "r") as f:
                 observations = json.load(f)
 
-        if bool(int(os.getenv("DFATOOL_KCONF_IGNORE_STRING", 0))) or bool(
+        if bool(int(os.getenv("DFATOOL_KCONF_IGNORE_STRING", 1))) or bool(
             int(os.getenv("DFATOOL_KCONF_IGNORE_NUMERIC", 0))
         ):
             attributes = KConfigAttributes(args.kconfig_path, None)
