@@ -41,7 +41,7 @@ All of these are valid regression model trees.
 * `DFATOOL_FIT_LINEAR_ONLY=1` makes RMT behave more like LMT by only considering linear functions in leaf nodes.
 * `DFATOOL_FIT_FOL=1`
 * `DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1`
-* `DFATOOL_SKIP_CODEPENDENT_CHECK=1`
+* `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK=1`
 * `DFATOOL_REGRESSION_SAFE_FUNCTIONS=1`
 
 ##

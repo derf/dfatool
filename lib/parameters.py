@@ -282,7 +282,7 @@ def codependent_param_dict(param_values):
     if not len(param_values):
         logger.warning("codependent_param_dict called with param_values=[]")
         return dict()
-    if bool(int(os.getenv("DFATOOL_SKIP_CODEPENDENT_CHECK", 0))):
+    if bool(int(os.getenv("DFATOOL_ULS_SKIP_CODEPENDENT_CHECK", 0))):
         return dict()
     lut = [dict() for i in param_values[0]]
     for param_index in range(len(param_values[0])):
