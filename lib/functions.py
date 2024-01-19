@@ -1330,7 +1330,7 @@ class analytic:
         return "analytic._{}({})".format(function_type, ref_str)
 
     @staticmethod
-    def function_powerset(fit_results, parameter_names, num_args=0):
+    def function_powerset(fit_results, parameter_names, num_args=0, **kwargs):
         """
         Combine per-parameter regression results into a single multi-dimensional function.
 
@@ -1368,5 +1368,5 @@ class analytic:
                         )
                     )
         return AnalyticFunction(
-            None, buf, parameter_names, num_args, fit_by_param=fit_results
+            None, buf, parameter_names, num_args, fit_by_param=fit_results, **kwargs
         )
