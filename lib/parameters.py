@@ -692,6 +692,9 @@ class ModelAttribute:
             ret["decision tree/inner nodes"] = 0
             ret["decision tree/max depth"] = 0
 
+        if type(self.model_function) == df.XGBoostFunction:
+            ret.update(self.model_function.to_dref())
+
         return ret
 
     def to_dot(self):
@@ -1056,7 +1059,7 @@ class ModelAttribute:
                 n_estimators=int(os.getenv("DFATOOL_XGB_N_ESTIMATORS", "100")),
                 max_depth=int(os.getenv("DFATOOL_XGB_MAX_DEPTH", "10")),
                 subsample=float(os.getenv("DFATOOL_XGB_SUBSAMPLE", "0.7")),
-                eta=float(os.getenv("DFATOOL_XGB_ETA", "0.3")),
+                learning_rate=float(os.getenv("DFATOOL_XGB_ETA", "0.3")),
                 gamma=float(os.getenv("DFATOOL_XGB_GAMMA", "0.01")),
                 reg_alpha=float(os.getenv("DFATOOL_XGB_REG_ALPHA", "0.0006")),
                 reg_lambda=float(os.getenv("DFATOOL_XGB_REG_LAMBDA", "1")),

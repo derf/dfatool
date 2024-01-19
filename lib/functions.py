@@ -731,6 +731,17 @@ class XGBoostFunction(SKLearnRegressionFunction):
     def get_complexity_score(self):
         return self.get_number_of_nodes()
 
+    def to_dref(self):
+        return {
+            "hyper/n estimators": self.regressor.n_estimators,
+            "hyper/max depth": self.regressor.max_depth,
+            "hyper/subsample": self.regressor.subsample,
+            "hyper/eta": self.regressor.learning_rate,
+            "hyper/gamma": self.regressor.gamma,
+            "hyper/alpha": self.regressor.reg_alpha,
+            "hyper/lambda": self.regressor.reg_lambda,
+        }
+
 
 # first-order linear function (no feature interaction)
 class FOLFunction(ModelFunction):
