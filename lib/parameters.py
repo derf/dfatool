@@ -1286,8 +1286,11 @@ class ModelAttribute:
                         )
                     )
                 )
+                assert len(child_indexes[-1]) > 0
 
-            if len(list(filter(len, child_indexes))) <= 1:
+            assert len(child_indexes) != 0
+
+            if len(child_indexes) == 1:
                 # this param only has a single value. there's no point in splitting.
                 loss.append(np.inf)
                 continue
