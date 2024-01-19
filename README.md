@@ -118,7 +118,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_DTREE_SKLEARN_DECART` | **0**, 1 | Use sklearn CART ("Decision Tree Regression") algorithm for decision tree generation. Ignore scalar parameters, thus emulating the DECART algorithm. |
 | `DFATOOL_DTREE_LMT` | **0**, 1 | Use [Linear Model Tree](https://github.com/cerlymarco/linear-tree) algorithm for regression tree generation. Uses binary nodes and linear functions. Overrides `FUNCTION_LEAVES` (=0) and `NONBINARY_NODES` (=0). |
 | `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default (0): unlimited. |
-| `DFATOOL_ULS_ERROR_METRIC` | **rmsd**, mae, p50, p90 | Error metric to use when selecting best-fitting function during unsupervised least squares (ULS) regression. Least squares regression itself minimzes root mean square deviation (rmsd), hence rmsd is the default. |
+| `DFATOOL_ULS_ERROR_METRIC` | **ssr**, rmsd, mae, … | Error metric to use when selecting best-fitting function during unsupervised least squares (ULS) regression. Least squares regression itself minimzes root mean square deviation (rmsd), hence the equivalent (but partitioning-compatible) sum of squared residuals (ssr) is the default. Supports all metrics accepted by `--error-metric`. |
 | `DFATOOL_ULS_MIN_DISTINCT_VALUES` | 2 .. **3** .. *n* | Minimum number of unique values a parameter must take to be eligible for ULS |
 | `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK` | **0**, 1 | Do not detect and remove co-dependent features in ULS. |
 | `DFATOOL_USE_XGBOOST` | **0**, 1 | Use Extreme Gradient Boosting algorithm for decision forest generation. |
