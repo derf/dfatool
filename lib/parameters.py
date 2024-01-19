@@ -43,12 +43,10 @@ def distinct_param_values(param_tuples):
 
 
 def _depends_on_param(corr_param, std_param, std_lut, threshold=0.5):
-    # if self.use_corrcoef:
-    if False:
-        return corr_param > 0.1
-    elif std_param == 0:
+    if std_param == 0:
         # In general, std_param_lut < std_by_param. So, if std_by_param == 0, std_param_lut == 0 follows.
         # This means that the variation of param does not affect the model quality -> no influence
+        # assert std_lut == 0
         return False
     return std_lut / std_param < threshold
 
@@ -1159,6 +1157,10 @@ class ModelAttribute:
             )
 
         relevance_threshold = float(os.getenv("DFATOOL_PARAM_RELEVANCE_THRESHOLD", 0.5))
+
+        logger.debug(
+            f"build_dtree(threshold={threshold}, relevance_threshold={relevance_threshold})"
+        )
 
         self.model_function = self._build_dtree(
             parameters,
