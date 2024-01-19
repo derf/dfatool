@@ -920,6 +920,7 @@ class ModelAttribute:
             function_str,
             self.param_names,
             self.arg_count,
+            n_samples=self.data.shape[0],
             # fit_by_param=fit_result,
         )
         x.fit(self.by_param)
@@ -1031,7 +1032,9 @@ class ModelAttribute:
                 logger.warning(
                     f"Cannot generate CART for {self.name} {self.attr} due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
                 )
-                self.model_function = df.StaticFunction(np.mean(data))
+                self.model_function = df.StaticFunction(
+                    np.mean(data), n_samples=len(data)
+                )
                 return
             logger.debug("Fitting sklearn CART ...")
             cart.fit(fit_parameters, data)
@@ -1065,7 +1068,9 @@ class ModelAttribute:
                 logger.warning(
                     f"Cannot run XGBoost for {self.name} {self.attr} due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
                 )
-                self.model_function = df.StaticFunction(np.mean(data))
+                self.model_function = df.StaticFunction(
+                    np.mean(data), n_samples=len(data)
+                )
                 return
             xgb.fit(fit_parameters, np.reshape(data, (-1, 1)))
             self.model_function = df.XGBoostFunction(
@@ -1090,14 +1095,18 @@ class ModelAttribute:
                 logger.warning(
                     f"Cannot generate LMT for {self.name} {self.attr} due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
                 )
-                self.model_function = df.StaticFunction(np.mean(data))
+                self.model_function = df.StaticFunction(
+                    np.mean(data), n_samples=len(data)
+                )
                 return
             logger.debug("Fitting LMT ...")
             try:
                 lmt.fit(fit_parameters, data)
             except np.linalg.LinAlgError as e:
                 logger.error(f"LMT generation for {self.name} {self.attr} failed: {e}")
-                self.model_function = df.StaticFunction(np.mean(data))
+                self.model_function = df.StaticFunction(
+                    np.mean(data), n_samples=len(data)
+                )
                 return
             logger.debug("Fitted LMT")
             self.model_function = df.LMTFunction(
@@ -1156,7 +1165,7 @@ class ModelAttribute:
         param_count = nonarg_count + self.arg_count
         # TODO eigentlich muss threshold hier auf Basis der aktuellen Messdatenpartition neu berechnet werden
         if param_count == 0 or np.std(data) <= threshold:
-            return df.StaticFunction(np.mean(data))
+            return df.StaticFunction(np.mean(data), n_samples=len(data))
             # sf.value_error["std"] = np.std(data)
 
         loss = list()
@@ -1294,7 +1303,7 @@ class ModelAttribute:
                 paramfit.fit()
                 ma.set_data_from_paramfit(paramfit)
                 return ma.model_function
-            return df.StaticFunction(np.mean(data))
+            return df.StaticFunction(np.mean(data), n_samples=len(data))
 
         split_feasible = True
         if loss_ignore_scalar:
@@ -1365,4 +1374,4 @@ class ModelAttribute:
 
         assert len(child.values()) >= 2
 
-        return df.SplitFunction(np.mean(data), symbol_index, child)
+        return df.SplitFunction(np.mean(data), symbol_index, child, n_samples=len(data))

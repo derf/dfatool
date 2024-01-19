@@ -177,11 +177,12 @@ class ModelFunction:
     :type value_error: dict, optional
     """
 
-    def __init__(self, value):
+    def __init__(self, value, n_samples=None):
         # a model always has a static (median/mean) value. For StaticFunction, it's the only data point.
         # For more complex models, it's usede both as fallback in case the model cannot predict the current
         # parameter combination, and for use cases requiring static models
         self.value = value
+        self.n_samples = n_samples
 
         # A ModelFunction may track its own accuracy, both of the static value and of the eval() method.
         # However, it does not specify how the accuracy was calculated (e.g. which data was used and whether cross-validation was performed)
@@ -213,6 +214,7 @@ class ModelFunction:
         """Convert model to JSON."""
         ret = {
             "value": self.value,
+            "n_samples": self.n_samples,
             "valueError": self.value_error,
             "functionError": self.function_error,
         }
@@ -308,8 +310,8 @@ class StaticFunction(ModelFunction):
 
 
 class SplitFunction(ModelFunction):
-    def __init__(self, value, param_index, child):
-        super().__init__(value)
+    def __init__(self, value, param_index, child, **kwargs):
+        super().__init__(value, **kwargs)
         self.param_index = param_index
         self.child = child
 
@@ -416,8 +418,8 @@ class SplitFunction(ModelFunction):
 
 
 class SubstateFunction(ModelFunction):
-    def __init__(self, value, sequence_by_count, count_model, sub_model):
-        super().__init__(value)
+    def __init__(self, value, sequence_by_count, count_model, sub_model, **kwargs):
+        super().__init__(value, **kwargs)
         self.sequence_by_count = sequence_by_count
         self.count_model = count_model
         self.sub_model = sub_model
@@ -475,8 +477,8 @@ class SKLearnRegressionFunction(ModelFunction):
     always_predictable = True
     has_eval_arr = True
 
-    def __init__(self, value, regressor, categorial_to_index, ignore_index):
-        super().__init__(value)
+    def __init__(self, value, regressor, categorial_to_index, ignore_index, **kwargs):
+        super().__init__(value, **kwargs)
         self.regressor = regressor
         self.categorial_to_index = categorial_to_index
         self.ignore_index = ignore_index
@@ -734,8 +736,8 @@ class XGBoostFunction(SKLearnRegressionFunction):
 class FOLFunction(ModelFunction):
     always_predictable = True
 
-    def __init__(self, value, parameters, num_args=0):
-        super().__init__(value)
+    def __init__(self, value, parameters, num_args=0, **kwargs):
+        super().__init__(value, **kwargs)
         self.parameter_names = parameters
         self._num_args = num_args
         self.fit_success = False
@@ -904,6 +906,7 @@ class AnalyticFunction(ModelFunction):
         num_args=0,
         regression_args=None,
         fit_by_param=None,
+        **kwargs,
     ):
         """
         Create a new AnalyticFunction object from a function string.
@@ -923,7 +926,7 @@ class AnalyticFunction(ModelFunction):
             both for function usage and least squares optimization.
             If unset, defaults to [1, 1, 1, ...]
         """
-        super().__init__(value)
+        super().__init__(value, **kwargs)
         self._parameter_names = parameters
         self._num_args = num_args
         self.model_function = function_str
