@@ -733,13 +733,13 @@ class XGBoostFunction(SKLearnRegressionFunction):
 
     def to_dref(self):
         return {
-            "hyper/n estimators": self.regressor.n_estimators,
-            "hyper/max depth": self.regressor.max_depth,
-            "hyper/subsample": self.regressor.subsample,
-            "hyper/eta": self.regressor.learning_rate,
-            "hyper/gamma": self.regressor.gamma,
-            "hyper/alpha": self.regressor.reg_alpha,
-            "hyper/lambda": self.regressor.reg_lambda,
+            "xgb hyper/n estimators": self.regressor.n_estimators,
+            "xgb hyper/max depth": self.regressor.max_depth,
+            "xgb hyper/subsample": self.regressor.subsample,
+            "xgb hyper/eta": self.regressor.learning_rate,
+            "xgb hyper/gamma": self.regressor.gamma,
+            "xgb hyper/alpha": self.regressor.reg_alpha,
+            "xgb hyper/lambda": self.regressor.reg_lambda,
         }
 
 
