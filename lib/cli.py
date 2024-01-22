@@ -16,6 +16,9 @@ def sanity_check(args):
             "--force-tree and DFATOOL_FIT_FOL=1 are mutually exclusive", file=sys.stderr
         )
         sys.exit(1)
+    if args.skip_param_stats and not args.force_tree:
+        print("--skip-param-stats requires --force-tree", file=sys.stderr)
+        sys.exit(1)
 
 
 def print_static(model, static_model, name, attribute, with_dependence=False):
@@ -597,6 +600,11 @@ def add_standard_arguments(parser):
         "rmsd   : Root Mean Square Deviation\n"
         "ssr    : Sum of Squared Residuals\n"
         "rsq    : R² Score",
+    )
+    parser.add_argument(
+        "--skip-param-stats",
+        action="store_true",
+        help="Do not compute param stats that are required for RMT. Use this for high-dimensional feature spaces.",
     )
     parser.add_argument(
         "--force-tree",

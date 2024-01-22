@@ -408,6 +408,7 @@ if __name__ == "__main__":
         pta=pta,
         pelt=args.with_substates,
         force_tree=args.force_tree,
+        compute_stats=not args.skip_param_stats,
     )
     constructor_duration = time.time() - constructor_start
 
@@ -424,7 +425,12 @@ if __name__ == "__main__":
         xv_method, xv_count = args.cross_validate.split(":")
         xv_count = int(xv_count)
         xv = CrossValidator(
-            PTAModel, by_name, parameters, arg_count, force_tree=args.force_tree
+            PTAModel,
+            by_name,
+            parameters,
+            arg_count,
+            force_tree=args.force_tree,
+            compute_stats=not args.skip_param_stats,
         )
         xv.parameter_aware = args.parameter_aware_cross_validation
     else:

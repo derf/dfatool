@@ -71,11 +71,6 @@ def main():
         help="Show Kconfig symbols which are only present in a single configuration. Must be used with an experiment result directory.",
     )
     parser.add_argument(
-        "--skip-param-stats",
-        action="store_true",
-        help="Do not compute param stats that are required for RMT. Use this for large kconfig files.",
-    )
-    parser.add_argument(
         "--max-std",
         type=str,
         metavar="VALUE_OR_MAP",
@@ -147,10 +142,6 @@ def main():
 
     args = parser.parse_args()
     dfatool.cli.sanity_check(args)
-
-    if args.skip_param_stats and not args.force_tree:
-        print("--skip-param-stats requires --force-tree", file=sys.stderr)
-        sys.exit(1)
 
     if args.log_level:
         numeric_level = getattr(logging, args.log_level.upper(), None)

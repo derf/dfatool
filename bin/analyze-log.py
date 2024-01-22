@@ -96,6 +96,7 @@ def main():
         by_name,
         parameter_names,
         force_tree=args.force_tree,
+        compute_stats=not args.skip_param_stats,
         function_override=function_override,
     )
 
@@ -156,6 +157,7 @@ def main():
             by_name,
             parameter_names,
             force_tree=args.force_tree,
+            compute_stats=not args.skip_param_stats,
         )
         xv.parameter_aware = args.parameter_aware_cross_validation
     else:
