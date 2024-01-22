@@ -352,7 +352,7 @@ if __name__ == "__main__":
             target = f"{args.export_traces}/{name}.json"
             print(f"exporting {target} ...")
             with open(target, "w") as f:
-                json.dump(data, f)
+                json.dump(data, f, cls=dfatool.utils.NpEncoder)
 
     if args.with_substates is not None:
         arg_dict = dict()
