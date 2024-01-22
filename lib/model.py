@@ -261,11 +261,7 @@ class AnalyticModel:
             for k, v in attr.items():
                 static_model[name][k] = v.get_static(use_mean=use_mean)
                 lut_model[name][k] = dict()
-                if not v.by_param:
-                    raise RuntimeError(
-                        f"ModelAttribute({name}, {k}).by_param is None. Did you run ParallelParamStats.compute?"
-                    )
-                for param, model_value in v.by_param.items():
+                for param, model_value in v.get_by_param().items():
                     lut_model[name][k][param] = v.get_lut(param, use_mean=use_mean)
 
         def lut_median_getter(name, key, **kwargs):

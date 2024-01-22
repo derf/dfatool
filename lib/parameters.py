@@ -583,7 +583,7 @@ class ModelAttribute:
             self.median = None
 
         # LUT model used as upper bound of model accuracy
-        self.by_param = None  # set via ParallelParamStats
+        self.by_param = None  # set via ParallelParamStats or get_by_param
 
         # param model override
         self.function_override = None
@@ -824,6 +824,11 @@ class ModelAttribute:
         if use_mean:
             return np.mean(self.by_param[param])
         return np.median(self.by_param[param])
+
+    def get_by_param(self):
+        if self.by_param is None:
+            self.by_param = partition_by_param(self.data, self.param_values)
+        return self.by_param
 
     def get_data_for_paramfit(self, safe_functions_enabled=False):
         ret = list()
