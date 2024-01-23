@@ -172,6 +172,7 @@ def main():
     pta = None
     energymodel_export_file = None
     trace_export_dir = None
+    timing = dict()
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
@@ -402,7 +403,7 @@ def main():
         by_name, z_limit=args.z_score, remove_outliers=args.remove_outliers
     )
 
-    constructor_start = time.time()
+    ts = time.time()
     model = PTAModel(
         by_name,
         parameters,
@@ -414,7 +415,7 @@ def main():
         force_tree=args.force_tree,
         compute_stats=not args.skip_param_stats,
     )
-    constructor_duration = time.time() - constructor_start
+    timing["PTAModel"] = time.time() - ts
 
     if args.info:
         dfatool.cli.print_info_by_name(model, by_name)
@@ -597,27 +598,34 @@ def main():
                     )
                 )
 
+    ts = time.time()
     if xv_method == "montecarlo":
         static_quality, _ = xv.montecarlo(lambda m: m.get_static(), xv_count)
     elif xv_method == "kfold":
         static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count)
     else:
         static_quality = model.assess(static_model)
+    timing["assess static"] = time.time() - ts
 
     if len(args.show_model):
         print("--- LUT ---")
+
+    ts = time.time()
     lut_model = model.get_param_lut()
+    timing["get lut"] = time.time() - ts
+
+    ts = time.time()
     lut_quality = model.assess(lut_model)
+    timing["assess lut"] = time.time() - ts
 
     if len(args.show_model):
         print("--- param model ---")
 
-    # get_fitted_sub -> with sub-state detection and modeling
-    fit_start_time = time.time()
+    ts = time.time()
     param_model, param_info = model.get_fitted(
         safe_functions_enabled=safe_functions_enabled
     )
-    fit_duration = time.time() - fit_start_time
+    timing["get model"] = time.time() - ts
 
     if "paramdetection" in args.show_model or "all" in args.show_model:
         for name in model.names:
@@ -714,6 +722,7 @@ def main():
                     raw_data.setup_by_fileno[0]["state_duration"] * 1e3
                 )
 
+    ts = time.time()
     if xv_method == "montecarlo":
         xv.export_filename = args.export_xv
         analytic_quality, xv_analytic_models = xv.montecarlo(
@@ -732,6 +741,7 @@ def main():
         else:
             analytic_quality = model.assess(param_model)
         xv_analytic_models = None
+    timing["assess model"] = time.time() - ts
 
     if args.show_model_error:
         dfatool.cli.model_quality_table(
@@ -842,8 +852,8 @@ def main():
                 xv_models=xv_analytic_models,
             )
         )
-        dref["constructor duration"] = (constructor_duration, r"\second")
-        dref["regression duration"] = (fit_duration, r"\second")
+        for key, value in timing.items():
+            dref[f"timing/{key}"] = (value, r"\second")
         dfatool.cli.export_dataref(
             args.export_dref, dref, precision=args.dref_precision
         )
