@@ -53,7 +53,11 @@ def main():
         if not isinstance(numeric_level, int):
             print(f"Invalid log level: {args.log_level}", file=sys.stderr)
             sys.exit(1)
-        logging.basicConfig(level=numeric_level, format="%(asctime)s  %(message)s")
+        logging.basicConfig(
+            level=numeric_level,
+            format="{asctime} {levelname}:{name}:{message}",
+            style="{",
+        )
 
     if args.filter_param:
         args.filter_param = list(
