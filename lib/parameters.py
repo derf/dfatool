@@ -585,6 +585,8 @@ class ModelAttribute:
         # LUT model used as upper bound of model accuracy
         self.by_param = None  # set via ParallelParamStats or get_by_param
 
+        self.stats = None  # set via ParallelParamStats
+
         # param model override
         self.function_override = None
 
@@ -911,9 +913,14 @@ class ModelAttribute:
             for param_index, param in enumerate(self.param_names):
                 if not self.stats.depends_on_param(param):
                     ignore_param_indexes.append(param_index)
-        for param_index, _ in enumerate(self.param_names):
-            if len(self.stats.distinct_values_by_param_index[param_index]) < 2:
-                ignore_param_indexes.append(param_index)
+        if not self.stats:
+            logger.warning(
+                "build_fol_model called with ModelAttribute.stats unavailable -- overfitting likely"
+            )
+        else:
+            for param_index, _ in enumerate(self.param_names):
+                if len(self.stats.distinct_values_by_param_index[param_index]) < 2:
+                    ignore_param_indexes.append(param_index)
         x = df.FOLFunction(self.median, self.param_names, n_samples=self.data.shape[0])
         x.fit(self.param_values, self.data, ignore_param_indexes=ignore_param_indexes)
         if x.fit_success:
