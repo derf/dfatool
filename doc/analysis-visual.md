@@ -8,7 +8,7 @@ There are two ways of visualizing all measured data independent of their paramet
 
 * `--boxplot-unparam PREFIX` writes boxplots of all observations to PREFIX(name)-(attribute).pdf and combined boxplots to PREFIX(name).pdf.
   These may be helpful to see which observations are stable and which show a lot of variance, possibly due to the influence of parameters.
-  By default, the boxplots are also shown interactively; use `--non-interactive` to display that.
+  By default, the boxplots are also shown interactively; use `--non-interactive` to disable that.
 * `--plot-unparam=name:attribute:ylabel` plots all observations of name/attribute in the order in which they were observed.
   Useful to identify trends (especially when the parameter variation scheme is known as well) and interference.
   The plot is shown interactively, but not written to the filesystem.
