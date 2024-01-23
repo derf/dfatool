@@ -232,7 +232,7 @@ if __name__ == "__main__":
             if not isinstance(numeric_level, int):
                 print(f"Invalid log level: {loglevel}", file=sys.stderr)
                 sys.exit(1)
-            logging.basicConfig(level=numeric_level)
+            logging.basicConfig(level=numeric_level, format="%(asctime)s  %(message)s")
 
     except getopt.GetoptError as err:
         print(err)

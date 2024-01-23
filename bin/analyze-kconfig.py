@@ -148,7 +148,7 @@ def main():
         if not isinstance(numeric_level, int):
             print(f"Invalid log level: {args.log_level}", file=sys.stderr)
             sys.exit(1)
-        logging.basicConfig(level=numeric_level)
+        logging.basicConfig(level=numeric_level, format="%(asctime)s  %(message)s")
 
     if args.export_dref:
         dref = dict()

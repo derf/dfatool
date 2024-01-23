@@ -264,7 +264,7 @@ if __name__ == "__main__":
         if not isinstance(numeric_level, int):
             print(f"Invalid log level: {args.log_level}", file=sys.stderr)
             sys.exit(1)
-        logging.basicConfig(level=numeric_level)
+        logging.basicConfig(level=numeric_level, format="%(asctime)s  %(message)s")
 
     if args.ignored_trace_indexes:
         ignored_trace_indexes = list(map(int, args.ignored_trace_indexes.split(",")))
