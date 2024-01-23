@@ -44,8 +44,12 @@ All of these are valid regression model trees.
 * `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK=1`
 * `DFATOOL_REGRESSION_SAFE_FUNCTIONS=1`
 
-##
+## Least-Squares Regression
 
+If dfatool determines that there is no need for a tree structure, or if `DFATOOL_DTREE_ENABLED=0` has beenset, it will go straight to least-squares regression.
+By default, it still utilizes the RMT/ULS algorithms to find and fit a suitable function template.
+If needed, `--function-override` can be used to set a function template manually.
+For instance, in order to specify that NMC DPU allocation latency is a function of the number of DPUs (and nothing else), ue `--function-override 'NMC reconfiguration:latency_dpu_alloc_us:regression_arg(0) + regression_arg(1) * parameter(n_dpus)'`
 
 * CART: Regression Trees
 * DECART: Regression Trees with exclusively binary features/parameters

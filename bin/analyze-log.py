@@ -89,8 +89,8 @@ def main():
     function_override = dict()
     if args.function_override:
         for function_desc in args.function_override.split(";"):
-            state_or_tran, attribute, *function_str = function_desc.split(" ")
-            function_override[(state_or_tran, attribute)] = " ".join(function_str)
+            state_or_tran, attribute, function_str = function_desc.split(":")
+            function_override[(state_or_tran, attribute)] = function_str
 
     model = AnalyticModel(
         by_name,

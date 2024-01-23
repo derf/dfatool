@@ -273,8 +273,8 @@ if __name__ == "__main__":
 
     if args.function_override:
         for function_desc in args.function_override.split(";"):
-            state_or_tran, attribute, *function_str = function_desc.split(" ")
-            function_override[(state_or_tran, attribute)] = " ".join(function_str)
+            state_or_tran, attribute, function_str = function_desc.split(":")
+            function_override[(state_or_tran, attribute)] = function_str
 
     show_quality = args.show_quality
 

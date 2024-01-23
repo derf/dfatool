@@ -575,7 +575,7 @@ def add_standard_arguments(parser):
     )
     parser.add_argument(
         "--function-override",
-        metavar="<name> <attribute> <function>[;<name> <attribute> <function>;...]",
+        metavar="<name>:<attribute>:<function>[;<name>:<attribute>:<function>;...]",
         type=str,
         help="Manually specify the function to fit for <name> <attribute>. "
         "A function specified this way bypasses parameter detection: "
