@@ -164,7 +164,7 @@ def plot_traces(preprocessed_data, sot_name):
     )
 
 
-if __name__ == "__main__":
+def main():
     ignored_trace_indexes = []
     safe_functions_enabled = False
     function_override = {}
@@ -896,4 +896,6 @@ if __name__ == "__main__":
         with open(args.export_pta_dot, "w") as f:
             f.write(model.to_dot())
 
-    sys.exit(0)
+
+if __name__ == "__main__":
+    main()
