@@ -220,6 +220,9 @@ class ModelFunction:
         }
         return ret
 
+    def hyper_to_dref(self):
+        return dict()
+
     @classmethod
     def from_json(cls, data):
         """
@@ -737,15 +740,15 @@ class XGBoostFunction(SKLearnRegressionFunction):
     def get_complexity_score(self):
         return self.get_number_of_nodes()
 
-    def to_dref(self):
+    def hyper_to_dref(self):
         return {
-            "xgb hyper/n estimators": self.regressor.n_estimators,
-            "xgb hyper/max depth": self.regressor.max_depth,
-            "xgb hyper/subsample": self.regressor.subsample,
-            "xgb hyper/eta": self.regressor.learning_rate,
-            "xgb hyper/gamma": self.regressor.gamma,
-            "xgb hyper/alpha": self.regressor.reg_alpha,
-            "xgb hyper/lambda": self.regressor.reg_lambda,
+            "xgb/n estimators": self.regressor.n_estimators,
+            "xgb/max depth": self.regressor.max_depth,
+            "xgb/subsample": self.regressor.subsample,
+            "xgb/eta": self.regressor.learning_rate,
+            "xgb/gamma": self.regressor.gamma,
+            "xgb/alpha": self.regressor.reg_alpha,
+            "xgb/lambda": self.regressor.reg_lambda,
         }
 
 
@@ -760,14 +763,14 @@ class FOLFunction(ModelFunction):
         self.fit_success = False
 
     def fit(self, param_values, data, ignore_param_indexes=None):
-        categorial_to_scalar = bool(
+        self.categorial_to_scalar = bool(
             int(os.getenv("DFATOOL_PARAM_CATEGORIAL_TO_SCALAR", "0"))
         )
         second_order = int(os.getenv("DFATOOL_FOL_SECOND_ORDER", "0"))
         fit_parameters, categorial_to_index, ignore_index = param_to_ndarray(
             param_values,
             with_nan=False,
-            categorial_to_scalar=categorial_to_scalar,
+            categorial_to_scalar=self.categorial_to_scalar,
             ignore_indexes=ignore_param_indexes,
         )
         self.categorial_to_index = categorial_to_index
@@ -904,6 +907,11 @@ class FOLFunction(ModelFunction):
             }
         )
         return ret
+
+    def hyper_to_dref(self):
+        return {
+            "fol/categorial to scalar": int(self.categorial_to_scalar),
+        }
 
 
 class AnalyticFunction(ModelFunction):

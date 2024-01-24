@@ -694,9 +694,6 @@ class ModelAttribute:
             ret["decision tree/inner nodes"] = 0
             ret["decision tree/max depth"] = 0
 
-        if type(self.model_function) == df.XGBoostFunction:
-            ret.update(self.model_function.to_dref())
-
         return ret
 
     def to_dot(self):

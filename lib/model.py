@@ -499,6 +499,8 @@ class AnalyticModel:
                     unit = r"\micro\second"
                 for k, v in attr.to_dref(unit).items():
                     ret[f"data/{name}/{attr_name}/{k}"] = v
+                for k, v in attr.model_function.hyper_to_dref().items():
+                    ret[f"hyper/{name}/{attr_name}/{k}"] = v
                 e_static = static_quality[name][attr_name]
                 for metric in "mae p50 p90 p95 p99".split():
                     ret[f"error/static/{name}/{attr_name}/{metric}"] = (
