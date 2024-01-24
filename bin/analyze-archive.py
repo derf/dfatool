@@ -600,11 +600,9 @@ def main():
 
     ts = time.time()
     if xv_method == "montecarlo":
-        static_quality, _ = xv.montecarlo(
-            lambda m: m.get_static(), xv_count, static=True
-        )
+        static_quality, _ = xv.montecarlo(lambda m: m.get_static(), xv_count)
     elif xv_method == "kfold":
-        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count, static=True)
+        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count)
     else:
         static_quality = model.assess(static_model)
     timing["assess static"] = time.time() - ts
