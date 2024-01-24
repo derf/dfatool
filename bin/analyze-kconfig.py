@@ -51,6 +51,7 @@ def write_csv(f, model, attr, precision=None):
 
 
 def main():
+    timing = dict()
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
     )
@@ -323,7 +324,7 @@ def main():
     else:
         max_std = None
 
-    constructor_start = time.time()
+    ts = time.time()
     model = AnalyticModel(
         by_name,
         parameter_names,
@@ -332,8 +333,7 @@ def main():
         compute_stats=not args.skip_param_stats,
         function_override=function_override,
     )
-    constructor_duration = time.time() - constructor_start
-    logging.debug(f"AnalyticModel(...) took {constructor_duration : 7.1f} seconds")
+    timing["AnalyticModel"] = time.time() - ts
 
     if not model.names:
         logging.error(
@@ -431,9 +431,26 @@ def main():
         xv_count = None
 
     static_model = model.get_static()
+
+    ts = time.time()
+    if xv_method == "montecarlo":
+        static_quality, _ = xv.montecarlo(
+            lambda m: m.get_static(), xv_count, static=True
+        )
+    elif xv_method == "kfold":
+        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count, static=True)
+    else:
+        static_quality = model.assess(static_model)
+    timing["assess static"] = time.time() - ts
+
     try:
+        ts = time.time()
         lut_model = model.get_param_lut()
+        timing["get lut"] = time.time() - ts
+
+        ts = time.time()
         lut_quality = model.assess(lut_model)
+        timing["assess lut"] = time.time() - ts
     except RuntimeError as e:
         if args.force_tree:
             # this is to be expected
@@ -452,47 +469,37 @@ def main():
         if args.export_csv_only:
             return
 
-    fit_start_time = time.time()
+    ts = time.time()
     param_model, param_info = model.get_fitted()
-    fit_duration = time.time() - fit_start_time
-    logging.debug(f"model.get_fitted(...) took {fit_duration : 7.1f} seconds")
+    timing["get model"] = time.time() - ts
 
+    ts = time.time()
     if xv_method == "montecarlo":
-        static_quality, _ = xv.montecarlo(
-            lambda m: m.get_static(), xv_count, static=True
-        )
         xv.export_filename = args.export_xv
         analytic_quality, xv_analytic_models = xv.montecarlo(
             lambda m: m.get_fitted()[0], xv_count
         )
     elif xv_method == "kfold":
-        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count, static=True)
         xv.export_filename = args.export_xv
         analytic_quality, xv_analytic_models = xv.kfold(
             lambda m: m.get_fitted()[0], xv_count
         )
     else:
-        assess_start = time.time()
-        static_quality = model.assess(static_model)
-        assess_duration = time.time() - assess_start
-        logging.debug(f"model.assess(static) took {assess_duration : 7.1f} seconds")
         if args.export_raw_predictions:
             analytic_quality, raw_results = model.assess(param_model, return_raw=True)
             with open(args.export_raw_predictions, "w") as f:
                 json.dump(raw_results, f, cls=dfatool.utils.NpEncoder)
         else:
-            assess_start = time.time()
             analytic_quality = model.assess(param_model)
-            assess_duration = time.time() - assess_start
-            logging.debug(f"model.assess(param) took {assess_duration : 7.1f} seconds")
         xv_analytic_models = None
-        if lut_model:
-            assess_start = time.time()
-            lut_quality = model.assess(lut_model)
-            assess_duration = time.time() - assess_start
-            logging.debug(f"model.assess(lut) took {assess_duration : 7.1f} seconds")
-        else:
-            lut_quality = None
+    timing["assess model"] = time.time() - ts
+
+    if lut_model:
+        ts = time.time()
+        lut_quality = model.assess(lut_model)
+        timing["assess lut"] = time.time() - ts
+    else:
+        lut_quality = None
 
     if "static" in args.show_model or "all" in args.show_model:
         print("--- static model ---")
@@ -578,8 +585,8 @@ def main():
                 xv_models=xv_analytic_models,
             )
         )
-        dref["constructor duration"] = (constructor_duration, r"\second")
-        dref["regression duration"] = (fit_duration, r"\second")
+        for key, value in timing.items():
+            dref[f"timing/{key}"] = (value, r"\second")
         dfatool.cli.export_dataref(
             args.export_dref, dref, precision=args.dref_precision
         )
