@@ -621,6 +621,11 @@ def add_standard_arguments(parser):
         action="store_true",
         help="Build regression tree without checking whether static/analytic functions are sufficient.",
     )
+    parser.add_argument(
+        "--progress",
+        action="store_true",
+        help="Show progress bars while executing compute-intensive tasks such as cross-validation.",
+    )
 
 
 def parse_shift_function(param_name, param_shift):

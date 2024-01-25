@@ -436,6 +436,7 @@ def main():
             arg_count,
             force_tree=args.force_tree,
             compute_stats=not args.skip_param_stats,
+            show_progress=args.progress,
         )
         xv.parameter_aware = args.parameter_aware_cross_validation
     else:

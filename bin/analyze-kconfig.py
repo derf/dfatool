@@ -424,6 +424,7 @@ def main():
             force_tree=args.force_tree,
             max_std=max_std,
             compute_stats=not args.skip_param_stats,
+            show_progress=args.progress,
         )
         xv.parameter_aware = args.parameter_aware_cross_validation
     else:
