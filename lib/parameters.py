@@ -1163,7 +1163,7 @@ class ModelAttribute:
             # max_depth : int, default=5
             #     The maximum depth of the tree considering only the splitting nodes.
             #     A higher value implies a higher training time.
-            max_depth = int(os.getenv("DFATOOL_LMT_MAX_DEPTH", "20"))
+            max_depth = int(os.getenv("DFATOOL_LMT_MAX_DEPTH", "5"))
 
             # min_samples_split : int or float, default=6
             #     The minimum number of samples required to split an internal node.
@@ -1189,10 +1189,10 @@ class ModelAttribute:
             #     - If float, then `min_samples_leaf` is a fraction and
             #       `ceil(min_samples_leaf * n_samples)` are the minimum
             #       number of samples for each node.
-            if "." in os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF", ""):
+            if "." in os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF", "0.1"):
                 min_samples_leaf = float(os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF"))
             else:
-                min_samples_leaf = int(os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF", "3"))
+                min_samples_leaf = int(os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF"))
 
             # max_bins : int, default=25
             #     The maximum number of bins to use to search the optimal split in each

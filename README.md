@@ -118,11 +118,11 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_DTREE_SKLEARN_DECART` | **0**, 1 | Use sklearn CART ("Decision Tree Regression") algorithm for decision tree generation. Ignore scalar parameters, thus emulating the DECART algorithm. |
 | `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default (0): unlimited. |
 | `DFATOOL_DTREE_LMT` | **0**, 1 | Use [Linear Model Tree](https://github.com/cerlymarco/linear-tree) algorithm for regression tree generation. Uses binary nodes and linear functions. Overrides `FUNCTION_LEAVES` (=0) and `NONBINARY_NODES` (=0). |
-| `DFATOOL_LMT_MAX_DEPTH` | 5 .. **20** | Maximum depth for LMT. LMT default: 5 |
-| `DFATOOL_LMT_MIN_SAMPLES_SPLIT` | 0.0 .. 1.0, **6** .. *n* | Minimum samples required to still perform an LMT split. LMT default: 6 |
-| `DFATOOL_LMT_MIN_SAMPLES_LEAF` | 0.0 .. 1.0, **3** .. *n* | Minimum samples that each leaf of a split candidate must contain. LMT default: 0.1 (10% of *n samples*) |
+| `DFATOOL_LMT_MAX_DEPTH` | **5** .. 20 | Maximum depth for LMT. |
+| `DFATOOL_LMT_MIN_SAMPLES_SPLIT` | 0.0 .. 1.0, **6** .. *n* | Minimum samples required to still perform an LMT split. |
+| `DFATOOL_LMT_MIN_SAMPLES_LEAF` | 0.0 .. **0.1** .. 1.0, 3 .. *n* | Minimum samples that each leaf of a split candidate must contain. |
 | `DFATOOL_LMT_MAX_BINS` | 10 .. **120** | Number of bins used to determine optimal split. LMT default: 25. |
-| `DFATOOL_LMT_CRITERION` | **mse**, rmse, mae, poisson | Error metric to use when selecting best split. LMT default: ssr |
+| `DFATOOL_LMT_CRITERION` | **mse**, rmse, mae, poisson | Error metric to use when selecting best split. |
 | `DFATOOL_ULS_ERROR_METRIC` | **ssr**, rmsd, mae, … | Error metric to use when selecting best-fitting function during unsupervised least squares (ULS) regression. Least squares regression itself minimzes root mean square deviation (rmsd), hence the equivalent (but partitioning-compatible) sum of squared residuals (ssr) is the default. Supports all metrics accepted by `--error-metric`. |
 | `DFATOOL_ULS_MIN_DISTINCT_VALUES` | 2 .. **3** .. *n* | Minimum number of unique values a parameter must take to be eligible for ULS |
 | `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK` | **0**, 1 | Do not detect and remove co-dependent features in ULS. |
