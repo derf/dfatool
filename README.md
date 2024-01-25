@@ -127,13 +127,13 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_ULS_MIN_DISTINCT_VALUES` | 2 .. **3** .. *n* | Minimum number of unique values a parameter must take to be eligible for ULS |
 | `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK` | **0**, 1 | Do not detect and remove co-dependent features in ULS. |
 | `DFATOOL_USE_XGBOOST` | **0**, 1 | Use Extreme Gradient Boosting algorithm for decision forest generation. |
-| `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. Mandatory. |
-| `DFATOOL_XGB_MAX_DEPTH` | 2 .. **10** .. *n* | Maximum XGBoost tree depth. XGBoost default: 6 |
-| `DFATOOL_XGB_SUBSAMPLE` | 0 .. **0.7** .. 1 | XGBoost subsampling ratio. XGBoost default: 1 |
-| `DFATOOL_XGB_ETA` | 0 .. **0.3** .. 1 | XGBoost learning rate (shrinkage). XGboost default: 0.3 |
-| `DFATOOL_XGB_GAMMA` | 0 .. **0.01** .. *n* | XGBoost minimum loss reduction required to to make a further partition on a leaf node. XGBoost default: 0 |
-| `DFATOOL_XGB_REG_ALPHA` | 0 .. **0.0006** .. *n* | XGBoost L1 regularization term on weights. |
-| `DFATOOL_XGB_REG_LAMBDA` | 0 .. **1** .. *n* | XGBoost L2 regularization term on weight. |
+| `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. |
+| `DFATOOL_XGB_MAX_DEPTH` | 2 .. **6** .. *n* | Maximum XGBoost tree depth. |
+| `DFATOOL_XGB_SUBSAMPLE` | 0.0 .. **1.0** | XGBoost subsampling ratio. |
+| `DFATOOL_XGB_ETA` | 0 .. **0.3** .. 1 | XGBoost learning rate (shrinkage). |
+| `DFATOOL_XGB_GAMMA` | **0.0** .. *n* | XGBoost minimum loss reduction required to to make a further partition on a leaf node. |
+| `DFATOOL_XGB_REG_ALPHA` | **0.0** .. *n* | XGBoost L1 regularization term on weights. |
+| `DFATOOL_XGB_REG_LAMBDA` | 0 .. **1** .. *n* | XGBoost L2 regularization term on weights. |
 | `OMP_NUM_THREADS` | *number of CPU cores* | Maximum number of threads used per XGBoost learner. A limit of 4 threads appears to be ideal. Note that dfatool may spawn several XGBoost instances at the same time. |
 | `DFATOOL_KCONF_IGNORE_NUMERIC` | **0**, 1 | Ignore numeric (int/hex) configuration options. Useful for comparison with CART/DECART. |
 | `DFATOOL_KCONF_IGNORE_STRING` | 0, **1** | Ignore string configuration options. These often hold compiler paths and other not really helpful information. |

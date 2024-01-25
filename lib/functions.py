@@ -763,7 +763,12 @@ class XGBoostFunction(SKLearnRegressionFunction):
     def hyper_to_dref(self):
         return {
             "xgb/n estimators": self.regressor.n_estimators,
-            "xgb/max depth": self.regressor.max_depth,
+            "xgb/max depth": self.regressor.max_depth == 0
+            and "infty"
+            or self.regressor.max_depth,
+            "xgb/max leaves": self.regressor.max_leaves == 0
+            and "infty"
+            or self.regressor.max_leaves,
             "xgb/subsample": self.regressor.subsample,
             "xgb/eta": self.regressor.learning_rate,
             "xgb/gamma": self.regressor.gamma,

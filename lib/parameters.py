@@ -11,6 +11,7 @@ from .paramfit import ParamFit
 from .utils import remove_indexes_from_tuple, is_numeric
 from .utils import filter_aggregate_by_param, partition_by_param
 from .utils import param_to_ndarray
+from .utils import soft_cast_int, soft_cast_float
 
 logger = logging.getLogger(__name__)
 
@@ -1066,19 +1067,72 @@ class ModelAttribute:
         if with_xgboost:
             import xgboost
 
-            # TODO retrieve parameters from env
             # <https://xgboost.readthedocs.io/en/stable/python/python_api.html#module-xgboost.sklearn>
+            # <https://xgboost.readthedocs.io/en/stable/parameter.html#parameters-for-tree-booster>
             # n_estimators := number of trees in forest
             # max_depth := maximum tree depth
             # eta <=> learning_rate
+
+            # n_estimators : Optional[int]
+            #     Number of gradient boosted trees.  Equivalent to number of boosting
+            #     rounds.
+            # xgboost/sklearn.py: DEFAULT_N_ESTIMATORS = 100
+            n_estimators = int(os.getenv("DFATOOL_XGB_N_ESTIMATORS", "100"))
+
+            # max_depth :  Optional[int] [default=6]
+            #     Maximum tree depth for base learners.
+            # Maximum depth of a tree. Increasing this value will make the model more complex and more likely to overfit. 0 indicates no limit on depth. Beware
+            # that XGBoost aggressively consumes memory when training a deep tree. exact tree method requires non-zero value.
+            # range: [0,∞]
+            max_depth = int(os.getenv("DFATOOL_XGB_MAX_DEPTH", "6"))
+
+            # max_leaves : [default=0]
+            #     Maximum number of leaves; 0 indicates no limit.
+            # Maximum number of nodes to be added. Not used by exact tree method.
+            max_leaves = int(os.getenv("DFATOOL_XGB_MAX_LEAVES", "0"))
+
+            # learning_rate : Optional[float] [default=0.3]
+            #     Boosting learning rate (xgb's "eta")
+            # Step size shrinkage used in update to prevents overfitting. After each boosting step, we can directly get the weights of new features, and eta
+            # shrinks the feature weights to make the boosting process more conservative.
+            # range: [0,1]
+            learning_rate = float(os.getenv("DFATOOL_XGB_ETA", "0.3"))
+
+            # gamma : Optional[float] [default=0]
+            #     (min_split_loss) Minimum loss reduction required to make a further partition on a
+            #     leaf node of the tree.
+            # Minimum loss reduction required to make a further partition on a leaf node of the tree. The larger gamma is, the more conservative the algorithm will be.
+            # range: [0,∞]
+            gamma = float(os.getenv("DFATOOL_XGB_GAMMA", "0"))
+
+            # subsample : Optional[float] [default=1]
+            #     Subsample ratio of the training instance.
+            # Subsample ratio of the training instances. Setting it to 0.5 means that XGBoost would randomly sample half of the training data prior to growing
+            # trees. and this will prevent overfitting. Subsampling will occur once in every boosting iteration.
+            # range: (0,1]
+            subsample = float(os.getenv("DFATOOL_XGB_SUBSAMPLE", "1"))
+
+            # reg_alpha : Optional[float] [default=0]
+            #     L1 regularization term on weights (xgb's alpha).
+            # L1 regularization term on weights. Increasing this value will make model more conservative.
+            # range: [0, ∞]
+            reg_alpha = float(os.getenv("DFATOOL_XGB_REG_ALPHA", "0"))
+
+            # reg_lambda : Optional[float] [default=1]
+            #     L2 regularization term on weights (xgb's lambda).
+            # L2 regularization term on weights. Increasing this value will make model more conservative.
+            # range: [0, ∞]
+            reg_lambda = float(os.getenv("DFATOOL_XGB_REG_LAMBDA", "1"))
+
             xgb = xgboost.XGBRegressor(
-                n_estimators=int(os.getenv("DFATOOL_XGB_N_ESTIMATORS", "100")),
-                max_depth=int(os.getenv("DFATOOL_XGB_MAX_DEPTH", "10")),
-                subsample=float(os.getenv("DFATOOL_XGB_SUBSAMPLE", "0.7")),
-                learning_rate=float(os.getenv("DFATOOL_XGB_ETA", "0.3")),
-                gamma=float(os.getenv("DFATOOL_XGB_GAMMA", "0.01")),
-                reg_alpha=float(os.getenv("DFATOOL_XGB_REG_ALPHA", "0.0006")),
-                reg_lambda=float(os.getenv("DFATOOL_XGB_REG_LAMBDA", "1")),
+                n_estimators=n_estimators,
+                max_depth=max_depth,
+                max_leaves=max_leaves,
+                subsample=subsample,
+                learning_rate=learning_rate,
+                gamma=gamma,
+                reg_alpha=reg_alpha,
+                reg_lambda=reg_lambda,
             )
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
                 parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
