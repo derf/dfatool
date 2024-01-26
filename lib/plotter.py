@@ -223,6 +223,8 @@ def plot_param(
     x_range = int((XX.max() - XX.min()) / 10)
     while x_range > 1000000:
         x_range //= 10
+    if x_range < 500:
+        x_range = 500
     xsp = np.linspace(XX.min(), XX.max(), x_range)
     YY = [xsp]
     YY_legend = [param_name]
