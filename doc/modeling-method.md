@@ -25,7 +25,14 @@ They always use a maximum depth of 20.
 
 ### Related Options
 
+See the [LinearTreeRegressor documentation](lib/lineartree/lineartree.py) for details on training hyper-parameters.
+
 * `DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1` converts categorial parameters (which are not supported by LMT) to numeric ones.
+* `DFATOOL_LMT_MAX_DEPTH`
+* `DFATOOL_LMT_MIN_SAMPLES_SPLIT`
+* `DFATOOL_LMT_MIN_SAMPLES_LEAF`
+* `DFATOOL_LMT_MAX_BINS`
+* `DFATOOL_LMT_CRITERION`
 
 ## RMT (Regression Model Trees)
 
