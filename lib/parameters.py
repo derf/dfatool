@@ -1190,7 +1190,9 @@ class ModelAttribute:
             #       `ceil(min_samples_leaf * n_samples)` are the minimum
             #       number of samples for each node.
             if "." in os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF", "0.1"):
-                min_samples_leaf = float(os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF"))
+                min_samples_leaf = float(
+                    os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF", "0.1")
+                )
             else:
                 min_samples_leaf = int(os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF"))
 
