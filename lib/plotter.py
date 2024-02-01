@@ -267,7 +267,7 @@ def plot_param(
                 for x in xsp:
                     xarg = [*k[:param_idx], x, *k[param_idx:]]
                     ysp.append(extra_function(*xarg))
-            plt.plot(xsp, ysp, "r--", color=cm(i), linewidth=1, dashes=(3, 3))
+            plt.plot(xsp, ysp, "--", color=cm(i), linewidth=1, dashes=(3, 3))
             YY.append(ysp)
             YY_legend.append(legend_sanitizer.sub("_", "symb_{}".format(k)))
 
