@@ -325,14 +325,18 @@ def main():
         max_std = None
 
     ts = time.time()
-    model = AnalyticModel(
-        by_name,
-        parameter_names,
-        force_tree=args.force_tree,
-        max_std=max_std,
-        compute_stats=not args.skip_param_stats,
-        function_override=function_override,
-    )
+    if args.load_json:
+        with open(args.load_json, "r") as f:
+            model = AnalyticModel.from_json(json.load(f), by_name, parameter_names)
+    else:
+        model = AnalyticModel(
+            by_name,
+            parameter_names,
+            force_tree=args.force_tree,
+            max_std=max_std,
+            compute_stats=not args.skip_param_stats,
+            function_override=function_override,
+        )
     timing["AnalyticModel"] = time.time() - ts
 
     if not model.names:
@@ -444,22 +448,16 @@ def main():
         static_quality = model.assess(static_model)
     timing["assess static"] = time.time() - ts
 
-    try:
-        ts = time.time()
-        lut_model = model.get_param_lut()
-        timing["get lut"] = time.time() - ts
+    ts = time.time()
+    lut_model = model.get_param_lut()
+    timing["get lut"] = time.time() - ts
 
+    if lut_model is None:
+        lut_quality = None
+    else:
         ts = time.time()
         lut_quality = model.assess(lut_model)
         timing["assess lut"] = time.time() - ts
-    except RuntimeError as e:
-        if args.force_tree:
-            # this is to be expected
-            logging.debug(f"Skipping LUT model: {e}")
-        else:
-            logging.warning(f"Skipping LUT model: {e}")
-        lut_model = None
-        lut_quality = None
 
     if args.export_csv:
         for name in model.names:

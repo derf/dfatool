@@ -15,8 +15,9 @@ from dfatool.validation import CrossValidator
 from functools import reduce
 import logging
 import json
-import sys
 import re
+import sys
+import time
 
 
 def parse_logfile(filename):
@@ -32,6 +33,7 @@ def parse_logfile(filename):
 
 
 def main():
+    timing = dict()
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
     )
@@ -96,13 +98,19 @@ def main():
             state_or_tran, attribute, function_str = function_desc.split(":")
             function_override[(state_or_tran, attribute)] = function_str
 
-    model = AnalyticModel(
-        by_name,
-        parameter_names,
-        force_tree=args.force_tree,
-        compute_stats=not args.skip_param_stats,
-        function_override=function_override,
-    )
+    ts = time.time()
+    if args.load_json:
+        with open(args.load_json, "r") as f:
+            model = AnalyticModel.from_json(json.load(f), by_name, parameter_names)
+    else:
+        model = AnalyticModel(
+            by_name,
+            parameter_names,
+            force_tree=args.force_tree,
+            compute_stats=not args.skip_param_stats,
+            function_override=function_override,
+        )
+    timing["AnalyticModel"] = time.time() - ts
 
     if args.info:
         dfatool.cli.print_info_by_name(model, by_name)
@@ -170,20 +178,23 @@ def main():
         xv_count = None
 
     static_model = model.get_static()
-    try:
-        lut_model = model.get_param_lut()
-        lut_quality = model.assess(lut_model)
-    except RuntimeError as e:
-        if args.force_tree:
-            # this is to be expected
-            logging.debug(f"Skipping LUT model: {e}")
-        else:
-            logging.warning(f"Skipping LUT model: {e}")
-        lut_model = None
+
+    ts = time.time()
+    lut_model = model.get_param_lut()
+    timing["get lut"] = time.time() - ts
+
+    if lut_model is None:
         lut_quality = None
+    else:
+        ts = time.time()
+        lut_quality = model.assess(lut_model)
+        timing["assess lut"] = time.time() - ts
 
+    ts = time.time()
     param_model, param_info = model.get_fitted()
+    timing["get model"] = time.time() - ts
 
+    ts = time.time()
     if xv_method == "montecarlo":
         static_quality, _ = xv.montecarlo(
             lambda m: m.get_static(), xv_count, static=True
@@ -202,6 +213,7 @@ def main():
                 json.dump(raw_results, f, cls=dfatool.utils.NpEncoder)
         else:
             analytic_quality = model.assess(param_model)
+    timing["assess model"] = time.time() - ts
 
     if "static" in args.show_model or "all" in args.show_model:
         print("--- static model ---")
@@ -251,6 +263,8 @@ def main():
 
     if args.export_dref:
         dref = model.to_dref(static_quality, lut_quality, analytic_quality)
+        for key, value in timing.items():
+            dref[f"timing/{key}"] = (value, r"\second")
         dfatool.cli.export_dataref(
             args.export_dref, dref, precision=args.dref_precision
         )
