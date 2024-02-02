@@ -450,6 +450,12 @@ def add_standard_arguments(parser):
         help="Export model in JSON format to FILENAME",
     )
     parser.add_argument(
+        "--load-json",
+        metavar="FILENAME",
+        type=str,
+        help="Load model in JSON format from FILENAME",
+    )
+    parser.add_argument(
         "--dref-precision",
         metavar="NDIG",
         type=int,
