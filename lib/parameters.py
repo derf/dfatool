@@ -771,6 +771,8 @@ class ModelAttribute:
         self = cls(name, attr, None, None, param_names, arg_count)
 
         self.model_function = df.ModelFunction.from_json(data["modelFunction"])
+        self.mean = self.model_function.value
+        self.median = self.model_function.value
 
         return self
 
