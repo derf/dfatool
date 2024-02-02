@@ -128,14 +128,12 @@ class AnalyticModel:
         if self._num_args is None:
             self._num_args = _num_args_from_by_name(by_name)
 
-        self.distinct_param_values_by_name = dict()
         self.param_type_by_name = dict()
         for name in self.names:
-            self.distinct_param_values_by_name[name] = distinct_param_values(
-                by_name[name]["param"]
-            )
+            distinct_values = dict()
+            distinct_values = distinct_param_values(by_name[name]["param"])
             self.param_type_by_name[name] = ParamType(
-                self.distinct_param_values_by_name[name], values_are_distinct=True
+                distinct_values, values_are_distinct=True
             )
 
         self.fit_done = False
@@ -716,14 +714,12 @@ class PTAModel(AnalyticModel):
         self.pta = pta
         self.ignore_trace_indexes = ignore_trace_indexes
 
-        self.distinct_param_values_by_name = dict()
         self.param_type_by_name = dict()
         for name in self.names:
-            self.distinct_param_values_by_name[name] = distinct_param_values(
-                by_name[name]["param"]
-            )
+            distinct_values = dict()
+            distinct_values = distinct_param_values(by_name[name]["param"])
             self.param_type_by_name[name] = ParamType(
-                self.distinct_param_values_by_name[name], values_are_distinct=True
+                distinct_values, values_are_distinct=True
             )
 
         self.fit_done = False
