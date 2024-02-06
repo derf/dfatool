@@ -592,7 +592,13 @@ def main():
 
     if args.export_json:
         with open(args.export_json, "w") as f:
-            json.dump(model.to_json(), f, sort_keys=True, cls=dfatool.utils.NpEncoder)
+            json.dump(
+                model.to_json(),
+                f,
+                sort_keys=True,
+                cls=dfatool.utils.NpEncoder,
+                indent=2,
+            )
 
     if args.config:
         kconf = kconfiglib.Kconfig(args.kconfig_path)
