@@ -120,7 +120,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_DTREE_LMT` | **0**, 1 | Use [Linear Model Tree](https://github.com/cerlymarco/linear-tree) algorithm for regression tree generation. Uses binary nodes and linear functions. Overrides `FUNCTION_LEAVES` (=0) and `NONBINARY_NODES` (=0). |
 | `DFATOOL_LMT_MAX_DEPTH` | **5** .. 20 | Maximum depth for LMT. |
 | `DFATOOL_LMT_MIN_SAMPLES_SPLIT` | 0.0 .. 1.0, **6** .. *n* | Minimum samples required to still perform an LMT split. A value below 1.0 sets the specified ratio of the total number of training samples as minimum. |
-| `DFATOOL_LMT_MIN_SAMPLES_LEAF` | 0.0 .. **0.1** .. 1.0, 3 .. *n* | Minimum samples that each leaf of a split candidate must contain. A value below 1.0 sets the specified ratio of the total number of training samples as minimum. |
+| `DFATOOL_LMT_MIN_SAMPLES_LEAF` | 0.0 .. **0.1** .. 1.0, 3 .. *n* | Minimum samples that each leaf of a split candidate must contain. A value below 1.0 specifies a ratio of the total number of training samples. A value above 1 specifies an absolute number of samples. |
 | `DFATOOL_LMT_MAX_BINS` | 10 .. **120** | Number of bins used to determine optimal split. LMT default: 25. |
 | `DFATOOL_LMT_CRITERION` | **mse**, rmse, mae, poisson | Error metric to use when selecting best split. |
 | `DFATOOL_ULS_ERROR_METRIC` | **ssr**, rmsd, mae, … | Error metric to use when selecting best-fitting function during unsupervised least squares (ULS) regression. Least squares regression itself minimzes root mean square deviation (rmsd), hence the equivalent (but partitioning-compatible) sum of squared residuals (ssr) is the default. Supports all metrics accepted by `--error-metric`. |
