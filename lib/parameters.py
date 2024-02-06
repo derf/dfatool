@@ -828,7 +828,7 @@ class ModelAttribute:
         return np.median(self.by_param[param])
 
     def get_by_param(self):
-        if self.by_param is None:
+        if self.by_param is None and self.param_values is not None:
             self.by_param = partition_by_param(self.data, self.param_values)
         return self.by_param
 
