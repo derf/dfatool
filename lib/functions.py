@@ -215,9 +215,11 @@ class ModelFunction:
         ret = {
             "value": self.value,
             "n_samples": self.n_samples,
-            "valueError": self.value_error,
-            "functionError": self.function_error,
         }
+        if self.value_error is not None:
+            ret["valueError"] = self.valueError
+        if self.function_error is not None:
+            ret["functionError"] = self.function_error
         return ret
 
     def hyper_to_dref(self):
@@ -692,7 +694,6 @@ class CARTFunction(SKLearnRegressionFunction):
         # basic leaf with standard values
         # conversion because of numpy
         sub_data = {
-            "functionError": None,
             "type": "static",
             "value": float(tree.value[node_id]),
             "valueError": float(tree.impurity[node_id]),
@@ -805,12 +806,10 @@ class XGBoostFunction(SKLearnRegressionFunction):
         ret = dict()
         if "children" in tree:
             return {
-                "functionError": None,
                 "type": "scalarSplit",
                 "paramName": feature_names[int(tree["split"][1:])],
                 "threshold": tree["split_condition"],
                 "value": None,
-                "valueError": None,
                 "left": self.tree_to_webconf_json(
                     tree["children"][0], feature_names, **kwargs
                 ),
@@ -820,10 +819,8 @@ class XGBoostFunction(SKLearnRegressionFunction):
             }
         else:
             return {
-                "functionError": None,
                 "type": "static",
                 "value": tree["leaf"],
-                "valueError": None,
             }
 
     def get_number_of_nodes(self):
