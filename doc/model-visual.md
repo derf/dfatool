@@ -28,3 +28,64 @@ unless `--non-interactive` has been specified.
 
 Use `--export-json FILENAME` to export the performance model to FILENAME.
 The model for NAME ATTRIBUTE is located in .name.NAME.ATTRIBUTE.modelFunction.
+If it is a list, it is an XGB forest. Otherwise, it is an CART/LMT/RMT element
+described by the `type` key.
+
+### CART/LMT scalar split node
+
+```
+{
+	"value": 123,
+	"type": "scalarSplit",
+	"paramIndex": 0,
+	"threshold": 24,
+	"left": …,
+	"right": …
+}
+```
+
+The model for `param[paramIndex] <= threshold` is located in `left`, the model
+for `param[paramIndex] > threshold` is located in `right`. `value` is a
+static model that serves as fall-back if `param[paramIndex]` is undefined.
+
+### RMT categorial split node
+
+```
+{
+	"value": 123,
+	"type": "split",
+	"paramIndex": 0,
+	"child": {
+		"y": …,
+		"n": …,
+	}
+}
+```
+
+Given some (usually not numeric) `value`, the model for `param[paramIndex] ==
+value` is located in `child[value]`. In this example, the node describes a
+boolean Kconfig feature, so there are just two children: `y` (feature enabled)
+and `n` (feature disabled). Again, `value` refers to a static fall-back model.
+
+### ULS (least-squares regresion) node
+
+```
+{
+	"value": 123,
+	"type": "analytic",
+	"functionStr": "0 + regression_arg(0) + regression_arg(1) * np.log(parameter(bitrate))",
+	"regressionModel": [674574496.5381737, -51732985.15977712]
+}
+```
+
+The model function is `674574496.5381737 - 51732985.15977712 * log(bitrate)`.
+`value` is a static model that serves as fall-back if `bitrate` is undefined.
+
+### Static node
+
+```
+{
+	"value": 123,
+	"type": "static"
+}
+```
