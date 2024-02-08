@@ -461,7 +461,7 @@ class ScalarSplitFunction(ModelFunction):
             "type": "scalarSplit",
             "paramIndex": self.param_index,
             "paramName": feature_names[self.param_index],
-            "paramDecisionValue": self.threshold,
+            "threshold": self.threshold,
             "left": self.child_le.to_json(),
             "right": self.child_gt.to_json(),
         }
@@ -516,9 +516,7 @@ class ScalarSplitFunction(ModelFunction):
         assert data["type"] == "scalarSplit"
         left = ModelFunction.from_json(data["left"])
         right = ModelFunction.from_json(data["right"])
-        self = cls(
-            data["value"], data["paramIndex"], data["paramDecisionValue"], left, right
-        )
+        self = cls(data["value"], data["paramIndex"], data["threshold"], left, right)
 
         return self
 
@@ -708,7 +706,7 @@ class CARTFunction(SKLearnRegressionFunction):
             sub_data["paramName"] = self.feature_names[
                 self.regressor.tree_.feature[node_id]
             ]
-            sub_data["paramDecisionValue"] = tree.threshold[node_id]
+            sub_data["threshold"] = tree.threshold[node_id]
             sub_data["type"] = "scalarSplit"
 
         # child value
@@ -762,7 +760,7 @@ class LMTFunction(SKLearnRegressionFunction):
             return {
                 "type": "scalarSplit",
                 "paramName": self.feature_names[node["col"]],
-                "paramDecisionValue": node["th"],
+                "threshold": node["th"],
                 "left": self.recurse_(node_hash, node["children"][0]),
                 "right": self.recurse_(node_hash, node["children"][1]),
             }
@@ -810,7 +808,7 @@ class XGBoostFunction(SKLearnRegressionFunction):
                 "functionError": None,
                 "type": "scalarSplit",
                 "paramName": feature_names[int(tree["split"][1:])],
-                "paramDecisionValue": tree["split_condition"],
+                "threshold": tree["split_condition"],
                 "value": None,
                 "valueError": None,
                 "left": self.tree_to_webconf_json(

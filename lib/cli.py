@@ -137,11 +137,11 @@ def _print_lmtinfo(prefix, model):
         print(f"""{prefix}: {model["value"]}""")
     elif model["type"] == "scalarSplit":
         _print_lmtinfo(
-            f"""{prefix} {model["paramName"]}≤{model["paramDecisionValue"]} """,
+            f"""{prefix} {model["paramName"]}≤{model["threshold"]} """,
             model["left"],
         )
         _print_lmtinfo(
-            f"""{prefix} {model["paramName"]}>{model["paramDecisionValue"]} """,
+            f"""{prefix} {model["paramName"]}>{model["threshold"]} """,
             model["right"],
         )
     else:
@@ -157,12 +157,12 @@ def _print_cartinfo(prefix, model, feature_names):
         print(f"""{prefix}: {model["value"]}""")
     else:
         _print_cartinfo(
-            f"""{prefix} {model["paramName"]}≤{model["paramDecisionValue"]} """,
+            f"""{prefix} {model["paramName"]}≤{model["threshold"]} """,
             model["left"],
             feature_names,
         )
         _print_cartinfo(
-            f"""{prefix} {model["paramName"]}>{model["paramDecisionValue"]} """,
+            f"""{prefix} {model["paramName"]}>{model["threshold"]} """,
             model["right"],
             feature_names,
         )
