@@ -1240,7 +1240,12 @@ class ModelAttribute:
                 return
             logger.debug("Fitted LMT")
             self.model_function = df.LMTFunction(
-                np.mean(data), lmt, category_to_index, ignore_index, n_samples=len(data)
+                np.mean(data),
+                lmt,
+                category_to_index,
+                ignore_index,
+                n_samples=len(data),
+                param_names=self.param_names,
             )
             return
 
