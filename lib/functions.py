@@ -518,7 +518,9 @@ class ScalarSplitFunction(ModelFunction):
         assert data["type"] == "scalarSplit"
         left = ModelFunction.from_json(data["left"])
         right = ModelFunction.from_json(data["right"])
-        self = cls(data["value"], data["paramIndex"], data["threshold"], left, right)
+        self = cls(
+            data.get("value", 0), data["paramIndex"], data["threshold"], left, right
+        )
 
         return self
 
@@ -1277,10 +1279,10 @@ class AnalyticFunction(ModelFunction):
         assert data["type"] == "analytic"
 
         return cls(
-            data["value"],
+            data.get("value", 0),
             data["functionStr"],
             data["parameterNames"],
-            data["argCount"],
+            data.get("argCount", 0),
             data["regressionModel"],
         )
 
