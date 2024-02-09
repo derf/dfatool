@@ -608,14 +608,29 @@ def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
     :param parameters: list of parameters, used to map parameter index to parameter name. parameters=['foo', ...] means 'foo' is the first parameter
     :param parameter_filter: [[name, value], [name, value], ...] list of parameter values to keep, all others are removed. Values refer to normalizad parameter data.
     """
-    for param_name_and_value in parameter_filter:
-        param_index = parameters.index(param_name_and_value[0])
-        param_value = soft_cast_int(param_name_and_value[1])
+    for param_name, condition, param_value in parameter_filter:
+        param_index = parameters.index(param_name)
+        param_value = soft_cast_int(param_value)
         names_to_remove = set()
+
+        if condition == "<":
+            condf = lambda x: x[param_index] < param_value
+        elif condition == "≤":
+            condf = lambda x: x[param_index] <= param_value
+        elif condition == "=":
+            condf = lambda x: x[param_index] == param_value
+        elif condition == "≠":
+            condf = lambda x: x[param_index] != param_value
+        elif condition == "≥":
+            condf = lambda x: x[param_index] >= param_value
+        elif condition == ">":
+            condf = lambda x: x[param_index] > param_value
+        elif condition == "∈":
+            param_values = tuple(map(soft_cast_int, param_value.split(",")))
+            condf = lambda x: x[param_index] in param_values
+
         for name in aggregate.keys():
-            indices_to_keep = list(
-                map(lambda x: x[param_index] == param_value, aggregate[name]["param"])
-            )
+            indices_to_keep = list(map(condf, aggregate[name]["param"]))
             aggregate[name]["param"] = list(
                 map(
                     lambda iv: iv[1],

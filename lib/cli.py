@@ -416,8 +416,8 @@ def boxplot_param(args, model):
     title = None
     param_is_filtered = dict()
     if args.filter_param:
-        title = "filter: " + ", ".join(
-            map(lambda kv: f"{kv[0]}={kv[1]}", args.filter_param)
+        title = "filter: " + " && ".join(
+            map(lambda kv: f"{kv[0]} {kv[1]} {kv[2]}", args.filter_param)
         )
         for param_name, _ in args.filter_param:
             param_is_filtered[param_name] = True
@@ -595,9 +595,11 @@ def add_standard_arguments(parser):
     )
     parser.add_argument(
         "--filter-param",
-        metavar="<parameter name>=<parameter value>[,<parameter name>=<parameter value>...]",
+        metavar="<parameter name><condition>[;<parameter name><condition>...]",
         type=str,
-        help="Only consider measurements where <parameter name> is <parameter value>. "
+        help="Only consider measurements where <parameter name> satisfies <condition>. "
+        "<condition> may be <operator><parameter value> with operator being < / <= / = / >= / >, "
+        "or ∈<parameter value>[,<parameter value>...]. "
         "All other measurements (including those where it is None, that is, has not been set yet) are discarded. "
         "Note that this may remove entire function calls from the model.",
     )
@@ -666,6 +668,23 @@ def add_standard_arguments(parser):
         action="store_true",
         help="Show progress bars while executing compute-intensive tasks such as cross-validation.",
     )
+
+
+def parse_filter_string(filter_string):
+    if "<=" in filter_string:
+        p, v = filter_string.split("<=")
+        return (p, "≤", v)
+    if ">=" in filter_string:
+        p, v = filter_string.split(">=")
+        return (p, "≥", v)
+    if "!=" in filter_string:
+        p, v = filter_string.split("!=")
+        return (p, "≠", v)
+    for op in ("<", ">", "≤", "≥", "=", "∈", "≠"):
+        if op in filter_string:
+            p, v = filter_string.split(op)
+            return (p, op, v)
+    raise ValueError(f"Cannot parse '{filter_string}'")
 
 
 def parse_shift_function(param_name, param_shift):

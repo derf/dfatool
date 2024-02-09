@@ -285,7 +285,7 @@ def main():
 
     if args.filter_param:
         args.filter_param = list(
-            map(lambda x: x.split("="), args.filter_param.split(","))
+            map(dfatool.cli.parse_filter_string, args.filter_param.split(";"))
         )
     else:
         args.filter_param = list()
