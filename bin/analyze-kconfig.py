@@ -297,7 +297,7 @@ def main():
         args.filter_param = list(
             map(
                 lambda entry: dfatool.cli.parse_filter_string(
-                    entry, parameter_names=parameters
+                    entry, parameter_names=parameter_names
                 ),
                 args.filter_param.split(";"),
             )

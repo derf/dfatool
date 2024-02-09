@@ -61,18 +61,6 @@ def main():
             style="{",
         )
 
-    if args.filter_param:
-        args.filter_param = list(
-            map(
-                lambda entry: dfatool.cli.parse_filter_string(
-                    entry, parameter_names=parameters
-                ),
-                args.filter_param.split(";"),
-            )
-        )
-    else:
-        args.filter_param = list()
-
     if args.filter_observation:
         args.filter_observation = list(
             map(lambda x: tuple(x.split(":")), args.filter_observation.split(","))
@@ -85,6 +73,18 @@ def main():
     if args.ignore_param:
         args.ignore_param = args.ignore_param.split(",")
         dfatool.utils.ignore_param(by_name, parameter_names, args.ignore_param)
+
+    if args.filter_param:
+        args.filter_param = list(
+            map(
+                lambda entry: dfatool.cli.parse_filter_string(
+                    entry, parameter_names=parameter_names
+                ),
+                args.filter_param.split(";"),
+            )
+        )
+    else:
+        args.filter_param = list()
 
     dfatool.utils.filter_aggregate_by_param(by_name, parameter_names, args.filter_param)
     dfatool.utils.filter_aggregate_by_observation(by_name, args.filter_observation)
