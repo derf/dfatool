@@ -217,7 +217,7 @@ class ModelFunction:
             "n_samples": self.n_samples,
         }
         if self.value_error is not None:
-            ret["valueError"] = self.valueError
+            ret["valueError"] = self.value_error
         if self.function_error is not None:
             ret["functionError"] = self.function_error
         return ret
