@@ -382,7 +382,6 @@ def main():
         dfatool.utils.ignore_param(by_name, parameters, args.ignore_param)
 
     if args.filter_param:
-        print(parameters)
         args.filter_param = list(
             map(
                 lambda entry: dfatool.cli.parse_filter_string(
@@ -391,7 +390,6 @@ def main():
                 args.filter_param.split(";"),
             )
         )
-        print(args.filter_param)
     else:
         args.filter_param = list()
 
