@@ -1062,6 +1062,7 @@ class ModelAttribute:
                 category_to_index,
                 ignore_index,
                 n_samples=len(data),
+                param_names=self.param_names,
             )
             logger.debug("Fitted sklearn CART")
             return
