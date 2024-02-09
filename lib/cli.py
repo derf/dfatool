@@ -247,7 +247,14 @@ def format_quality_measures(result, error_metric="smape", col_len=8):
 
 
 def model_quality_table(
-    lut, model, static, model_info, xv_method=None, xv_count=None, error_metric="smape"
+    lut,
+    model,
+    static,
+    model_info,
+    xv_method=None,
+    xv_count=None,
+    error_metric="smape",
+    load_model=False,
 ):
     key_len = len("Key")
     attr_len = len("Attribute")
@@ -264,6 +271,8 @@ def model_quality_table(
         xv_header = "MC XV"
     elif xv_method:
         xv_header = "XV"
+    elif load_model:
+        xv_header = "json"
     else:
         xv_header = "training"
 

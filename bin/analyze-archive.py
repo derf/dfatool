@@ -753,6 +753,7 @@ def main():
             xv_method=xv_method,
             xv_count=xv_count,
             error_metric=args.error_metric,
+            load_model=args.load_json,
         )
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
@@ -768,6 +769,7 @@ def main():
                     static=sub_static_quality,
                     model_info=sub_param_info,
                     error_metric=args.error_metric,
+                    load_model=args.load_json,
                 )
 
     if "overall" in show_quality or "all" in show_quality:

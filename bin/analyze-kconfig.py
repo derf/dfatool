@@ -530,6 +530,7 @@ def main():
             xv_method=xv_method,
             xv_count=xv_count,
             error_metric=args.error_metric,
+            load_model=args.load_json,
         )
 
     if args.show_model_complexity:
