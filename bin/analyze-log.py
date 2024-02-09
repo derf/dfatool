@@ -63,7 +63,12 @@ def main():
 
     if args.filter_param:
         args.filter_param = list(
-            map(dfatool.cli.parse_filter_string, args.filter_param.split(";"))
+            map(
+                lambda entry: dfatool.cli.parse_filter_string(
+                    entry, parameter_names=parameters
+                ),
+                args.filter_param.split(";"),
+            )
         )
     else:
         args.filter_param = list()

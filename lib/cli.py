@@ -670,7 +670,7 @@ def add_standard_arguments(parser):
     )
 
 
-def parse_filter_string(filter_string):
+def parse_filter_string(filter_string, parameter_names=None):
     if "<=" in filter_string:
         p, v = filter_string.split("<=")
         return (p, "≤", v)
@@ -679,7 +679,9 @@ def parse_filter_string(filter_string):
         return (p, "≥", v)
     if "!=" in filter_string:
         p, v = filter_string.split("!=")
-        return (p, "≠", v)
+        if parameter_names is None or p in parameter_names:
+            return (p, "≠", v)
+        # otherwise, '!' belongs to the parameter name and is not part of the condition.
     for op in ("<", ">", "≤", "≥", "=", "∈", "≠"):
         if op in filter_string:
             p, v = filter_string.split(op)
