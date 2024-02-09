@@ -176,7 +176,7 @@ def print_splitinfo(param_names, info, prefix=""):
             else:
                 param_name = f"arg{info.param_index - len(param_names)}"
             print_splitinfo(param_names, v, f"{prefix} {param_name}={k}")
-    if type(info) is df.ScalarSplitFunction:
+    elif type(info) is df.ScalarSplitFunction:
         if info.param_index < len(param_names):
             param_name = param_names[info.param_index]
         else:
@@ -192,7 +192,7 @@ def print_splitinfo(param_names, info, prefix=""):
     elif type(info) is df.StaticFunction:
         print(f"{prefix}: {info.value}")
     else:
-        print(f"{prefix}: UNKNOWN")
+        print(f"{prefix}: UNKNOWN {type(info)}")
 
 
 def print_model(prefix, info, feature_names):
