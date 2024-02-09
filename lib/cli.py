@@ -583,7 +583,7 @@ def add_standard_arguments(parser):
     )
     parser.add_argument(
         "--param-shift",
-        metavar="<key>=<+|-|*|/><value>|none-to-0;...",
+        metavar="<key>=<+|-|*|/><value>|none-to-0|categorial;...",
         type=str,
         help="Adjust parameter values before passing them to model generation",
     )
@@ -681,6 +681,8 @@ def parse_shift_function(param_name, param_shift):
     elif param_shift.startswith("/"):
         param_shift_value = float(param_shift[1:])
         return lambda p: p / param_shift_value
+    elif param_shift == "categorial":
+        return lambda p: "=" + str(p)
     elif param_shift == "none-to-0":
         return lambda p: p or 0
     else:
