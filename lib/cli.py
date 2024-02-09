@@ -128,6 +128,11 @@ def print_cartinfo(prefix, info, feature_names):
     _print_cartinfo(prefix, info.to_json(feature_names=feature_names), feature_names)
 
 
+def print_xgbinfo(prefix, info, feature_names):
+    for i, tree in enumerate(info.to_json(feature_names=feature_names)):
+        _print_cartinfo(prefix + f"tree{i:03d} :", tree, feature_names)
+
+
 def print_lmtinfo(prefix, info, feature_names):
     _print_lmtinfo(prefix, info.to_json(feature_names=feature_names))
 
@@ -210,6 +215,8 @@ def print_model(prefix, info, feature_names):
         print_splitinfo(feature_names, info, prefix)
     elif type(info) is df.LMTFunction:
         print_lmtinfo(prefix, info, feature_names)
+    elif type(info) is df.XGBoostFunction:
+        print_xgbinfo(prefix, info, feature_names)
     else:
         print(f"{prefix}: {type(info)} UNIMPLEMENTED")
 
