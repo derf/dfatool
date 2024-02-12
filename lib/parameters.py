@@ -609,65 +609,11 @@ class ModelAttribute:
         return f"ModelAttribute<{self.name}, {self.attr}, mean={mean}>"
 
     def to_json(self, **kwargs):
-        if type(self.model_function) in (
-            df.CARTFunction,
-            df.LMTFunction,
-            df.XGBoostFunction,
-        ):
-            import sklearn.tree
-
-            feature_names = list(
-                map(
-                    lambda i: self.param_names[i],
-                    filter(
-                        lambda i: not self.model_function.ignore_index[i],
-                        range(len(self.param_names)),
-                    ),
-                )
-            )
-            feature_names += list(
-                map(
-                    lambda i: f"arg{i-len(self.param_names)}",
-                    filter(
-                        lambda i: not self.model_function.ignore_index[i],
-                        range(
-                            len(self.param_names),
-                            len(self.param_names) + self.arg_count,
-                        ),
-                    ),
-                )
-            )
-            kwargs["feature_names"] = feature_names
-        ret = {
+        return {
             "paramNames": self.param_names,
             "argCount": self.arg_count,
             "modelFunction": self.model_function.to_json(**kwargs),
         }
-        if type(self.model_function) in (
-            df.CARTFunction,
-            df.FOLFunction,
-            df.XGBoostFunction,
-        ):
-            feature_names = self.param_names
-            feature_names += list(
-                map(
-                    lambda i: f"arg{i-len(self.param_names)}",
-                    filter(
-                        lambda i: not self.model_function.ignore_index[i],
-                        range(
-                            len(self.param_names),
-                            len(self.param_names) + self.arg_count,
-                        ),
-                    ),
-                )
-            )
-            ret["paramValueToIndex"] = dict(
-                map(
-                    lambda kv: (feature_names[kv[0]], kv[1]),
-                    self.model_function.categorial_to_index.items(),
-                )
-            )
-        return ret
 
     def to_dref(self, unit=None):
         ret = {"mean": (self.mean, unit), "median": (self.median, unit)}
@@ -710,47 +656,27 @@ class ModelAttribute:
             self.model_function.to_dot(pydot, graph, self.param_names)
             return graph
 
-        feature_names = list(
-            map(
-                lambda i: self.param_names[i],
-                filter(
-                    lambda i: not self.model_function.ignore_index[i],
-                    range(len(self.param_names)),
-                ),
-            )
-        )
-        feature_names += list(
-            map(
-                lambda i: f"arg{i-len(self.param_names)}",
-                filter(
-                    lambda i: not self.model_function.ignore_index[i],
-                    range(
-                        len(self.param_names),
-                        len(self.param_names) + self.arg_count,
-                    ),
-                ),
-            )
-        )
-
         if type(self.model_function) == df.CARTFunction:
             import sklearn.tree
 
             return sklearn.tree.export_graphviz(
                 self.model_function.regressor,
                 out_file=None,
-                feature_names=feature_names,
+                feature_names=self.model_function.feature_names,
             )
         if type(self.model_function) == df.XGBoostFunction:
             import xgboost
 
-            self.model_function.regressor.get_booster().feature_names = feature_names
+            self.model_function.regressor.get_booster().feature_names = (
+                self.model_function.feature_names
+            )
             return [
                 xgboost.to_graphviz(self.model_function.regressor, num_trees=i)
                 for i in range(self.model_function.regressor.n_estimators)
             ]
         if type(self.model_function) == df.LMTFunction:
             return self.model_function.regressor.model_to_dot(
-                feature_names=feature_names
+                feature_names=self.model_function.feature_names
             )
         return None
 
@@ -921,7 +847,13 @@ class ModelAttribute:
             for param_index, _ in enumerate(self.param_names):
                 if len(self.stats.distinct_values_by_param_index[param_index]) < 2:
                     ignore_param_indexes.append(param_index)
-        x = df.FOLFunction(self.median, self.param_names, n_samples=self.data.shape[0])
+        x = df.FOLFunction(
+            self.median,
+            self.param_names,
+            n_samples=self.data.shape[0],
+            param_names=self.param_names,
+            arg_count=self.arg_count,
+        )
         x.fit(self.param_values, self.data, ignore_param_indexes=ignore_param_indexes)
         if x.fit_success:
             self.model_function = x
@@ -1063,6 +995,7 @@ class ModelAttribute:
                 ignore_index,
                 n_samples=len(data),
                 param_names=self.param_names,
+                arg_count=self.arg_count,
             )
             logger.debug("Fitted sklearn CART")
             return
@@ -1150,7 +1083,13 @@ class ModelAttribute:
                 return
             xgb.fit(fit_parameters, np.reshape(data, (-1, 1)))
             self.model_function = df.XGBoostFunction(
-                np.mean(data), xgb, category_to_index, ignore_index, n_samples=len(data)
+                np.mean(data),
+                xgb,
+                category_to_index,
+                ignore_index,
+                n_samples=len(data),
+                param_names=self.param_names,
+                arg_count=self.arg_count,
             )
             output_filename = os.getenv("DFATOOL_XGB_DUMP_MODEL", None)
             if output_filename:
@@ -1247,6 +1186,7 @@ class ModelAttribute:
                 ignore_index,
                 n_samples=len(data),
                 param_names=self.param_names,
+                arg_count=self.arg_count,
             )
             return
 
@@ -1510,4 +1450,10 @@ class ModelAttribute:
 
         assert len(child.values()) >= 2
 
-        return df.SplitFunction(np.mean(data), symbol_index, child, n_samples=len(data))
+        return df.SplitFunction(
+            np.mean(data),
+            symbol_index,
+            self.log_param_names[symbol_index],
+            child,
+            n_samples=len(data),
+        )

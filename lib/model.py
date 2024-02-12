@@ -463,6 +463,7 @@ class AnalyticModel:
                 self.by_name[name][attribute],
                 self.by_name[name]["param"],
                 self.parameters,
+                self._num_args.get(name, 0),
                 param_type=ParamType(self.by_name[name]["param"]),
             )
 

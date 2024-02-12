@@ -522,9 +522,7 @@ def main():
         for name in model.names:
             for attribute in model.attributes(name):
                 info = param_info(name, attribute)
-                dfatool.cli.print_model(
-                    f"{name:20s} {attribute:15s}", info, model.parameters
-                )
+                dfatool.cli.print_model(f"{name:20s} {attribute:15s}", info)
 
     if args.show_model_error:
         dfatool.cli.model_quality_table(

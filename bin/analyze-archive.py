@@ -694,15 +694,11 @@ def main():
         for state in model.states:
             for attribute in model.attributes(state):
                 info = param_info(state, attribute)
-                dfatool.cli.print_model(
-                    f"{state:10s} {attribute:15s}", info, model.parameters
-                )
+                dfatool.cli.print_model(f"{state:10s} {attribute:15s}", info)
         for trans in model.transitions:
             for attribute in model.attributes(trans):
                 info = param_info(trans, attribute)
-                dfatool.cli.print_model(
-                    f"{trans:10s} {attribute:15s}", info, model.parameters
-                )
+                dfatool.cli.print_model(f"{trans:10s} {attribute:15s}", info)
         if args.with_substates:
             for submodel in model.submodel_by_name.values():
                 sub_param_model, sub_param_info = submodel.get_fitted()
@@ -868,7 +864,13 @@ def main():
 
     if args.export_json:
         with open(args.export_json, "w") as f:
-            json.dump(model.to_json(), f, sort_keys=True, cls=dfatool.utils.NpEncoder)
+            json.dump(
+                model.to_json(),
+                f,
+                sort_keys=True,
+                cls=dfatool.utils.NpEncoder,
+                indent=2,
+            )
 
     if args.export_webconf:
         if not pta:

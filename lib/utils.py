@@ -315,8 +315,8 @@ def param_to_ndarray(
     for i, paramset in distinct_values.items():
         distinct_values[i] = sorted(paramset)
         category_to_scalar[i] = dict()
-        for j, param in enumerate(distinct_values[i]):
-            category_to_scalar[i][param] = j
+        for j, param_value in enumerate(distinct_values[i]):
+            category_to_scalar[i][param_value] = j
 
     ignore_index = dict()
     for i in range(len(param_tuples[0])):

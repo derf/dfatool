@@ -317,8 +317,9 @@ class StaticFunction(ModelFunction):
 
 
 class SplitFunction(ModelFunction):
-    def __init__(self, value, param_index, child, **kwargs):
+    def __init__(self, value, param_index, param_name, child, **kwargs):
         super().__init__(value, **kwargs)
+        self.param_name = param_name
         self.param_index = param_index
         self.child = child
         self.use_weighted_avg = bool(int(os.getenv("DFATOOL_RMT_WEIGHTED_AVG", "0")))
@@ -361,15 +362,12 @@ class SplitFunction(ModelFunction):
 
     def to_json(self, **kwargs):
         ret = super().to_json(**kwargs)
-        with_param_name = kwargs.get("with_param_name", False)
-        param_names = kwargs.get("param_names", list())
         update = {
             "type": "split",
             "paramIndex": self.param_index,
+            "paramName": self.param_name,
             "child": dict([[k, v.to_json(**kwargs)] for k, v in self.child.items()]),
         }
-        if with_param_name and param_names:
-            update["paramName"] = param_names[self.param_index]
         ret.update(update)
         return ret
 
@@ -419,7 +417,7 @@ class SplitFunction(ModelFunction):
     @classmethod
     def from_json(cls, data):
         assert data["type"] == "split"
-        self = cls(data["value"], data["paramIndex"], dict())
+        self = cls(data["value"], data["paramIndex"], data["paramName"], dict())
 
         for k, v in data["child"].items():
             self.child[k] = ModelFunction.from_json(v)
@@ -431,9 +429,12 @@ class SplitFunction(ModelFunction):
 
 
 class ScalarSplitFunction(ModelFunction):
-    def __init__(self, value, param_index, threshold, child_le, child_gt, **kwargs):
+    def __init__(
+        self, value, param_index, param_name, threshold, child_le, child_gt, **kwargs
+    ):
         super().__init__(value, **kwargs)
         self.param_index = param_index
+        self.param_name = param_name
         self.threshold = threshold
         self.child_le = child_le
         self.child_gt = child_gt
@@ -455,20 +456,16 @@ class ScalarSplitFunction(ModelFunction):
             self.child_le.webconf_function_map() + self.child_gt.webconf_function_map()
         )
 
-    def to_json(self, feature_names=None, **kwargs):
+    def to_json(self, **kwargs):
         ret = super().to_json(**kwargs)
-        with_param_name = kwargs.get("with_param_name", False)
-        param_names = kwargs.get("param_names", list())
         update = {
             "type": "scalarSplit",
             "paramIndex": self.param_index,
-            "paramName": feature_names[self.param_index],
+            "paramName": self.param_name,
             "threshold": self.threshold,
-            "left": self.child_le.to_json(),
-            "right": self.child_gt.to_json(),
+            "left": self.child_le.to_json(**kwargs),
+            "right": self.child_gt.to_json(**kwargs),
         }
-        if with_param_name and param_names:
-            update["paramName"] = param_names[self.param_index]
         ret.update(update)
         return ret
 
@@ -519,7 +516,12 @@ class ScalarSplitFunction(ModelFunction):
         left = ModelFunction.from_json(data["left"])
         right = ModelFunction.from_json(data["right"])
         self = cls(
-            data.get("value", 0), data["paramIndex"], data["threshold"], left, right
+            data.get("value", 0),
+            data["paramIndex"],
+            data["paramName"],
+            data["threshold"],
+            left,
+            right,
         )
 
         return self
@@ -590,13 +592,39 @@ class SKLearnRegressionFunction(ModelFunction):
 
     def __init__(self, value, regressor, categorial_to_index, ignore_index, **kwargs):
         # Needed for JSON export
-        self.param_names = kwargs.pop("param_names", None)
+        self.param_names = kwargs.pop("param_names")
+        self.arg_count = kwargs.pop("arg_count")
 
         super().__init__(value, **kwargs)
 
         self.regressor = regressor
         self.categorial_to_index = categorial_to_index
         self.ignore_index = ignore_index
+
+        # SKLearnRegressionFunction descendants use self.param_names \ self.ignore_index as features.
+        # Thus, model feature indexes ≠ self.param_names indexes.
+        # self.feature_names accounts for this and allows mapping feature indexes back to parameter names / parameter indexes.
+        self.feature_names = list(
+            map(
+                lambda i: self.param_names[i],
+                filter(
+                    lambda i: not self.ignore_index[i],
+                    range(len(self.param_names)),
+                ),
+            )
+        )
+        self.feature_names += list(
+            map(
+                lambda i: f"arg{i-len(self.param_names)}",
+                filter(
+                    lambda i: not self.ignore_index[i],
+                    range(
+                        len(self.param_names),
+                        len(self.param_names) + self.arg_count,
+                    ),
+                ),
+            )
+        )
 
     def is_predictable(self, param_list=None):
         """
@@ -657,6 +685,28 @@ class SKLearnRegressionFunction(ModelFunction):
         predictions = self.regressor.predict(np.array(actual_params))
         return predictions
 
+    def to_json(self, **kwargs):
+        ret = super().to_json(**kwargs)
+
+        # Note: categorial_to_index uses param_names, not feature_names
+        param_names = self.param_names + list(
+            map(
+                lambda i: f"arg{i-len(self.param_names)}",
+                range(
+                    len(self.param_names),
+                    len(self.param_names) + self.arg_count,
+                ),
+            )
+        )
+        ret["paramValueToIndex"] = dict(
+            map(
+                lambda kv: (param_names[kv[0]], kv[1]),
+                self.categorial_to_index.items(),
+            )
+        )
+
+        return ret
+
 
 class CARTFunction(SKLearnRegressionFunction):
     def get_number_of_nodes(self):
@@ -671,11 +721,10 @@ class CARTFunction(SKLearnRegressionFunction):
     def get_complexity_score(self):
         return self.get_number_of_nodes()
 
-    def to_json(self, feature_names=None, **kwargs):
+    def to_json(self, **kwargs):
         import sklearn.tree
 
         self.leaf_id = sklearn.tree._tree.TREE_LEAF
-        self.feature_names = feature_names
 
         ret = super().to_json(**kwargs)
         ret.update(self.recurse_(self.regressor.tree_, 0))
@@ -763,8 +812,7 @@ class LMTFunction(SKLearnRegressionFunction):
     def get_max_depth(self):
         return max(map(len, self.regressor._leaves.keys())) + 1
 
-    def to_json(self, feature_names=None, **kwargs):
-        self.feature_names = feature_names
+    def to_json(self, **kwargs):
         ret = super().to_json(**kwargs)
         ret.update(self.recurse_(self.regressor.summary(), 0))
         return ret
@@ -804,7 +852,7 @@ class LMTFunction(SKLearnRegressionFunction):
 
 
 class XGBoostFunction(SKLearnRegressionFunction):
-    def to_json(self, feature_names=None, **kwargs):
+    def to_json(self, **kwargs):
         import json
 
         tempfile = f"/tmp/xgb{os.getpid()}.json"
@@ -816,31 +864,23 @@ class XGBoostFunction(SKLearnRegressionFunction):
             data = json.load(f)
         os.remove(tempfile)
 
-        if feature_names:
-            return list(
-                map(
-                    lambda tree: self.tree_to_webconf_json(
-                        tree, feature_names, **kwargs
-                    ),
-                    data,
-                )
+        return list(
+            map(
+                lambda tree: self.tree_to_webconf_json(tree, **kwargs),
+                data,
             )
-        return data
+        )
 
-    def tree_to_webconf_json(self, tree, feature_names, **kwargs):
+    def tree_to_webconf_json(self, tree, **kwargs):
         ret = dict()
         if "children" in tree:
             return {
                 "type": "scalarSplit",
-                "paramName": feature_names[int(tree["split"][1:])],
+                "paramName": self.feature_names[int(tree["split"][1:])],
                 "threshold": tree["split_condition"],
                 "value": None,
-                "left": self.tree_to_webconf_json(
-                    tree["children"][0], feature_names, **kwargs
-                ),
-                "right": self.tree_to_webconf_json(
-                    tree["children"][1], feature_names, **kwargs
-                ),
+                "left": self.tree_to_webconf_json(tree["children"][0], **kwargs),
+                "right": self.tree_to_webconf_json(tree["children"][1], **kwargs),
             }
         else:
             return {
