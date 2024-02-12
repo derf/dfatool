@@ -1101,7 +1101,12 @@ class PTAModel(AnalyticModel):
                 for origin, destination in self.get_transition_states_from_traces(
                     transition
                 ):
-                    pta.add_transition(origin, destination, transition)
+                    try:
+                        pta.add_transition(origin, destination, transition)
+                    except KeyError as e:
+                        logger.warning(
+                            f"to_json: Missing transition ({e}). Note that --filter-observation is incompatible with JSON export."
+                        )
         pta.update(
             param_info, static_error=static_quality, function_error=analytic_quality
         )
