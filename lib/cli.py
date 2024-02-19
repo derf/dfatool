@@ -216,8 +216,8 @@ def print_model_complexity(model):
         for attr in model.attributes(name):
             if len(attr) > attr_len:
                 attr_len = len(attr)
-    for name in model.names:
-        for attribute in model.attributes(name):
+    for name in sorted(model.names):
+        for attribute in sorted(model.attributes(name)):
             mf = model.attr_by_name[name][attribute].model_function
             prefix = f"{name:{key_len}s} {attribute:{attr_len}s}: {mf.get_complexity_score():7d}"
             try:
