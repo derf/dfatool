@@ -590,7 +590,7 @@ class SKLearnRegressionFunction(ModelFunction):
     always_predictable = True
     has_eval_arr = True
 
-    def __init__(self, value, regressor, categorial_to_index, ignore_index, **kwargs):
+    def __init__(self, value, regressor, categorical_to_index, ignore_index, **kwargs):
         # Needed for JSON export
         self.param_names = kwargs.pop("param_names")
         self.arg_count = kwargs.pop("arg_count")
@@ -601,7 +601,7 @@ class SKLearnRegressionFunction(ModelFunction):
         super().__init__(value, **kwargs)
 
         self.regressor = regressor
-        self.categorial_to_index = categorial_to_index
+        self.categorical_to_index = categorical_to_index
         self.ignore_index = ignore_index
 
         # SKLearnRegressionFunction descendants use self.param_names \ self.ignore_index as features.
@@ -649,15 +649,15 @@ class SKLearnRegressionFunction(ModelFunction):
         actual_param_list = list()
         for i, param in enumerate(param_list):
             if not self.ignore_index[i]:
-                if i in self.categorial_to_index:
+                if i in self.categorical_to_index:
                     try:
-                        actual_param_list.append(self.categorial_to_index[i][param])
+                        actual_param_list.append(self.categorical_to_index[i][param])
                     except KeyError:
                         # param was not part of training data. substitute an unused scalar.
                         # Note that all param values which were not part of training data map to the same scalar this way.
                         # This should be harmless.
                         actual_param_list.append(
-                            max(self.categorial_to_index[i].values()) + 1
+                            max(self.categorical_to_index[i].values()) + 1
                         )
                 else:
                     actual_param_list.append(int(param))
@@ -672,15 +672,17 @@ class SKLearnRegressionFunction(ModelFunction):
             actual_param_list = list()
             for i, param in enumerate(param_tuple):
                 if not self.ignore_index[i]:
-                    if i in self.categorial_to_index:
+                    if i in self.categorical_to_index:
                         try:
-                            actual_param_list.append(self.categorial_to_index[i][param])
+                            actual_param_list.append(
+                                self.categorical_to_index[i][param]
+                            )
                         except KeyError:
                             # param was not part of training data. substitute an unused scalar.
                             # Note that all param values which were not part of training data map to the same scalar this way.
                             # This should be harmless.
                             actual_param_list.append(
-                                max(self.categorial_to_index[i].values()) + 1
+                                max(self.categorical_to_index[i].values()) + 1
                             )
                     else:
                         actual_param_list.append(int(param))
@@ -691,7 +693,7 @@ class SKLearnRegressionFunction(ModelFunction):
     def to_json(self, **kwargs):
         ret = super().to_json(**kwargs)
 
-        # Note: categorial_to_index uses param_names, not feature_names
+        # Note: categorical_to_index uses param_names, not feature_names
         param_names = self.param_names + list(
             map(
                 lambda i: f"arg{i-len(self.param_names)}",
@@ -704,7 +706,7 @@ class SKLearnRegressionFunction(ModelFunction):
         ret["paramValueToIndex"] = dict(
             map(
                 lambda kv: (param_names[kv[0]], kv[1]),
-                self.categorial_to_index.items(),
+                self.categorical_to_index.items(),
             )
         )
 
@@ -958,17 +960,17 @@ class FOLFunction(ModelFunction):
         self.fit_success = False
 
     def fit(self, param_values, data, ignore_param_indexes=None):
-        self.categorial_to_scalar = bool(
-            int(os.getenv("DFATOOL_PARAM_CATEGORIAL_TO_SCALAR", "0"))
+        self.categorical_to_scalar = bool(
+            int(os.getenv("DFATOOL_PARAM_CATEGORICAL_TO_SCALAR", "0"))
         )
         second_order = int(os.getenv("DFATOOL_FOL_SECOND_ORDER", "0"))
-        fit_parameters, categorial_to_index, ignore_index = param_to_ndarray(
+        fit_parameters, categorical_to_index, ignore_index = param_to_ndarray(
             param_values,
             with_nan=False,
-            categorial_to_scalar=self.categorial_to_scalar,
+            categorical_to_scalar=self.categorical_to_scalar,
             ignore_indexes=ignore_param_indexes,
         )
-        self.categorial_to_index = categorial_to_index
+        self.categorical_to_index = categorical_to_index
         self.ignore_index = ignore_index
         fit_parameters = fit_parameters.swapaxes(0, 1)
 
@@ -1052,15 +1054,15 @@ class FOLFunction(ModelFunction):
         actual_param_list = list()
         for i, param in enumerate(param_list):
             if not self.ignore_index[i]:
-                if i in self.categorial_to_index:
+                if i in self.categorical_to_index:
                     try:
-                        actual_param_list.append(self.categorial_to_index[i][param])
+                        actual_param_list.append(self.categorical_to_index[i][param])
                     except KeyError:
                         # param was not part of training data. substitute an unused scalar.
                         # Note that all param values which were not part of training data map to the same scalar this way.
                         # This should be harmless.
                         actual_param_list.append(
-                            max(self.categorial_to_index[i].values()) + 1
+                            max(self.categorical_to_index[i].values()) + 1
                         )
                 else:
                     actual_param_list.append(int(param))
@@ -1105,7 +1107,7 @@ class FOLFunction(ModelFunction):
 
     def hyper_to_dref(self):
         return {
-            "fol/categorial to scalar": int(self.categorial_to_scalar),
+            "fol/categorical to scalar": int(self.categorical_to_scalar),
         }
 
 

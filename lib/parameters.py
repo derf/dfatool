@@ -918,7 +918,7 @@ class ModelAttribute:
         :param data: Measurements. [data 1, data 2, data 3, ...]
         :param with_function_leaves: Use fitted function sets to generate function leaves for scalar parameters
         :param with_nonbinary_nodes: Allow non-binary nodes for enum and scalar parameters (i.e., nodes with more than two children)
-        :param with_sklearn_cart: Use `sklearn.tree.DecisionTreeRegressor` CART implementation for tree generation. Does not support categorial (enum)
+        :param with_sklearn_cart: Use `sklearn.tree.DecisionTreeRegressor` CART implementation for tree generation. Does not support categorical (enum)
             and sparse parameters. Both are ignored during fitting. All other options are ignored as well.
         :param with_sklearn_decart: Use `sklearn.tree.DecisionTreeRegressor` CART implementation in DECART mode for tree generation. CART limitations
             apply; additionaly, scalar parameters are ignored during fitting.
@@ -928,8 +928,8 @@ class ModelAttribute:
         :returns: SplitFunction or StaticFunction
         """
 
-        categorial_to_scalar = bool(
-            int(os.getenv("DFATOOL_PARAM_CATEGORIAL_TO_SCALAR", "0"))
+        categorical_to_scalar = bool(
+            int(os.getenv("DFATOOL_PARAM_CATEGORICAL_TO_SCALAR", "0"))
         )
         if with_function_leaves is None:
             with_function_leaves = bool(
@@ -969,13 +969,13 @@ class ModelAttribute:
                 fit_parameters, category_to_index, ignore_index = param_to_ndarray(
                     parameters,
                     with_nan=False,
-                    categorial_to_scalar=categorial_to_scalar,
+                    categorical_to_scalar=categorical_to_scalar,
                 )
             elif with_sklearn_decart:
                 fit_parameters, category_to_index, ignore_index = param_to_ndarray(
                     parameters,
                     with_nan=False,
-                    categorial_to_scalar=categorial_to_scalar,
+                    categorical_to_scalar=categorical_to_scalar,
                     ignore_indexes=self.scalar_param_indexes,
                 )
             if fit_parameters.shape[1] == 0:
@@ -1071,7 +1071,7 @@ class ModelAttribute:
                 reg_lambda=reg_lambda,
             )
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
-                parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
+                parameters, with_nan=False, categorical_to_scalar=categorical_to_scalar
             )
             if fit_parameters.shape[1] == 0:
                 logger.warning(
@@ -1159,7 +1159,7 @@ class ModelAttribute:
                 criterion=criterion,
             )
             fit_parameters, category_to_index, ignore_index = param_to_ndarray(
-                parameters, with_nan=False, categorial_to_scalar=categorial_to_scalar
+                parameters, with_nan=False, categorical_to_scalar=categorical_to_scalar
             )
             if fit_parameters.shape[1] == 0:
                 logger.warning(

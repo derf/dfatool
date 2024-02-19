@@ -48,7 +48,7 @@ The model for `param[paramIndex] <= threshold` is located in `left`, the model
 for `param[paramIndex] > threshold` is located in `right`. `value` is a
 static model that serves as fall-back if `param[paramIndex]` is undefined.
 
-### RMT categorial split node
+### RMT categorical split node
 
 ```
 {

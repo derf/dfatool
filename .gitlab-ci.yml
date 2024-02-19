@@ -58,7 +58,7 @@ make_model:
   - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 bin/analyze-kconfig.py multipass.kconfig multipass.json.xz --export-webconf models/multipass-rmt.json
   - wget -q https://ess.cs.uos.de/.private/dfatool/x264.json.xz https://ess.cs.uos.de/.private/dfatool/x264.kconfig https://ess.cs.uos.de/.private/dfatool/x264.nfpkeys.json
   - mv x264.nfpkeys.json nfpkeys.json
-  - DFATOOL_DTREE_SKLEARN_CART=1 DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1 bin/analyze-kconfig.py x264.kconfig x264.json.xz --export-webconf models/x264-cart.json
+  - DFATOOL_DTREE_SKLEARN_CART=1 DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1 bin/analyze-kconfig.py x264.kconfig x264.json.xz --export-webconf models/x264-cart.json
   - DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0 bin/analyze-kconfig.py x264.kconfig x264.json.xz --export-webconf models/x264-rmt.json
   artifacts:
     paths:

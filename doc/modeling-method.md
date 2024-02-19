@@ -6,7 +6,7 @@ Enable these with `DFATOOL_DTREE_SKLEARN_CART=1` and `--force-tree`.
 
 ### Related Options
 
-* `DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1` converts categorial parameters (which are not supported by CART) to numeric ones.
+* `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1` converts categorical parameters (which are not supported by CART) to numeric ones.
 
 ## XGB (Gradient-Boosted Forests / eXtreme Gradient boosting)
 
@@ -15,7 +15,7 @@ You should also specify `DFATOOL_XGB_N_ESTIMATORS`, `DFATOOL_XGB_MAX_DEPTH`, and
 
 ### Related Options
 
-* `DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1` converts categorial parameters (which are not supported by XGB) to numeric ones.
+* `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1` converts categorical parameters (which are not supported by XGB) to numeric ones.
 * Anything prefixed with `DFATOOL_XGB_`.
 
 ## LMT (Linear Model Trees)
@@ -27,7 +27,7 @@ They always use a maximum depth of 20.
 
 See the [LinearTreeRegressor documentation](lib/lineartree/lineartree.py) for details on training hyper-parameters.
 
-* `DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1` converts categorial parameters (which are not supported by LMT) to numeric ones.
+* `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1` converts categorical parameters (which are not supported by LMT) to numeric ones.
 * `DFATOOL_LMT_MAX_DEPTH`
 * `DFATOOL_LMT_MIN_SAMPLES_SPLIT`
 * `DFATOOL_LMT_MIN_SAMPLES_LEAF`
@@ -47,7 +47,7 @@ All of these are valid regression model trees.
 * `DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0` disables the relevant parameter detection heuristic when building the tree structure. By default, irrelevant parameters cannot end up as decision nodes.
 * `DFATOOL_FIT_LINEAR_ONLY=1` makes RMT behave more like LMT by only considering linear functions in leaf nodes.
 * `DFATOOL_FIT_FOL=1`
-* `DFATOOL_PARAM_CATEGORIAL_TO_SCALAR=1`
+* `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1`
 * `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK=1`
 * `DFATOOL_REGRESSION_SAFE_FUNCTIONS=1`
 

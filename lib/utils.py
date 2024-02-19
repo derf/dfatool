@@ -289,7 +289,7 @@ def partition_by_param(data, param_values, ignore_parameters=list()):
 
 
 def param_to_ndarray(
-    param_tuples, with_nan=True, categorial_to_scalar=False, ignore_indexes=list()
+    param_tuples, with_nan=True, categorical_to_scalar=False, ignore_indexes=list()
 ):
     has_nan = dict()
     has_non_numeric = dict()
@@ -297,7 +297,7 @@ def param_to_ndarray(
     category_to_scalar = dict()
 
     logger.debug(
-        f"converting param_to_ndarray(with_nan={with_nan}, categorial_to_scalar={categorial_to_scalar}, ignore_indexes={ignore_indexes})"
+        f"converting param_to_ndarray(with_nan={with_nan}, categorical_to_scalar={categorical_to_scalar}, ignore_indexes={ignore_indexes})"
     )
 
     for param_tuple in param_tuples:
@@ -307,7 +307,7 @@ def param_to_ndarray(
                     has_nan[i] = True
                 else:
                     has_non_numeric[i] = True
-                if categorial_to_scalar and param is not None:
+                if categorical_to_scalar and param is not None:
                     if not i in distinct_values:
                         distinct_values[i] = set()
                     distinct_values[i].add(param)
@@ -320,7 +320,7 @@ def param_to_ndarray(
 
     ignore_index = dict()
     for i in range(len(param_tuples[0])):
-        if has_non_numeric.get(i, False) and not categorial_to_scalar:
+        if has_non_numeric.get(i, False) and not categorical_to_scalar:
             ignore_index[i] = True
         elif not with_nan and has_nan.get(i, False):
             ignore_index[i] = True
@@ -337,7 +337,7 @@ def param_to_ndarray(
             if not ignore_index[i]:
                 if i in category_to_scalar and not is_numeric(param):
                     ret_tuple.append(category_to_scalar[i][param])
-                elif categorial_to_scalar:
+                elif categorical_to_scalar:
                     ret_tuple.append(soft_cast_int(param))
                 else:
                     ret_tuple.append(param)
@@ -357,7 +357,7 @@ def param_dict_to_list(param_dict, parameter_names, default=None):
 
 def observations_enum_to_bool(observations: list, kconfig=False):
     """
-    Convert enum / categorial observations to boolean-only ones.
+    Convert enum / categorical observations to boolean-only ones.
     'observations' is altered in-place.
 
     DEPRECATED.

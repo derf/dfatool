@@ -59,7 +59,7 @@ def main():
     parser.add_argument(
         "--boolean-parameters",
         action="store_true",
-        help="Use boolean (not categorial) parameters when building the NFP model",
+        help="Use boolean (not categorical) parameters when building the NFP model",
     )
     parser.add_argument(
         "--show-failing-symbols",
