@@ -851,8 +851,7 @@ class ModelAttribute:
             self.median,
             self.param_names,
             n_samples=self.data.shape[0],
-            param_names=self.param_names,
-            arg_count=self.arg_count,
+            num_args=self.arg_count,
         )
         x.fit(self.param_values, self.data, ignore_param_indexes=ignore_param_indexes)
         if x.fit_success:
