@@ -949,6 +949,109 @@ class XGBoostFunction(SKLearnRegressionFunction):
         }
 
 
+class SymbolicRegressionFunction(ModelFunction):
+    def __init__(self, value, parameters, num_args=0, **kwargs):
+        super().__init__(value, **kwargs)
+        self.parameter_names = parameters
+        self._num_args = num_args
+        self.fit_success = False
+
+    def fit(self, param_values, data, ignore_param_indexes=None):
+        self.categorical_to_scalar = bool(
+            int(os.getenv("DFATOOL_PARAM_CATEGORICAL_TO_SCALAR", "0"))
+        )
+        fit_parameters, categorical_to_index, ignore_index = param_to_ndarray(
+            param_values,
+            with_nan=False,
+            categorical_to_scalar=self.categorical_to_scalar,
+            ignore_indexes=ignore_param_indexes,
+        )
+        self.categorical_to_index = categorical_to_index
+        self.ignore_index = ignore_index
+
+        if fit_parameters.shape[1] == 0:
+            logger.debug(
+                f"Cannot use Symbolic Regression due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape is {fit_parameters.shape}"
+            )
+            return
+
+        from dfatool.gplearn.genetic import SymbolicRegressor
+
+        self.regressor = SymbolicRegressor()
+        self.regressor.fit(fit_parameters, data)
+        self.fit_success = True
+
+    # TODO inherit from SKLearnRegressionFunction, making this obsolete.
+    # requires SKLearnRegressionFunction to provide .fit and refactoring
+    # build_tree to move .fit into SKLearnRegressionFunction descendants.
+    def is_predictable(self, param_list=None):
+        """
+        Return whether the model function can be evaluated on the given parameter values.
+
+        For a StaticFunction, this is always the case (i.e., this function always returns true).
+        """
+        return True
+
+    # TODO inherit from SKLearnRegressionFunction, making this obsolete.
+    # requires SKLearnRegressionFunction to provide .fit and refactoring
+    # build_tree to move .fit into SKLearnRegressionFunction descendants.
+    def eval(self, param_list=None):
+        """
+        Evaluate model function with specified param/arg values.
+
+        Far a Staticfunction, this is just the static value
+
+        """
+        if param_list is None:
+            return self.value
+        actual_param_list = list()
+        for i, param in enumerate(param_list):
+            if not self.ignore_index[i]:
+                if i in self.categorical_to_index:
+                    try:
+                        actual_param_list.append(self.categorical_to_index[i][param])
+                    except KeyError:
+                        # param was not part of training data. substitute an unused scalar.
+                        # Note that all param values which were not part of training data map to the same scalar this way.
+                        # This should be harmless.
+                        actual_param_list.append(
+                            max(self.categorical_to_index[i].values()) + 1
+                        )
+                else:
+                    actual_param_list.append(int(param))
+        predictions = self.regressor.predict(np.array([actual_param_list]))
+        if predictions.shape == (1,):
+            return predictions[0]
+        return predictions
+
+    # TODO inherit from SKLearnRegressionFunction, making this obsolete.
+    # requires SKLearnRegressionFunction to provide .fit and refactoring
+    # build_tree to move .fit into SKLearnRegressionFunction descendants.
+    def eval_arr(self, params):
+        actual_params = list()
+        for param_tuple in params:
+            actual_param_list = list()
+            for i, param in enumerate(param_tuple):
+                if not self.ignore_index[i]:
+                    if i in self.categorical_to_index:
+                        try:
+                            actual_param_list.append(
+                                self.categorical_to_index[i][param]
+                            )
+                        except KeyError:
+                            # param was not part of training data. substitute an unused scalar.
+                            # Note that all param values which were not part of training data map to the same scalar this way.
+                            # This should be harmless.
+                            actual_param_list.append(
+                                max(self.categorical_to_index[i].values()) + 1
+                            )
+                    else:
+                        actual_param_list.append(int(param))
+            actual_params.append(actual_param_list)
+        predictions = self.regressor.predict(np.array(actual_params))
+        return predictions
+
+
 # first-order linear function (no feature interaction)
 class FOLFunction(ModelFunction):
     always_predictable = True

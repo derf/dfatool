@@ -296,9 +296,11 @@ class AnalyticModel:
             if fallback:
                 return list(
                     map(
-                        lambda p: lut_model[name][key][tuple(p)]
-                        if tuple(p) in lut_model[name][key]
-                        else static_model[name][key],
+                        lambda p: (
+                            lut_model[name][key][tuple(p)]
+                            if tuple(p) in lut_model[name][key]
+                            else static_model[name][key]
+                        ),
                         params,
                     )
                 )
@@ -320,6 +322,7 @@ class AnalyticModel:
             paramfit = ParamFit()
             tree_allowed = bool(int(os.getenv("DFATOOL_DTREE_ENABLED", "1")))
             use_fol = bool(int(os.getenv("DFATOOL_FIT_FOL", "0")))
+            use_symreg = bool(int(os.getenv("DFATOOL_FIT_SYMREG", "0")))
             tree_required = dict()
 
             for name in self.names:
@@ -329,6 +332,8 @@ class AnalyticModel:
                         self.attr_by_name[name][attr].fit_override_function()
                     elif use_fol:
                         self.attr_by_name[name][attr].build_fol_model()
+                    elif use_symreg:
+                        self.attr_by_name[name][attr].build_symreg_model()
                     elif self.attr_by_name[name][
                         attr
                     ].all_relevant_parameters_are_none_or_numeric():
@@ -395,9 +400,11 @@ class AnalyticModel:
                     return model_function.eval_arr(kwargs["params"])
                 return list(
                     map(
-                        lambda p: model_function.eval(p)
-                        if model_function.is_predictable(p)
-                        else static_model[name][key],
+                        lambda p: (
+                            model_function.eval(p)
+                            if model_function.is_predictable(p)
+                            else static_model[name][key]
+                        ),
                         kwargs["params"],
                     )
                 )

@@ -124,6 +124,10 @@ def print_staticinfo(prefix, info):
     print(f"{prefix}: {info.value}")
 
 
+def print_symreginfo(prefix, info):
+    print(f"{prefix}: {str(info.regressor)}")
+
+
 def print_cartinfo(prefix, info):
     _print_cartinfo(prefix, info.to_json())
 
@@ -203,6 +207,8 @@ def print_model(prefix, info):
         print_lmtinfo(prefix, info)
     elif type(info) is df.XGBoostFunction:
         print_xgbinfo(prefix, info)
+    elif type(info) is df.SymbolicRegressionFunction:
+        print_symreginfo(prefix, info)
     else:
         print(f"{prefix}: {type(info)} UNIMPLEMENTED")
 
