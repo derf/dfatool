@@ -1177,6 +1177,70 @@ class XGBoostFunction(SKLearnRegressionFunction):
 
 class SymbolicRegressionFunction(SKLearnRegressionFunction):
     def fit(self, param_values, data, ignore_param_indexes=None):
+
+        # population_size : integer, optional (default=1000)
+        #     The number of programs in each generation.
+        population_size = int(os.getenv("DFATOOL_SYMREG_POPULATION_SIZE", "1000"))
+
+        # generations : integer, optional (default=20)
+        #     The number of generations to evolve.
+        generations = int(os.getenv("DFATOOL_SYMREG_GENERATIONS", "20"))
+
+        # tournament_size : integer, optional (default=20)
+        #     The number of programs that will compete to become part of the next
+        #     generation.
+        tournament_size = int(os.getenv("DFATOOL_SYMREG_TOURNAMENT_SIZE", "20"))
+
+        # const_range : tuple of two floats, or None, optional (default=(-1., 1.))
+        #     The range of constants to include in the formulas. If None then no
+        #     constants will be included in the candidate programs.
+        if cr := os.getenv("DFATOOL_SYMREG_CONST_RANGE", None):
+            if cr == "none":
+                const_range = None
+            else:
+                const_range = tuple(map(float, cr.split(",")))
+        else:
+            const_range = (-1.0, 1.0)
+
+        # function_set : iterable, optional (default=('add', 'sub', 'mul', 'div'))
+        #     The functions to use when building and evolving programs. This iterable
+        #     can include strings to indicate either individual functions as outlined
+        #     below, or you can also include your own functions as built using the
+        #     ``make_function`` factory from the ``functions`` module.
+        function_set = tuple(
+            os.getenv("DFATOOL_SYMREG_FUNCTION_SET", "add sub mul div").split()
+        )
+
+        # metric : str, optional (default='mean absolute error')
+        #     The name of the raw fitness metric. Available options include:
+        metric = os.getenv("DFATOOL_SYMREG_METRIC", "mse")
+
+        # parsimony_coefficient : float or "auto", optional (default=0.001)
+        #     This constant penalizes large programs by adjusting their fitness to
+        #     be less favorable for selection. Larger values penalize the program
+        #     more which can control the phenomenon known as 'bloat'. Bloat is when
+        #     evolution is increasing the size of programs without a significant
+        #     increase in fitness, which is costly for computation time and makes for
+        #     a less understandable final result. This parameter may need to be tuned
+        #     over successive runs.
+        #
+        #     If "auto" the parsimony coefficient is recalculated for each generation
+        #     using c = Cov(l,f)/Var( l), where Cov(l,f) is the covariance between
+        #     program size l and program fitness f in the population, and Var(l) is
+        #     the variance of program sizes.
+        parsimony_coefficient = float(
+            os.getenv("DFATOOL_SYMREG_PARSIMONY_COEFFICIENT", "0.001")
+        )
+
+        # n_jobs : integer, optional (default=1)
+        #     The number of jobs to run in parallel for `fit`. If -1, then the number
+        #     of jobs is set to the number of cores.
+        n_jobs = int(os.getenv("DFATOOL_SYMREG_N_JOBS", "1"))
+
+        # verbose : int, optional (default=0)
+        #     Controls the verbosity of the evolution building process.
+        verbose = int(os.getenv("DFATOOL_SYMREG_VERBOSE", "0"))
+
         fit_parameters, self.categorical_to_index, self.ignore_index = param_to_ndarray(
             param_values,
             with_nan=False,
@@ -1195,11 +1259,24 @@ class SymbolicRegressionFunction(SKLearnRegressionFunction):
 
         self._build_feature_names()
         self.regressor = SymbolicRegressor(
-            metric="mse", feature_names=self.feature_names
+            population_size=population_size,
+            generations=generations,
+            tournament_size=tournament_size,
+            const_range=const_range,
+            function_set=function_set,
+            metric=metric,
+            parsimony_coefficient=parsimony_coefficient,
+            n_jobs=n_jobs,
+            verbose=verbose,
+            feature_names=self.feature_names,
         )
         self.regressor.fit(fit_parameters, data)
         self.fit_success = True
         return self
+
+    def get_complexity_score(self):
+        rstr = str(self.regressor)
+        return rstr.count(",") * 2 + 1
 
 
 # first-order linear function (no feature interaction)
