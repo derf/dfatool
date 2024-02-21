@@ -111,7 +111,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_KCONF_WITH_CHOICE_NODES` | 0, **1** | Treat kconfig choices (e.g. "choice Model → MobileNet / ResNet / Inception") as enum parameters. If enabled, the corresponding boolean kconfig variables (e.g. "Model\_MobileNet") are not converted to parameters. If disabled, all (and only) boolean kconfig variables are treated as parameters. Mostly relevant for analyze-kconfig, eval-kconfig |
 | `DFATOOL_COMPENSATE_DRIFT` | **0**, 1 | Perform drift compensation for loaders without sync input (e.g. EnergyTrace or Keysight) |
 | `DFATOOL_DRIFT_COMPENSATION_PENALTY` | 0 .. 100 (default: majority vote over several penalties) | Specify penalty for ruptures.py PELT changepoint petection |
-| `DFATOOL_MODEL` | cart, decart, lmt, **rmt**, xgb | Modeling method. See below for method-specific configuration options. |
+| `DFATOOL_MODEL` | cart, decart, fol, lmt, **rmt**, xgb | Modeling method. See below for method-specific configuration options. |
 | `DFATOOL_DTREE_ENABLED` | 0, **1** | Use decision trees in get\_fitted |
 | `DFATOOL_DTREE_FUNCTION_LEAVES` | 0, **1** | Use functions (fitted via linear regression) in decision tree leaves when modeling numeric parameters with at least three distinct values. If 0, integer parameters are treated as enums instead. |
 | `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default (0): unlimited. |
@@ -140,7 +140,6 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_PARAM_RELEVANCE_THRESHOLD` | 0 .. **0.5** .. 1 | Threshold for relevant parameter detection: parameter *i* is relevant if mean standard deviation (data partitioned by all parameters) / mean standard deviation (data partition by all parameters but *i*) is less than threshold |
 | `DFATOOL_DTREE_LOSS_IGNORE_SCALAR` | **0**, 1 | Ignore scalar parameters when computing the loss for split node candidates. Instead of computing the loss of a single partition for each `x_i == j`, compute the loss of partitions for `x_i == j` in which non-scalar parameters vary and scalar parameters are constant. This way, scalar parameters do not affect the decision about which non-scalar parameter to use for splitting. |
 | `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR` | **0**, 1 | Some models (e.g. FOL, sklearn CART, XGBoost) do not support categorical parameters. Ignore them (0) or convert them to scalar indexes (1). Conversion uses lexical order. |
-| `DFATOOL_FIT_FOL` | **0**, 1 | Build a first-order linear function (i.e., a * param1 + b * param2 + ...) instead of more complex functions or tree structures. Must not be combined with `--force-tree`. |
 | `DFATOOL_FOL_SECOND_ORDER` | **0**, 1 | Add second-order components (interaction of feature pairs) to first-order linear function. |
 
 ## Examples

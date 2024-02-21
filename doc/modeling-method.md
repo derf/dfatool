@@ -14,6 +14,10 @@ sklearn CART ("Decision Tree Regression") algorithm. Uses binary nodes and suppo
 
 sklearn CART ("Decision Tree Regression") algorithm. Ignores scalar parameters, thus emulating the DECART algorithm.
 
+## FOL (First-Order Linear function)
+
+Build a first-order linear function (i.e., a * param1 + b * param2 + ...).
+
 ## LMT (Linear Model Trees)
 
 [Linear Model Tree](https://github.com/cerlymarco/linear-tree) algorithm. Uses binary nodes and linear functions.
@@ -41,7 +45,6 @@ All of these are valid regression model trees.
 * `--force-tree` builds a tree structure even if dfatool's heuristic indicates that no non-integer parameter affects the modeled performance attribute.
 * `DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS=0` disables the relevant parameter detection heuristic when building the tree structure. By default, irrelevant parameters cannot end up as decision nodes.
 * `DFATOOL_FIT_LINEAR_ONLY=1` makes RMT behave more like LMT by only considering linear functions in leaf nodes.
-* `DFATOOL_FIT_FOL=1`
 * `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1`
 * `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK=1`
 * `DFATOOL_REGRESSION_SAFE_FUNCTIONS=1`
