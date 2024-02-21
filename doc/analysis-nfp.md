@@ -8,7 +8,7 @@ Classification and Regression Trees (CART) are capable of generating accurate mo
 Hence, after loading a CART model into kconfig-webconf, only a small subset of busybox features will be annotated with NFP deltas.
 
 ```
-DFATOOL_DTREE_SKLEARN_CART=1 DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1 DFATOOL_KCONF_WITH_CHOICE_NODES=0 .../dfatool/bin/analyze-kconfig.py --export-webconf busybox.json --force-tree ../busybox-1.35.0/Kconfig .
+DFATOOL_MODEL=cart DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1 DFATOOL_KCONF_WITH_CHOICE_NODES=0 .../dfatool/bin/analyze-kconfig.py --export-webconf busybox.json --force-tree ../busybox-1.35.0/Kconfig .
 ```
 
 Refer to the [kconfig-webconf README](https://ess.cs.uos.de/git/software/kconfig-webconf/-/blob/master/README.md#user-content-performance-aware-configuration) for details on using the generated model.

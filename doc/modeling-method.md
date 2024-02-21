@@ -1,27 +1,22 @@
 # Modeling Method Selection
 
+Set `DFATOOL_MODEL` to an appropriate value, e.g. `DFATOOL_MODEL=cart`.
+
 ## CART (Regression Trees)
 
-Enable these with `DFATOOL_DTREE_SKLEARN_CART=1` and `--force-tree`.
+sklearn CART ("Decision Tree Regression") algorithm. Uses binary nodes and supports splits on scalar variables.
 
 ### Related Options
 
 * `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1` converts categorical parameters (which are not supported by CART) to numeric ones.
 
-## XGB (Gradient-Boosted Forests / eXtreme Gradient boosting)
+## DECART (Regression Trees)
 
-Enable these with `DFATOOL_USE_XGBOOST=1` and `--force-tree`.
-You should also specify `DFATOOL_XGB_N_ESTIMATORS`, `DFATOOL_XGB_MAX_DEPTH`, and possibly `OMP_NUM_THREADS`.
-
-### Related Options
-
-* `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1` converts categorical parameters (which are not supported by XGB) to numeric ones.
-* Anything prefixed with `DFATOOL_XGB_`.
+sklearn CART ("Decision Tree Regression") algorithm. Ignores scalar parameters, thus emulating the DECART algorithm.
 
 ## LMT (Linear Model Trees)
 
-Enable these with `DFATOOL_DTREE_LMT=1` and `--force-tree`.
-They always use a maximum depth of 20.
+[Linear Model Tree](https://github.com/cerlymarco/linear-tree) algorithm. Uses binary nodes and linear functions.
 
 ### Related Options
 
@@ -50,6 +45,15 @@ All of these are valid regression model trees.
 * `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1`
 * `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK=1`
 * `DFATOOL_REGRESSION_SAFE_FUNCTIONS=1`
+
+## XGB (Gradient-Boosted Forests / eXtreme Gradient boosting)
+
+You should also specify `DFATOOL_XGB_N_ESTIMATORS`, `DFATOOL_XGB_MAX_DEPTH`, and possibly `OMP_NUM_THREADS`.
+
+### Related Options
+
+* `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1` converts categorical parameters (which are not supported by XGB) to numeric ones.
+* Anything prefixed with `DFATOOL_XGB_`.
 
 ## Least-Squares Regression
 
