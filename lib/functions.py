@@ -1193,9 +1193,11 @@ class SymbolicRegressionFunction(SKLearnRegressionFunction):
 
         from dfatool.gplearn.genetic import SymbolicRegressor
 
-        self.regressor = SymbolicRegressor()
-        self.regressor.fit(fit_parameters, data)
         self._build_feature_names()
+        self.regressor = SymbolicRegressor(
+            metric="mse", feature_names=self.feature_names
+        )
+        self.regressor.fit(fit_parameters, data)
         self.fit_success = True
         return self
 
