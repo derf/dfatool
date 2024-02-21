@@ -1006,8 +1006,6 @@ class ModelAttribute:
 
     def build_dtree(
         self,
-        parameters,
-        data,
         with_function_leaves=None,
         with_nonbinary_nodes=None,
         with_gplearn_symreg=None,
@@ -1059,8 +1057,8 @@ class ModelAttribute:
         )
 
         self.model_function = self._build_dtree(
-            parameters,
-            data,
+            self.param_values,
+            self.data,
             with_function_leaves=with_function_leaves,
             with_nonbinary_nodes=with_nonbinary_nodes,
             ignore_irrelevant_parameters=ignore_irrelevant_parameters,

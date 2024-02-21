@@ -327,8 +327,6 @@ class AnalyticModel:
                         threshold = 0
                     logger.debug(f"build_dtree({name}, {attr}, threshold={threshold})")
                     self.attr_by_name[name][attr].build_dtree(
-                        self.by_name[name]["param"],
-                        self.by_name[name][attr],
                         threshold=threshold,
                     )
         else:
@@ -374,8 +372,6 @@ class AnalyticModel:
                             f"build_dtree({name}, {attr}, threshold={threshold})"
                         )
                         self.attr_by_name[name][attr].build_dtree(
-                            self.by_name[name]["param"],
-                            self.by_name[name][attr],
                             threshold=threshold,
                         )
                     else:
