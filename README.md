@@ -112,6 +112,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_COMPENSATE_DRIFT` | **0**, 1 | Perform drift compensation for loaders without sync input (e.g. EnergyTrace or Keysight) |
 | `DFATOOL_DRIFT_COMPENSATION_PENALTY` | 0 .. 100 (default: majority vote over several penalties) | Specify penalty for ruptures.py PELT changepoint petection |
 | `DFATOOL_MODEL` | cart, decart, fol, lmt, **rmt**, xgb | Modeling method. See below for method-specific configuration options. |
+| `DFATOOL_SUBMODEL` | fol, **uls** | Modeling method for RMT leaf functions. |
 | `DFATOOL_RMT_ENABLED` | 0, **1** | Use decision trees in get\_fitted |
 | `DFATOOL_RMT_FUNCTION_LEAVES` | 0, **1** | Use functions (fitted via linear regression) in decision tree leaves when modeling numeric parameters with at least three distinct values. If 0, integer parameters are treated as enums instead. |
 | `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default (0): unlimited. |
@@ -133,7 +134,6 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `OMP_NUM_THREADS` | *number of CPU cores* | Maximum number of threads used per XGBoost learner. A limit of 4 threads appears to be ideal. Note that dfatool may spawn several XGBoost instances at the same time. |
 | `DFATOOL_KCONF_IGNORE_NUMERIC` | **0**, 1 | Ignore numeric (int/hex) configuration options. Useful for comparison with CART/DECART. |
 | `DFATOOL_KCONF_IGNORE_STRING` | 0, **1** | Ignore string configuration options. These often hold compiler paths and other not really helpful information. |
-| `DFATOOL_FIT_LINEAR_ONLY` | **0**, 1 | Only consider linear functions (a + bx) in regression analysis. Useful for comparison with Linear Model Trees / M5. |
 | `DFATOOL_REGRESSION_SAFE_FUNCTIONS` | **0**, 1 | Use safe functions only (e.g. 1/x returnning 1 for x==0) |
 | `DFATOOL_RMT_NONBINARY_NODES` | 0, **1** | Enable non-binary nodes (i.e., nodes with more than two children corresponding to enum variables) in decision trees |
 | `DFATOOL_RMT_IGNORE_IRRELEVANT_PARAMS` | **0**, 1 | Ignore parameters deemed irrelevant by stddev heuristic during regression tree generation. Use with caution. |

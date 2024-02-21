@@ -1842,7 +1842,7 @@ class analytic:
                 repr_str="β₀ + β₁ * safe_sqrt(x)",
             )
 
-        if bool(int(os.getenv("DFATOOL_FIT_LINEAR_ONLY", "0"))):
+        if os.getenv("DFATOOL_SUBMODEL", "uls") == "fol":
             functions = {"linear": functions["linear"]}
 
         return functions
