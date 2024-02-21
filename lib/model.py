@@ -331,7 +331,7 @@ class AnalyticModel:
                     )
         else:
             paramfit = ParamFit()
-            tree_allowed = bool(int(os.getenv("DFATOOL_DTREE_ENABLED", "1")))
+            tree_allowed = bool(int(os.getenv("DFATOOL_RMT_ENABLED", "1")))
             use_symreg = bool(int(os.getenv("DFATOOL_FIT_SYMREG", "0")))
             tree_required = dict()
 

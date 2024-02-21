@@ -112,8 +112,8 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_COMPENSATE_DRIFT` | **0**, 1 | Perform drift compensation for loaders without sync input (e.g. EnergyTrace or Keysight) |
 | `DFATOOL_DRIFT_COMPENSATION_PENALTY` | 0 .. 100 (default: majority vote over several penalties) | Specify penalty for ruptures.py PELT changepoint petection |
 | `DFATOOL_MODEL` | cart, decart, fol, lmt, **rmt**, xgb | Modeling method. See below for method-specific configuration options. |
-| `DFATOOL_DTREE_ENABLED` | 0, **1** | Use decision trees in get\_fitted |
-| `DFATOOL_DTREE_FUNCTION_LEAVES` | 0, **1** | Use functions (fitted via linear regression) in decision tree leaves when modeling numeric parameters with at least three distinct values. If 0, integer parameters are treated as enums instead. |
+| `DFATOOL_RMT_ENABLED` | 0, **1** | Use decision trees in get\_fitted |
+| `DFATOOL_RMT_FUNCTION_LEAVES` | 0, **1** | Use functions (fitted via linear regression) in decision tree leaves when modeling numeric parameters with at least three distinct values. If 0, integer parameters are treated as enums instead. |
 | `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default (0): unlimited. |
 | `DFATOOL_LMT_MAX_DEPTH` | **5** .. 20 | Maximum depth for LMT. |
 | `DFATOOL_LMT_MIN_SAMPLES_SPLIT` | 0.0 .. 1.0, **6** .. *n* | Minimum samples required to still perform an LMT split. A value below 1.0 sets the specified ratio of the total number of training samples as minimum. |
@@ -135,10 +135,10 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_KCONF_IGNORE_STRING` | 0, **1** | Ignore string configuration options. These often hold compiler paths and other not really helpful information. |
 | `DFATOOL_FIT_LINEAR_ONLY` | **0**, 1 | Only consider linear functions (a + bx) in regression analysis. Useful for comparison with Linear Model Trees / M5. |
 | `DFATOOL_REGRESSION_SAFE_FUNCTIONS` | **0**, 1 | Use safe functions only (e.g. 1/x returnning 1 for x==0) |
-| `DFATOOL_DTREE_NONBINARY_NODES` | 0, **1** | Enable non-binary nodes (i.e., nodes with more than two children corresponding to enum variables) in decision trees |
-| `DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS` | **0**, 1 | Ignore parameters deemed irrelevant by stddev heuristic during regression tree generation. Use with caution. |
+| `DFATOOL_RMT_NONBINARY_NODES` | 0, **1** | Enable non-binary nodes (i.e., nodes with more than two children corresponding to enum variables) in decision trees |
+| `DFATOOL_RMT_IGNORE_IRRELEVANT_PARAMS` | **0**, 1 | Ignore parameters deemed irrelevant by stddev heuristic during regression tree generation. Use with caution. |
 | `DFATOOL_PARAM_RELEVANCE_THRESHOLD` | 0 .. **0.5** .. 1 | Threshold for relevant parameter detection: parameter *i* is relevant if mean standard deviation (data partitioned by all parameters) / mean standard deviation (data partition by all parameters but *i*) is less than threshold |
-| `DFATOOL_DTREE_LOSS_IGNORE_SCALAR` | **0**, 1 | Ignore scalar parameters when computing the loss for split node candidates. Instead of computing the loss of a single partition for each `x_i == j`, compute the loss of partitions for `x_i == j` in which non-scalar parameters vary and scalar parameters are constant. This way, scalar parameters do not affect the decision about which non-scalar parameter to use for splitting. |
+| `DFATOOL_RMT_LOSS_IGNORE_SCALAR` | **0**, 1 | Ignore scalar parameters when computing the loss for split node candidates. Instead of computing the loss of a single partition for each `x_i == j`, compute the loss of partitions for `x_i == j` in which non-scalar parameters vary and scalar parameters are constant. This way, scalar parameters do not affect the decision about which non-scalar parameter to use for splitting. |
 | `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR` | **0**, 1 | Some models (e.g. FOL, sklearn CART, XGBoost) do not support categorical parameters. Ignore them (0) or convert them to scalar indexes (1). Conversion uses lexical order. |
 | `DFATOOL_FOL_SECOND_ORDER` | **0**, 1 | Add second-order components (interaction of feature pairs) to first-order linear function. |
 

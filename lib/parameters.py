@@ -832,7 +832,7 @@ class ModelAttribute:
 
     def build_symreg_model(self):
         ignore_irrelevant = bool(
-            int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "0"))
+            int(os.getenv("DFATOOL_RMT_IGNORE_IRRELEVANT_PARAMS", "0"))
         )
         ignore_param_indexes = list()
         if ignore_irrelevant:
@@ -936,7 +936,7 @@ class ModelAttribute:
 
     def build_fol(self):
         ignore_irrelevant = bool(
-            int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "0"))
+            int(os.getenv("DFATOOL_RMT_IGNORE_IRRELEVANT_PARAMS", "0"))
         )
         ignore_param_indexes = list()
         if ignore_irrelevant:
@@ -1028,21 +1028,21 @@ class ModelAttribute:
 
         if with_function_leaves is None:
             with_function_leaves = bool(
-                int(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES", "1"))
+                int(os.getenv("DFATOOL_RMT_FUNCTION_LEAVES", "1"))
             )
         if with_nonbinary_nodes is None:
             with_nonbinary_nodes = bool(
-                int(os.getenv("DFATOOL_DTREE_NONBINARY_NODES", "1"))
+                int(os.getenv("DFATOOL_RMT_NONBINARY_NODES", "1"))
             )
         if with_gplearn_symreg is None:
             with_gplearn_symreg = bool(int(os.getenv("DFATOOL_USE_SYMREG", "0")))
         if ignore_irrelevant_parameters is None:
             ignore_irrelevant_parameters = bool(
-                int(os.getenv("DFATOOL_DTREE_IGNORE_IRRELEVANT_PARAMS", "0"))
+                int(os.getenv("DFATOOL_RMT_IGNORE_IRRELEVANT_PARAMS", "0"))
             )
         if loss_ignore_scalar is None:
             loss_ignore_scalar = bool(
-                int(os.getenv("DFATOOL_DTREE_LOSS_IGNORE_SCALAR", "0"))
+                int(os.getenv("DFATOOL_RMT_LOSS_IGNORE_SCALAR", "0"))
             )
 
         if loss_ignore_scalar and not with_function_leaves:
