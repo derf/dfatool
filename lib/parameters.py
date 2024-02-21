@@ -951,9 +951,6 @@ class ModelAttribute:
         :returns: SplitFunction or StaticFunction
         """
 
-        categorical_to_scalar = bool(
-            int(os.getenv("DFATOOL_PARAM_CATEGORICAL_TO_SCALAR", "0"))
-        )
         if with_function_leaves is None:
             with_function_leaves = bool(
                 int(os.getenv("DFATOOL_DTREE_FUNCTION_LEAVES", "1"))
@@ -984,235 +981,65 @@ class ModelAttribute:
             )
 
         if with_sklearn_cart or with_sklearn_decart:
-            from sklearn.tree import DecisionTreeRegressor
-
-            max_depth = int(os.getenv("DFATOOL_CART_MAX_DEPTH", "0"))
-            if max_depth == 0:
-                max_depth = None
-            cart = DecisionTreeRegressor(max_depth=max_depth)
-            if with_sklearn_cart:
-                fit_parameters, category_to_index, ignore_index = param_to_ndarray(
-                    parameters,
-                    with_nan=False,
-                    categorical_to_scalar=categorical_to_scalar,
-                )
-            elif with_sklearn_decart:
-                fit_parameters, category_to_index, ignore_index = param_to_ndarray(
-                    parameters,
-                    with_nan=False,
-                    categorical_to_scalar=categorical_to_scalar,
-                    ignore_indexes=self.scalar_param_indexes,
-                )
-            if fit_parameters.shape[1] == 0:
-                logger.warning(
-                    f"Cannot generate CART for {self.name} {self.attr} due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
-                )
-                self.model_function = df.StaticFunction(
-                    np.mean(data), n_samples=len(data)
-                )
-                return
-            logger.debug("Fitting sklearn CART ...")
-            cart.fit(fit_parameters, data)
-            self.model_function = df.CARTFunction(
+            mf = df.CARTFunction(
                 np.mean(data),
-                cart,
-                category_to_index,
-                ignore_index,
                 n_samples=len(data),
                 param_names=self.param_names,
                 arg_count=self.arg_count,
+                decart=with_sklearn_decart,
             )
-            logger.debug("Fitted sklearn CART")
+
+            mf.fit(
+                parameters,
+                data,
+                scalar_param_indexes=self.scalar_param_indexes,
+            )
+
+            if mf.fit_success:
+                self.model_function = mf
+            else:
+                logger.warning(f"CART generation for {self.name} {self.attr} faled")
+                self.model_function = df.StaticFunction(
+                    np.mean(data), n_samples=len(data)
+                )
             return
 
         if with_xgboost:
-            import xgboost
-
-            # <https://xgboost.readthedocs.io/en/stable/python/python_api.html#module-xgboost.sklearn>
-            # <https://xgboost.readthedocs.io/en/stable/parameter.html#parameters-for-tree-booster>
-            # n_estimators := number of trees in forest
-            # max_depth := maximum tree depth
-            # eta <=> learning_rate
-
-            # n_estimators : Optional[int]
-            #     Number of gradient boosted trees.  Equivalent to number of boosting
-            #     rounds.
-            # xgboost/sklearn.py: DEFAULT_N_ESTIMATORS = 100
-            n_estimators = int(os.getenv("DFATOOL_XGB_N_ESTIMATORS", "100"))
-
-            # max_depth :  Optional[int] [default=6]
-            #     Maximum tree depth for base learners.
-            # Maximum depth of a tree. Increasing this value will make the model more complex and more likely to overfit. 0 indicates no limit on depth. Beware
-            # that XGBoost aggressively consumes memory when training a deep tree. exact tree method requires non-zero value.
-            # range: [0,∞]
-            max_depth = int(os.getenv("DFATOOL_XGB_MAX_DEPTH", "6"))
-
-            # max_leaves : [default=0]
-            #     Maximum number of leaves; 0 indicates no limit.
-            # Maximum number of nodes to be added. Not used by exact tree method.
-            max_leaves = int(os.getenv("DFATOOL_XGB_MAX_LEAVES", "0"))
-
-            # learning_rate : Optional[float] [default=0.3]
-            #     Boosting learning rate (xgb's "eta")
-            # Step size shrinkage used in update to prevents overfitting. After each boosting step, we can directly get the weights of new features, and eta
-            # shrinks the feature weights to make the boosting process more conservative.
-            # range: [0,1]
-            learning_rate = float(os.getenv("DFATOOL_XGB_ETA", "0.3"))
-
-            # gamma : Optional[float] [default=0]
-            #     (min_split_loss) Minimum loss reduction required to make a further partition on a
-            #     leaf node of the tree.
-            # Minimum loss reduction required to make a further partition on a leaf node of the tree. The larger gamma is, the more conservative the algorithm will be.
-            # range: [0,∞]
-            gamma = float(os.getenv("DFATOOL_XGB_GAMMA", "0"))
-
-            # subsample : Optional[float] [default=1]
-            #     Subsample ratio of the training instance.
-            # Subsample ratio of the training instances. Setting it to 0.5 means that XGBoost would randomly sample half of the training data prior to growing
-            # trees. and this will prevent overfitting. Subsampling will occur once in every boosting iteration.
-            # range: (0,1]
-            subsample = float(os.getenv("DFATOOL_XGB_SUBSAMPLE", "1"))
-
-            # reg_alpha : Optional[float] [default=0]
-            #     L1 regularization term on weights (xgb's alpha).
-            # L1 regularization term on weights. Increasing this value will make model more conservative.
-            # range: [0, ∞]
-            reg_alpha = float(os.getenv("DFATOOL_XGB_REG_ALPHA", "0"))
-
-            # reg_lambda : Optional[float] [default=1]
-            #     L2 regularization term on weights (xgb's lambda).
-            # L2 regularization term on weights. Increasing this value will make model more conservative.
-            # range: [0, ∞]
-            reg_lambda = float(os.getenv("DFATOOL_XGB_REG_LAMBDA", "1"))
-
-            xgb = xgboost.XGBRegressor(
-                n_estimators=n_estimators,
-                max_depth=max_depth,
-                max_leaves=max_leaves,
-                subsample=subsample,
-                learning_rate=learning_rate,
-                gamma=gamma,
-                reg_alpha=reg_alpha,
-                reg_lambda=reg_lambda,
-            )
-            fit_parameters, category_to_index, ignore_index = param_to_ndarray(
-                parameters, with_nan=False, categorical_to_scalar=categorical_to_scalar
-            )
-            if fit_parameters.shape[1] == 0:
-                logger.warning(
-                    f"Cannot run XGBoost for {self.name} {self.attr} due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
-                )
-                self.model_function = df.StaticFunction(
-                    np.mean(data), n_samples=len(data)
-                )
-                return
-            xgb.fit(fit_parameters, np.reshape(data, (-1, 1)))
-            self.model_function = df.XGBoostFunction(
+            mf = df.XGBoostFunction(
                 np.mean(data),
-                xgb,
-                category_to_index,
-                ignore_index,
                 n_samples=len(data),
                 param_names=self.param_names,
                 arg_count=self.arg_count,
             )
-            output_filename = os.getenv("DFATOOL_XGB_DUMP_MODEL", None)
-            if output_filename:
-                xgb.get_booster().dump_model(
-                    output_filename, dump_format="json", with_stats=True
+
+            mf.fit(parameters, data)
+
+            if mf.fit_success:
+                self.model_function = mf
+            else:
+                logger.warning(f"XGB generation for {self.name} {self.attr} faled")
+                self.model_function = df.StaticFunction(
+                    np.mean(data), n_samples=len(data)
                 )
             return
 
         if with_lmt:
-            from sklearn.linear_model import LinearRegression
-            from dfatool.lineartree import LinearTreeRegressor
-
-            # max_depth : int, default=5
-            #     The maximum depth of the tree considering only the splitting nodes.
-            #     A higher value implies a higher training time.
-            max_depth = int(os.getenv("DFATOOL_LMT_MAX_DEPTH", "5"))
-
-            # min_samples_split : int or float, default=6
-            #     The minimum number of samples required to split an internal node.
-            #     The minimum valid number of samples in each node is 6.
-            #     A lower value implies a higher training time.
-            #     - If int, then consider `min_samples_split` as the minimum number.
-            #     - If float, then `min_samples_split` is a fraction and
-            #       `ceil(min_samples_split * n_samples)` are the minimum
-            #       number of samples for each split.
-            if "." in os.getenv("DFATOOL_LMT_MIN_SAMPLES_SPLIT", ""):
-                min_samples_split = float(os.getenv("DFATOOL_LMT_MIN_SAMPLES_SPLIT"))
-            else:
-                min_samples_split = int(os.getenv("DFATOOL_LMT_MIN_SAMPLES_SPLIT", "6"))
-
-            # min_samples_leaf : int or float, default=0.1
-            #     The minimum number of samples required to be at a leaf node.
-            #     A split point at any depth will only be considered if it leaves at
-            #     least `min_samples_leaf` training samples in each of the left and
-            #     right branches.
-            #     The minimum valid number of samples in each leaf is 3.
-            #     A lower value implies a higher training time.
-            #     - If int, then consider `min_samples_leaf` as the minimum number.
-            #     - If float, then `min_samples_leaf` is a fraction and
-            #       `ceil(min_samples_leaf * n_samples)` are the minimum
-            #       number of samples for each node.
-            if "." in os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF", "0.1"):
-                min_samples_leaf = float(
-                    os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF", "0.1")
-                )
-            else:
-                min_samples_leaf = int(os.getenv("DFATOOL_LMT_MIN_SAMPLES_LEAF"))
-
-            # max_bins : int, default=25
-            #     The maximum number of bins to use to search the optimal split in each
-            #     feature. Features with a small number of unique values may use less than
-            #     ``max_bins`` bins. Must be lower than 120 and larger than 10.
-            #     A higher value implies a higher training time.
-            max_bins = int(os.getenv("DFATOOL_LMT_MAX_BINS", "120"))
-
-            # criterion : {"mse", "rmse", "mae", "poisson"}, default="mse"
-            #     The function to measure the quality of a split. "poisson"
-            #     requires ``y >= 0``.
-            criterion = os.getenv("DFATOOL_LMT_CRITERION", "mse")
-
-            lmt = LinearTreeRegressor(
-                base_estimator=LinearRegression(),
-                max_depth=max_depth,
-                min_samples_split=min_samples_split,
-                min_samples_leaf=min_samples_leaf,
-                max_bins=max_bins,
-                criterion=criterion,
-            )
-            fit_parameters, category_to_index, ignore_index = param_to_ndarray(
-                parameters, with_nan=False, categorical_to_scalar=categorical_to_scalar
-            )
-            if fit_parameters.shape[1] == 0:
-                logger.warning(
-                    f"Cannot generate LMT for {self.name} {self.attr} due to lack of parameters: parameter shape is {np.array(parameters).shape}, fit_parameter shape is {fit_parameters.shape}"
-                )
-                self.model_function = df.StaticFunction(
-                    np.mean(data), n_samples=len(data)
-                )
-                return
-            logger.debug("Fitting LMT ...")
-            try:
-                lmt.fit(fit_parameters, data)
-            except np.linalg.LinAlgError as e:
-                logger.error(f"LMT generation for {self.name} {self.attr} failed: {e}")
-                self.model_function = df.StaticFunction(
-                    np.mean(data), n_samples=len(data)
-                )
-                return
-            logger.debug("Fitted LMT")
-            self.model_function = df.LMTFunction(
+            mf = df.LMTFunction(
                 np.mean(data),
-                lmt,
-                category_to_index,
-                ignore_index,
                 n_samples=len(data),
                 param_names=self.param_names,
                 arg_count=self.arg_count,
             )
+
+            mf.fit(parameters, data)
+
+            if mf.fit_success:
+                self.model_function = mf
+            else:
+                logger.warning(f"LMT generation for {self.name} {self.attr} faled")
+                self.model_function = df.StaticFunction(
+                    np.mean(data), n_samples=len(data)
+                )
             return
 
         if loss_ignore_scalar and not with_function_leaves:
