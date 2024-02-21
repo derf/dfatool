@@ -1004,7 +1004,7 @@ class ModelAttribute:
             )
             return False
 
-    def build_dtree(
+    def build_rmt(
         self,
         with_function_leaves=None,
         with_nonbinary_nodes=None,
@@ -1047,16 +1047,16 @@ class ModelAttribute:
 
         if loss_ignore_scalar and not with_function_leaves:
             logger.warning(
-                "build_dtree {self.name} {self.attr} called with loss_ignore_scalar=True, with_function_leaves=False. This does not make sense."
+                "build_rmt {self.name} {self.attr} called with loss_ignore_scalar=True, with_function_leaves=False. This does not make sense."
             )
 
         relevance_threshold = float(os.getenv("DFATOOL_PARAM_RELEVANCE_THRESHOLD", 0.5))
 
         logger.debug(
-            f"build_dtree(threshold={threshold}, relevance_threshold={relevance_threshold})"
+            f"build_rmt(threshold={threshold}, relevance_threshold={relevance_threshold})"
         )
 
-        self.model_function = self._build_dtree(
+        self.model_function = self._build_rmt(
             self.param_values,
             self.data,
             with_function_leaves=with_function_leaves,
@@ -1067,7 +1067,7 @@ class ModelAttribute:
             relevance_threshold=relevance_threshold,
         )
 
-    def _build_dtree(
+    def _build_rmt(
         self,
         parameters,
         data,
@@ -1291,7 +1291,7 @@ class ModelAttribute:
             child_parameters = list(map(lambda i: parameters[i], indexes))
             child_data = list(map(lambda i: data[i], indexes))
             assert len(child_data)
-            child[value] = self._build_dtree(
+            child[value] = self._build_rmt(
                 child_parameters,
                 child_data,
                 with_function_leaves=with_function_leaves,

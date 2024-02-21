@@ -325,8 +325,8 @@ class AnalyticModel:
                         threshold = self.attr_by_name[name][attr].stats.std_param_lut
                     else:
                         threshold = 0
-                    logger.debug(f"build_dtree({name}, {attr}, threshold={threshold})")
-                    self.attr_by_name[name][attr].build_dtree(
+                    logger.debug(f"build_rmt({name}, {attr}, threshold={threshold})")
+                    self.attr_by_name[name][attr].build_rmt(
                         threshold=threshold,
                     )
         else:
@@ -369,9 +369,9 @@ class AnalyticModel:
                         ):
                             threshold = self.dtree_max_std[name][attr]
                         logger.debug(
-                            f"build_dtree({name}, {attr}, threshold={threshold})"
+                            f"build_rmt({name}, {attr}, threshold={threshold})"
                         )
-                        self.attr_by_name[name][attr].build_dtree(
+                        self.attr_by_name[name][attr].build_rmt(
                             threshold=threshold,
                         )
                     else:
