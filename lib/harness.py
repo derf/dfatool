@@ -3,6 +3,7 @@ Harnesses for various types of benchmark logs.
 
 tbd
 """
+
 import logging
 import re
 from .pubcode import Code128
@@ -93,9 +94,9 @@ class TransitionHarness:
                     ][:undo_from]
                 for param_name in state_or_transition["parameter"].keys():
                     if type(state_or_transition["parameter"][param_name]) is list:
-                        state_or_transition["parameter"][
-                            param_name
-                        ] = state_or_transition["parameter"][param_name][:undo_from]
+                        state_or_transition["parameter"][param_name] = (
+                            state_or_transition["parameter"][param_name][:undo_from]
+                        )
 
     def reset(self):
         """
@@ -417,11 +418,11 @@ class OnboardTimerHarness(TransitionHarness):
         for trace in self.traces:
             for state_or_transition in trace["trace"]:
                 if "offline_aggregates" in state_or_transition:
-                    state_or_transition["offline_aggregates"][
-                        "duration"
-                    ] = state_or_transition["offline_aggregates"]["duration"][
-                        :undo_from
-                    ]
+                    state_or_transition["offline_aggregates"]["duration"] = (
+                        state_or_transition["offline_aggregates"]["duration"][
+                            :undo_from
+                        ]
+                    )
             if "start_offset" in trace:
                 trace["start_offset"] = trace["start_offset"][:undo_from]
 

@@ -209,7 +209,6 @@ def compensate_drift_graph(
                 continue
             for from_node in nodes_by_transition_index[transition_index - skip_count]:
                 for to_node in nodes_by_transition_index[transition_index]:
-
                     (from_trans_i, from_candidate_i, from_is_end) = transition_by_node[
                         from_node
                     ]

@@ -154,7 +154,8 @@ class SimulatedAccountingMethod:
         """
         Return energy (=power * time), accounting for configured granularity.
 
-        Does not use Module types and therefore does not consider overflows or data-type limitations"""
+        Does not use Module types and therefore does not consider overflows or data-type limitations
+        """
         if self.energy_granularity == self.power_granularity * self.ts_granularity:
             return power * time
         return int(
@@ -632,7 +633,6 @@ class MultipassDriver:
         )
 
         for transition in self.pta.get_unique_transitions():
-
             if transition.name == "getEnergy":
                 continue
 

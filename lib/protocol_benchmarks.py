@@ -171,7 +171,6 @@ class Avro(DummyProtocol):
 
 
 class Thrift(DummyProtocol):
-
     class_index = 1
 
     def __init__(self, data):
