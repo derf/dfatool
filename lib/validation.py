@@ -302,8 +302,6 @@ class CrossValidator:
 
         logger.debug("Creating training model instance")
         kwargs = self.kwargs.copy()
-        if static:
-            kwargs["force_tree"] = False
         training_data = self.model_class(
             training, self.parameters, *self.args, **kwargs
         )
@@ -311,7 +309,6 @@ class CrossValidator:
         training_model = model_getter(training_data)
         kwargs = self.kwargs.copy()
         kwargs["compute_stats"] = False
-        kwargs["force_tree"] = False
         logger.debug("Creating validation model instance")
         validation_data = self.model_class(
             validation, self.parameters, *self.args, **kwargs

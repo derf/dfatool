@@ -154,6 +154,7 @@ class AnalyticModel:
             self.fit_done = True
             return
 
+        self.force_tree = force_tree
         self.fit_done = False
 
         if compute_stats:
@@ -176,23 +177,6 @@ class AnalyticModel:
                         model_attr.function_override = self.function_override[
                             (name, attr)
                         ]
-
-        if force_tree:
-            for name in self.names:
-                for attr in self.by_name[name]["attributes"]:
-                    if max_std and name in max_std and attr in max_std[name]:
-                        threshold = max_std[name][attr]
-                    elif compute_stats:
-                        threshold = self.attr_by_name[name][attr].stats.std_param_lut
-                    else:
-                        threshold = 0
-                    logger.debug(f"build_dtree({name}, {attr}, threshold={threshold})")
-                    self.build_dtree(
-                        name,
-                        attr,
-                        threshold=threshold,
-                    )
-            self.fit_done = True
 
     def get_by_param(self):
         if not "by_param" in self.cache:
@@ -317,6 +301,27 @@ class AnalyticModel:
         model_function(name, attribute, param=parameter values) -> model value.
         model_info(name, attribute) -> {'fit_result' : ..., 'function' : ... } or None
         """
+
+        if self.force_tree and not self.fit_done:
+            for name in self.names:
+                for attr in self.by_name[name]["attributes"]:
+                    if (
+                        self.dtree_max_std
+                        and name in self.dtree_max_std
+                        and attr in self.dtree_max_std[name]
+                    ):
+                        threshold = self.dtree_max_std[name][attr]
+                    elif self.attr_by_name[name][attr].stats:
+                        threshold = self.attr_by_name[name][attr].stats.std_param_lut
+                    else:
+                        threshold = 0
+                    logger.debug(f"build_dtree({name}, {attr}, threshold={threshold})")
+                    self.build_dtree(
+                        name,
+                        attr,
+                        threshold=threshold,
+                    )
+            self.fit_done = True
 
         if not self.fit_done:
             paramfit = ParamFit()
@@ -772,26 +777,7 @@ class PTAModel(AnalyticModel):
         if compute_stats:
             self._compute_stats(by_name)
 
-        if force_tree:
-            for name in self.names:
-                for attr in self.by_name[name]["attributes"]:
-                    if (
-                        dtree_max_std
-                        and name in dtree_max_std
-                        and attr in dtree_max_std[name]
-                    ):
-                        threshold = dtree_max_std[name][attr]
-                    elif compute_stats:
-                        threshold = (self.attr_by_name[name][attr].stats.std_param_lut,)
-                    else:
-                        threshold = 0
-                    logger.debug(f"build_dtree({name}, {attr}, threshold={threshold})")
-                    self.build_dtree(
-                        name,
-                        attr,
-                        threshold=threshold,
-                    )
-            self.fit_done = True
+        self.force_tree = force_tree
 
         if self.pelt is not None:
             # cluster_substates uses self.attr_by_name[*]["power"].param_values, which is set by _compute_stats
