@@ -308,6 +308,8 @@ class AnalyticModel:
                         self.attr_by_name[name][attr].build_fol()
                     elif model_type == "lmt":
                         self.attr_by_name[name][attr].build_lmt()
+                    elif model_type == "symreg":
+                        self.attr_by_name[name][attr].build_symreg()
                     elif model_type == "xgb":
                         self.attr_by_name[name][attr].build_xgb()
                     else:
@@ -332,7 +334,6 @@ class AnalyticModel:
         else:
             paramfit = ParamFit()
             tree_allowed = bool(int(os.getenv("DFATOOL_RMT_ENABLED", "1")))
-            use_symreg = bool(int(os.getenv("DFATOOL_FIT_SYMREG", "0")))
             tree_required = dict()
 
             for name in self.names:
@@ -340,8 +341,6 @@ class AnalyticModel:
                 for attr in self.attr_by_name[name].keys():
                     if self.attr_by_name[name][attr].function_override is not None:
                         self.attr_by_name[name][attr].fit_override_function()
-                    elif use_symreg:
-                        self.attr_by_name[name][attr].build_symreg_model()
                     elif self.attr_by_name[name][
                         attr
                     ].all_relevant_parameters_are_none_or_numeric():
