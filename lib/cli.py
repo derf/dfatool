@@ -184,6 +184,8 @@ def print_splitinfo(info, prefix=""):
         print_splitinfo(info.child_gt, f"{prefix} {info.param_name}>{info.threshold}")
     elif type(info) is df.AnalyticFunction:
         print_analyticinfo(prefix, info)
+    elif type(info) is df.SymbolicRegressionFunction:
+        print_symreginfo(prefix, info)
     elif type(info) is df.StaticFunction:
         print(f"{prefix}: {info.value}")
     else:

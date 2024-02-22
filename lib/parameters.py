@@ -1068,6 +1068,7 @@ class ModelAttribute:
             with_nonbinary_nodes=with_nonbinary_nodes,
             ignore_irrelevant_parameters=ignore_irrelevant_parameters,
             loss_ignore_scalar=loss_ignore_scalar,
+            submodel=os.getenv("DFATOOL_RMT_SUBMODEL", "uls"),
             threshold=threshold,
             relevance_threshold=relevance_threshold,
         )
@@ -1080,6 +1081,7 @@ class ModelAttribute:
         with_nonbinary_nodes=True,
         ignore_irrelevant_parameters=True,
         loss_ignore_scalar=False,
+        submodel="uls",
         threshold=100,
         relevance_threshold=0.5,
         level=0,
@@ -1232,13 +1234,17 @@ class ModelAttribute:
                     param_type=self.param_type,
                     codependent_param=codependent_param_dict(parameters),
                 )
-                ParamStats.compute_for_attr(ma)
-                paramfit = ParamFit(parallel=False)
-                for key, param, args, kwargs in ma.get_data_for_paramfit():
-                    paramfit.enqueue(key, param, args, kwargs)
-                paramfit.fit()
-                ma.set_data_from_paramfit(paramfit)
-                return ma.model_function
+                if submodel == "symreg":
+                    if ma.build_symreg():
+                        return ma.model_function
+                else:
+                    ParamStats.compute_for_attr(ma)
+                    paramfit = ParamFit(parallel=False)
+                    for key, param, args, kwargs in ma.get_data_for_paramfit():
+                        paramfit.enqueue(key, param, args, kwargs)
+                    paramfit.fit()
+                    ma.set_data_from_paramfit(paramfit)
+                    return ma.model_function
             return df.StaticFunction(np.mean(data), n_samples=len(data))
 
         split_feasible = True
@@ -1272,14 +1278,18 @@ class ModelAttribute:
                 param_type=self.param_type,
                 codependent_param=codependent_param_dict(parameters),
             )
-            ParamStats.compute_for_attr(ma)
-            paramfit = ParamFit(parallel=False)
-            for key, param, args, kwargs in ma.get_data_for_paramfit():
-                paramfit.enqueue(key, param, args, kwargs)
-            paramfit.fit()
-            ma.set_data_from_paramfit(paramfit)
-            if type(ma.model_function) == df.AnalyticFunction:
-                return ma.model_function
+            if submodel == "symreg":
+                if ma.build_symreg():
+                    return ma.model_function
+            else:
+                ParamStats.compute_for_attr(ma)
+                paramfit = ParamFit(parallel=False)
+                for key, param, args, kwargs in ma.get_data_for_paramfit():
+                    paramfit.enqueue(key, param, args, kwargs)
+                paramfit.fit()
+                ma.set_data_from_paramfit(paramfit)
+                if type(ma.model_function) == df.AnalyticFunction:
+                    return ma.model_function
 
         symbol_index = np.argmin(loss)
         unique_values = list(set(map(lambda p: p[symbol_index], parameters)))
@@ -1303,6 +1313,7 @@ class ModelAttribute:
                 with_nonbinary_nodes=with_nonbinary_nodes,
                 ignore_irrelevant_parameters=ignore_irrelevant_parameters,
                 loss_ignore_scalar=loss_ignore_scalar,
+                submodel=submodel,
                 threshold=threshold,
                 relevance_threshold=relevance_threshold,
                 level=level + 1,
