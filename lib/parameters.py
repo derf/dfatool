@@ -598,7 +598,7 @@ class ModelAttribute:
 
         # There must be at least 3 distinct data values (≠ None) if an analytic model
         # is to be fitted. For 2 (or fewer) values, decision trees are better.
-        # Exceptions such as DFATOOL_SUBMODEL=fol (2 values sufficient)
+        # Exceptions such as DFATOOL_RMT_SUBMODEL=fol (2 values sufficient)
         # can be handled via DFATOOL_ULS_MIN_DISTINCT_VALUES
         self.min_values_for_analytic_model = int(
             os.getenv("DFATOOL_ULS_MIN_DISTINCT_VALUES", "3")
@@ -1031,9 +1031,10 @@ class ModelAttribute:
         """
 
         if with_function_leaves is None:
-            with_function_leaves = bool(
-                int(os.getenv("DFATOOL_RMT_FUNCTION_LEAVES", "1"))
-            )
+            if os.getenv("DFATOOL_RMT_SUBMODEL", "uls") == "static":
+                with_function_leaves = False
+            else:
+                with_function_leaves = True
         if with_nonbinary_nodes is None:
             with_nonbinary_nodes = bool(
                 int(os.getenv("DFATOOL_RMT_NONBINARY_NODES", "1"))
