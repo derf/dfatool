@@ -691,12 +691,12 @@ def main():
                             )
 
     if "param" in args.show_model or "all" in args.show_model:
-        for state in model.states:
-            for attribute in model.attributes(state):
+        for state in sorted(model.states):
+            for attribute in sorted(model.attributes(state)):
                 info = param_info(state, attribute)
                 dfatool.cli.print_model(f"{state:10s} {attribute:15s}", info)
-        for trans in model.transitions:
-            for attribute in model.attributes(trans):
+        for trans in sorted(model.transitions):
+            for attribute in sorted(model.attributes(trans)):
                 info = param_info(trans, attribute)
                 dfatool.cli.print_model(f"{trans:10s} {attribute:15s}", info)
         if args.with_substates:
