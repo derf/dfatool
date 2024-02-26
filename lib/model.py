@@ -214,6 +214,9 @@ class AnalyticModel:
     def attributes(self, name):
         return self.attr_by_name[name].keys()
 
+    def param_values(self, name):
+        return self.by_name[name]["param"]
+
     def param_index(self, param_name):
         if param_name in self.parameters:
             return self.parameters.index(param_name)

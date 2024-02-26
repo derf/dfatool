@@ -370,6 +370,24 @@ def export_dot(model, dot_prefix):
                 logger.info(f"Dot export of model saved to {filename}")
 
 
+def export_csv_unparam(model, csv_prefix):
+    import csv
+
+    for name in sorted(model.names):
+        filename = f"{csv_prefix}{name}.csv"
+        with open(filename, "w") as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                ["measurement"] + model.parameters + sorted(model.attributes(name))
+            )
+            for i, param_tuple in enumerate(model.param_values(name)):
+                row = [i] + param_tuple
+                for attr in sorted(model.attributes(name)):
+                    row.append(model.attr_by_name[name][attr].data[i])
+                writer.writerow(row)
+        logger.info(f"CSV unparam data saved to {filename}")
+
+
 def export_pgf_unparam(model, pgf_prefix):
     for name in model.names:
         for attribute in model.attributes(name):
@@ -465,6 +483,12 @@ def add_standard_arguments(parser):
         metavar="FILE",
         type=str,
         help="Export model and model quality to LaTeX dataref file",
+    )
+    parser.add_argument(
+        "--export-csv-unparam",
+        metavar="PREFIX",
+        type=str,
+        help="Export raw (parameter-independent) observations in CSV format to {PREFIX}{name}-{attribute}.csv",
     )
     parser.add_argument(
         "--export-pgf-unparam",
