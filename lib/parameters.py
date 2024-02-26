@@ -1234,7 +1234,10 @@ class ModelAttribute:
                     param_type=self.param_type,
                     codependent_param=codependent_param_dict(parameters),
                 )
-                if submodel == "symreg":
+                if submodel == "cart":
+                    if ma.build_cart():
+                        return ma.model_function
+                elif submodel == "symreg":
                     if ma.build_symreg():
                         return ma.model_function
                 else:
@@ -1278,7 +1281,10 @@ class ModelAttribute:
                 param_type=self.param_type,
                 codependent_param=codependent_param_dict(parameters),
             )
-            if submodel == "symreg":
+            if submodel == "cart":
+                if ma.build_cart():
+                    return ma.model_function
+            elif submodel == "symreg":
                 if ma.build_symreg():
                     return ma.model_function
             else:

@@ -112,7 +112,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_COMPENSATE_DRIFT` | **0**, 1 | Perform drift compensation for loaders without sync input (e.g. EnergyTrace or Keysight) |
 | `DFATOOL_DRIFT_COMPENSATION_PENALTY` | 0 .. 100 (default: majority vote over several penalties) | Specify penalty for ruptures.py PELT changepoint petection |
 | `DFATOOL_MODEL` | cart, decart, fol, lmt, **rmt**, symreg, xgb | Modeling method. See below for method-specific configuration options. |
-| `DFATOOL_RMT_SUBMODEL` | fol, static, symreg, **uls** | Modeling method for RMT leaf functions. |
+| `DFATOOL_RMT_SUBMODEL` | cart, fol, static, symreg, **uls** | Modeling method for RMT leaf functions. |
 | `DFATOOL_RMT_ENABLED` | 0, **1** | Use decision trees in get\_fitted |
 | `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default (0): unlimited. |
 | `DFATOOL_LMT_MAX_DEPTH` | **5** .. 20 | Maximum depth for LMT. |
