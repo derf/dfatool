@@ -72,10 +72,9 @@ class Logfile:
                     )
                 except ValueError:
                     logger.warning(
-                        f"Error parsing {filename}: invalid key-value pair in line {lineno+1}",
-                        file=sys.stderr,
+                        f"Error parsing {f}: invalid key-value pair in line {lineno+1}"
                     )
-                    logger.warning(f"Offending entry:\n{line}", file=sys.stderr)
+                    logger.warning(f"Offending entry:\n{line}")
                     raise
 
         return observations
