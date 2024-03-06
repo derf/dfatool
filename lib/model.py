@@ -313,10 +313,12 @@ class AnalyticModel:
                         self.attr_by_name[name][attr].build_lmt()
                     elif model_type == "symreg":
                         self.attr_by_name[name][attr].build_symreg()
+                    elif model_type == "lgbm":
+                        self.attr_by_name[name][attr].build_lgbm()
                     elif model_type == "xgb":
                         self.attr_by_name[name][attr].build_xgb()
                     else:
-                        logger.error("build_fitted: unknown model type: {model_type}")
+                        logger.error(f"build_fitted: unknown model type: {model_type}")
         elif self.force_tree:
             for name in self.names:
                 for attr in self.by_name[name]["attributes"]:

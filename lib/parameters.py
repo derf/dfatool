@@ -990,6 +990,24 @@ class ModelAttribute:
             )
             return False
 
+    def build_lgbm(self):
+        mf = df.LightGBMFunction(
+            np.mean(self.data),
+            n_samples=len(self.data),
+            param_names=self.param_names,
+            arg_count=self.arg_count,
+        ).fit(self.param_values, self.data)
+
+        if mf.fit_success:
+            self.model_function = mf
+            return True
+        else:
+            logger.warning(f"LightGBM generation for {self.name} {self.attr} faled")
+            self.model_function = df.StaticFunction(
+                np.mean(self.data), n_samples=len(self.data)
+            )
+            return False
+
     def build_xgb(self):
         mf = df.XGBoostFunction(
             np.mean(self.data),

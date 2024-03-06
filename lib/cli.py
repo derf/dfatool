@@ -207,6 +207,8 @@ def print_model(prefix, info):
         print_splitinfo(info, prefix)
     elif type(info) is df.LMTFunction:
         print_lmtinfo(prefix, info)
+    elif type(info) is df.LightGBMFunction:
+        print_xgbinfo(prefix, info)
     elif type(info) is df.XGBoostFunction:
         print_xgbinfo(prefix, info)
     elif type(info) is df.SymbolicRegressionFunction:

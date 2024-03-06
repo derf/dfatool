@@ -991,6 +991,173 @@ class LMTFunction(SKLearnRegressionFunction):
         }
 
 
+class LightGBMFunction(SKLearnRegressionFunction):
+
+    def fit(self, param_values, data):
+
+        # boosting_type : str, optional (default='gbdt')
+        #     'gbdt', traditional Gradient Boosting Decision Tree.
+        #     'dart', Dropouts meet Multiple Additive Regression Trees.
+        #     'rf', Random Forest.
+        boosting_type = os.getenv("DFATOOL_LGBM_BOOSTER", "gbdt")
+
+        # n_estimators : int, optional (default=100)
+        #     Number of boosted trees to fit.
+        n_estimators = int(os.getenv("DFATOOL_LGBM_N_ESTIMATORS", "100"))
+
+        # max_depth : int, optional (default=-1)
+        #     Maximum tree depth for base learners, <=0 means no limit.
+        max_depth = int(os.getenv("DFATOOL_LGBM_MAX_DEPTH", "-1"))
+
+        # num_leaves : int, optional (default=31)
+        #     Maximum tree leaves for base learners.
+        num_leaves = int(os.getenv("DFATOOL_LGBM_NUM_LEAVES", "31"))
+
+        # subsample : float, optional (default=1.)
+        #     Subsample ratio of the training instance.
+        subsample = float(os.getenv("DFATOOL_LGBM_SUBSAMPLE", "1."))
+
+        # learning_rate : float, optional (default=0.1)
+        #     Boosting learning rate.
+        #     You can use ``callbacks`` parameter of ``fit`` method to shrink/adapt learning rate
+        #     in training using ``reset_parameter`` callback.
+        #     Note, that this will ignore the ``learning_rate`` argument in training.
+        learning_rate = float(os.getenv("DFATOOL_LGBM_LEARNING_RATE", "0.1"))
+
+        # min_split_gain : float, optional (default=0.)
+        #     Minimum loss reduction required to make a further partition on a leaf node of the tree.
+        min_split_gain = float(os.getenv("DFATOOL_LGBM_MIN_SPLIT_GAIN", "0."))
+
+        # min_child_samples : int, optional (default=20)
+        #     Minimum number of data needed in a child (leaf).
+        min_child_samples = int(os.getenv("DFATOOL_LGBM_MIN_CHILD_SAMPLES", "20"))
+
+        # reg_alpha : float, optional (default=0.)
+        #     L1 regularization term on weights.
+        reg_alpha = float(os.getenv("DFATOOL_LGBM_REG_ALPHA", "0."))
+
+        # reg_lambda : float, optional (default=0.)
+        #     L2 regularization term on weights.
+        reg_lambda = float(os.getenv("DFATOOL_LGBM_REG_LAMBDA", "0."))
+
+        fit_parameters, self.categorical_to_index, self.ignore_index = param_to_ndarray(
+            param_values,
+            with_nan=False,
+            categorical_to_scalar=self.categorical_to_scalar,
+        )
+        if fit_parameters.shape[1] == 0:
+            logger.warning(
+                f"Cannot run LightGBM due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape is {fit_parameters.shape}"
+            )
+            self.fit_success = False
+            return self
+
+        import dfatool.lightgbm as lightgbm
+
+        lgbr = lightgbm.LGBMRegressor(
+            boosting_type=boosting_type,
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            num_leaves=num_leaves,
+            subsample=subsample,
+            learning_rate=learning_rate,
+            min_split_gain=min_split_gain,
+            min_child_samples=min_child_samples,
+            reg_alpha=reg_alpha,
+            reg_lambda=reg_lambda,
+        )
+        lgbr.fit(fit_parameters, data)
+        self.fit_success = True
+        self.regressor = lgbr
+        self._build_feature_names()
+
+        return self
+
+    def to_json(self, internal=False, **kwargs):
+        forest = self.regressor.booster_.dump_model()["tree_info"]
+        if internal:
+            return forest
+        return list(
+            map(
+                lambda tree: self._model_to_json(tree["tree_structure"], **kwargs),
+                forest,
+            )
+        )
+
+    def _model_to_json(self, tree, **kwargs):
+        ret = dict()
+        if "left_child" in tree:
+            assert "right_child" in tree
+            assert tree["decision_type"] == "<="
+            return {
+                "type": "scalarSplit",
+                "paramName": self.feature_names[tree["split_feature"]],
+                "threshold": tree["threshold"],
+                "value": None,
+                "left": self._model_to_json(tree["left_child"], **kwargs),
+                "right": self._model_to_json(tree["right_child"], **kwargs),
+            }
+        else:
+            return {
+                "type": "static",
+                "value": tree["leaf_value"],
+            }
+
+    def get_number_of_nodes(self):
+        return sum(
+            map(
+                lambda t: self._get_number_of_nodes(t["tree_structure"]),
+                self.to_json(internal=True),
+            )
+        )
+
+    def _get_number_of_nodes(self, data):
+        ret = 1
+        if "left_child" in data:
+            ret += self._get_number_of_nodes(data["left_child"])
+        if "right_child" in data:
+            ret += self._get_number_of_nodes(data["right_child"])
+        return ret
+
+    def get_number_of_leaves(self):
+        return sum(map(lambda t: t["num_leaves"], self.to_json(internal=True)))
+
+    def get_max_depth(self):
+        return max(
+            map(
+                lambda t: self._get_max_depth(t["tree_structure"]),
+                self.to_json(internal=True),
+            )
+        )
+
+    def _get_max_depth(self, data):
+        ret = [0]
+        if "left_child" in data:
+            ret.append(self._get_max_depth(data["left_child"]))
+        if "right_child" in data:
+            ret.append(self._get_max_depth(data["right_child"]))
+        return 1 + max(ret)
+
+    def get_complexity_score(self):
+        return self.get_number_of_nodes()
+
+    def hyper_to_dref(self):
+        return {
+            "lgbm/boosting type": self.regressor.boosting_type,
+            "lgbm/n estimators": self.regressor.n_estimators,
+            "lgbm/max depth": self.regressor.max_depth == -1
+            and "infty"
+            or self.regressor.max_depth,
+            "lgbm/max leaves": self.regressor.num_leaves,
+            "lgbm/subsample": self.regressor.subsample,
+            "lgbm/learning rate": self.regressor.learning_rate,
+            "lgbm/min split gain": self.regressor.min_split_gain,
+            "lgbm/min child samples": self.regressor.min_child_samples,
+            "lgbm/alpha": self.regressor.reg_alpha,
+            "lgbm/lambda": self.regressor.reg_lambda,
+        }
+
+
 class XGBoostFunction(SKLearnRegressionFunction):
 
     def fit(self, param_values, data):
