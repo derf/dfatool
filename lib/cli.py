@@ -438,7 +438,7 @@ def boxplot_param(args, model):
         title = "filter: " + " && ".join(
             map(lambda kv: f"{kv[0]} {kv[1]} {kv[2]}", args.filter_param)
         )
-        for param_name, _ in args.filter_param:
+        for param_name, _, _ in args.filter_param:
             param_is_filtered[param_name] = True
     by_param = model.get_by_param()
     for name in model.names:
