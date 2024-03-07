@@ -1054,6 +1054,7 @@ class LightGBMFunction(SKLearnRegressionFunction):
 
         import dfatool.lightgbm as lightgbm
 
+        lightgbm.register_logger(logger)
         lgbr = lightgbm.LGBMRegressor(
             boosting_type=boosting_type,
             n_estimators=n_estimators,
