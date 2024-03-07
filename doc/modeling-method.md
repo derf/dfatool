@@ -43,7 +43,6 @@ All of these are valid regression model trees.
 ### Related Options
 
 * `--force-tree` builds a tree structure even if dfatool's heuristic indicates that no non-integer parameter affects the modeled performance attribute.
-* `DFATOOL_RMT_IGNORE_IRRELEVANT_PARAMS=0` disables the relevant parameter detection heuristic when building the tree structure. By default, irrelevant parameters cannot end up as decision nodes.
 * `DFATOOL_RMT_SUBMODEL=fol` makes RMT only consider linear functions (a + bx) in regression analysis. Useful for comparison with LMT / M5.
 * `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR=1`
 * `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK=1`
