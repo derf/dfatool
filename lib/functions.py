@@ -15,6 +15,16 @@ from .utils import is_numeric, param_to_ndarray
 
 logger = logging.getLogger(__name__)
 
+dfatool_preproc_relevance_method = os.getenv(
+    "DFATOOL_PREPROCESSING_RELEVANCE_METHOD", None
+)
+dfatool_preproc_relevance_threshold = float(
+    os.getenv("DFATOOL_PREPROCESSING_RELEVANCE_THRESHOLD", "0.1")
+)
+
+if dfatool_preproc_relevance_method == "mi":
+    import sklearn.feature_selection
+
 
 def powerset(iterable):
     """
@@ -605,6 +615,39 @@ class SKLearnRegressionFunction(ModelFunction):
         )
         self.fit_success = None
 
+    def _preprocess_parameters(self, fit_parameters, data):
+        if dfatool_preproc_relevance_method == "mi":
+            return self._preprocess_parameters_mi(fit_parameters, data)
+        return fit_parameters
+
+    def _preprocess_parameters_mi(self, fit_parameters, data):
+        fit_param_to_param = dict()
+        j = 0
+        for i in range(len(self.param_names_and_args)):
+            if not self.ignore_index[i]:
+                fit_param_to_param[j] = i
+                j += 1
+        try:
+            mutual_information = sklearn.feature_selection.mutual_info_regression(
+                fit_parameters, data
+            )
+        except ValueError as e:
+            logger.error(f"mutual_info_regression failed: {e}")
+            return fit_parameters
+
+        tt = list()
+        for i, information_gain in enumerate(mutual_information):
+            tt.append(information_gain >= dfatool_preproc_relevance_threshold)
+            self.ignore_index[fit_param_to_param[i]] = not tt[i]
+
+        ret = list()
+        for param_tuple in fit_parameters:
+            ret.append(param_tuple[tt])
+        logger.debug(
+            f"information gain: in {len(fit_parameters[0])} parameters -> out {len(ret[0])} parameters"
+        )
+        return np.asarray(ret)
+
     def _build_feature_names(self):
         # SKLearnRegressionFunction descendants use self.param_names \ self.ignore_index as features.
         # Thus, model feature indexes ≠ self.param_names indexes.
@@ -744,7 +787,16 @@ class CARTFunction(SKLearnRegressionFunction):
 
         if fit_parameters.shape[1] == 0:
             logger.warning(
-                f"Cannot generate CART due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape is {fit_parameters.shape}"
+                f"Cannot generate CART due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape after param_to_ndarray is {fit_parameters.shape}"
+            )
+            self.fit_success = False
+            return self
+
+        fit_parameters = self._preprocess_parameters(fit_parameters, data)
+
+        if fit_parameters.shape[1] == 0:
+            logger.warning(
+                f"Cannot generate CART due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape after pre-processing is {fit_parameters.shape}"
             )
             self.fit_success = False
             return self
@@ -917,6 +969,15 @@ class LMTFunction(SKLearnRegressionFunction):
             self.fit_success = False
             return self
 
+        fit_parameters = self._preprocess_parameters(fit_parameters, data)
+
+        if fit_parameters.shape[1] == 0:
+            logger.warning(
+                f"Cannot generate LMT due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape after pre-processing is {fit_parameters.shape}"
+            )
+            self.fit_success = False
+            return self
+
         logger.debug("Fitting LMT ...")
         try:
             lmt.fit(fit_parameters, data)
@@ -1048,6 +1109,15 @@ class LightGBMFunction(SKLearnRegressionFunction):
         if fit_parameters.shape[1] == 0:
             logger.warning(
                 f"Cannot run LightGBM due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape is {fit_parameters.shape}"
+            )
+            self.fit_success = False
+            return self
+
+        fit_parameters = self._preprocess_parameters(fit_parameters, data)
+
+        if fit_parameters.shape[1] == 0:
+            logger.warning(
+                f"Cannot generate LightGBM due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape after pre-processing is {fit_parameters.shape}"
             )
             self.fit_success = False
             return self
@@ -1228,6 +1298,15 @@ class XGBoostFunction(SKLearnRegressionFunction):
         if fit_parameters.shape[1] == 0:
             logger.warning(
                 f"Cannot run XGBoost due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape is {fit_parameters.shape}"
+            )
+            self.fit_success = False
+            return self
+
+        fit_parameters = self._preprocess_parameters(fit_parameters, data)
+
+        if fit_parameters.shape[1] == 0:
+            logger.warning(
+                f"Cannot run XGBoost due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape after pre-processing is {fit_parameters.shape}"
             )
             self.fit_success = False
             return self
@@ -1423,6 +1502,15 @@ class SymbolicRegressionFunction(SKLearnRegressionFunction):
             self.fit_success = False
             return self
 
+        fit_parameters = self._preprocess_parameters(fit_parameters, data)
+
+        if fit_parameters.shape[1] == 0:
+            logger.warning(
+                f"Cannot use Symbolic Regression due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape after pre-processing is {fit_parameters.shape}"
+            )
+            self.fit_success = False
+            return self
+
         from dfatool.gplearn.genetic import SymbolicRegressor
 
         self._build_feature_names()
@@ -1475,14 +1563,29 @@ class FOLFunction(ModelFunction):
             int(os.getenv("DFATOOL_PARAM_CATEGORICAL_TO_SCALAR", "0"))
         )
         second_order = int(os.getenv("DFATOOL_FOL_SECOND_ORDER", "0"))
-        fit_parameters, categorical_to_index, ignore_index = param_to_ndarray(
+        fit_parameters, self.categorical_to_index, self.ignore_index = param_to_ndarray(
             param_values,
             with_nan=False,
             categorical_to_scalar=self.categorical_to_scalar,
             ignore_indexes=ignore_param_indexes,
         )
-        self.categorical_to_index = categorical_to_index
-        self.ignore_index = ignore_index
+
+        if fit_parameters.shape[1] == 0:
+            logger.debug(
+                f"Cannot run FOL due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape is {fit_parameters.shape}"
+            )
+            self.fit_success = False
+            return self
+
+        fit_parameters = self._preprocess_parameters(fit_parameters, data)
+
+        if fit_parameters.shape[1] == 0:
+            logger.warning(
+                f"Cannot run FOL due to lack of parameters: parameter shape is {np.array(param_values).shape}, fit_parameter shape after pre-processing is {fit_parameters.shape}"
+            )
+            self.fit_success = False
+            return self
+
         fit_parameters = fit_parameters.swapaxes(0, 1)
 
         if second_order:
@@ -1499,7 +1602,7 @@ class FOLFunction(ModelFunction):
             funbuf = "regression_arg(0)"
             num_vars = 1
             for j, param_name in enumerate(self.parameter_names):
-                if ignore_index[j]:
+                if self.ignore_index[j]:
                     continue
                 else:
                     if second_order == 2:
@@ -1508,7 +1611,7 @@ class FOLFunction(ModelFunction):
                         )
                         num_vars += 1
                     for k in range(j + 1, len(self.parameter_names)):
-                        if ignore_index[j]:
+                        if self.ignore_index[j]:
                             continue
                         funbuf += f" + regression_arg({num_vars}) * parameter({param_name}) * parameter({self.parameter_names[k]})"
                         num_vars += 1
@@ -1520,7 +1623,7 @@ class FOLFunction(ModelFunction):
             funbuf = "regression_arg(0)"
             i = 1
             for j, param_name in enumerate(self.parameter_names):
-                if ignore_index[j]:
+                if self.ignore_index[j]:
                     continue
                 else:
                     funbuf += f" + regression_arg({i}) * parameter({param_name})"

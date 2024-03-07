@@ -114,6 +114,8 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_DRIFT_COMPENSATION_PENALTY` | 0 .. 100 (default: majority vote over several penalties) | Specify penalty for ruptures.py PELT changepoint petection |
 | `DFATOOL_MODEL` | cart, decart, fol, lgbm, lmt, **rmt**, symreg, uls, xgb | Modeling method. See below for method-specific configuration options. |
 | `DFATOOL_RMT_SUBMODEL` | cart, fol, static, symreg, **uls** | Modeling method for RMT leaf functions. |
+| `DFATOOL_PREPROCESSING_RELEVANCE_METHOD` | **none**, mi | Ignore parameters deemed irrelevant by the specified heuristic before passing them on to `DFATOOL_MODEL`. |
+| `DFATOOL_PREPROCESSING_RELEVANCE_THRESHOLD` | .. **0.1** .. | Threshold for relevance heuristic. |
 | `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default (0): unlimited. |
 | `DFATOOL_LGBM_BOOSTER` | **gbdt**, dart, rf | Boosting type. |
 | `DFATOOL_LGBM_N_ESTIMATORS` | .., **100**, .. | Number of estimators. |
