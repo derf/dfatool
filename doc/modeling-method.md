@@ -60,7 +60,7 @@ You should also specify `DFATOOL_XGB_N_ESTIMATORS`, `DFATOOL_XGB_MAX_DEPTH`, and
 
 ## Least-Squares Regression
 
-If dfatool determines that there is no need for a tree structure, or if `DFATOOL_RMT_ENABLED=0` has beenset, it will go straight to least-squares regression.
+If dfatool determines that there is no need for a tree structure, or if `DFATOOL_MODEL=uls`, it will go straight to least-squares regression.
 By default, it still utilizes the RMT/ULS algorithms to find and fit a suitable function template.
 If needed, `--function-override` can be used to set a function template manually.
 For instance, in order to specify that NMC DPU allocation latency is a function of the number of DPUs (and nothing else), ue `--function-override 'NMC reconfiguration:latency_dpu_alloc_us:regression_arg(0) + regression_arg(1) * parameter(n_dpus)'`
