@@ -336,6 +336,9 @@ def model_quality_table(
 
 def export_dataref(dref_file, dref, precision=None):
     with open(dref_file, "w") as f:
+        for k, v in sorted(os.environ.items(), key=lambda kv: kv[1]):
+            if k.startswith("DFATOOL_"):
+                print(f"% {k}='{v}'", file=f)
         for arg in sys.argv:
             print(f"% {arg}", file=f)
         for k, v in sorted(dref.items()):
