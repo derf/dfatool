@@ -1202,6 +1202,7 @@ class ModelAttribute:
                     loss.append(np.inf)
                     continue
             elif dfatool_rmt_relevance_method == "mi":
+                # The 'None in unique_values' check above ensures that param_to_fit_param[param_index] exists here
                 if (
                     mutual_information[param_to_fit_param[param_index]]
                     < dfatool_rmt_relevance_threshold
