@@ -33,6 +33,31 @@ class NpEncoder(json.JSONEncoder):
             return super(NpEncoder, self).default(obj)
 
 
+class CSVfile:
+    def __init__(self):
+        pass
+
+    def load(self, f):
+        observations = list()
+        for lineno, line in enumerate(f):
+            if lineno == 0:
+                param_names = line.split(",")[1:-1]
+                attr_names = line.removesuffix("\n").split(",")[-1:]
+            else:
+                param_values = list(map(soft_cast_int, line.split(",")[1:-1]))
+                attr_values = list(
+                    map(soft_cast_float, line.removesuffix("\n").split(",")[-1:])
+                )
+                observations.append(
+                    {
+                        "name": "CSVFile",
+                        "param": dict(zip(param_names, param_values)),
+                        "attribute": dict(zip(attr_names, attr_values)),
+                    }
+                )
+        return observations
+
+
 class Logfile:
     def __init__(self):
         pass

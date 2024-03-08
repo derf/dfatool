@@ -21,15 +21,18 @@ import time
 
 
 def parse_logfile(filename):
-    lf = dfatool.utils.Logfile()
+    if ".csv" in filename:
+        loader = dfatool.utils.CSVfile()
+    else:
+        loader = dfatool.utils.Logfile()
 
     if filename.endswith("xz"):
         import lzma
 
         with lzma.open(filename, "rt") as f:
-            return lf.load(f)
+            return loader.load(f)
     with open(filename, "r") as f:
-        return lf.load(f)
+        return loader.load(f)
 
 
 def main():
