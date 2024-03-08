@@ -1134,9 +1134,15 @@ class ModelAttribute:
                     if not ignore_index[i]:
                         param_to_fit_param[i] = j
                         j += 1
-                mutual_information = sklearn.feature_selection.mutual_info_regression(
-                    fit_parameters, data
-                )
+                try:
+                    mutual_information = (
+                        sklearn.feature_selection.mutual_info_regression(
+                            fit_parameters, data
+                        )
+                    )
+                except ValueError as e:
+                    logger.debug(f"mutual_info_regression failed: {e}")
+                    mutual_information = [np.inf for _ in range(len(fit_parameters[0]))]
 
         if loss_ignore_scalar:
             ffs_eligible_params = list()
