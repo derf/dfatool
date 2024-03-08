@@ -1537,17 +1537,21 @@ class SymbolicRegressionFunction(SKLearnRegressionFunction):
         return rstr.count(",") * 2 + 1
 
     def hyper_to_dref(self):
-        return {
-            "symreg/population size": self.regressor.population_size,
-            "symreg/generations": self.regressor.generations,
-            "symreg/tournament size": self.regressor.tournament_size,
-            "symreg/const range/min": self.regressor.const_range[0],
-            "symreg/const range/max": self.regressor.const_range[1],
-            "symreg/function set": " ".join(self.regressor.function_set),
-            "symreg/metric": self.regressor.metric,
-            "symreg/parsimony coefficient": self.regressor.parsimony_coefficient,
-            "symreg/n jobs": self.regressor.n_jobs,
-        }
+        hyper = super().hyper_to_dref()
+        hyper.update(
+            {
+                "symreg/population size": self.regressor.population_size,
+                "symreg/generations": self.regressor.generations,
+                "symreg/tournament size": self.regressor.tournament_size,
+                "symreg/const range/min": self.regressor.const_range[0],
+                "symreg/const range/max": self.regressor.const_range[1],
+                "symreg/function set": " ".join(self.regressor.function_set),
+                "symreg/metric": self.regressor.metric,
+                "symreg/parsimony coefficient": self.regressor.parsimony_coefficient,
+                "symreg/n jobs": self.regressor.n_jobs,
+            }
+        )
+        return hyper
 
 
 # first-order linear function (no feature interaction)
