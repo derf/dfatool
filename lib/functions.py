@@ -614,6 +614,8 @@ class SKLearnRegressionFunction(ModelFunction):
             int(os.getenv("DFATOOL_PARAM_CATEGORICAL_TO_SCALAR", "0"))
         )
         self.fit_success = None
+        self.paramcount_ndarray = None
+        self.paramcount_preprocessed = None
 
     def _check_fit_param(self, fit_parameters, name, step):
         if fit_parameters.shape[1] == 0:
@@ -623,6 +625,7 @@ class SKLearnRegressionFunction(ModelFunction):
         return True
 
     def _preprocess_parameters(self, fit_parameters, data):
+        self.paramcount_ndarray = len(fit_parameters[0])
         if dfatool_preproc_relevance_method == "mi":
             return self._preprocess_parameters_mi(fit_parameters, data)
         return fit_parameters
@@ -650,10 +653,19 @@ class SKLearnRegressionFunction(ModelFunction):
         ret = list()
         for param_tuple in fit_parameters:
             ret.append(param_tuple[tt])
+        self.paramcount_preprocessed = len(ret[0])
         logger.debug(
-            f"information gain: in {len(fit_parameters[0])} parameters -> out {len(ret[0])} parameters"
+            f"information gain: in {self.paramcount_ndarray} parameters -> out {self.paramcount_preprocessed} parameters"
         )
         return np.asarray(ret)
+
+    def hyper_to_dref(self):
+        ret = {
+            "paramcount/ndarray": self.paramcount_ndarray,
+        }
+        if self.paramcount_preprocessed is not None:
+            ret["paramcount/preprocessed"] = self.paramcount_preprocessed
+        return ret
 
     def _build_feature_names(self):
         # SKLearnRegressionFunction descendants use self.param_names \ self.ignore_index as features.
@@ -833,15 +845,19 @@ class CARTFunction(SKLearnRegressionFunction):
         return ret
 
     def hyper_to_dref(self):
-        return {
-            "cart/max depth": self.regressor.max_depth or "infty",
-            "cart/min samples split": self.regressor.min_samples_split,
-            "cart/min samples leaf": self.regressor.min_samples_leaf,
-            "cart/min impurity decrease": self.regressor.min_impurity_decrease,
-            "cart/max leaf nodes": self.regressor.max_leaf_nodes or "infty",
-            "cart/criterion": self.regressor.criterion,
-            "cart/splitter": self.regressor.splitter,
-        }
+        hyper = super().hyper_to_dref()
+        hyper.update(
+            {
+                "cart/max depth": self.regressor.max_depth or "infty",
+                "cart/min samples split": self.regressor.min_samples_split,
+                "cart/min samples leaf": self.regressor.min_samples_leaf,
+                "cart/min impurity decrease": self.regressor.min_impurity_decrease,
+                "cart/max leaf nodes": self.regressor.max_leaf_nodes or "infty",
+                "cart/criterion": self.regressor.criterion,
+                "cart/splitter": self.regressor.splitter,
+            }
+        )
+        return hyper
 
     # recursive function for all nodes:
     def recurse_(self, tree, node_id, depth=0):
@@ -1009,13 +1025,17 @@ class LMTFunction(SKLearnRegressionFunction):
         return ret
 
     def hyper_to_dref(self):
-        return {
-            "lmt/max depth": self.regressor.max_depth,
-            "lmt/max bins": self.regressor.max_bins,
-            "lmt/min samples split": self.regressor.min_samples_split,
-            "lmt/min samples leaf": self.regressor.min_samples_leaf,
-            "lmt/criterion": self.regressor.criterion,
-        }
+        hyper = super().hyper_to_dref()
+        hyper.update(
+            {
+                "lmt/max depth": self.regressor.max_depth,
+                "lmt/max bins": self.regressor.max_bins,
+                "lmt/min samples split": self.regressor.min_samples_split,
+                "lmt/min samples leaf": self.regressor.min_samples_leaf,
+                "lmt/criterion": self.regressor.criterion,
+            }
+        )
+        return hyper
 
     def recurse_(self, node_hash, node_index):
         node = node_hash[node_index]
@@ -1198,20 +1218,24 @@ class LightGBMFunction(SKLearnRegressionFunction):
         return self.get_number_of_nodes()
 
     def hyper_to_dref(self):
-        return {
-            "lgbm/boosting type": self.regressor.boosting_type,
-            "lgbm/n estimators": self.regressor.n_estimators,
-            "lgbm/max depth": self.regressor.max_depth == -1
-            and "infty"
-            or self.regressor.max_depth,
-            "lgbm/max leaves": self.regressor.num_leaves,
-            "lgbm/subsample": self.regressor.subsample,
-            "lgbm/learning rate": self.regressor.learning_rate,
-            "lgbm/min split gain": self.regressor.min_split_gain,
-            "lgbm/min child samples": self.regressor.min_child_samples,
-            "lgbm/alpha": self.regressor.reg_alpha,
-            "lgbm/lambda": self.regressor.reg_lambda,
-        }
+        hyper = super().hyper_to_dref()
+        hyper.update(
+            {
+                "lgbm/boosting type": self.regressor.boosting_type,
+                "lgbm/n estimators": self.regressor.n_estimators,
+                "lgbm/max depth": self.regressor.max_depth == -1
+                and "infty"
+                or self.regressor.max_depth,
+                "lgbm/max leaves": self.regressor.num_leaves,
+                "lgbm/subsample": self.regressor.subsample,
+                "lgbm/learning rate": self.regressor.learning_rate,
+                "lgbm/min split gain": self.regressor.min_split_gain,
+                "lgbm/min child samples": self.regressor.min_child_samples,
+                "lgbm/alpha": self.regressor.reg_alpha,
+                "lgbm/lambda": self.regressor.reg_lambda,
+            }
+        )
+        return hyper
 
 
 class XGBoostFunction(SKLearnRegressionFunction):
@@ -1384,20 +1408,24 @@ class XGBoostFunction(SKLearnRegressionFunction):
         return self.get_number_of_nodes()
 
     def hyper_to_dref(self):
-        return {
-            "xgb/n estimators": self.regressor.n_estimators,
-            "xgb/max depth": self.regressor.max_depth == 0
-            and "infty"
-            or self.regressor.max_depth,
-            "xgb/max leaves": self.regressor.max_leaves == 0
-            and "infty"
-            or self.regressor.max_leaves,
-            "xgb/subsample": self.regressor.subsample,
-            "xgb/eta": self.regressor.learning_rate,
-            "xgb/gamma": self.regressor.gamma,
-            "xgb/alpha": self.regressor.reg_alpha,
-            "xgb/lambda": self.regressor.reg_lambda,
-        }
+        hyper = super().hyper_to_dref()
+        hyper.update(
+            {
+                "xgb/n estimators": self.regressor.n_estimators,
+                "xgb/max depth": self.regressor.max_depth == 0
+                and "infty"
+                or self.regressor.max_depth,
+                "xgb/max leaves": self.regressor.max_leaves == 0
+                and "infty"
+                or self.regressor.max_leaves,
+                "xgb/subsample": self.regressor.subsample,
+                "xgb/eta": self.regressor.learning_rate,
+                "xgb/gamma": self.regressor.gamma,
+                "xgb/alpha": self.regressor.reg_alpha,
+                "xgb/lambda": self.regressor.reg_lambda,
+            }
+        )
+        return hyper
 
 
 class SymbolicRegressionFunction(SKLearnRegressionFunction):
