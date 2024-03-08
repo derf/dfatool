@@ -1072,11 +1072,7 @@ class ModelAttribute:
                 "build_rmt {self.name} {self.attr} called with loss_ignore_scalar=True, with_function_leaves=False. This does not make sense."
             )
 
-        relevance_threshold = float(os.getenv("DFATOOL_PARAM_RELEVANCE_THRESHOLD", 0.5))
-
-        logger.debug(
-            f"build_rmt(threshold={threshold}, relevance_threshold={relevance_threshold})"
-        )
+        logger.debug(f"build_rmt(threshold={threshold})")
 
         self.model_function = self._build_rmt(
             self.param_values,
@@ -1086,7 +1082,6 @@ class ModelAttribute:
             loss_ignore_scalar=loss_ignore_scalar,
             submodel=os.getenv("DFATOOL_RMT_SUBMODEL", "uls"),
             threshold=threshold,
-            relevance_threshold=relevance_threshold,
         )
 
     def _build_rmt(
@@ -1098,7 +1093,6 @@ class ModelAttribute:
         loss_ignore_scalar=False,
         submodel="uls",
         threshold=100,
-        relevance_threshold=0.5,
         level=0,
     ):
         """
@@ -1202,7 +1196,7 @@ class ModelAttribute:
                     + [param_index],
                 )
                 if not _depends_on_param(
-                    None, std_by_param, std_lut, relevance_threshold
+                    None, std_by_param, std_lut, dfatool_rmt_relevance_threshold
                 ):
                     irrelevant_params.append(param_index)
                     loss.append(np.inf)
@@ -1356,7 +1350,6 @@ class ModelAttribute:
                 loss_ignore_scalar=loss_ignore_scalar,
                 submodel=submodel,
                 threshold=threshold,
-                relevance_threshold=relevance_threshold,
                 level=level + 1,
             )
 
