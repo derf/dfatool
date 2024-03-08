@@ -892,7 +892,7 @@ class ModelAttribute:
             self.model_function = mf
             return True
         else:
-            logger.warning(f"CART generation for {self.name} {self.attr} faled")
+            logger.warning(f"{self.name}:{self.attr}:CART failed")
             self.model_function = df.StaticFunction(
                 np.mean(self.data), n_samples=len(self.data)
             )
@@ -915,7 +915,7 @@ class ModelAttribute:
             self.model_function = mf
             return True
         else:
-            logger.warning(f"DECART generation for {self.name} {self.attr} faled")
+            logger.warning(f"{self.name}:{self.attr}:DECART failed")
             self.model_function = df.StaticFunction(
                 np.mean(self.data), n_samples=len(self.data)
             )
@@ -936,17 +936,17 @@ class ModelAttribute:
                 if len(self.stats.distinct_values_by_param_index[param_index]) < 2:
                     ignore_param_indexes.append(param_index)
         x = df.FOLFunction(
-            self.median,
-            self.param_names,
+            np.mean(self.data),
             n_samples=self.data.shape[0],
-            num_args=self.arg_count,
+            param_names=self.param_names,
+            arg_count=self.arg_count,
         )
         x.fit(self.param_values, self.data, ignore_param_indexes=ignore_param_indexes)
         if x.fit_success:
             self.model_function = x
             return True
         else:
-            logger.warning(f"Fit of first-order linear model function failed.")
+            logger.warning(f"{self.name}:{self.attr}:FOL failed")
             self.model_function = df.StaticFunction(
                 np.mean(self.data), n_samples=len(self.data)
             )
@@ -964,7 +964,7 @@ class ModelAttribute:
             self.model_function = mf
             return True
         else:
-            logger.warning(f"LMT generation for {self.name} {self.attr} faled")
+            logger.warning(f"{self.name}:{self.attr}:LMT failed")
             self.model_function = df.StaticFunction(
                 np.mean(self.data), n_samples=len(self.data)
             )
@@ -1006,7 +1006,7 @@ class ModelAttribute:
             self.model_function = mf
             return True
         else:
-            logger.warning(f"LightGBM generation for {self.name} {self.attr} faled")
+            logger.warning(f"{self.name}:{self.attr}:LightGBM failed")
             self.model_function = df.StaticFunction(
                 np.mean(self.data), n_samples=len(self.data)
             )
@@ -1024,7 +1024,7 @@ class ModelAttribute:
             self.model_function = mf
             return True
         else:
-            logger.warning(f"XGB generation for {self.name} {self.attr} faled")
+            logger.warning(f"{self.name}:{self.attr}:XGBoost failed")
             self.model_function = df.StaticFunction(
                 np.mean(self.data), n_samples=len(self.data)
             )
