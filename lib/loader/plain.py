@@ -1,23 +1,59 @@
 #!/usr/bin/env python3
 
 from ..utils import soft_cast_int, soft_cast_float
+import os
 import re
 
 
 class CSVfile:
     def __init__(self):
+        self.ignore_names = os.environ.get("DFATOOL_CSV_IGNORE", "").split(",")
+        self.observation_names = os.environ.get("DFATOOL_CSV_OBSERVATIONS", "").split(
+            ","
+        )
         pass
 
     def load(self, f):
+        self.column_type = dict()
         observations = list()
+        param_names = list()
+        attr_names = list()
         for lineno, line in enumerate(f):
+            line = line.removesuffix("\n")
             if lineno == 0:
-                param_names = line.split(",")[1:-1]
-                attr_names = line.removesuffix("\n").split(",")[-1:]
+                for i, col_name in enumerate(line.split(",")):
+                    if col_name in self.ignore_names:
+                        self.column_type[i] = 0
+                    elif col_name in self.observation_names:
+                        self.column_type[i] = 2
+                        attr_names.append(col_name)
+                    else:
+                        self.column_type[i] = 1
+                        param_names.append(col_name)
             else:
-                param_values = list(map(soft_cast_int, line.split(",")[1:-1]))
+                param_values = list(
+                    map(
+                        soft_cast_int,
+                        map(
+                            lambda iv: iv[1],
+                            filter(
+                                lambda iv: self.column_type[iv[0]] == 1,
+                                enumerate(line.split(",")),
+                            ),
+                        ),
+                    )
+                )
                 attr_values = list(
-                    map(soft_cast_float, line.removesuffix("\n").split(",")[-1:])
+                    map(
+                        soft_cast_float,
+                        map(
+                            lambda iv: iv[1],
+                            filter(
+                                lambda iv: self.column_type[iv[0]] == 2,
+                                enumerate(line.split(",")),
+                            ),
+                        ),
+                    )
                 )
                 observations.append(
                     {
