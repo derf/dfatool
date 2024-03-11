@@ -10,6 +10,7 @@ import dfatool.cli
 import dfatool.plotter
 import dfatool.utils
 import dfatool.functions as df
+from dfatool.loader import Logfile, CSVfile
 from dfatool.model import AnalyticModel
 from dfatool.validation import CrossValidator
 from functools import reduce
@@ -22,9 +23,9 @@ import time
 
 def parse_logfile(filename):
     if ".csv" in filename:
-        loader = dfatool.utils.CSVfile()
+        loader = CSVfile()
     else:
-        loader = dfatool.utils.Logfile()
+        loader = Logfile()
 
     if filename.endswith("xz"):
         import lzma

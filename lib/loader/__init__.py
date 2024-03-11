@@ -20,6 +20,7 @@ from .energytrace import (
     EnergyTraceWithTimer,
 )
 from .keysight import DLog, KeysightCSV
+from .plain import Logfile, CSVfile
 from .mimosa import MIMOSA
 
 logger = logging.getLogger(__name__)
@@ -667,9 +668,9 @@ class RawData:
                                         "offline_aggregates", None
                                     )
                                     if offline_aggregates:
-                                        state_or_transition[
-                                            "online_aggregates"
-                                        ] = offline_aggregates
+                                        state_or_transition["online_aggregates"] = (
+                                            offline_aggregates
+                                        )
 
                     for j, traces in enumerate(ptalog["traces"]):
                         self.filenames.append("{}#{}".format(filename, j))
@@ -736,9 +737,9 @@ class RawData:
                                         "offline_aggregates", None
                                     )
                                     if offline_aggregates:
-                                        state_or_transition[
-                                            "online_aggregates"
-                                        ] = offline_aggregates
+                                        state_or_transition["online_aggregates"] = (
+                                            offline_aggregates
+                                        )
                     for j, traces in enumerate(ptalog["traces"]):
                         self.filenames.append("{}#{}".format(filename, j))
                         self.traces_by_fileno.append(traces)
