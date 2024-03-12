@@ -124,9 +124,11 @@ def soft_cast_int_or_float(n):
     If `n` is empty, returns None.
     If `n` is not numeric, it is left unchanged.
     """
+    if type(n) in (float, int):
+        return n
     if n is None or n == "":
         return None
-    if "." in n:
+    if type(n) is str and "." in n:
         return soft_cast_float(n)
     return soft_cast_int(n)
 
