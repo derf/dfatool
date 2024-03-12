@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from ..utils import soft_cast_int, soft_cast_float
+from ..utils import soft_cast_int_or_float, soft_cast_float
 import os
 import re
 
@@ -33,7 +33,7 @@ class CSVfile:
             else:
                 param_values = list(
                     map(
-                        soft_cast_int,
+                        soft_cast_int_or_float,
                         map(
                             lambda iv: iv[1],
                             filter(
@@ -82,7 +82,7 @@ class Logfile:
         return self.kv_to_param(kv_str, soft_cast_float)
 
     def kv_to_param_i(self, kv_str):
-        return self.kv_to_param(kv_str, soft_cast_int)
+        return self.kv_to_param(kv_str, soft_cast_int_or_float)
 
     def load(self, f):
         observations = list()

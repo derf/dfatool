@@ -117,6 +117,20 @@ def soft_cast_float(n):
         return n
 
 
+def soft_cast_int_or_float(n):
+    """
+    Convert `n` to int (if integer), float (if numeric), or return it as-is.
+
+    If `n` is empty, returns None.
+    If `n` is not numeric, it is left unchanged.
+    """
+    if n is None or n == "":
+        return None
+    if "." in n:
+        return soft_cast_float(n)
+    return soft_cast_int(n)
+
+
 def flatten(somelist):
     """
     Flatten a list.
@@ -269,7 +283,7 @@ def param_to_ndarray(
                 if i in category_to_scalar and not is_numeric(param):
                     ret_tuple.append(category_to_scalar[i][param])
                 elif categorical_to_scalar:
-                    ret_tuple.append(soft_cast_int(param))
+                    ret_tuple.append(soft_cast_int_or_float(param))
                 else:
                     ret_tuple.append(param)
         ret_tuples.append(ret_tuple)
