@@ -11,24 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def sanity_check(args):
-    if args.force_tree and bool(int(os.getenv("DFATOOL_FIT_FOL", "0"))):
-        print(
-            "--force-tree and DFATOOL_FIT_FOL=1 are mutually exclusive", file=sys.stderr
-        )
-        sys.exit(1)
-    if args.skip_param_stats and not args.force_tree:
-        if bool(int(os.getenv("DFATOOL_FIT_FOL", "0"))):
-            print(
-                "Note: DFATOOL_FIT_FOL=1 relies on param stats to skip useless features.",
-                file=sys.stderr,
-            )
-            print(
-                "Disabling it via --skip-param-stats will likely lead to unsatisfactory results.",
-                file=sys.stderr,
-            )
-        else:
-            print("--skip-param-stats requires --force-tree", file=sys.stderr)
-            sys.exit(1)
+    pass
 
 
 def print_static(model, static_model, name, attribute, with_dependence=False):
