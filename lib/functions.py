@@ -452,6 +452,7 @@ class SplitFunction(ModelFunction):
                 or "infty",
             }
         )
+        return hyper
 
     @classmethod
     def from_json(cls, data):
