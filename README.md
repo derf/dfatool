@@ -113,6 +113,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_COMPENSATE_DRIFT` | **0**, 1 | Perform drift compensation for loaders without sync input (e.g. EnergyTrace or Keysight) |
 | `DFATOOL_DRIFT_COMPENSATION_PENALTY` | 0 .. 100 (default: majority vote over several penalties) | Specify penalty for ruptures.py PELT changepoint petection |
 | `DFATOOL_MODEL` | cart, decart, fol, lgbm, lmt, **rmt**, symreg, uls, xgb | Modeling method. See below for method-specific configuration options. |
+| `DFATOOL_RMT_MAX_DEPTH` | **0** .. *n* | Maximum depth for RMT. Default (0): unlimited. |
 | `DFATOOL_RMT_SUBMODEL` | cart, fol, static, symreg, **uls** | Modeling method for RMT leaf functions. |
 | `DFATOOL_PREPROCESSING_RELEVANCE_METHOD` | **none**, mi | Ignore parameters deemed irrelevant by the specified heuristic before passing them on to `DFATOOL_MODEL`. |
 | `DFATOOL_PREPROCESSING_RELEVANCE_THRESHOLD` | .. **0.1** .. | Threshold for relevance heuristic. |

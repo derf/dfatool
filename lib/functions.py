@@ -444,6 +444,15 @@ class SplitFunction(ModelFunction):
             child.to_dot(pydot, graph, feature_names, str(id(self)))
             graph.add_edge(pydot.Edge(str(id(self)), str(id(child)), label=key))
 
+    def hyper_to_dref(self):
+        hyper = super().hyper_to_dref()
+        hyper.update(
+            {
+                "rmt/max depth": int(os.getenv("DFATOOL_RMT_MAX_DEPTH", "0"))
+                or "infty",
+            }
+        )
+
     @classmethod
     def from_json(cls, data):
         assert data["type"] == "split"
