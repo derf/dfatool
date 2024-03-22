@@ -556,7 +556,11 @@ def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
     :param parameter_filter: [[name, value], [name, value], ...] list of parameter values to keep, all others are removed. Values refer to normalizad parameter data.
     """
     for param_name, condition, param_value in parameter_filter:
-        param_index = parameters.index(param_name)
+        try:
+            param_index = parameters.index(param_name)
+        except ValueError:
+            logger.error(f"Unknown parameter '{param_name}'")
+            return
         param_value = soft_cast_int(param_value)
         names_to_remove = set()
 
