@@ -358,13 +358,13 @@ def export_dot(model, dot_prefix):
                 logger.info(f"Dot export of model saved to {filename}")
 
 
-def export_csv_unparam(model, csv_prefix):
+def export_csv_unparam(model, csv_prefix, dialect="excel"):
     import csv
 
     for name in sorted(model.names):
         filename = f"{csv_prefix}{name}.csv"
         with open(filename, "w") as f:
-            writer = csv.writer(f)
+            writer = csv.writer(f, dialect=dialect)
             writer.writerow(
                 ["measurement"] + model.parameters + sorted(model.attributes(name))
             )
@@ -477,6 +477,14 @@ def add_standard_arguments(parser):
         metavar="PREFIX",
         type=str,
         help="Export raw (parameter-independent) observations in CSV format to {PREFIX}{name}-{attribute}.csv",
+    )
+    parser.add_argument(
+        "--export-csv-dialect",
+        metavar="DIALECT",
+        type=str,
+        choices=["excel", "excel-tab", "unix"],
+        default="excel",
+        help="CSV dialect to use for --export-csv-unparam",
     )
     parser.add_argument(
         "--export-pgf-unparam",

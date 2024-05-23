@@ -426,7 +426,9 @@ def main():
         dfatool.cli.print_info_by_name(model, by_name)
 
     if args.export_csv_unparam:
-        dfatool.cli.export_csv_unparam(model, args.export_csv_unparam)
+        dfatool.cli.export_csv_unparam(
+            model, args.export_csv_unparam, dialect=args.export_csv_dialect
+        )
 
     if args.export_pgf_unparam:
         dfatool.cli.export_pgf_unparam(model, args.export_pgf_unparam)
