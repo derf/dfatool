@@ -361,6 +361,16 @@ def export_dot(model, dot_prefix):
 def export_csv_unparam(model, csv_prefix, dialect="excel"):
     import csv
 
+    class ExcelLF(csv.Dialect):
+        delimiter = ","
+        quotechar = '"'
+        doublequote = True
+        skipinitialspace = False
+        lineterminator = "\n"
+        quoting = 0
+
+    csv.register_dialect("excel-lf", ExcelLF)
+
     for name in sorted(model.names):
         filename = f"{csv_prefix}{name}.csv"
         with open(filename, "w") as f:
@@ -482,7 +492,7 @@ def add_standard_arguments(parser):
         "--export-csv-dialect",
         metavar="DIALECT",
         type=str,
-        choices=["excel", "excel-tab", "unix"],
+        choices=["excel", "excel-lf", "excel-tab", "unix"],
         default="excel",
         help="CSV dialect to use for --export-csv-unparam",
     )
