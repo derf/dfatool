@@ -160,7 +160,7 @@ def _print_cartinfo(prefix, model):
 
 def print_splitinfo(info, prefix=""):
     if type(info) is df.SplitFunction:
-        for k, v in info.child.items():
+        for k, v in sorted(info.child.items()):
             print_splitinfo(v, f"{prefix} {info.param_name}={k}")
     elif type(info) is df.ScalarSplitFunction:
         print_splitinfo(info.child_le, f"{prefix} {info.param_name}≤{info.threshold}")
