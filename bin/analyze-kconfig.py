@@ -19,7 +19,6 @@ import time
 import numpy as np
 
 import dfatool.cli
-import dfatool.plotter
 import dfatool.utils
 import dfatool.functions as df
 from dfatool.loader.kconfig import KConfigAttributes
@@ -365,6 +364,8 @@ def main():
         dfatool.cli.export_json_unparam(model, args.export_json_unparam)
 
     if args.plot_unparam:
+        import dfatool.plotter
+
         for kv in args.plot_unparam.split(";"):
             state_or_trans, attribute, ylabel = kv.split(":")
             fname = "param_y_{}_{}.pdf".format(state_or_trans, attribute)
@@ -377,6 +378,8 @@ def main():
             )
 
     if args.boxplot_unparam:
+        import dfatool.plotter
+
         title = None
         if args.filter_param:
             title = "filter: " + ", ".join(
@@ -405,6 +408,8 @@ def main():
         dfatool.cli.boxplot_param(args, model)
 
     if args.plot_param:
+        import dfatool.plotter
+
         for kv in args.plot_param.split(";"):
             try:
                 state_or_trans, attribute, param_name, *function = kv.split(":")

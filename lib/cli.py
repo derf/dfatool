@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import dfatool.functions as df
-import dfatool.plotter
 import logging
 import numpy as np
 import os
@@ -430,6 +429,8 @@ def export_json_unparam(model, filename):
 
 
 def boxplot_param(args, model):
+    import dfatool.plotter
+
     title = None
     param_is_filtered = dict()
     if args.filter_param:
