@@ -429,7 +429,7 @@ def export_json_unparam(model, filename):
 
 
 def boxplot_param(args, model):
-    import dfatool.plotter
+    import dfatool.plotter as dp
 
     title = None
     param_is_filtered = dict()
@@ -460,7 +460,7 @@ def boxplot_param(args, model):
             )
         )
         for attribute in attr_names:
-            dfatool.plotter.boxplot(
+            dp.boxplot(
                 param_desc,
                 list(map(lambda k: by_param[(name, k)][attribute], param_keys)),
                 output=f"{args.boxplot_param}{name}-{attribute}.pdf",

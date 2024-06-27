@@ -364,12 +364,12 @@ def main():
         dfatool.cli.export_json_unparam(model, args.export_json_unparam)
 
     if args.plot_unparam:
-        import dfatool.plotter
+        import dfatool.plotter as dp
 
         for kv in args.plot_unparam.split(";"):
             state_or_trans, attribute, ylabel = kv.split(":")
             fname = "param_y_{}_{}.pdf".format(state_or_trans, attribute)
-            dfatool.plotter.plot_y(
+            dp.plot_y(
                 model.by_name[state_or_trans][attribute],
                 xlabel="measurement #",
                 ylabel=ylabel,
@@ -378,7 +378,7 @@ def main():
             )
 
     if args.boxplot_unparam:
-        import dfatool.plotter
+        import dfatool.plotter as dp
 
         title = None
         if args.filter_param:
@@ -387,7 +387,7 @@ def main():
             )
         for name in model.names:
             attr_names = sorted(model.attributes(name))
-            dfatool.plotter.boxplot(
+            dp.boxplot(
                 attr_names,
                 [model.by_name[name][attr] for attr in attr_names],
                 xlabel="Attribute",
@@ -396,7 +396,7 @@ def main():
                 show=not args.non_interactive,
             )
             for attribute in attr_names:
-                dfatool.plotter.boxplot(
+                dp.boxplot(
                     [attribute],
                     [model.by_name[name][attribute]],
                     output=f"{args.boxplot_unparam}{name}-{attribute}.pdf",
@@ -408,7 +408,7 @@ def main():
         dfatool.cli.boxplot_param(args, model)
 
     if args.plot_param:
-        import dfatool.plotter
+        import dfatool.plotter as dp
 
         for kv in args.plot_param.split(";"):
             try:
@@ -423,7 +423,7 @@ def main():
                 function = gplearn_to_function(" ".join(function))
             else:
                 function = None
-            dfatool.plotter.plot_param(
+            dp.plot_param(
                 model,
                 state_or_trans,
                 attribute,
