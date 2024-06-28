@@ -575,6 +575,10 @@ def main():
                 json_model[attribute] = data.copy()
                 if nfpkeys:
                     json_model[attribute].update(nfpkeys[name][attribute])
+                if "paramValueToIndex" in json_model[attribute]["modelFunction"]:
+                    json_model[attribute]["paramValueToIndex"] = json_model[attribute][
+                        "modelFunction"
+                    ].pop("paramValueToIndex")
         out_model = {
             "model": json_model,
             "modelType": "dfatool-kconfig",
