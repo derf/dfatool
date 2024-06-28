@@ -92,6 +92,15 @@ def print_info_by_name(model, by_name):
             )
 
 
+def print_information_gain_by_name(model, by_name):
+    for name in model.names:
+        for attr in model.attributes(name):
+            print(f"{name} {attr}:")
+            mutual_information = model.mutual_information(name, attr)
+            for i, param in enumerate(model.parameters):
+                print(f"    Parameter {param} : {mutual_information[i]:5.2f}")
+
+
 def print_analyticinfo(prefix, info):
     model_function = info.model_function.removeprefix("0 + ")
     for i in range(len(info.model_args)):
@@ -574,6 +583,11 @@ def add_standard_arguments(parser):
         "--info",
         action="store_true",
         help="Show benchmark information (number of measurements, parameter values, ...)",
+    )
+    parser.add_argument(
+        "--information-gain",
+        action="store_true",
+        help="Show information gain of parameters",
     )
     parser.add_argument(
         "--log-level",

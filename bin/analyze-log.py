@@ -124,6 +124,9 @@ def main():
     if args.info:
         dfatool.cli.print_info_by_name(model, by_name)
 
+    if args.information_gain:
+        dfatool.cli.print_information_gain_by_name(model, by_name)
+
     if args.export_csv_unparam:
         dfatool.cli.export_csv_unparam(
             model, args.export_csv_unparam, dialect=args.export_csv_dialect
@@ -278,6 +281,16 @@ def main():
         dref = model.to_dref(static_quality, lut_quality, analytic_quality)
         for key, value in timing.items():
             dref[f"timing/{key}"] = (value, r"\second")
+
+        if args.information_gain:
+            for name in model.names:
+                for attr in model.attributes(name):
+                    mutual_information = model.mutual_information(name, attr)
+                    for i, param in enumerate(model.parameters):
+                        dref[f"mutual information/{name}/{attr}/{param}"] = (
+                            mutual_information[i]
+                        )
+
         dfatool.cli.export_dataref(
             args.export_dref, dref, precision=args.dref_precision
         )

@@ -604,6 +604,9 @@ class ModelAttribute:
         # The best model we have. May be Static, Split, or Param (and later perhaps Substate)
         self.model_function = None
 
+        # Information gain cache. Used for statistical analysis
+        self.mutual_information_cache = None
+
         self._check_codependent_param()
 
         # There must be at least 3 distinct data values (≠ None) if an analytic model
@@ -698,6 +701,29 @@ class ModelAttribute:
 
     def webconf_function_map(self):
         return self.model_function.webconf_function_map()
+
+    def mutual_information(self):
+        if self.mutual_information_cache is not None:
+            return self.mutual_information_cache
+
+        from sklearn.feature_selection import mutual_info_regression
+
+        fit_parameters, _, ignore_index = param_to_ndarray(
+            self.param_values, with_nan=False, categorical_to_scalar=True
+        )
+
+        param_to_fit_param = dict()
+        j = 0
+        for i in range(len(self.param_names)):
+            if not ignore_index[i]:
+                param_to_fit_param[i] = j
+                j += 1
+
+        self.mutual_information_cache = mutual_info_regression(
+            fit_parameters, self.data
+        )
+
+        return self.mutual_information_cache
 
     @classmethod
     def from_json(cls, name, attr, data):
