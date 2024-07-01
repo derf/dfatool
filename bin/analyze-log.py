@@ -286,10 +286,11 @@ def main():
             for name in model.names:
                 for attr in model.attributes(name):
                     mutual_information = model.mutual_information(name, attr)
-                    for i, param in enumerate(model.parameters):
-                        dref[f"mutual information/{name}/{attr}/{param}"] = (
-                            mutual_information[i]
-                        )
+                    for param in model.parameters:
+                        if param in mutual_information:
+                            dref[f"mutual information/{name}/{attr}/{param}"] = (
+                                mutual_information[param]
+                            )
 
         dfatool.cli.export_dataref(
             args.export_dref, dref, precision=args.dref_precision

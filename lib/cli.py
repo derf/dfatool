@@ -97,8 +97,11 @@ def print_information_gain_by_name(model, by_name):
         for attr in model.attributes(name):
             print(f"{name} {attr}:")
             mutual_information = model.mutual_information(name, attr)
-            for i, param in enumerate(model.parameters):
-                print(f"    Parameter {param} : {mutual_information[i]:5.2f}")
+            for param in model.parameters:
+                if param in mutual_information:
+                    print(f"    Parameter {param} : {mutual_information[param]:5.2f}")
+                else:
+                    print(f"    Parameter {param} :  -.--")
 
 
 def print_analyticinfo(prefix, info):

@@ -712,16 +712,14 @@ class ModelAttribute:
             self.param_values, with_nan=False, categorical_to_scalar=True
         )
 
-        param_to_fit_param = dict()
-        j = 0
-        for i in range(len(self.param_names)):
-            if not ignore_index[i]:
-                param_to_fit_param[i] = j
-                j += 1
+        mutual_info_result = mutual_info_regression(fit_parameters, self.data)
 
-        self.mutual_information_cache = mutual_info_regression(
-            fit_parameters, self.data
-        )
+        self.mutual_information_cache = dict()
+        j = 0
+        for i, param_name in enumerate(self.param_names):
+            if not ignore_index[i]:
+                self.mutual_information_cache[param_name] = mutual_info_result[j]
+                j += 1
 
         return self.mutual_information_cache
 
