@@ -227,6 +227,9 @@ class AnalyticModel:
             return self.parameters[param_index]
         return str(param_index)
 
+    def mutual_information(self, name, attr):
+        return self.attr_by_name[name][attr].mutual_information()
+
     def get_static(self, use_mean=False):
         """
         Get static model function: name, attribute -> model value.
