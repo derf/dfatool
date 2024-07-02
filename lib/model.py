@@ -625,11 +625,17 @@ class AnalyticModel:
         ret = {
             "parameters": self.parameters,
             "name": dict([[name, dict()] for name in self.names]),
+            "paramValuesbyName": dict([[name, dict()] for name in self.names]),
         }
 
         for name in self.names:
             for attr_name, attr in self.attr_by_name[name].items():
                 ret["name"][name][attr_name] = attr.to_json(**kwargs)
+            attr_name = list(self.attributes(name))[0]
+            for param_name in self.parameters:
+                ret["paramValuesbyName"][name][param_name] = self.attr_by_name[name][
+                    attr_name
+                ].stats.distinct_values_by_param_name[param_name]
 
         return ret
 
