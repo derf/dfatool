@@ -14,7 +14,7 @@ def main(pvalue, file1, file2, macro=None):
 
     pvalue = float(pvalue)
 
-    print(f"% p = {result.pvalue}")
+    print(f"% {result}")
     if macro is None:
         print(r"\drefset{ttest/pvalue}{" + str(result.pvalue) + "}")
     if result.pvalue < pvalue:
