@@ -560,22 +560,30 @@ def filter_aggregate_by_param(aggregate, parameters, parameter_filter):
             param_index = parameters.index(param_name)
         except ValueError:
             logger.error(f"Unknown parameter '{param_name}'")
-            return
+            continue
         param_value = soft_cast_int(param_value)
         names_to_remove = set()
 
         if condition == "<":
-            condf = lambda x: x[param_index] < param_value
+            condf = (
+                lambda x: x[param_index] is not None and x[param_index] < param_value
+            )
         elif condition == "≤":
-            condf = lambda x: x[param_index] <= param_value
+            condf = (
+                lambda x: x[param_index] is not None and x[param_index] <= param_value
+            )
         elif condition == "=":
             condf = lambda x: x[param_index] == param_value
         elif condition == "≠":
             condf = lambda x: x[param_index] != param_value
         elif condition == "≥":
-            condf = lambda x: x[param_index] >= param_value
+            condf = (
+                lambda x: x[param_index] is not None and x[param_index] >= param_value
+            )
         elif condition == ">":
-            condf = lambda x: x[param_index] > param_value
+            condf = (
+                lambda x: x[param_index] is not None and x[param_index] > param_value
+            )
         elif condition == "∈":
             param_values = tuple(map(soft_cast_int, param_value.split(",")))
             condf = lambda x: x[param_index] in param_values
