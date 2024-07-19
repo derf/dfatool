@@ -209,9 +209,18 @@ def _try_fits(
                     ini = param_function.ini
                 else:
                     ini = [0] + [1 for i in range(1, param_function._num_variables)]
+                if function_name == "roofline":
+                    param_function.bounds = (
+                        (-np.inf, -np.inf, np.min(X)),
+                        (np.inf, np.inf, np.max(X)),
+                    )
                 try:
                     res = optimize.least_squares(
-                        error_function, ini, args=(X, Y), xtol=2e-15
+                        error_function,
+                        ini,
+                        args=(X, Y),
+                        xtol=2e-15,
+                        bounds=param_function.bounds,
                     )
                 except FloatingPointError as e:
                     logger.warning(
