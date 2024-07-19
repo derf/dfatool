@@ -214,6 +214,7 @@ def _try_fits(
                         (-np.inf, -np.inf, np.min(X)),
                         (np.inf, np.inf, np.max(X)),
                     )
+                    ini[2] = np.mean(X)
                 try:
                     res = optimize.least_squares(
                         error_function,
