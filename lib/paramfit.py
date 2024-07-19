@@ -205,9 +205,13 @@ def _try_fits(
                 if function_name not in raw_results:
                     raw_results[function_name] = dict()
                 error_function = param_function.error_function
+                if param_function.ini:
+                    ini = param_function.ini
+                else:
+                    ini = [0] + [1 for i in range(1, param_function._num_variables)]
                 try:
                     res = optimize.least_squares(
-                        error_function, [0, 1], args=(X, Y), xtol=2e-15
+                        error_function, ini, args=(X, Y), xtol=2e-15
                     )
                 except FloatingPointError as e:
                     logger.warning(
