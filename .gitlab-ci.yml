@@ -9,6 +9,7 @@ run_tests:
   stage: test
   variables:
     GIT_SUBMODULE_STRATEGY: normal
+    DFATOOL_ULS_FUNCTIONS: linear,logarithmic,logarithmic1,exponential,square,inverse,sqrt
   script:
   - mkdir test-data
   - wget -qO test-data/20161221_123347_mmparam.tar https://ess.cs.uos.de/.private/dfatool/20161221_123347_mmparam.tar

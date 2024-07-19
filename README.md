@@ -134,6 +134,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_LMT_MAX_BINS` | 10 .. **120** | Number of bins used to determine optimal split. LMT default: 25. |
 | `DFATOOL_LMT_CRITERION` | **mse**, rmse, mae, poisson | Error metric to use when selecting best split. |
 | `DFATOOL_ULS_ERROR_METRIC` | **ssr**, rmsd, mae, … | Error metric to use when selecting best-fitting function during unsupervised least squares (ULS) regression. Least squares regression itself minimzes root mean square deviation (rmsd), hence the equivalent (but partitioning-compatible) sum of squared residuals (ssr) is the default. Supports all metrics accepted by `--error-metric`. |
+| `DFATOOL_ULS_FUNCTIONS` | a,b,… | List of function templates to use in ULS. Default: all supported functions. |
 | `DFATOOL_ULS_MIN_DISTINCT_VALUES` | 2 .. **3** .. *n* | Minimum number of unique values a parameter must take to be eligible for ULS |
 | `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK` | **0**, 1 | Do not detect and remove co-dependent features in ULS. |
 | `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. |

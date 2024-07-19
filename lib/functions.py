@@ -2197,6 +2197,12 @@ class analytic:
 
         if os.getenv("DFATOOL_RMT_SUBMODEL", "uls") == "fol":
             functions = {"linear": functions["linear"]}
+        elif allowed_functions := os.getenv("DFATOOL_ULS_FUNCTIONS", None):
+            allowed_functions = allowed_functions.split(",")
+            all_functions = list(functions.keys())
+            for function_name in all_functions:
+                if function_name not in allowed_functions:
+                    functions.pop(function_name)
 
         return functions
 
