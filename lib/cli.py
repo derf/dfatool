@@ -615,6 +615,7 @@ def add_standard_arguments(parser):
         "--show-model-precision",
         metavar="NDIG",
         type=int,
+        default=2,
         help="Limit precision of model output to NDIG decimals",
     )
     parser.add_argument(
