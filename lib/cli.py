@@ -13,7 +13,11 @@ def sanity_check(args):
     pass
 
 
-def print_static(model, static_model, name, attribute, with_dependence=False):
+def print_static(
+    model, static_model, name, attribute, with_dependence=False, precision=2
+):
+    if precision is None:
+        precision = 6
     unit = "  "
     if attribute == "power":
         unit = "µW"
@@ -22,25 +26,15 @@ def print_static(model, static_model, name, attribute, with_dependence=False):
     elif attribute == "substate_count":
         unit = "su"
     if model.attr_by_name[name][attribute].stats:
+        ratio = model.attr_by_name[name][
+            attribute
+        ].stats.generic_param_dependence_ratio()
         print(
-            "{:10s}: {:28s} : {:.2f} {:s}  ({:.2f})".format(
-                name,
-                attribute,
-                static_model(name, attribute),
-                unit,
-                model.attr_by_name[name][
-                    attribute
-                ].stats.generic_param_dependence_ratio(),
-            )
+            f"{name:10s}: {attribute:28s} : {static_model(name, attribute):.{precision}f} {unit:s}  ({ratio:.2f})"
         )
     else:
         print(
-            "{:10s}: {:28s} : {:.2f} {:s}".format(
-                name,
-                attribute,
-                static_model(name, attribute),
-                unit,
-            )
+            f"{name:10s}: {attribute:28s} : {static_model(name, attribute):.{precision}f} {unit:s}"
         )
     if with_dependence:
         for param in model.parameters:
@@ -104,18 +98,26 @@ def print_information_gain_by_name(model, by_name):
                     print(f"    Parameter {param} :  -.--")
 
 
-def print_analyticinfo(prefix, info):
+def print_analyticinfo(prefix, info, ndigits=None):
     model_function = info.model_function.removeprefix("0 + ")
     for i in range(len(info.model_args)):
-        model_function = model_function.replace(
-            f"regression_arg({i})", str(info.model_args[i])
-        )
+        if ndigits is not None:
+            model_function = model_function.replace(
+                f"regression_arg({i})", str(round(info.model_args[i], ndigits=ndigits))
+            )
+        else:
+            model_function = model_function.replace(
+                f"regression_arg({i})", str(info.model_args[i])
+            )
     model_function = model_function.replace("+ -", "- ")
     print(f"{prefix}: {model_function}")
 
 
-def print_staticinfo(prefix, info):
-    print(f"{prefix}: {info.value}")
+def print_staticinfo(prefix, info, ndigits=None):
+    if ndigits is not None:
+        print(f"{prefix}: {round(info.value, ndigits)}")
+    else:
+        print(f"{prefix}: {info.value}")
 
 
 def print_symreginfo(prefix, info):
@@ -186,13 +188,13 @@ def print_splitinfo(info, prefix=""):
         print(f"{prefix}: UNKNOWN {type(info)}")
 
 
-def print_model(prefix, info):
+def print_model(prefix, info, precision=None):
     if type(info) is df.StaticFunction:
-        print_staticinfo(prefix, info)
+        print_staticinfo(prefix, info, ndigits=precision)
     elif type(info) is df.AnalyticFunction:
-        print_analyticinfo(prefix, info)
+        print_analyticinfo(prefix, info, ndigits=precision)
     elif type(info) is df.FOLFunction:
-        print_analyticinfo(prefix, info)
+        print_analyticinfo(prefix, info, ndigits=precision)
     elif type(info) is df.CARTFunction:
         print_cartinfo(prefix, info)
     elif type(info) is df.SplitFunction:
@@ -608,6 +610,12 @@ def add_standard_arguments(parser):
         "paramdetection: show stddev of static/lut/fitted model\n"
         "param: show parameterized model functions and regression variable values\n"
         "all: all of the above",
+    )
+    parser.add_argument(
+        "--show-model-precision",
+        metavar="NDIG",
+        type=int,
+        help="Limit precision of model output to NDIG decimals",
     )
     parser.add_argument(
         "--show-model-error",

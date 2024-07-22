@@ -242,6 +242,7 @@ def main():
                     name,
                     attribute,
                     with_dependence="all" in args.show_model,
+                    precision=args.show_model_precision,
                 )
 
     if "param" in args.show_model or "all" in args.show_model:
@@ -249,7 +250,11 @@ def main():
         for name in sorted(model.names):
             for attribute in sorted(model.attributes(name)):
                 info = param_info(name, attribute)
-                dfatool.cli.print_model(f"{name:10s} {attribute:15s}", info)
+                dfatool.cli.print_model(
+                    f"{name:10s} {attribute:15s}",
+                    info,
+                    precision=args.show_model_precision,
+                )
 
     if args.show_model_error:
         dfatool.cli.model_quality_table(
