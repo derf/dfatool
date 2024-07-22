@@ -345,6 +345,10 @@ def observations_enum_to_bool(observations: list, kconfig=False):
 def ignore_param(by_name: dict, parameter_names: list, ignored_parameters: list):
     ignored_indexes = list()
     unpoppable_params = list()
+
+    if ignored_parameters is None:
+        return
+
     for param_name in sorted(ignored_parameters):
         try:
             ignored_indexes.append(parameter_names.index(param_name))
