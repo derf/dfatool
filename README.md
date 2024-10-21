@@ -155,6 +155,8 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_RMT_LOSS_IGNORE_SCALAR` | **0**, 1 | Ignore scalar parameters when computing the loss for split node candidates. Instead of computing the loss of a single partition for each `x_i == j`, compute the loss of partitions for `x_i == j` in which non-scalar parameters vary and scalar parameters are constant. This way, scalar parameters do not affect the decision about which non-scalar parameter to use for splitting. |
 | `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR` | **0**, 1 | Some models (e.g. FOL, sklearn CART, XGBoost) do not support categorical parameters. Ignore them (0) or convert them to scalar indexes (1). Conversion uses lexical order. |
 | `DFATOOL_FOL_SECOND_ORDER` | **0**, 1 | Add second-order components (interaction of feature pairs) to first-order linear function. |
+| `DFATOOL_CSV_IGNORE` | *str1,str2,...* | Ignore the listed fields when loading CSV log files. |
+| `DFATOOL_CSV_OBSERVATIONS` | *str1,str2,...* | Treat the listed fields as observations rather than features. |
 
 ## Examples
 
