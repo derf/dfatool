@@ -235,13 +235,15 @@ def main():
             lambda m: m.get_fitted()[0], xv_count, with_sum=args.add_total_observation
         )
     else:
-        static_quality = model.assess(static_model)
+        static_quality = model.assess(static_model, with_sum=args.add_total_observation)
         if args.export_raw_predictions:
             analytic_quality, raw_results = model.assess(param_model, return_raw=True)
             with open(args.export_raw_predictions, "w") as f:
                 json.dump(raw_results, f, cls=dfatool.utils.NpEncoder)
         else:
-            analytic_quality = model.assess(param_model)
+            analytic_quality = model.assess(
+                param_model, with_sum=args.add_total_observation
+            )
     timing["assess model"] = time.time() - ts
 
     if "static" in args.show_model or "all" in args.show_model:

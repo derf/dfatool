@@ -449,7 +449,7 @@ class AnalyticModel:
 
         return model_getter, info_getter
 
-    def assess(self, model_function, ref=None, return_raw=False):
+    def assess(self, model_function, ref=None, return_raw=False, with_sum=False):
         """
         Calculate MAE, SMAPE, etc. of model_function for each by_name entry.
 
@@ -479,11 +479,29 @@ class AnalyticModel:
                 )
                 measures = regression_measures(predicted_data, elem[attribute])
                 detailed_results[name][attribute] = measures
-                if return_raw:
+                if return_raw or with_sum:
                     raw_results[name]["attribute"][attribute] = {
                         "groundTruth": elem[attribute],
                         "modelOutput": predicted_data,
                     }
+
+        if with_sum:
+            for name in ref.keys():
+                attr_0 = ref[name]["attributes"][0]
+                gt_sum = np.zeros(
+                    len(raw_results[name]["attribute"][attr_0]["groundTruth"])
+                )
+                mo_sum = np.zeros(
+                    len(raw_results[name]["attribute"][attr_0]["modelOutput"])
+                )
+                for attribute in ref[name]["attributes"]:
+                    gt_sum += np.array(
+                        raw_results[name]["attribute"][attribute]["groundTruth"]
+                    )
+                    mo_sum += np.array(
+                        raw_results[name]["attribute"][attribute]["modelOutput"]
+                    )
+                detailed_results[name]["TOTAL"] = regression_measures(mo_sum, gt_sum)
 
         if return_raw:
             return detailed_results, raw_results
