@@ -214,14 +214,26 @@ def main():
     ts = time.time()
     if xv_method == "montecarlo":
         static_quality, _ = xv.montecarlo(
-            lambda m: m.get_static(), xv_count, static=True
+            lambda m: m.get_static(),
+            xv_count,
+            static=True,
+            with_sum=args.add_total_observation,
         )
         xv.export_filename = args.export_xv
-        analytic_quality, _ = xv.montecarlo(lambda m: m.get_fitted()[0], xv_count)
+        analytic_quality, _ = xv.montecarlo(
+            lambda m: m.get_fitted()[0], xv_count, with_sum=args.add_total_observation
+        )
     elif xv_method == "kfold":
-        static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count, static=True)
+        static_quality, _ = xv.kfold(
+            lambda m: m.get_static(),
+            xv_count,
+            static=True,
+            with_sum=args.add_total_observation,
+        )
         xv.export_filename = args.export_xv
-        analytic_quality, _ = xv.kfold(lambda m: m.get_fitted()[0], xv_count)
+        analytic_quality, _ = xv.kfold(
+            lambda m: m.get_fitted()[0], xv_count, with_sum=args.add_total_observation
+        )
     else:
         static_quality = model.assess(static_model)
         if args.export_raw_predictions:

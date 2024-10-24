@@ -293,7 +293,11 @@ def model_quality_table(
             buf = f"{key:>{key_len}s} {attr:>{attr_len}s}"
             for results, info in ((lut, None), (model, model_info), (static, None)):
                 buf += "   "
-                if results is not None and (
+
+                # special case for "TOTAL" (--add-total-observation)
+                if attr == "TOTAL" and attr not in results[key]:
+                    buf += f"""{"----":>7s} """
+                elif results is not None and (
                     info is None
                     or (
                         attr != "energy_Pt"
@@ -311,7 +315,7 @@ def model_quality_table(
                     buf += format_quality_measures(result, error_metric=error_metric)
                 else:
                     buf += f"""{"----":>7s} """
-            if type(model_info(key, attr)) is not df.StaticFunction:
+            if attr != "TOTAL" and type(model_info(key, attr)) is not df.StaticFunction:
                 if model[key][attr]["mae"] > static[key][attr]["mae"]:
                     buf += "  :-("
                 elif (
@@ -627,6 +631,11 @@ def add_standard_arguments(parser):
         "--show-model-complexity",
         action="store_true",
         help="Show model complexity score and details (e.g. regression tree height and node count)",
+    )
+    parser.add_argument(
+        "--add-total-observation",
+        action="store_true",
+        help="Add a TOTAL observation for each <key> that consists of the sums of its <attribute> entries. This allows for cross-validation of behaviour models vs. non-behaviour-aware models.",
     )
     parser.add_argument(
         "--cross-validate",
