@@ -508,7 +508,7 @@ class AnalyticModel:
         return detailed_results
 
     def to_dref(
-        self, static_quality, lut_quality, model_quality, xv_models=None
+        self, static_quality, lut_quality, model_quality, xv_models=None, with_sum=False
     ) -> dict:
         ret = dict()
         for name in self.names:
@@ -540,20 +540,27 @@ class AnalyticModel:
             )
             for k, v in param_data.items():
                 ret[f"paramcount/{name}/{k}"] = v
-            for attr_name, attr in self.attr_by_name[name].items():
+
+            attr_pairs = self.attr_by_name[name].items()
+            if with_sum:
+                attr_pairs = list(attr_pairs)
+                attr_pairs.append(("TOTAL", None))
+
+            for attr_name, attr in attr_pairs:
                 # attr.data must be the same for all attrs
-                ret[f"data/{name}/num samples"] = len(attr.data)
-                unit = None
-                if "power" in attr.attr:
-                    unit = r"\micro\watt"
-                elif "energy" in attr.attr:
-                    unit = r"\pico\joule"
-                elif attr.attr == "duration":
-                    unit = r"\micro\second"
-                for k, v in attr.to_dref(unit).items():
-                    ret[f"data/{name}/{attr_name}/{k}"] = v
-                for k, v in attr.model_function.hyper_to_dref().items():
-                    ret[f"hyper/{name}/{attr_name}/{k}"] = v
+                if attr is not None:
+                    ret[f"data/{name}/num samples"] = len(attr.data)
+                    unit = None
+                    if "power" in attr.attr:
+                        unit = r"\micro\watt"
+                    elif "energy" in attr.attr:
+                        unit = r"\pico\joule"
+                    elif attr.attr == "duration":
+                        unit = r"\micro\second"
+                    for k, v in attr.to_dref(unit).items():
+                        ret[f"data/{name}/{attr_name}/{k}"] = v
+                    for k, v in attr.model_function.hyper_to_dref().items():
+                        ret[f"hyper/{name}/{attr_name}/{k}"] = v
                 e_static = static_quality[name][attr_name]
                 for metric in "mae p50 p90 p95 p99".split():
                     ret[f"error/static/{name}/{attr_name}/{metric}"] = (
@@ -576,7 +583,7 @@ class AnalyticModel:
                 except KeyError:
                     logger.warning(f"{name} {attr_name} static model has no MAPE")
 
-                if lut_quality is not None:
+                if lut_quality is not None and attr_name in lut_quality[name]:
                     e_lut = lut_quality[name][attr_name]
                     for metric in "mae p50 p90 p95 p99".split():
                         ret[f"error/lut/{name}/{attr_name}/{metric}"] = (

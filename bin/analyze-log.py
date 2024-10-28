@@ -297,7 +297,12 @@ def main():
         dfatool.cli.export_dot(model, args.export_dot)
 
     if args.export_dref:
-        dref = model.to_dref(static_quality, lut_quality, analytic_quality)
+        dref = model.to_dref(
+            static_quality,
+            lut_quality,
+            analytic_quality,
+            with_sum=args.add_total_observation,
+        )
         for key, value in timing.items():
             dref[f"timing/{key}"] = (value, r"\second")
 
