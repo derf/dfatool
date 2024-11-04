@@ -294,10 +294,7 @@ def model_quality_table(
             for results, info in ((lut, None), (model, model_info), (static, None)):
                 buf += "   "
 
-                # special case for "TOTAL" (--add-total-observation)
-                if attr == "TOTAL" and attr not in results[key]:
-                    buf += f"""{"----":>7s} """
-                elif results is not None and (
+                if results is not None and (
                     info is None
                     or (
                         attr != "energy_Pt"
@@ -315,7 +312,7 @@ def model_quality_table(
                     buf += format_quality_measures(result, error_metric=error_metric)
                 else:
                     buf += f"""{"----":>7s} """
-            if attr != "TOTAL" and type(model_info(key, attr)) is not df.StaticFunction:
+            if type(model_info(key, attr)) is not df.StaticFunction:
                 if model[key][attr]["mae"] > static[key][attr]["mae"]:
                     buf += "  :-("
                 elif (
