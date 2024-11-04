@@ -204,7 +204,7 @@ def main():
         lut_quality = None
     else:
         ts = time.time()
-        lut_quality = model.assess(lut_model)
+        lut_quality = model.assess(lut_model, with_sum=args.add_total_observation)
         timing["assess lut"] = time.time() - ts
 
     ts = time.time()
