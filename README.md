@@ -177,3 +177,11 @@ The NFP values should be exactly as described by the selected configuration opti
 * [Kconfig](https://ess.cs.uos.de/git-build/dfatool/master/x264.kconfig)
 * [CART](https://ess.cs.uos.de/git-build/dfatool/master/x264-cart.json)
 * [RMT](https://ess.cs.uos.de/git-build/dfatool/master/x264-rmt.json)
+
+## References
+
+Mirrors of this repository are maintained at the following locations:
+
+* [ESS](https://ess.cs.uos.de/git/software/dfatool)
+* [finalrewind.org](https://git.finalrewind.org/dfatool/)
+* [GitHub](https://github.com/derf/dfatool)
