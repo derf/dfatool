@@ -4,6 +4,10 @@ from ..utils import soft_cast_int_or_float, soft_cast_float
 import os
 import re
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class CSVfile:
     def __init__(self):
