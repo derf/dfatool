@@ -17,6 +17,7 @@ from .utils import (
 
 logger = logging.getLogger(__name__)
 best_fit_metric = os.getenv("DFATOOL_ULS_ERROR_METRIC", "ssr")
+dfatool_uls_min_bound = float(os.getenv("DFATOOL_ULS_MIN_BOUND", -np.inf))
 
 
 class ParamFit:
@@ -211,7 +212,7 @@ def _try_fits(
                     ini = [0] + [1 for i in range(1, param_function._num_variables)]
                 if function_name == "roofline":
                     param_function.bounds = (
-                        (-np.inf, -np.inf, np.min(X)),
+                        (dfatool_uls_min_bound, dfatool_uls_min_bound, np.min(X)),
                         (np.inf, np.inf, np.max(X)),
                     )
                     ini[2] = np.mean(X)

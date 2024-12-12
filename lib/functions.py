@@ -27,6 +27,8 @@ dfatool_rmt_relevance_threshold = float(
     os.getenv("DFATOOL_RMT_RELEVANCE_THRESHOLD", "0.5")
 )
 
+dfatool_uls_min_bound = float(os.getenv("DFATOOL_ULS_MIN_BOUND", -np.inf))
+
 if dfatool_preproc_relevance_method == "mi":
     import sklearn.feature_selection
 
@@ -97,7 +99,7 @@ class ParamFunction:
         num_vars,
         repr_str=None,
         ini=None,
-        bounds=((-np.inf, -np.inf), (np.inf, np.inf)),
+        bounds=((dfatool_uls_min_bound, dfatool_uls_min_bound), (np.inf, np.inf)),
     ):
         """
         Create function object suitable for regression analysis.
@@ -1927,7 +1929,7 @@ class AnalyticFunction(ModelFunction):
                     upper_bounds.append(np.max(X[param_index]))
                     self.model_args[i] = np.mean(X[param_index])
                 else:
-                    lower_bounds.append(-np.inf)
+                    lower_bounds.append(dfatool_uls_min_bound)
                     upper_bounds.append(np.inf)
             error_function = lambda P, X, y: self._function(P, X) - y
             try:
@@ -2144,7 +2146,14 @@ class analytic:
                 lambda model_param: True,
                 3,
                 repr_str="β₀ + β₁ * roofline(x, β₂)",
-                bounds=((-np.inf, -np.inf, -np.inf), (np.inf, np.inf, np.inf)),
+                bounds=(
+                    (
+                        dfatool_uls_min_bound,
+                        dfatool_uls_min_bound,
+                        dfatool_uls_min_bound,
+                    ),
+                    (np.inf, np.inf, np.inf),
+                ),
             ),
             # "num0_8": ParamFunction(
             #    lambda reg_param, model_param: reg_param[0]
