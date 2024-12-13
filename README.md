@@ -137,6 +137,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_ULS_FUNCTIONS` | a,b,… | List of function templates to use in ULS. Default: all supported functions. |
 | `DFATOOL_ULS_MIN_DISTINCT_VALUES` | 2 .. **3** .. *n* | Minimum number of unique values a parameter must take to be eligible for ULS |
 | `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK` | **0**, 1 | Do not detect and remove co-dependent features in ULS. |
+| `DFATOOL_ULS_MIN_BOUND` | **-∞** .. *n* | Lower bound for ULS regression variables. Setting it to 0 can often be beneficial. |
 | `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. |
 | `DFATOOL_XGB_MAX_DEPTH` | 2 .. **6** .. *n* | Maximum XGBoost tree depth. |
 | `DFATOOL_XGB_SUBSAMPLE` | 0.0 .. **1.0** | XGBoost subsampling ratio. |
