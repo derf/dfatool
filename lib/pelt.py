@@ -94,7 +94,7 @@ class PELT:
             )
             algo = algo.fit(self.norm_signal(signal))
 
-            # Empirically, most sub-state detectino results use a penalty
+            # Empirically, most sub-state detection results use a penalty
             # in the range 30 to 60. If there's no changepoints with a
             # penalty of 20, there's also no changepoins with any penalty
             # > 20, so we can safely skip changepoint detection altogether.
