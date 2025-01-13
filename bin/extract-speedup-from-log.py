@@ -188,7 +188,7 @@ def main():
                 )
             )
             if args.add_param is not None:
-                param_str += args.add_param
+                param_str += " " + args.add_param
             for speedup in np.array(num_data) / np.array(denom_data):
                 print(f"[::] {name} | {param_str} | speedup={speedup}")
 
