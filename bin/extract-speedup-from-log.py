@@ -10,6 +10,7 @@ import dfatool.cli
 import dfatool.utils
 import logging
 import numpy as np
+import sys
 from dfatool.loader import Logfile, CSVfile
 from dfatool.model import AnalyticModel
 from functools import reduce
@@ -33,6 +34,12 @@ def parse_logfile(filename):
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
+    )
+    parser.add_argument(
+        "--add-param",
+        metavar="<param>=<value>[ <param>=<value> ...]",
+        type=str,
+        help="Add additional parameter specifications to output lines",
     )
     parser.add_argument(
         "--filter-param",
@@ -166,7 +173,13 @@ def main():
     for param_key in model_num.get_by_param().keys():
         name, params = param_key
         num_data = model_num.get_by_param().get(param_key).get(args.observation)
-        denom_data = model_denom.get_by_param().get(param_key).get(args.observation)
+        try:
+            denom_data = model_denom.get_by_param().get(param_key).get(args.observation)
+        except AttributeError:
+            logging.error(f"Cannot find numerator param {param_key}  in denominator")
+            logging.error(f"Parameter names == {tuple(parameter_names_num)}")
+            logging.error("You may need to adjust --ignore-param")
+            sys.exit(1)
         if num_data and denom_data:
             param_str = " ".join(
                 map(
@@ -174,6 +187,8 @@ def main():
                     range(len(params)),
                 )
             )
+            if args.add_param is not None:
+                param_str += args.add_param
             for speedup in np.array(num_data) / np.array(denom_data):
                 print(f"[::] {name} | {param_str} | speedup={speedup}")
 
