@@ -1,0 +1,32 @@
+#!/bin/sh
+
+DFATOOL="$(dirname "$0")/.."
+
+if test -z "${COUNTERS}"; then
+	COUNTERS="$(ls -1 /sys/class/powercap)"
+fi
+
+NAMES=
+UJ_FILES=
+for counter in ${COUNTERS}; do
+	if test -e /sys/class/powercap/${counter}/name && test -e /sys/class/powercap/${counter}/energy_uj; then
+		NAMES="${NAMES} $(cat /sys/class/powercap/${counter}/name)_${counter} "
+		UJ_FILES="${UJ_FILES} /sys/class/powercap/${counter}/energy_uj"
+	fi
+done
+
+if ! cat ${UJ_FILES} > /dev/null; then
+	echo "Unable to read all counters (${UJ_FILES})" >&2
+	echo "You may need to run sudo chmod a+r /sys/class/powercap/*/energy_uj" >&2
+	exit 1
+fi
+
+OUTPUT=$(mktemp)
+
+RAPL_START=$(cat ${UJ_FILES})
+3>${OUTPUT} perf stat -x, -e duration_time --log-fd 3 "$@"
+RAPL_END=$(cat ${UJ_FILES})
+
+"${DFATOOL}/libexec/rapl-to-dfatool.py" "$(cat ${OUTPUT})" "${NAMES}" "${RAPL_START}" "${RAPL_END}"
+
+rm -f ${OUTPUT}
