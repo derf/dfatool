@@ -621,12 +621,19 @@ class ModelAttribute:
         mean = np.mean(self.data)
         return f"ModelAttribute<{self.name}, {self.attr}, mean={mean}>"
 
-    def to_json(self, **kwargs):
-        return {
+    def to_json(self, with_lut=False, **kwargs):
+        ret = {
             "paramNames": self.param_names,
             "argCount": self.arg_count,
             "modelFunction": self.model_function.to_json(**kwargs),
         }
+
+        if with_lut:
+            ret["LUT"] = list()
+            for key, value in self.by_param.items():
+                ret["LUT"].append((key, value))
+
+        return ret
 
     def to_dref(self, unit=None):
         ret = {"mean": (self.mean, unit), "median": (self.median, unit)}

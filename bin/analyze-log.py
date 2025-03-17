@@ -46,6 +46,11 @@ def main():
         "--export-model", metavar="FILE", type=str, help="Export JSON model to FILE"
     )
     parser.add_argument(
+        "--export-model-with-lut",
+        action="store_true",
+        help="Include LUT in model export",
+    )
+    parser.add_argument(
         "logfiles",
         nargs="+",
         type=str,
@@ -287,7 +292,7 @@ def main():
 
     if args.export_model:
         print(f"Exporting model to {args.export_model}")
-        json_model = model.to_json()
+        json_model = model.to_json(with_lut=args.export_model_with_lut)
         with open(args.export_model, "w") as f:
             json.dump(
                 json_model, f, indent=2, sort_keys=True, cls=dfatool.utils.NpEncoder
