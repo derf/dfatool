@@ -13,11 +13,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
     )
     parser.add_argument("--aggregate", choices=["sum"], default="sum")
+    parser.add_argument("--aggregate-unit", choices=["s", "B/s"], default="s")
     parser.add_argument(
         "--aggregate-init",
         default=0,
         type=float,
     )
+    parser.add_argument("--normalize-output", type=str)
     parser.add_argument(
         "--info",
         action="store_true",
@@ -46,6 +48,19 @@ def main():
 
     aggregate = args.aggregate_init
     for event in args.event:
+
+        event_normalizer = lambda p: p
+        if "/" in event:
+            v1, v2 = event.split("/")
+            if dfatool.utils.is_numeric(v1):
+                event = v2.strip()
+                event_normalizer = lambda p: dfatool.utils.soft_cast_float(v1) / p
+            elif dfatool.utils.is_numeric(v2):
+                event = v1.strip()
+                event_normalizer = lambda p: p / dfatool.utils.soft_cast_float(v2)
+            else:
+                raise RuntimeError(f"Cannot parse '{event}'")
+
         nn, param = event.split("(")
         name, action = nn.split(".")
         param_model = None
@@ -61,14 +76,25 @@ def main():
             param = dict()
         else:
             param = dfatool.utils.parse_conf_str(param)
-        if args.aggregate == "sum":
-            aggregate += param_model(
+
+        event_output = event_normalizer(
+            param_model(
                 name,
                 action,
                 param=dfatool.utils.param_dict_to_list(param, ref_model.parameters),
             )
+        )
 
-    print(aggregate)
+        if args.aggregate == "sum":
+            aggregate += event_output
+
+    if args.normalize_output:
+        sf = dfatool.cli.parse_shift_function(
+            "--normalize-output", args.normalize_output
+        )
+        print(dfatool.utils.human_readable(sf(aggregate), args.aggregate_unit))
+    else:
+        print(dfatool.utils.human_readable(aggregate, args.aggregate_unit))
 
 
 if __name__ == "__main__":
