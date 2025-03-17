@@ -14,7 +14,13 @@ from .parameters import (
     distinct_param_values,
 )
 from .paramfit import ParamFit
-from .utils import is_numeric, soft_cast_int, by_name_to_by_param, regression_measures
+from .utils import (
+    is_numeric,
+    soft_cast_int,
+    by_name_to_by_param,
+    by_param_to_by_name,
+    regression_measures,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -643,7 +649,7 @@ class AnalyticModel:
                             ret[f"xv/{name}/{attr_name}/{k}"] = np.mean(entry[k])
         return ret
 
-    def to_json(self, **kwargs) -> dict:
+    def to_json(self, with_by_param=False, **kwargs) -> dict:
         """
         Return JSON encoding of this AnalyticModel.
         """
@@ -652,6 +658,12 @@ class AnalyticModel:
             "name": dict([[name, dict()] for name in self.names]),
             "paramValuesbyName": dict([[name, dict()] for name in self.names]),
         }
+
+        if with_by_param:
+            by_param = self.get_by_param()
+            ret["byParam"] = list()
+            for k, v in by_param.items():
+                ret["byParam"].append((k, v))
 
         for name in self.names:
             for attr_name, attr in self.attr_by_name[name].items():
@@ -665,9 +677,17 @@ class AnalyticModel:
         return ret
 
     @classmethod
-    def from_json(cls, data, by_name, parameters):
-        assert data["parameters"] == parameters
-        return cls(by_name, parameters, from_json=data)
+    def from_json(cls, data, by_name=None, parameters=None):
+        if by_name is None and parameters is None:
+            assert data["byParam"] is not None
+            by_param = dict()
+            for (nk, pk), v in data["byParam"]:
+                by_param[(nk, tuple(pk))] = v
+            by_name = by_param_to_by_name(by_param)
+            return cls(by_name, data["parameters"], from_json=data)
+        else:
+            assert data["parameters"] == parameters
+            return cls(by_name, parameters, from_json=data)
 
     def webconf_function_map(self) -> list:
         ret = list()

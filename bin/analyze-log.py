@@ -292,7 +292,7 @@ def main():
 
     if args.export_model:
         print(f"Exporting model to {args.export_model}")
-        json_model = model.to_json(with_lut=args.export_model_with_lut)
+        json_model = model.to_json(with_by_param=args.export_model_with_lut)
         with open(args.export_model, "w") as f:
             json.dump(
                 json_model, f, indent=2, sort_keys=True, cls=dfatool.utils.NpEncoder
