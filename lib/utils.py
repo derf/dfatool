@@ -55,6 +55,8 @@ def human_readable(value, unit):
         ("m", 1e-3),
         ("", 1),
         ("k", 1e3),
+        ("M", 1e6),
+        ("G", 1e9),
     ):
         if value < 1e3 * factor:
             return "{:.2f} {}{}".format(value * (1 / factor), prefix, unit)
