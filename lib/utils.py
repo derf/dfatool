@@ -150,7 +150,7 @@ def parse_conf_str(conf_str):
     """
     conf_dict = dict()
     for option in conf_str.split(","):
-        key, value = option.split("=")
+        key, value = option.strip().split("=")
         conf_dict[key] = soft_cast_float(value)
     return conf_dict
 
