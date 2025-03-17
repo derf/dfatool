@@ -286,7 +286,7 @@ def main():
         dfatool.cli.print_model_complexity(model)
 
     if args.export_model:
-        print(f"Exportding model to {args.export_model}")
+        print(f"Exporting model to {args.export_model}")
         json_model = model.to_json()
         with open(args.export_model, "w") as f:
             json.dump(
