@@ -731,11 +731,11 @@ class ModelAttribute:
         return self.mutual_information_cache
 
     @classmethod
-    def from_json(cls, name, attr, data):
+    def from_json(cls, name, attr, data, data_values=None, param_values=None):
         param_names = data["paramNames"]
         arg_count = data["argCount"]
 
-        self = cls(name, attr, None, None, param_names, arg_count)
+        self = cls(name, attr, data_values, param_values, param_names, arg_count)
 
         self.model_function = df.ModelFunction.from_json(data["modelFunction"])
         self.mean = self.model_function.value

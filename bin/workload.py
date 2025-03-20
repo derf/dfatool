@@ -39,6 +39,11 @@ def main():
         type=str,
         help="Path to model file (.json or .json.xz)",
     )
+    parser.add_argument(
+        "--use-lut",
+        action="store_true",
+        help="Use LUT rather than performance model for prediction",
+    )
     parser.add_argument("event", nargs="+", type=str)
     args = parser.parse_args()
 
@@ -84,12 +89,19 @@ def main():
         name, action = nn.split(".")
         param_model = None
         ref_model = None
+
         for model in models:
             if name in model.names and action in model.attributes(name):
                 ref_model = model
-                param_model, param_info = model.get_fitted()
+                if args.use_lut:
+                    param_model = model.get_param_lut(allow_none=True)
+                else:
+                    param_model, param_info = model.get_fitted()
                 break
-        assert param_model is not None
+
+        if param_model is None:
+            raise RuntimeError(f"Did not find a model for {name}.{action}")
+
         param = param.removesuffix(")")
         if param == "":
             param = dict()
@@ -98,7 +110,7 @@ def main():
 
         param_list = dfatool.utils.param_dict_to_list(param, ref_model.parameters)
 
-        if not param_info(name, action).is_predictable(param_list):
+        if not args.use_lut and not param_info(name, action).is_predictable(param_list):
             logging.warning(
                 f"Cannot predict {name}.{action}({param}), falling back to static model"
             )

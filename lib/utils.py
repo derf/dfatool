@@ -207,6 +207,18 @@ def param_slice_eq(a, b, index):
     return False
 
 
+def param_eq_or_none(a, b):
+    """
+    Check if by_param keys a and b are identical, allowing a None in a to match any key in b.
+    """
+    set_keys = tuple(filter(lambda i: a[i] is not None, range(len(a))))
+    a_not_none = tuple(map(lambda i: a[i], set_keys))
+    b_not_none = tuple(map(lambda i: b[i], set_keys))
+    if a_not_none == b_not_none:
+        return True
+    return False
+
+
 def match_parameter_values(input_param: dict, match_param: dict):
     """
     Check whether one of the paramaters in `input_param` has the same value in `match_param`.
