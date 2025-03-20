@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import sys
 import dfatool.cli
 import dfatool.utils
@@ -19,6 +20,13 @@ def main():
         default=0,
         type=float,
     )
+    parser.add_argument(
+        "--log-level",
+        metavar="LEVEL",
+        choices=["debug", "info", "warning", "error"],
+        default="warning",
+        help="Set log level",
+    )
     parser.add_argument("--normalize-output", type=str)
     parser.add_argument(
         "--info",
@@ -33,6 +41,17 @@ def main():
     )
     parser.add_argument("event", nargs="+", type=str)
     args = parser.parse_args()
+
+    if args.log_level:
+        numeric_level = getattr(logging, args.log_level.upper(), None)
+        if not isinstance(numeric_level, int):
+            print(f"Invalid log level: {args.log_level}", file=sys.stderr)
+            sys.exit(1)
+        logging.basicConfig(
+            level=numeric_level,
+            format="{asctime} {levelname}:{name}:{message}",
+            style="{",
+        )
 
     models = list()
     for model_file in args.models:
@@ -77,11 +96,18 @@ def main():
         else:
             param = dfatool.utils.parse_conf_str(param)
 
+        param_list = dfatool.utils.param_dict_to_list(param, ref_model.parameters)
+
+        if not param_info(name, action).is_predictable(param_list):
+            logging.warning(
+                f"Cannot predict {name}.{action}({param}), falling back to static model"
+            )
+
         event_output = event_normalizer(
             param_model(
                 name,
                 action,
-                param=dfatool.utils.param_dict_to_list(param, ref_model.parameters),
+                param=param_list,
             )
         )
 
