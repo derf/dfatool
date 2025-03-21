@@ -66,9 +66,10 @@ def main():
     if args.info:
         for i in range(len(models)):
             print(f"""{args.models[i]}: {" ".join(models[i].parameters)}""")
+            _, param_info = models[i].get_fitted()
             for name in models[i].names:
                 for attr in models[i].attributes(name):
-                    print(f"    {name}.{attr}")
+                    print(f"    {name}.{attr}  {param_info(name, attr)}")
 
     aggregate = args.aggregate_init
     for event in args.event:
