@@ -116,13 +116,17 @@ def main():
                 f"Cannot predict {name}.{action}({param}), falling back to static model"
             )
 
-        event_output = event_normalizer(
-            param_model(
-                name,
-                action,
-                param=param_list,
+        try:
+            event_output = event_normalizer(
+                param_model(
+                    name,
+                    action,
+                    param=param_list,
+                )
             )
-        )
+        except KeyError:
+            logging.error(f"Cannot predict {name}.{action}({param}) from LUT model")
+            raise
 
         if args.aggregate == "sum":
             aggregate += event_output
