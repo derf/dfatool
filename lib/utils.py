@@ -48,6 +48,8 @@ def running_mean(x: np.ndarray, N: int) -> np.ndarray:
 
 
 def human_readable(value, unit):
+    if value is None:
+        return value
     for prefix, factor in (
         ("p", 1e-12),
         ("n", 1e-9),
