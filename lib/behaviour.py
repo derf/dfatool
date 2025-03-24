@@ -6,7 +6,7 @@ from . import utils
 logger = logging.getLogger(__name__)
 
 
-class Workload:
+class EventSequenceModel:
     def __init__(self, models):
         self.models = models
 

@@ -6,8 +6,8 @@ import logging
 import sys
 import dfatool.cli
 import dfatool.utils
+from dfatool.behaviour import EventSequenceModel
 from dfatool.model import AnalyticModel
-from dfatool.workload import Workload
 
 
 def main():
@@ -72,7 +72,7 @@ def main():
                 for attr in models[i].attributes(name):
                     print(f"    {name}.{attr}  {param_info(name, attr)}")
 
-    workload = Workload(models)
+    workload = EventSequenceModel(models)
     aggregate = workload.eval_strs(
         args.event,
         aggregate=args.aggregate,
