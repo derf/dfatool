@@ -343,9 +343,9 @@ def export_pseudo_dref(dref_file, dref, precision=None):
             if type(v) is tuple:
                 v = v[0]
             if type(v) in (float, np.float64) and precision is not None:
-                print("\\def\\" + k + "{" + f"{v:.{precision}f}" + "}")
+                print("\\def\\" + k + "{" + f"{v:.{precision}f}" + "}", file=f)
             else:
-                print("\\def\\" + k + "{" + str(v) + "}")
+                print("\\def\\" + k + "{" + str(v) + "}", file=f)
 
 
 def export_dataref(dref_file, dref, precision=None):
