@@ -331,6 +331,23 @@ def model_quality_table(
             print(buf)
 
 
+def export_pseudo_dref(dref_file, dref, precision=None):
+    with open(dref_file, "w") as f:
+        for k, v in sorted(os.environ.items(), key=lambda kv: kv[0]):
+            if k.startswith("DFATOOL_"):
+                print(f"% {k}='{v}'", file=f)
+        for arg in sys.argv:
+            print(f"% {arg}", file=f)
+        for k, v in sorted(dref.items()):
+            k = k.replace("/", "I").replace("-", "").replace(" ", "")
+            if type(v) is tuple:
+                v = v[0]
+            if type(v) in (float, np.float64) and precision is not None:
+                print("\\def\\" + k + "{" + f"{v:.{precision}f}" + "}")
+            else:
+                print("\\def\\" + k + "{" + str(v) + "}")
+
+
 def export_dataref(dref_file, dref, precision=None):
     with open(dref_file, "w") as f:
         for k, v in sorted(os.environ.items(), key=lambda kv: kv[0]):
@@ -491,6 +508,12 @@ def add_standard_arguments(parser):
         metavar="PREFIX",
         type=str,
         help="Export tree-based model to {PREFIX}{name}-{attribute}.dot",
+    )
+    parser.add_argument(
+        "--export-pseudo-dref",
+        metavar="FILE",
+        type=str,
+        help="Export model and model quality to LaTeX def file (sort of like dataref)",
     )
     parser.add_argument(
         "--export-dref",

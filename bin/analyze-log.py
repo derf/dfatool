@@ -301,7 +301,7 @@ def main():
     if args.export_dot:
         dfatool.cli.export_dot(model, args.export_dot)
 
-    if args.export_dref:
+    if args.export_dref or args.export_pseudo_dref:
         dref = model.to_dref(
             static_quality,
             lut_quality,
@@ -321,9 +321,14 @@ def main():
                                 mutual_information[param]
                             )
 
-        dfatool.cli.export_dataref(
-            args.export_dref, dref, precision=args.dref_precision
-        )
+        if args.export_pseudo_dref:
+            dfatool.cli.export_pseudo_dref(
+                args.export_pseudo_dref, dref, precision=args.dref_precision
+            )
+        if args.export_dref:
+            dfatool.cli.export_dataref(
+                args.export_dref, dref, precision=args.dref_precision
+            )
 
     if args.export_json:
         with open(args.export_json, "w") as f:
