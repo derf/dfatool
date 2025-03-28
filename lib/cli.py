@@ -339,7 +339,7 @@ def export_pseudo_dref(dref_file, dref, precision=None):
         for arg in sys.argv:
             print(f"% {arg}", file=f)
         for k, v in sorted(dref.items()):
-            k = k.replace("/", "I").replace("-", "").replace(" ", "")
+            k = k.replace("/", "I").replace("-", "").replace("_", "").replace(" ", "")
             if type(v) is tuple:
                 v = v[0]
             if type(v) in (float, np.float64) and precision is not None:
