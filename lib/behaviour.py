@@ -66,7 +66,16 @@ class EventSequenceModel:
                     )
                 )
             except KeyError:
-                logging.error(f"Cannot predict {name}.{action}({param}) from LUT model")
+                if use_lut:
+                    logging.error(
+                        f"Cannot predict {name}.{action}({param}) from LUT model"
+                    )
+                else:
+                    logging.error(f"Cannot predict {name}.{action}({param}) from model")
+                raise
+            except TypeError:
+                if not use_lut:
+                    logging.error(f"Cannot predict {name}.{action}({param}) from model")
                 raise
 
             if aggregate == "sum":
