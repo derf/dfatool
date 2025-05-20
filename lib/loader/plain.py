@@ -69,10 +69,49 @@ class CSVfile:
         return observations
 
 
-class Logfile:
-    def __init__(self):
-        pass
+class TraceAnnotation:
+    offset = None
+    name = None
+    param = dict()
 
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def apply_offset(self, offset):
+        self.offset += offset
+        return self
+
+    def __repr__(self):
+        param_desc = " ".join(map(lambda kv: f"{kv[0]}={kv[1]}", self.param.items()))
+        return f"{self.name}<{param_desc} @ {self.offset}>"
+
+
+class RunAnnotation:
+    start = None
+    kernels = list()
+    end = None
+
+    # start: offset points to first run entry
+    # kernel: offset points to first kernel run entry
+    # end: offset points to first non-run entry (i.e., for all run entries: offset < end.offset)
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def apply_offset(self, offset):
+        self.start.apply_offset(offset)
+        for kernel in self.kernels:
+            kernel.apply_offset(offset)
+        self.end.apply_offset(offset)
+        return self
+
+    def __repr__(self):
+        return (
+            f"RunAnnotation<start={self.start}, kernels={self.kernels}, end={self.end}>"
+        )
+
+
+class Logfile:
     def kv_to_param(self, kv_str, cast):
         try:
             key, value = kv_str.split("=")
@@ -88,14 +127,24 @@ class Logfile:
     def kv_to_param_i(self, kv_str):
         return self.kv_to_param(kv_str, soft_cast_int_or_float)
 
-    def load(self, f):
+    def load(self, f, is_trace=False):
         observations = list()
+        if is_trace:
+            trace_status = None
+            trace_start = None
+            trace_kernels = list()
+            trace_end = None
+            annotations = list()
+
         for lineno, line in enumerate(f):
-            m = re.search(r"\[::\] *([^|]*?) *[|] *([^|]*?) *[|] *(.*)", line)
-            if m:
+            if m := re.search(r"\[::\] *([^|]*?) *[|] *([^|]*?) *[|] *(.*)", line):
                 name_str = m.group(1)
                 param_str = m.group(2)
                 attr_str = m.group(3)
+                if is_trace:
+                    name_str, name_annot = name_str.split("@")
+                    name_str = name_str.strip()
+                    name_annot = name_annot.strip()
                 try:
                     param = dict(map(self.kv_to_param_i, param_str.split()))
                     attr = dict(map(self.kv_to_param_f, attr_str.split()))
@@ -106,6 +155,8 @@ class Logfile:
                             "attribute": attr,
                         }
                     )
+                    if is_trace:
+                        observations[-1]["place"] = name_annot
                 except ValueError:
                     logger.warning(
                         f"Error parsing {f}: invalid key-value pair in line {lineno+1}"
@@ -113,6 +164,71 @@ class Logfile:
                     logger.warning(f"Offending entry:\n{line}")
                     raise
 
+            # only relevant for is_trace == True
+            if m := re.fullmatch(r"\[>>\] *([^|]*?) *[|] *([^|]*?) *", line):
+                trace_status = 1
+                trace_kernels = list()
+                name_str = m.group(1)
+                param_str = m.group(2)
+                try:
+                    param = dict(map(self.kv_to_param_i, param_str.split()))
+                except ValueError:
+                    logger.warning(
+                        f"Error parsing {f}: invalid key-value pair in line {lineno+1}"
+                    )
+                    logger.warning(f"Offending entry:\n{line}")
+                    raise
+                trace_start = TraceAnnotation(
+                    offset=len(observations), name=name_str, param=param
+                )
+
+            if m := re.fullmatch(r"\[--\] *([^|]*?) *[|] *([^|]*?) *", line):
+                trace_status = 2
+                name_str = m.group(1)
+                param_str = m.group(2)
+                try:
+                    param = dict(map(self.kv_to_param_i, param_str.split()))
+                except ValueError:
+                    logger.warning(
+                        f"Error parsing {f}: invalid key-value pair in line {lineno+1}"
+                    )
+                    logger.warning(f"Offending entry:\n{line}")
+                    raise
+                trace_kernels.append(
+                    TraceAnnotation(
+                        offset=len(observations), name=name_str, param=param
+                    )
+                )
+
+            if m := re.fullmatch(r"\[<<\] *([^|]*?) *[|] *([^|]*?) *", line):
+                trace_status = None
+                name_str = m.group(1)
+                param_str = m.group(2)
+                try:
+                    param = dict(map(self.kv_to_param_i, param_str.split()))
+                except ValueError:
+                    logger.warning(
+                        f"Error parsing {f}: invalid key-value pair in line {lineno+1}"
+                    )
+                    logger.warning(f"Offending entry:\n{line}")
+                    raise
+                trace_end = TraceAnnotation(
+                    offset=len(observations), name=name_str, param=param
+                )
+                if trace_start is not None:
+                    annotations.append(
+                        RunAnnotation(
+                            start=trace_start, kernels=trace_kernels, end=trace_end
+                        )
+                    )
+
+                trace_status = None
+                trace_start = None
+                trace_kernels = list()
+                trace_end = None
+
+        if is_trace:
+            return observations, annotations
         return observations
 
     def dump(self, observations, f):
