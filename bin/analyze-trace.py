@@ -38,6 +38,7 @@ def learn_pta(observations, annotation):
     delta = dict()
     prev_i = annotation.start.offset
     prev = "__init__"
+    prev_non_kernel = prev
     meta_observations = list()
 
     if annotation.kernels:
