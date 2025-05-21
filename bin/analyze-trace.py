@@ -105,8 +105,10 @@ def learn_pta(observations, annotation):
                 ),
             }
         )
-    print(annotation.start.param)
-    print(delta)
+
+    if not prev in delta:
+        delta[prev] = set()
+    delta[prev].add("__end__")
     return meta_observations
 
 
