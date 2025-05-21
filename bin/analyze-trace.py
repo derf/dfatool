@@ -34,7 +34,7 @@ def parse_logfile(filename):
         return loader.load(f, is_trace=True)
 
 
-def learn_pta(observations, annotation, delta=dict()):
+def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
     prev_i = annotation.start.offset
     prev = "__init__"
     prev_non_kernel = prev
@@ -46,6 +46,11 @@ def learn_pta(observations, annotation, delta=dict()):
             if not prev in delta:
                 delta[prev] = set()
             delta[prev].add(this)
+            if not (prev, this) in delta_param:
+                delta_param[(prev, this)] = set()
+            delta_param[(prev, this)].add(
+                dfatool.utils.param_dict_to_str(annotation.start.param)
+            )
             prev = this
             prev_i = i + 1
             meta_observations.append(
@@ -69,6 +74,11 @@ def learn_pta(observations, annotation, delta=dict()):
             if not prev in delta:
                 delta[prev] = set()
             delta[prev].add(this)
+            if not (prev, this) in delta_param:
+                delta_param[(prev, this)] = set()
+            delta_param[(prev, this)].add(
+                dfatool.utils.param_dict_to_str(annotation.start.param)
+            )
             prev = this
             prev_i = i + 1
             meta_observations.append(
@@ -91,6 +101,11 @@ def learn_pta(observations, annotation, delta=dict()):
         if not prev in delta:
             delta[prev] = set()
         delta[prev].add(this)
+        if not (prev, this) in delta_param:
+            delta_param[(prev, this)] = set()
+        delta_param[(prev, this)].add(
+            dfatool.utils.param_dict_to_str(annotation.start.param)
+        )
         prev = this
         meta_observations.append(
             {
@@ -108,7 +123,12 @@ def learn_pta(observations, annotation, delta=dict()):
     if not prev in delta:
         delta[prev] = set()
     delta[prev].add("__end__")
-    return delta, meta_observations
+    if not (prev, "__end__") in delta_param:
+        delta_param[(prev, "__end__")] = set()
+    delta_param[(prev, "__end__")].add(
+        dfatool.utils.param_dict_to_str(annotation.start.param)
+    )
+    return delta, delta_param, meta_observations
 
 
 def join_annotations(ref, base, new):
@@ -148,18 +168,24 @@ def main():
     )
 
     delta_by_name = dict()
+    delta_param_by_name = dict()
     for annotation in annotations:
         if annotation.name not in delta_by_name:
             delta_by_name[annotation.name] = dict()
-        _, meta_obs = learn_pta(
-            observations, annotation, delta_by_name[annotation.name]
+            delta_param_by_name[annotation.name] = dict()
+        _, _, meta_obs = learn_pta(
+            observations,
+            annotation,
+            delta_by_name[annotation.name],
+            delta_param_by_name[annotation.name],
         )
         observations += meta_obs
 
     for name in sorted(delta_by_name.keys()):
         for t_from, t_to_set in delta_by_name[name].items():
             for t_to in t_to_set:
-                print(f"{name}  {t_from}  →  {t_to}")
+                n_confs = len(delta_param_by_name[name][(t_from, t_to)])
+                print(f"{name}  {t_from}  →  {t_to}  ({n_confs:4d}x)")
             print("")
 
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)

@@ -318,6 +318,13 @@ def param_dict_to_list(param_dict, parameter_names, default=None):
     return ret
 
 
+def param_dict_to_str(param_dict):
+    ret = list()
+    for parameter_name in sorted(param_dict.keys()):
+        ret.append(f"{parameter_name}={param_dict[parameter_name]}")
+    return " ".join(ret)
+
+
 def observations_enum_to_bool(observations: list, kconfig=False):
     """
     Convert enum / categorical observations to boolean-only ones.
