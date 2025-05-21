@@ -87,6 +87,7 @@ class TraceAnnotation:
 
 
 class RunAnnotation:
+    name = None
     start = None
     kernels = list()
     end = None
@@ -106,9 +107,7 @@ class RunAnnotation:
         return self
 
     def __repr__(self):
-        return (
-            f"RunAnnotation<start={self.start}, kernels={self.kernels}, end={self.end}>"
-        )
+        return f"RunAnnotation<{self.name}, start={self.start}, kernels={self.kernels}, end={self.end}>"
 
 
 class Logfile:
@@ -216,9 +215,15 @@ class Logfile:
                     offset=len(observations), name=name_str, param=param
                 )
                 if trace_start is not None:
+                    assert trace_start.name == trace_end.name
+                    for kernel in trace_kernels:
+                        assert trace_start.name == kernel.name
                     annotations.append(
                         RunAnnotation(
-                            start=trace_start, kernels=trace_kernels, end=trace_end
+                            name=trace_start.name,
+                            start=trace_start,
+                            kernels=trace_kernels,
+                            end=trace_end,
                         )
                     )
 
