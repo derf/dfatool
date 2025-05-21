@@ -183,9 +183,26 @@ def main():
 
     for name in sorted(delta_by_name.keys()):
         for t_from, t_to_set in delta_by_name[name].items():
+            delta_param_sets = list()
+            to_names = list()
             for t_to in t_to_set:
-                n_confs = len(delta_param_by_name[name][(t_from, t_to)])
+                delta_params = delta_param_by_name[name][(t_from, t_to)]
+                delta_param_sets.append(delta_params)
+                to_names.append(t_to)
+                n_confs = len(delta_params)
                 print(f"{name}  {t_from}  →  {t_to}  ({n_confs:4d}x)")
+            for i in range(len(delta_param_sets)):
+                for j in range(i + 1, len(delta_param_sets)):
+                    if not delta_param_sets[i].isdisjoint(delta_param_sets[j]):
+                        intersection = delta_param_sets[i].intersection(
+                            delta_param_sets[j]
+                        )
+                        logging.error(
+                            f"Outbound transitions of <{t_from}> are not deterministic: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
+                        )
+                        raise RuntimeError(
+                            f"Outbound transitions of <{t_from}> are not deterministic"
+                        )
             print("")
 
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
