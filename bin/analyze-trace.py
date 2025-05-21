@@ -34,8 +34,7 @@ def parse_logfile(filename):
         return loader.load(f, is_trace=True)
 
 
-def learn_pta(observations, annotation):
-    delta = dict()
+def learn_pta(observations, annotation, delta=dict()):
     prev_i = annotation.start.offset
     prev = "__init__"
     prev_non_kernel = prev
@@ -109,7 +108,7 @@ def learn_pta(observations, annotation):
     if not prev in delta:
         delta[prev] = set()
     delta[prev].add("__end__")
-    return meta_observations
+    return delta, meta_observations
 
 
 def join_annotations(ref, base, new):
@@ -148,8 +147,20 @@ def main():
         map(parse_logfile, args.logfiles),
     )
 
+    delta_by_name = dict()
     for annotation in annotations:
-        observations += learn_pta(observations, annotation)
+        if annotation.name not in delta_by_name:
+            delta_by_name[annotation.name] = dict()
+        _, meta_obs = learn_pta(
+            observations, annotation, delta_by_name[annotation.name]
+        )
+        observations += meta_obs
+
+    for name in sorted(delta_by_name.keys()):
+        for t_from, t_to_set in delta_by_name[name].items():
+            for t_to in t_to_set:
+                print(f"{name}  {t_from}  →  {t_to}")
+            print("")
 
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
     del observations
