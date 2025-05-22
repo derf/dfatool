@@ -325,6 +325,14 @@ def param_dict_to_str(param_dict):
     return " ".join(ret)
 
 
+def param_str_to_dict(param_str):
+    ret = dict()
+    for param_pair in param_str.split():
+        key, value = param_pair.split("=")
+        ret[key] = soft_cast_int_or_float(value)
+    return ret
+
+
 def observations_enum_to_bool(observations: list, kconfig=False):
     """
     Convert enum / categorical observations to boolean-only ones.
