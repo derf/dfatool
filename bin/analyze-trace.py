@@ -216,7 +216,13 @@ def main():
                         i_to_transition[i] = t_to
                 am = AnalyticModel(am_tt_by_name, am_tt_param_names, force_tree=True)
                 model, info = am.get_fitted()
-                flat_model = info(name, t_from).flatten()
+                if type(info(name, t_from)) is df.SplitFunction:
+                    flat_model = info(name, t_from).flatten()
+                else:
+                    flat_model = list()
+                    logging.warning(
+                        f"Model for {name} {t_from} is {info(name, t_from)}, expected SplitFunction"
+                    )
 
                 for prefix, output in flat_model:
                     transition_name = i_to_transition[int(output)]
