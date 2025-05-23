@@ -51,7 +51,7 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
             if this in n_seen:
                 if n_seen[this] == 1:
                     logging.debug(
-                        f"Loop found in {annotation.start.name} {annotation.start.param}: {this} ⟳"
+                        f"Loop found in {annotation.start.name} {annotation.end.param}: {this} ⟳"
                     )
                 n_seen[this] += 1
             else:
@@ -61,10 +61,15 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
                 delta[prev] = set()
             delta[prev].add(this)
 
+            # annotation.start.param may be incomplete, for instance in cases
+            # where DPUs are allocated before the input file is loadeed (and
+            # thus before the problem size is known).
+            # Hence, we must use annotation.end.param whenever we deal
+            # with possibly problem size-dependent behaviour.
             if not (prev, this) in delta_param:
                 delta_param[(prev, this)] = set()
             delta_param[(prev, this)].add(
-                dfatool.utils.param_dict_to_str(annotation.start.param)
+                dfatool.utils.param_dict_to_str(annotation.end.param)
             )
 
             prev = this
@@ -75,7 +80,7 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
             meta_observations.append(
                 {
                     "name": f"__trace__ {this}",
-                    "param": annotation.start.param,
+                    "param": annotation.end.param,
                     "attribute": dict(
                         filter(
                             lambda kv: not kv[0].startswith("e_"),
@@ -98,7 +103,7 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
             if not (prev, this) in delta_param:
                 delta_param[(prev, this)] = set()
             delta_param[(prev, this)].add(
-                dfatool.utils.param_dict_to_str(annotation.start.param)
+                dfatool.utils.param_dict_to_str(annotation.end.param)
             )
 
             # The last iteration (next block) contains a single kernel,
@@ -117,7 +122,7 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
             meta_observations.append(
                 {
                     "name": f"__trace__ {this}",
-                    "param": annotation.start.param,
+                    "param": annotation.end.param,
                     "attribute": dict(
                         filter(
                             lambda kv: not kv[0].startswith("e_"),
@@ -135,7 +140,7 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
         if this in n_seen:
             if n_seen[this] == 1:
                 logging.debug(
-                    f"Loop found in {annotation.start.name} {annotation.start.param}: {this} ⟳"
+                    f"Loop found in {annotation.start.name} {annotation.end.param}: {this} ⟳"
                 )
             n_seen[this] += 1
         else:
@@ -148,7 +153,7 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
         if not (prev, this) in delta_param:
             delta_param[(prev, this)] = set()
         delta_param[(prev, this)].add(
-            dfatool.utils.param_dict_to_str(annotation.start.param)
+            dfatool.utils.param_dict_to_str(annotation.end.param)
         )
 
         total_latency_us += observations[i]["attribute"].get("latency_us", 0)
@@ -158,7 +163,7 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
         meta_observations.append(
             {
                 "name": f"__trace__ {this}",
-                "param": annotation.start.param,
+                "param": annotation.end.param,
                 "attribute": dict(
                     filter(
                         lambda kv: not kv[0].startswith("e_"),
@@ -174,14 +179,14 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
     if not (prev, "__end__") in delta_param:
         delta_param[(prev, "__end__")] = set()
     delta_param[(prev, "__end__")].add(
-        dfatool.utils.param_dict_to_str(annotation.start.param)
+        dfatool.utils.param_dict_to_str(annotation.end.param)
     )
 
     for transition, count in n_seen.items():
         meta_observations.append(
             {
                 "name": f"__loop__ {transition}",
-                "param": annotation.start.param,
+                "param": annotation.end.param,
                 "attribute": {"n_iterations": count},
             }
         )
@@ -190,7 +195,7 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
         meta_observations.append(
             {
                 "name": annotation.start.name,
-                "param": annotation.start.param,
+                "param": annotation.end.param,
                 "attribute": {"latency_us": total_latency_us},
             }
         )
