@@ -39,21 +39,39 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
     prev = "__init__"
     prev_non_kernel = prev
     meta_observations = list()
+    n_seen = dict()
+
+    total_latency_us = 0
 
     if annotation.kernels:
+        # ggf. als dict of tuples, für den Fall dass Schleifen verschieden iterieren können?
         for i in range(prev_i, annotation.kernels[0].offset):
             this = observations[i]["name"] + " @ " + observations[i]["place"]
+
+            if this in n_seen:
+                if n_seen[this] == 1:
+                    logging.debug(
+                        f"Loop found in {annotation.start.name} {annotation.start.param}: {this} ⟳"
+                    )
+                n_seen[this] += 1
+            else:
+                n_seen[this] = 1
 
             if not prev in delta:
                 delta[prev] = set()
             delta[prev].add(this)
+
             if not (prev, this) in delta_param:
                 delta_param[(prev, this)] = set()
             delta_param[(prev, this)].add(
                 dfatool.utils.param_dict_to_str(annotation.start.param)
             )
+
             prev = this
             prev_i = i + 1
+
+            total_latency_us += observations[i]["attribute"].get("latency_us", 0)
+
             meta_observations.append(
                 {
                     "name": f"__trace__ {this}",
@@ -76,13 +94,26 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
             if not prev in delta:
                 delta[prev] = set()
             delta[prev].add(this)
+
             if not (prev, this) in delta_param:
                 delta_param[(prev, this)] = set()
             delta_param[(prev, this)].add(
                 dfatool.utils.param_dict_to_str(annotation.start.param)
             )
+
+            # The last iteration (next block) contains a single kernel,
+            # so we do not increase total_latency_us here.
+            # However, this means that we will only ever get one latency
+            # value for each set of kernels with a common problem size,
+            # despite potentially having far more data at our fingertips.
+            # We could provide one total_latency_us for each kernel
+            # (by combining start latency + kernel latency + teardown latency),
+            # but for that we first need to distinguish between kernel
+            # components and teardown components in the following block.
+
             prev = this
             prev_i = i + 1
+
             meta_observations.append(
                 {
                     "name": f"__trace__ {this}",
@@ -101,15 +132,29 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
     for i in range(prev_i, annotation.end.offset):
         this = observations[i]["name"] + " @ " + observations[i]["place"]
 
+        if this in n_seen:
+            if n_seen[this] == 1:
+                logging.debug(
+                    f"Loop found in {annotation.start.name} {annotation.start.param}: {this} ⟳"
+                )
+            n_seen[this] += 1
+        else:
+            n_seen[this] = 1
+
         if not prev in delta:
             delta[prev] = set()
         delta[prev].add(this)
+
         if not (prev, this) in delta_param:
             delta_param[(prev, this)] = set()
         delta_param[(prev, this)].add(
             dfatool.utils.param_dict_to_str(annotation.start.param)
         )
+
+        total_latency_us += observations[i]["attribute"].get("latency_us", 0)
+
         prev = this
+
         meta_observations.append(
             {
                 "name": f"__trace__ {this}",
