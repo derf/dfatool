@@ -163,6 +163,9 @@ class Logfile:
                     logger.warning(f"Offending entry:\n{line}")
                     raise
 
+            if not is_trace:
+                continue
+
             # only relevant for is_trace == True
             if m := re.fullmatch(r"\[>>\] *([^|]*?) *[|] *([^|]*?) *", line):
                 trace_status = 1
