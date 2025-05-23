@@ -176,7 +176,30 @@ def learn_pta(observations, annotation, delta=dict(), delta_param=dict()):
     delta_param[(prev, "__end__")].add(
         dfatool.utils.param_dict_to_str(annotation.start.param)
     )
-    return delta, delta_param, meta_observations
+
+    for transition, count in n_seen.items():
+        meta_observations.append(
+            {
+                "name": f"__loop__ {transition}",
+                "param": annotation.start.param,
+                "attribute": {"n_iterations": count},
+            }
+        )
+
+    if total_latency_us:
+        meta_observations.append(
+            {
+                "name": annotation.start.name,
+                "param": annotation.start.param,
+                "attribute": {"latency_us": total_latency_us},
+            }
+        )
+
+    is_loop = dict(
+        map(lambda kv: (kv[0], True), filter(lambda kv: kv[1] > 1, n_seen.items()))
+    )
+
+    return delta, delta_param, meta_observations, is_loop
 
 
 def join_annotations(ref, base, new):
@@ -217,18 +240,20 @@ def main():
 
     delta_by_name = dict()
     delta_param_by_name = dict()
+    is_loop = dict()
     for annotation in annotations:
         am_tt_param_names = sorted(annotation.start.param.keys())
         if annotation.name not in delta_by_name:
             delta_by_name[annotation.name] = dict()
             delta_param_by_name[annotation.name] = dict()
-        _, _, meta_obs = learn_pta(
+        _, _, meta_obs, _is_loop = learn_pta(
             observations,
             annotation,
             delta_by_name[annotation.name],
             delta_param_by_name[annotation.name],
         )
         observations += meta_obs
+        is_loop.update(_is_loop)
 
     def format_guard(guard):
         return "∧".join(map(lambda kv: f"{kv[0]}={kv[1]}", guard))
@@ -280,9 +305,14 @@ def main():
                 delta_param_sets.append(delta_params)
                 to_names.append(t_to)
                 n_confs = len(delta_params)
-                print(
-                    f"{name}  {t_from}  →  {t_to}  ({' ∨ '.join(map(format_guard, transition_guard.get(t_to, list()))) or '⊤'})"
-                )
+                if is_loop.get(t_from, False) and is_loop.get(t_to, False):
+                    print(f"{name}  {t_from}  →  {t_to}  ⟳")
+                elif is_loop.get(t_from, False):
+                    print(f"{name}  {t_from}  →  {t_to}  →")
+                else:
+                    print(
+                        f"{name}  {t_from}  →  {t_to}  ({' ∨ '.join(map(format_guard, transition_guard.get(t_to, list()))) or '⊤'})"
+                    )
 
             for i in range(len(delta_param_sets)):
                 for j in range(i + 1, len(delta_param_sets)):
@@ -290,12 +320,17 @@ def main():
                         intersection = delta_param_sets[i].intersection(
                             delta_param_sets[j]
                         )
-                        logging.error(
-                            f"Outbound transitions of <{t_from}> are not deterministic: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
-                        )
-                        raise RuntimeError(
-                            f"Outbound transitions of <{t_from}> are not deterministic"
-                        )
+                        if is_loop.get(t_from, False):
+                            logging.debug(
+                                f"Loop transition <{t_from}>: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
+                            )
+                        else:
+                            logging.error(
+                                f"Outbound transitions of <{t_from}> are not deterministic: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
+                            )
+                            raise RuntimeError(
+                                f"Outbound transitions of <{t_from}> are not deterministic"
+                            )
 
             print("")
 
