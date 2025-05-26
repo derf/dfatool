@@ -104,7 +104,7 @@ class AnalyticModel:
             - attributes: list of keys that should be analyzed,
                 e.g. ['power', 'duration']
             - for each attribute mentioned in 'attributes': A list with measurements.
-            All list except for 'attributes' must have the same length.
+            All lists except for 'attributes' must have the same length.
 
             For example:
             parameters = ['foo_count', 'irrelevant']
