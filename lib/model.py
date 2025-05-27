@@ -709,9 +709,10 @@ class AnalyticModel:
                     ]
             attr_name = list(self.attributes(name))[0]
             for param_name in self.parameters:
-                ret["paramValuesbyName"][name][param_name] = self.attr_by_name[name][
-                    attr_name
-                ].stats.distinct_values_by_param_name[param_name]
+                if self.attr_by_name[name][attr_name].stats is not None:
+                    ret["paramValuesbyName"][name][param_name] = self.attr_by_name[
+                        name
+                    ][attr_name].stats.distinct_values_by_param_name[param_name]
 
         return ret
 
