@@ -593,7 +593,11 @@ def main():
     if args.export_json:
         with open(args.export_json, "w") as f:
             json.dump(
-                model.to_json(),
+                model.to_json(
+                    static_error=static_quality,
+                    lut_error=lut_quality,
+                    model_error=analytic_quality,
+                ),
                 f,
                 sort_keys=True,
                 cls=dfatool.utils.NpEncoder,

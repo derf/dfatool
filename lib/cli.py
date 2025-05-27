@@ -551,7 +551,7 @@ def add_standard_arguments(parser):
         "--export-json",
         metavar="FILENAME",
         type=str,
-        help="Export model in JSON format to FILENAME",
+        help="Export model and error metrics in JSON format to FILENAME",
     )
     parser.add_argument(
         "--load-json",

@@ -669,7 +669,14 @@ class AnalyticModel:
                             ret[f"xv/{name}/{attr_name}/{k}"] = np.mean(entry[k])
         return ret
 
-    def to_json(self, with_by_param=False, **kwargs) -> dict:
+    def to_json(
+        self,
+        with_by_param=False,
+        lut_error=None,
+        static_error=None,
+        model_error=None,
+        **kwargs,
+    ) -> dict:
         """
         Return JSON encoding of this AnalyticModel.
         """
@@ -688,6 +695,18 @@ class AnalyticModel:
         for name in self.names:
             for attr_name, attr in self.attr_by_name[name].items():
                 ret["name"][name][attr_name] = attr.to_json(**kwargs)
+                if lut_error:
+                    ret["name"][name][attr_name]["lutError"] = lut_error[name][
+                        attr_name
+                    ]
+                if static_error:
+                    ret["name"][name][attr_name]["staticError"] = static_error[name][
+                        attr_name
+                    ]
+                if model_error:
+                    ret["name"][name][attr_name]["modelError"] = model_error[name][
+                        attr_name
+                    ]
             attr_name = list(self.attributes(name))[0]
             for param_name in self.parameters:
                 ret["paramValuesbyName"][name][param_name] = self.attr_by_name[name][
