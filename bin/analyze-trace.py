@@ -519,6 +519,63 @@ def main():
             )
     timing["assess model"] = time.time() - ts
 
+    if "paramdetection" in args.show_model or "all" in args.show_model:
+        for name in model.names:
+            for attribute in model.attributes(name):
+                info = param_info(name, attribute)
+                print(
+                    "{:10s} {:10s} non-param stddev {:f}".format(
+                        name,
+                        attribute,
+                        model.attr_by_name[name][attribute].stats.std_static,
+                    )
+                )
+                print(
+                    "{:10s} {:10s} param-lut stddev {:f}".format(
+                        name,
+                        attribute,
+                        model.attr_by_name[name][attribute].stats.std_param_lut,
+                    )
+                )
+                for param in sorted(
+                    model.attr_by_name[name][attribute].stats.std_by_param.keys()
+                ):
+                    print(
+                        "{:10s} {:10s} {:10s} stddev {:f}".format(
+                            name,
+                            attribute,
+                            param,
+                            model.attr_by_name[name][attribute].stats.std_by_param[
+                                param
+                            ],
+                        )
+                    )
+                for arg_index in range(model.attr_by_name[name][attribute].arg_count):
+                    print(
+                        "{:10s} {:10s} {:10s} stddev {:f}".format(
+                            name,
+                            attribute,
+                            f"arg{arg_index}",
+                            model.attr_by_name[name][attribute].stats.std_by_arg[
+                                arg_index
+                            ],
+                        )
+                    )
+                if type(info) is df.AnalyticFunction:
+                    for param_name in sorted(info.fit_by_param.keys(), key=str):
+                        param_fit = info.fit_by_param[param_name]["results"]
+                        for function_type in sorted(param_fit.keys()):
+                            function_rmsd = param_fit[function_type]["rmsd"]
+                            print(
+                                "{:10s} {:10s} {:10s} mean {:10s} RMSD {:.0f}".format(
+                                    name,
+                                    attribute,
+                                    str(param_name),
+                                    function_type,
+                                    function_rmsd,
+                                )
+                            )
+
     if "static" in args.show_model or "all" in args.show_model:
         print("--- static model ---")
         for name in sorted(model.names):
