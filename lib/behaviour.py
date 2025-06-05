@@ -100,6 +100,25 @@ class SDKBehaviourModel:
                 raise RuntimeError(
                     f"get_trace({name}, {param_dict}): found infinite loop at {trace}"
                 )
+
+            if len(next_states) > 1 and current_state in self.transition_guard:
+                matching_next_states = list()
+                for candidate in next_states:
+                    for condition in self.transition_guard[current_state][candidate]:
+                        valid = True
+                        for key, value in condition:
+                            if param_dict[key] != value:
+                                valid = False
+                                break
+                        if valid:
+                            matching_next_states.append(candidate)
+                            break
+                next_states = matching_next_states
+
+            if len(next_states) == 0:
+                raise RuntimeError(
+                    f"get_trace({name}, {param_dict}): found no valid outbound transitions at {trace}, candidates {self.transition_guard[current_state]}"
+                )
             if len(next_states) > 1:
                 raise RuntimeError(
                     f"get_trace({name}, {param_dict}): found non-deterministic outbound transitions {next_states} at {trace}"
@@ -111,7 +130,6 @@ class SDKBehaviourModel:
             states_seen.add(current_state)
             current_state = next_state
 
-        print(trace)
         return trace
 
     def learn_pta(self, observations, annotation, delta=dict(), delta_param=dict()):
