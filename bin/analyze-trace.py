@@ -82,46 +82,11 @@ def main():
         return "∧".join(map(lambda kv: f"{kv[0]}={kv[1]}", guard))
 
     for name in sorted(delta_by_name.keys()):
-        delta_cond = dict()
         for t_from, t_to_set in delta_by_name[name].items():
             i_to_transition = dict()
             delta_param_sets = list()
             to_names = list()
             transition_guard = dict()
-
-            if len(t_to_set) > 1:
-                am_tt_by_name = {
-                    name: {
-                        "attributes": [t_from],
-                        "param": list(),
-                        t_from: list(),
-                    },
-                }
-                for i, t_to in enumerate(sorted(t_to_set)):
-                    for param in delta_param_by_name[name][(t_from, t_to)]:
-                        am_tt_by_name[name]["param"].append(
-                            dfatool.utils.param_dict_to_list(
-                                dfatool.utils.param_str_to_dict(param),
-                                am_tt_param_names,
-                            )
-                        )
-                        am_tt_by_name[name][t_from].append(i)
-                        i_to_transition[i] = t_to
-                am = AnalyticModel(am_tt_by_name, am_tt_param_names, force_tree=True)
-                model, info = am.get_fitted()
-                if type(info(name, t_from)) is df.SplitFunction:
-                    flat_model = info(name, t_from).flatten()
-                else:
-                    flat_model = list()
-                    logging.warning(
-                        f"Model for {name} {t_from} is {info(name, t_from)}, expected SplitFunction"
-                    )
-
-                for prefix, output in flat_model:
-                    transition_name = i_to_transition[int(output)]
-                    if transition_name not in transition_guard:
-                        transition_guard[transition_name] = list()
-                    transition_guard[transition_name].append(prefix)
 
             for t_to in sorted(t_to_set):
                 delta_params = delta_param_by_name[name][(t_from, t_to)]
@@ -134,7 +99,7 @@ def main():
                     print(f"{name}  {t_from}  →  {t_to}  →")
                 else:
                     print(
-                        f"{name}  {t_from}  →  {t_to}  ({' ∨ '.join(map(format_guard, transition_guard.get(t_to, list()))) or '⊤'})"
+                        f"{name}  {t_from}  →  {t_to}  ({' ∨ '.join(map(format_guard, bm.transition_guard[t_from].get(t_to, list()))) or '⊤'})"
                     )
 
             for i in range(len(delta_param_sets)):
