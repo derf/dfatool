@@ -94,6 +94,7 @@ class SDKBehaviourModel:
         while current_state != "__end__":
             next_states = delta[current_state]
 
+            states_seen.add(current_state)
             next_states = list(filter(lambda q: q not in states_seen, next_states))
 
             if len(next_states) == 0:
@@ -101,7 +102,7 @@ class SDKBehaviourModel:
                     f"get_trace({name}, {param_dict}): found infinite loop at {trace}"
                 )
 
-            if len(next_states) > 1 and current_state in self.transition_guard:
+            if len(next_states) > 1 and self.transition_guard[current_state]:
                 matching_next_states = list()
                 for candidate in next_states:
                     for condition in self.transition_guard[current_state][candidate]:
@@ -127,7 +128,6 @@ class SDKBehaviourModel:
             (next_state,) = next_states
 
             trace.append(next_state)
-            states_seen.add(current_state)
             current_state = next_state
 
         return trace
