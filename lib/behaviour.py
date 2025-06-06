@@ -74,7 +74,7 @@ class SDKBehaviourModel:
                         flat_model = info(name, t_from).flatten()
                     else:
                         flat_model = list()
-                        logging.warning(
+                        logger.warning(
                             f"Model for {name} {t_from} is {info(name, t_from)}, expected SplitFunction"
                         )
 
@@ -148,7 +148,7 @@ class SDKBehaviourModel:
 
                 if this in n_seen:
                     if n_seen[this] == 1:
-                        logging.debug(
+                        logger.debug(
                             f"Loop found in {annotation.start.name} {annotation.end.param}: {this} ⟳"
                         )
                     n_seen[this] += 1
@@ -237,7 +237,7 @@ class SDKBehaviourModel:
 
             if this in n_seen:
                 if n_seen[this] == 1:
-                    logging.debug(
+                    logger.debug(
                         f"Loop found in {annotation.start.name} {annotation.end.param}: {this} ⟳"
                     )
                 n_seen[this] += 1
@@ -350,7 +350,7 @@ class EventSequenceModel:
             param_list = utils.param_dict_to_list(param, ref_model.parameters)
 
             if not use_lut and not param_info(name, action).is_predictable(param_list):
-                logging.warning(
+                logger.warning(
                     f"Cannot predict {name}.{action}({param}), falling back to static model"
                 )
 
@@ -364,15 +364,15 @@ class EventSequenceModel:
                 )
             except KeyError:
                 if use_lut:
-                    logging.error(
+                    logger.error(
                         f"Cannot predict {name}.{action}({param}) from LUT model"
                     )
                 else:
-                    logging.error(f"Cannot predict {name}.{action}({param}) from model")
+                    logger.error(f"Cannot predict {name}.{action}({param}) from model")
                 raise
             except TypeError:
                 if not use_lut:
-                    logging.error(f"Cannot predict {name}.{action}({param}) from model")
+                    logger.error(f"Cannot predict {name}.{action}({param}) from model")
                 raise
 
             if aggregate == "sum":
