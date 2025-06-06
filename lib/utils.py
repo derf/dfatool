@@ -728,11 +728,18 @@ def regression_measures(predicted: np.ndarray, ground_truth: np.ndarray):
     rsq -- R^2 measure, see sklearn.metrics.r2_score
     count -- Number of values
     """
-    if type(predicted) != np.ndarray:
+
+    if type(predicted) is list:
+        predicted = np.array(predicted)
+
+    if type(ground_truth) is list:
+        ground_truth = np.array(ground_truth)
+
+    if type(predicted) is not np.ndarray:
         raise ValueError(
             "first arg ('predicted') must be ndarray, is {}".format(type(predicted))
         )
-    if type(ground_truth) != np.ndarray:
+    if type(ground_truth) is not np.ndarray:
         raise ValueError(
             "second arg ('ground_truth') must be ndarray, is {}".format(
                 type(ground_truth)
