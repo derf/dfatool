@@ -18,7 +18,12 @@ class SDKBehaviourModel:
         is_loop = dict()
 
         for annotation in annotations:
-            am_tt_param_names = sorted(annotation.start.param.keys())
+            # annotation.start.param may be incomplete, for instance in cases
+            # where DPUs are allocated before the input file is loadeed (and
+            # thus before the problem size is known).
+            # Hence, we must use annotation.end.param whenever we deal
+            # with possibly problem size-dependent behaviour.
+            am_tt_param_names = sorted(annotation.end.param.keys())
             if annotation.name not in delta_by_name:
                 delta_by_name[annotation.name] = dict()
                 delta_param_by_name[annotation.name] = dict()
