@@ -21,9 +21,14 @@ class SDKBehaviourModel:
             # annotation.start.param may be incomplete, for instance in cases
             # where DPUs are allocated before the input file is loadeed (and
             # thus before the problem size is known).
-            # Hence, we must use annotation.end.param whenever we deal
-            # with possibly problem size-dependent behaviour.
-            am_tt_param_names = sorted(annotation.end.param.keys())
+            # However, annotation.end.param may also differ from annotation.start.param (it should not, but that's how some benchmarks roll).
+            # So, we use annotation.start.param if it has the same keys as annotation.end.param, and annotation.end.param otherwise
+            if sorted(annotation.start.param.keys()) == sorted(
+                annotation.end.param.keys()
+            ):
+                am_tt_param_names = sorted(annotation.start.param.keys())
+            else:
+                am_tt_param_names = sorted(annotation.end.param.keys())
             if annotation.name not in delta_by_name:
                 delta_by_name[annotation.name] = dict()
                 delta_param_by_name[annotation.name] = dict()
@@ -146,6 +151,12 @@ class SDKBehaviourModel:
 
         total_latency_us = 0
 
+        if sorted(annotation.start.param.keys()) == sorted(annotation.end.param.keys()):
+            param_dict = annotation.start.param
+        else:
+            param_dict = annotation.end.param
+        param_str = utils.param_dict_to_str(param_dict)
+
         if annotation.kernels:
             # ggf. als dict of tuples, für den Fall dass Schleifen verschieden iterieren können?
             for i in range(prev_i, annotation.kernels[0].offset):
@@ -154,7 +165,7 @@ class SDKBehaviourModel:
                 if this in n_seen:
                     if n_seen[this] == 1:
                         logger.debug(
-                            f"Loop found in {annotation.start.name} {annotation.end.param}: {this} ⟳"
+                            f"Loop found in {annotation.start.name} {param_dict}: {this} ⟳"
                         )
                     n_seen[this] += 1
                 else:
@@ -164,16 +175,9 @@ class SDKBehaviourModel:
                     delta[prev] = set()
                 delta[prev].add(this)
 
-                # annotation.start.param may be incomplete, for instance in cases
-                # where DPUs are allocated before the input file is loadeed (and
-                # thus before the problem size is known).
-                # Hence, we must use annotation.end.param whenever we deal
-                # with possibly problem size-dependent behaviour.
                 if not (prev, this) in delta_param:
                     delta_param[(prev, this)] = set()
-                delta_param[(prev, this)].add(
-                    utils.param_dict_to_str(annotation.end.param)
-                )
+                delta_param[(prev, this)].add(param_str)
 
                 prev = this
                 prev_i = i + 1
@@ -183,7 +187,7 @@ class SDKBehaviourModel:
                 meta_observations.append(
                     {
                         "name": f"__trace__ {this}",
-                        "param": annotation.end.param,
+                        "param": param_dict,
                         "attribute": dict(
                             filter(
                                 lambda kv: not kv[0].startswith("e_"),
@@ -205,9 +209,7 @@ class SDKBehaviourModel:
 
                 if not (prev, this) in delta_param:
                     delta_param[(prev, this)] = set()
-                delta_param[(prev, this)].add(
-                    utils.param_dict_to_str(annotation.end.param)
-                )
+                delta_param[(prev, this)].add(param_str)
 
                 # The last iteration (next block) contains a single kernel,
                 # so we do not increase total_latency_us here.
@@ -225,7 +227,7 @@ class SDKBehaviourModel:
                 meta_observations.append(
                     {
                         "name": f"__trace__ {this}",
-                        "param": annotation.end.param,
+                        "param": param_dict,
                         "attribute": dict(
                             filter(
                                 lambda kv: not kv[0].startswith("e_"),
@@ -243,7 +245,7 @@ class SDKBehaviourModel:
             if this in n_seen:
                 if n_seen[this] == 1:
                     logger.debug(
-                        f"Loop found in {annotation.start.name} {annotation.end.param}: {this} ⟳"
+                        f"Loop found in {annotation.start.name} {param_dict}: {this} ⟳"
                     )
                 n_seen[this] += 1
             else:
@@ -255,7 +257,7 @@ class SDKBehaviourModel:
 
             if not (prev, this) in delta_param:
                 delta_param[(prev, this)] = set()
-            delta_param[(prev, this)].add(utils.param_dict_to_str(annotation.end.param))
+            delta_param[(prev, this)].add(param_str)
 
             total_latency_us += observations[i]["attribute"].get("latency_us", 0)
 
@@ -264,7 +266,7 @@ class SDKBehaviourModel:
             meta_observations.append(
                 {
                     "name": f"__trace__ {this}",
-                    "param": annotation.end.param,
+                    "param": param_dict,
                     "attribute": dict(
                         filter(
                             lambda kv: not kv[0].startswith("e_"),
@@ -279,15 +281,13 @@ class SDKBehaviourModel:
         delta[prev].add("__end__")
         if not (prev, "__end__") in delta_param:
             delta_param[(prev, "__end__")] = set()
-        delta_param[(prev, "__end__")].add(
-            utils.param_dict_to_str(annotation.end.param)
-        )
+        delta_param[(prev, "__end__")].add(param_str)
 
         for transition, count in n_seen.items():
             meta_observations.append(
                 {
                     "name": f"__loop__ {transition}",
-                    "param": annotation.end.param,
+                    "param": param_dict,
                     "attribute": {"n_iterations": count},
                 }
             )
@@ -296,7 +296,7 @@ class SDKBehaviourModel:
             meta_observations.append(
                 {
                     "name": annotation.start.name,
-                    "param": annotation.end.param,
+                    "param": param_dict,
                     "attribute": {"latency_us": total_latency_us},
                 }
             )
