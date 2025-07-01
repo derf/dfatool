@@ -27,6 +27,7 @@ dfatool_rmt_relevance_threshold = float(
     os.getenv("DFATOOL_RMT_RELEVANCE_THRESHOLD", "0.5")
 )
 
+dfatool_uls_loss_fun = os.getenv("DFATOOL_ULS_LOSS_FUNCTION", "linear")
 dfatool_uls_min_bound = float(os.getenv("DFATOOL_ULS_MIN_BOUND", -np.inf))
 
 if dfatool_preproc_relevance_method == "mi":
@@ -1692,7 +1693,11 @@ class FOLFunction(SKLearnRegressionFunction):
         self.model_args = list(np.ones((num_vars)))
         try:
             res = optimize.least_squares(
-                error_function, self.model_args, args=(fit_parameters, data), xtol=2e-15
+                error_function,
+                self.model_args,
+                args=(fit_parameters, data),
+                xtol=2e-15,
+                loss=dfatool_uls_loss_fun,
             )
         except ValueError as err:
             logger.warning(f"Fit failed: {err} (function: {self.model_function})")
@@ -1955,6 +1960,7 @@ class AnalyticFunction(ModelFunction):
                     self.model_args,
                     args=(X, Y),
                     xtol=2e-15,
+                    loss=dfatool_uls_loss_fun,
                     bounds=(lower_bounds, upper_bounds),
                 )
             except ValueError as err:

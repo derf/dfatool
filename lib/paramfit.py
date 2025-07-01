@@ -16,8 +16,13 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
-best_fit_metric = os.getenv("DFATOOL_ULS_ERROR_METRIC", "ssr")
+dfatool_uls_loss_fun = os.getenv("DFATOOL_ULS_LOSS_FUNCTION", "linear")
 dfatool_uls_min_bound = float(os.getenv("DFATOOL_ULS_MIN_BOUND", -np.inf))
+
+if dfatool_uls_loss_fun == "linear":
+    best_fit_metric = os.getenv("DFATOOL_ULS_ERROR_METRIC", "ssr")
+else:
+    best_fit_metric = os.getenv("DFATOOL_ULS_ERROR_METRIC", "mae")
 
 
 class ParamFit:
@@ -222,6 +227,7 @@ def _try_fits(
                         ini,
                         args=(X, Y),
                         xtol=2e-15,
+                        loss=dfatool_uls_loss_fun,
                         bounds=param_function.bounds,
                     )
                 except FloatingPointError as e:
