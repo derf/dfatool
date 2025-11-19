@@ -55,11 +55,11 @@ Least-Squares Regression is essentially a subset of RMT with just a single tree 
 LMT and RMT differ significantly, as LMT uses a learning algorithm that starts out with a DECART and uses bottom-up pruning to turn it into an LMT, whereas RMT build a DECART that only considers parameters that are not suitable for least-squares regression and then uses least-squares regression to find and fit leaf functions.
 
 By default, dfatool uses heuristics to determine whether it should generate a simple least-squares regression function or a fully-fledged RMT.
-Arguments such as `--force-tree` and environment variables (below) can be used to generate a different flavour of performance model; see [Modeling Method Selection](doc/modeling-method.md).
+Arguments such as `--force-tree` and environment variables (below) can be used to generate a different flavour of performance model; see [Modelling Method Selection](doc/modeling-method.md).
 Again, most of the options and methods documented here work for all three scripts: analyze-archive, analyze-kconfig, and analyze-log.
 
 * [Model Visualization and Export](doc/model-visual.md)
-* [Modeling Method Selection](doc/modeling-method.md)
+* [Modelling Method Selection](doc/modeling-method.md)
 * [Assessing Model Quality](doc/model-assessment.md)
 
 ## Model Application
@@ -112,9 +112,9 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_KCONF_WITH_CHOICE_NODES` | 0, **1** | Treat kconfig choices (e.g. "choice Model → MobileNet / ResNet / Inception") as enum parameters. If enabled, the corresponding boolean kconfig variables (e.g. "Model\_MobileNet") are not converted to parameters. If disabled, all (and only) boolean kconfig variables are treated as parameters. Mostly relevant for analyze-kconfig, eval-kconfig |
 | `DFATOOL_COMPENSATE_DRIFT` | **0**, 1 | Perform drift compensation for loaders without sync input (e.g. EnergyTrace or Keysight) |
 | `DFATOOL_DRIFT_COMPENSATION_PENALTY` | 0 .. 100 (default: majority vote over several penalties) | Specify penalty for ruptures.py PELT changepoint petection |
-| `DFATOOL_MODEL` | cart, decart, fol, lgbm, lmt, **rmt**, symreg, uls, xgb | Modeling method. See below for method-specific configuration options. |
+| `DFATOOL_MODEL` | cart, decart, fol, lgbm, lmt, **rmt**, symreg, uls, xgb | Modelling method. See below for method-specific configuration options. |
 | `DFATOOL_RMT_MAX_DEPTH` | **0** .. *n* | Maximum depth for RMT. Default (0): unlimited. |
-| `DFATOOL_RMT_SUBMODEL` | cart, fol, static, symreg, **uls** | Modeling method for RMT leaf functions. |
+| `DFATOOL_RMT_SUBMODEL` | cart, fol, static, symreg, **uls** | Modelling method for RMT leaf functions. |
 | `DFATOOL_PREPROCESSING_RELEVANCE_METHOD` | **none**, mi | Ignore parameters deemed irrelevant by the specified heuristic before passing them on to `DFATOOL_MODEL`. |
 | `DFATOOL_PREPROCESSING_RELEVANCE_THRESHOLD` | .. **0.1** .. | Threshold for relevance heuristic. |
 | `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default (0): unlimited. |
