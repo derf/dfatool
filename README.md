@@ -185,5 +185,5 @@ The NFP values should be exactly as described by the selected configuration opti
 Mirrors of this repository are maintained at the following locations:
 
 * [ESS](https://ess.cs.uos.de/git/software/dfatool)
-* [finalrewind.org](https://git.finalrewind.org/dfatool/)
+* [Finalrewind](https://git.finalrewind.org/derf/dfatool)
 * [GitHub](https://github.com/derf/dfatool)
