@@ -266,7 +266,7 @@ class Code128(object):
             for symbol_charset in charset:
                 if symbol_charset not in ("A", "B", "C"):
                     raise Code128.CharsetError
-                charset_data_length += 2 if symbol_charset is "C" else 1
+                charset_data_length += 2 if symbol_charset == "C" else 1
             if charset_data_length != len(data):
                 raise Code128.CharsetLengthError
         elif len(charset) == 1:
