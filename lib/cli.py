@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 def sanity_check(args):
+    if args.show_model_precision == -1:
+        args.show_model_precision = None
     pass
 
 
