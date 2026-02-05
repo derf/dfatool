@@ -659,9 +659,9 @@ def add_standard_arguments(parser):
     )
     parser.add_argument(
         "--cross-validate",
-        metavar="<method>:<count>",
+        metavar="<method>[:<count>]",
         type=str,
-        help="Perform cross validation when computing model quality",
+        help="Perform cross validation when computing model quality. count defaults to 10.",
     )
     parser.add_argument(
         "--parameter-aware-cross-validation",

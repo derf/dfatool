@@ -184,7 +184,10 @@ def main():
         dfatool.cli.boxplot_param(args, model)
 
     if args.cross_validate:
-        xv_method, xv_count = args.cross_validate.split(":")
+        if ":" in args.cross_validate:
+            xv_method, xv_count = args.cross_validate.split(":")
+        else:
+            xv_method, xv_count = args.cross_validate, 10
         xv_count = int(xv_count)
         xv = CrossValidator(
             AnalyticModel,
