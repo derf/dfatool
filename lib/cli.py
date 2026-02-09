@@ -10,16 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 def sanity_check(args):
-    if args.show_model_precision == -1:
-        args.show_model_precision = None
     pass
 
 
 def print_static(
-    model, static_model, name, attribute, with_dependence=False, precision=2
+    model, static_model, name, attribute, with_dependence=False, num_format=".2f"
 ):
-    if precision is None:
-        precision = 6
     unit = "  "
     if attribute == "power":
         unit = "µW"
@@ -32,11 +28,11 @@ def print_static(
             attribute
         ].stats.generic_param_dependence_ratio()
         print(
-            f"{name:10s}: {attribute:28s} : {static_model(name, attribute):.{precision}f} {unit:s}  ({ratio:.2f})"
+            f"{name:10s}: {attribute:28s} : {static_model(name, attribute):{num_format}} {unit:s}  ({ratio:.2f})"
         )
     else:
         print(
-            f"{name:10s}: {attribute:28s} : {static_model(name, attribute):.{precision}f} {unit:s}"
+            f"{name:10s}: {attribute:28s} : {static_model(name, attribute):{num_format}} {unit:s}"
         )
     if with_dependence:
         for param in model.parameters:
@@ -100,26 +96,18 @@ def print_information_gain_by_name(model, by_name):
                     print(f"    Parameter {param} :  -.--")
 
 
-def print_analyticinfo(prefix, info, ndigits=None):
+def print_analyticinfo(prefix, info, num_format=".2f"):
     model_function = info.model_function.removeprefix("0 + ")
     for i in range(len(info.model_args)):
-        if ndigits is not None:
-            model_function = model_function.replace(
-                f"regression_arg({i})", str(round(info.model_args[i], ndigits=ndigits))
-            )
-        else:
-            model_function = model_function.replace(
-                f"regression_arg({i})", str(info.model_args[i])
-            )
+        model_function = model_function.replace(
+            f"regression_arg({i})", f"{info.model_args[i]:{num_format}}"
+        )
     model_function = model_function.replace("+ -", "- ")
     print(f"{prefix}: {model_function}")
 
 
-def print_staticinfo(prefix, info, ndigits=None):
-    if ndigits is not None:
-        print(f"{prefix}: {round(info.value, ndigits)}")
-    else:
-        print(f"{prefix}: {info.value}")
+def print_staticinfo(prefix, info, num_format=".2f"):
+    print(f"{prefix}: {info.value:{num_format}}")
 
 
 def print_symreginfo(prefix, info):
@@ -190,13 +178,13 @@ def print_splitinfo(info, prefix=""):
         print(f"{prefix}: UNKNOWN {type(info)}")
 
 
-def print_model(prefix, info, precision=None):
+def print_model(prefix, info, num_format=".2f"):
     if type(info) is df.StaticFunction:
-        print_staticinfo(prefix, info, ndigits=precision)
+        print_staticinfo(prefix, info, num_format=fnum_ormat)
     elif type(info) is df.AnalyticFunction:
-        print_analyticinfo(prefix, info, ndigits=precision)
+        print_analyticinfo(prefix, info, num_format=num_format)
     elif type(info) is df.FOLFunction:
-        print_analyticinfo(prefix, info, ndigits=precision)
+        print_analyticinfo(prefix, info, num_format=num_Format)
     elif type(info) is df.CARTFunction:
         print_cartinfo(prefix, info)
     elif type(info) is df.SplitFunction:
@@ -638,11 +626,12 @@ def add_standard_arguments(parser):
         "all: all of the above",
     )
     parser.add_argument(
-        "--show-model-precision",
-        metavar="NDIG",
-        type=int,
-        default=2,
-        help="Limit precision of model output to NDIG decimals",
+        "--show-model-format",
+        metavar="NDIG or FORMAT",
+        type=str,
+        default=".2f",
+        help="Limit precision of model output to NDIG decimals.\n"
+        "You may also specify an f-string FORMAT (e.g. '.2f' or 'g') directly.",
     )
     parser.add_argument(
         "--show-model-error",

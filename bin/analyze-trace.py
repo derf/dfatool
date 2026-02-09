@@ -369,7 +369,7 @@ def main():
                     name,
                     attribute,
                     with_dependence="all" in args.show_model,
-                    precision=args.show_model_precision,
+                    num_format=args.show_model_format,
                 )
 
     if "param" in args.show_model or "all" in args.show_model:
@@ -380,7 +380,7 @@ def main():
                 dfatool.cli.print_model(
                     f"{name:10s} {attribute:15s}",
                     info,
-                    precision=args.show_model_precision,
+                    num_format=args.show_model_format,
                 )
 
     if args.show_model_error:
