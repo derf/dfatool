@@ -1946,7 +1946,12 @@ class AnalyticFunction(ModelFunction):
             upper_bounds = list()
             for i in range(len(self.model_args)):
                 if i in self.bounds and self.bounds[i][0] == "range":
-                    param_index = self._parameter_names.index(self.bounds[i][1])
+                    try:
+                        # actual parameter
+                        param_index = self._parameter_names.index(self.bounds[i][1])
+                    except ValueError:
+                        # function argument
+                        param_index = len(self._parameter_names) + self.bounds[i][1] - 1
                     lower_bounds.append(np.min(X[param_index]))
                     upper_bounds.append(np.max(X[param_index]))
                     self.model_args[i] = np.mean(X[param_index])
