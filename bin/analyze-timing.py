@@ -444,6 +444,7 @@ if __name__ == "__main__":
                 attribute,
                 model.param_index(param_name),
                 extra_function=function,
+                verbose_legend=args.plot_verbose_legend,
             )
 
     # print(json.dumps(model.to_json(), cls=NpEncoder, indent=2))

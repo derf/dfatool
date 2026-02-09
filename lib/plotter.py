@@ -180,6 +180,7 @@ def plot_param(
     extra_function=None,
     output=None,
     show=True,
+    verbose_legend=False,
 ):
     fig, ax1 = plt.subplots(figsize=(10, 6))
     if title is not None:
@@ -236,9 +237,21 @@ def plot_param(
         v = by_other_param[k]
         v["X"] = np.array(v["X"])
         v["Y"] = np.array(v["Y"])
-        sanitized_k = legend_sanitizer.sub("_", str(k))
+        if verbose_legend:
+            label = " ".join(
+                map(
+                    lambda kv: f"{kv[0]}={kv[1]}",
+                    zip(
+                        model.parameters[:param_idx]
+                        + model.parameters[param_idx + 1 :],
+                        k,
+                    ),
+                )
+            )
+        else:
+            label = ",".join(map(str, k))
         (handle,) = plt.plot(
-            v["X"], v["Y"], "o", color=cm(i), markersize=3, label=str(k)
+            v["X"], v["Y"], "o", color=cm(i), markersize=3, label=label
         )
         handles.append(handle)
         YY2_legend.append(legend_sanitizer.sub("_", "X_{}".format(k)))
@@ -246,6 +259,7 @@ def plot_param(
         YY2_legend.append(legend_sanitizer.sub("_", "Y_{}".format(k)))
         YY2.append(v["Y"])
 
+        # sanitized_k = legend_sanitizer.sub("_", str(k))
         # with open("{}_{}.txt".format(data_filename_base, sanitized_k), "w") as f:
         #    print("X Y", file=f)
         #    for i in range(len(v["X"])):

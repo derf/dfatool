@@ -431,6 +431,7 @@ def main():
                 extra_function=function,
                 output=f"{state_or_trans}-{attribute}-{param_name}.pdf",
                 show=not args.non_interactive,
+                verbose_legend=args.plot_verbose_legend,
             )
 
     if args.cross_validate:

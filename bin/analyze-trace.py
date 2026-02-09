@@ -464,6 +464,7 @@ def main():
                 xlabel=param_name,
                 output=f"{state_or_trans}-{attribute}-{param_name}.pdf",
                 show=not args.non_interactive,
+                verbose_legend=args.plot_verbose_legend,
             )
 
 

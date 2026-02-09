@@ -569,7 +569,13 @@ def add_standard_arguments(parser):
         help="Plot measurements for <name> <attribute> by <parameter>. "
         "X axis is parameter value. "
         "Plots the model function as one solid line for each combination of non-<parameter> parameters. "
-        "Also plots the corresponding measurements. ",
+        "Also plots the corresponding measurements.",
+    )
+    parser.add_argument(
+        "--plot-verbose-legend",
+        action="store_true",
+        help="Show a verbose legend in --plot-param plots. "
+        "Useful when preparing plots for papers or presentations.",
     )
     parser.add_argument(
         "--boxplot-unparam",
