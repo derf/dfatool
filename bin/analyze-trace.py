@@ -46,6 +46,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
     )
     dfatool.cli.add_standard_arguments(parser)
+    parser.add_argument("--unroll-loops", action="store_true", help="Unroll loops")
     parser.add_argument(
         "logfiles",
         nargs="+",
@@ -71,7 +72,7 @@ def main():
         map(parse_logfile, args.logfiles),
     )
 
-    bm = SDKBehaviourModel(observations, annotations)
+    bm = SDKBehaviourModel(observations, annotations, unroll_loops=args.unroll_loops)
     observations += bm.meta_observations
     is_loop = bm.is_loop
     am_tt_param_names = bm.am_tt_param_names

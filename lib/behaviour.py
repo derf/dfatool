@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 
 class SDKBehaviourModel:
 
-    def __init__(self, observations, annotations):
+    def __init__(self, observations, annotations, unroll_loops=False):
+
+        self.unroll_loops = unroll_loops
 
         meta_observations = list()
         delta_by_name = dict()
@@ -171,6 +173,9 @@ class SDKBehaviourModel:
                 else:
                     n_seen[this] = 1
 
+                if self.unroll_loops:
+                    this = this + " #" + str(n_seen[this])
+
                 if not prev in delta:
                     delta[prev] = set()
                 delta[prev].add(this)
@@ -200,8 +205,17 @@ class SDKBehaviourModel:
 
         for kernel in annotation.kernels:
             prev = prev_non_kernel
+            n_seen_kernel = dict()
             for i in range(prev_i, kernel.offset):
                 this = observations[i]["name"] + " @ " + observations[i]["place"]
+
+                if this in n_seen_kernel:
+                    n_seen_kernel[this] += 1
+                else:
+                    n_seen_kernel[this] = 1
+
+                if self.unroll_loops:
+                    this = this + " #" + str(n_seen_kernel[this])
 
                 if not prev in delta:
                     delta[prev] = set()
@@ -250,6 +264,9 @@ class SDKBehaviourModel:
                 n_seen[this] += 1
             else:
                 n_seen[this] = 1
+
+            if self.unroll_loops:
+                this = this + " #" + str(n_seen[this])
 
             if not prev in delta:
                 delta[prev] = set()
