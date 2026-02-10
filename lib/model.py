@@ -325,7 +325,7 @@ class AnalyticModel:
 
         return lut_median_getter
 
-    def build_fitted(self, safe_functions_enabled=False):
+    def build_fitted(self, safe_functions_enabled=False, rmt_threshold=None):
 
         model_type = os.getenv("DFATOOL_MODEL", "rmt")
 
@@ -351,7 +351,9 @@ class AnalyticModel:
         elif model_type == "rmt" and self.force_tree:
             for name in self.names:
                 for attr in self.by_name[name]["attributes"]:
-                    if (
+                    if rmt_threshold is not None:
+                        threshold = rmt_threshold
+                    elif (
                         self.dtree_max_std
                         and name in self.dtree_max_std
                         and attr in self.dtree_max_std[name]
@@ -413,7 +415,9 @@ class AnalyticModel:
 
         self.fit_done = True
 
-    def get_fitted(self, use_mean=False, safe_functions_enabled=False):
+    def get_fitted(
+        self, use_mean=False, safe_functions_enabled=False, rmt_threshold=None
+    ):
         """
         Get parameter-aware model function and model information function.
 
@@ -423,7 +427,10 @@ class AnalyticModel:
         """
 
         if not self.fit_done:
-            self.build_fitted(safe_functions_enabled=safe_functions_enabled)
+            self.build_fitted(
+                safe_functions_enabled=safe_functions_enabled,
+                rmt_threshold=rmt_threshold,
+            )
 
         static_model = dict()
         for name, attr in self.attr_by_name.items():
