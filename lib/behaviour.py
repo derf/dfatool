@@ -2,7 +2,7 @@
 
 import logging
 from . import utils
-from .model import AnalyticModel
+from .model import ModelAttribute
 from . import functions as df
 
 logger = logging.getLogger(__name__)
@@ -61,33 +61,29 @@ class SDKBehaviourModel:
                 transition_guard = dict()
 
                 if len(t_to_set) > 1:
-                    am_tt_by_name = {
-                        name: {
-                            "attributes": [t_from],
-                            "param": list(),
-                            t_from: list(),
-                        },
-                    }
+                    dmt_X = list()
+                    dmt_y = list()
                     for i, t_to in enumerate(sorted(t_to_set)):
                         for param in self.delta_param_by_name[name][(t_from, t_to)]:
-                            am_tt_by_name[name]["param"].append(
+                            dmt_X.append(
                                 utils.param_dict_to_list(
                                     utils.param_str_to_dict(param),
                                     self.am_tt_param_names,
                                 )
                             )
-                            am_tt_by_name[name][t_from].append(i)
+                            dmt_y.append(i)
                             i_to_transition[i] = t_to
-                    am = AnalyticModel(
-                        am_tt_by_name, self.am_tt_param_names, force_tree=True
+
+                    ma = ModelAttribute(
+                        name, t_from, dmt_y, dmt_X, self.am_tt_param_names
                     )
-                    model, info = am.get_fitted()
-                    if type(info(name, t_from)) is df.SplitFunction:
-                        flat_model = info(name, t_from).flatten()
+                    ma.build_rmt(with_function_leaves=False, threshold=0)
+                    if type(ma.model_function) is df.SplitFunction:
+                        flat_model = ma.model_function.flatten()
                     else:
                         flat_model = list()
                         logger.warning(
-                            f"Model for {name} {t_from} is {info(name, t_from)}, expected SplitFunction"
+                            f"Model for {name} {t_from} is {ma.model_function}, expected SplitFunction"
                         )
 
                     for prefix, output in flat_model:
