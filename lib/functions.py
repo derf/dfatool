@@ -436,7 +436,9 @@ class SplitFunction(ModelFunction):
 
         if len(equalities) == 1 and not individual_keys:
             # do not show this warning if using approximate equality checks
-            logger.warning("pruning a useless split -- this should not have happened")
+            logger.warning(
+                f"pruning useless split {self.param_name} ∈ {equalities[0]} → {self.child[equalities[0][0]]} -- this should not have happened"
+            )
             return self.child[equalities[0][0]]
 
         if to_range and all(
