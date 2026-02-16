@@ -358,6 +358,11 @@ class StaticFunction(ModelFunction):
     def __repr__(self):
         return f"StaticFunction({self.value})"
 
+    def __eq__(self, other):
+        if type(other) is not StaticFunction:
+            return False
+        return self.value == other.value
+
 
 class SplitFunction(ModelFunction):
     def __init__(self, value, param_index, param_name, child, **kwargs):
@@ -497,6 +502,18 @@ class SplitFunction(ModelFunction):
     def __repr__(self):
         return f"SplitFunction<{self.value}, param_index={self.param_index}>"
 
+    def __eq__(self, other):
+        if type(other) is not SplitFunction:
+            return False
+        if self.param_name != other.param_name or self.param_index != other.param_index:
+            return False
+        if sorted(self.child.keys()) != sorted(other.child.keys()):
+            return False
+        for key in self.child.keys():
+            if self.child[key] != other.child[key]:
+                return False
+        return True
+
 
 class ScalarSplitFunction(ModelFunction):
     def __init__(
@@ -598,6 +615,15 @@ class ScalarSplitFunction(ModelFunction):
 
     def __repr__(self):
         return f"ScalarSplitFunction<{self.value}, param_index={self.param_index}>"
+
+    def __eq__(self, other):
+        if type(other) is not ScalarSplitFunction:
+            return False
+        if self.param_name != other.param_name or self.param_index != other.param_index:
+            return False
+        if self.threshold != other.threshold:
+            return False
+        return self.child_le == other.child_le and self.child_gt == other.child_gt
 
 
 class SubstateFunction(ModelFunction):
@@ -973,6 +999,12 @@ class CARTFunction(SKLearnRegressionFunction):
             sub_data["right"] = self.recurse_(tree, right_child, depth=depth + 1)
 
         return sub_data
+
+    def __eq__(self, other):
+        if type(other) is not CARTFunction:
+            return False
+        if self.decart != other.decart:
+            return False
 
 
 class LMTFunction(SKLearnRegressionFunction):
