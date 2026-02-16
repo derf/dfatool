@@ -412,10 +412,10 @@ class SplitFunction(ModelFunction):
             list(map(lambda child: child.eval(param_list), self.child.values()))
         )
 
-    def prune(self):
-        for child in self.child.values():
-            if type(child) is SplitFunction:
-                child.prune()
+    def prune(self, to_range=False):
+        for key in self.child.keys():
+            if type(self.child[key]) is SplitFunction:
+                self.child[key] = self.child[key].prune(to_range=to_range)
 
         equalities = list()
         for key1 in sorted(self.child.keys()):
@@ -429,11 +429,99 @@ class SplitFunction(ModelFunction):
                             found = True
                     if not found:
                         equalities.append(set((key1, key2)))
+
+        equalities = list(map(lambda l: list(sorted(l)), equalities))
+        keys_in_equalities = sum(map(len, equalities))
+        individual_keys = len(self.child.keys()) - keys_in_equalities
+
+        if len(equalities) == 1 and not individual_keys:
+            # do not show this warning if using approximate equality checks
+            logger.warning("pruning a useless split -- this should not have happened")
+            return self.child[equalities[0][0]]
+
+        if to_range and all(
+            map(lambda k: type(k) is int or type(k) is float, self.child.keys())
+        ):
+            if len(equalities) == 2 and not individual_keys:
+                is_smaller = True
+                is_larger = True
+                for key1 in equalities[0]:
+                    for key2 in equalities[1]:
+                        if key1 < key2:
+                            is_larger = False
+                        else:
+                            is_smaller = False
+                if is_smaller:
+                    # optionally use mean of max(eq[0]), min(eq[1]) as threshold?
+                    return ScalarSplitFunction(
+                        self.value,
+                        self.param_index,
+                        self.param_name,
+                        max(equalities[0]),
+                        self.child[equalities[0][0]],
+                        self.child[equalities[1][0]],
+                    )
+                if is_larger:
+                    return ScalarSplitFunction(
+                        self.value,
+                        self.param_index,
+                        self.param_name,
+                        max(equalities[1]),
+                        self.child[equalities[1][0]],
+                        self.child[equalities[0][0]],
+                    )
+
+            elif len(equalities) == 1 and individual_keys == 1:
+                (single_key,) = set(self.child.keys()) - set(equalities[0])
+                is_smaller = True
+                is_larger = True
+                for key1 in equalities[0]:
+                    if key1 < single_key:
+                        is_larger = False
+                    else:
+                        is_smaller = False
+                if is_smaller:
+                    return ScalarSplitFunction(
+                        self.value,
+                        self.param_index,
+                        self.param_name,
+                        max(equalities[0]),
+                        self.child[equalities[0][0]],
+                        self.child[single_key],
+                    )
+                if is_larger:
+                    return ScalarSplitFunction(
+                        self.value,
+                        self.param_index,
+                        self.param_name,
+                        single_key,
+                        self.child[single_key],
+                        self.child[equalities[0][0]],
+                    )
+
+            elif (
+                len(equalities) == 0
+                and individual_keys == 2
+                and set(self.child.keys()) != set((0, 1))
+            ):
+                low_key = min(self.child.keys())
+                high_key = max(self.child.keys())
+                return ScalarSplitFunction(
+                    self.value,
+                    self.param_index,
+                    self.param_name,
+                    low_key,
+                    self.child[low_key],
+                    self.child[high_key],
+                )
+
         for eq_set in equalities:
             eq_keys = tuple(sorted(eq_set))
             self.child[eq_keys] = self.child[eq_keys[0]]
             for eq_key in eq_keys:
                 self.child.pop(eq_key)
+
+        return self
 
     def webconf_function_map(self):
         ret = list()
@@ -510,12 +598,12 @@ class SplitFunction(ModelFunction):
     def flatten(self):
         paths = list()
         for param_value, subtree in self.child.items():
-            if type(subtree) is SplitFunction:
+            if type(subtree) is SplitFunction or type(subtree) is ScalarSplitFunction:
                 for path, value in subtree.flatten():
-                    path = [(self.param_name, param_value)] + path
+                    path = [(self.param_name, "==", param_value)] + path
                     paths.append((path, value))
             elif type(subtree) is StaticFunction:
-                path = [(self.param_name, param_value)]
+                path = [(self.param_name, "==", param_value)]
                 paths.append((path, subtree.value))
             else:
                 raise RuntimeError(
@@ -535,14 +623,14 @@ class SplitFunction(ModelFunction):
         return self
 
     def __repr__(self):
-        return f"SplitFunction<{self.value}, param_index={self.param_index}>"
+        return f"SplitFunction<{self.value}, param={self.param_name}(id={self.param_index})>"
 
     def __eq__(self, other):
         if type(other) is not SplitFunction:
             return False
         if self.param_name != other.param_name or self.param_index != other.param_index:
             return False
-        if sorted(self.child.keys()) != sorted(other.child.keys()):
+        if set(self.child.keys()) != set(other.child.keys()):
             return False
         for key in self.child.keys():
             if self.child[key] != other.child[key]:
@@ -622,6 +710,22 @@ class ScalarSplitFunction(ModelFunction):
             ret += v.get_complexity_score()
         return ret
 
+    def flatten(self):
+        paths = list()
+        for equality, subtree in (("<=", self.child_le), (">", self.child_gt)):
+            if type(subtree) is SplitFunction or type(subtree) is ScalarSplitFunction:
+                for path, value in subtree.flatten():
+                    path = [(self.param_name, equality, self.threshold)] + path
+                    paths.append((path, value))
+            elif type(subtree) is StaticFunction:
+                path = [(self.param_name, equality, self.threshold)]
+                paths.append((path, subtree.value))
+            else:
+                raise RuntimeError(
+                    "flatten is only implemented for RMTs with constant leaves"
+                )
+        return paths
+
     def to_dot(self, pydot, graph, feature_names, parent=None):
         try:
             label = feature_names[self.param_index]
@@ -649,7 +753,7 @@ class ScalarSplitFunction(ModelFunction):
         return self
 
     def __repr__(self):
-        return f"ScalarSplitFunction<{self.value}, param_index={self.param_index}>"
+        return f"ScalarSplitFunction<{self.value}, param={self.param_name}(id={self.param_index})>"
 
     def __eq__(self, other):
         if type(other) is not ScalarSplitFunction:

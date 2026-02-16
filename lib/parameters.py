@@ -1069,6 +1069,7 @@ class ModelAttribute:
         loss_ignore_scalar=None,
         threshold=100,
         prune=False,
+        prune_scalar=False,
     ):
         """
         Build a Decision Tree on `param` / `data` for kconfig models.
@@ -1125,7 +1126,7 @@ class ModelAttribute:
         )
 
         if prune and type(self.model_function) is df.SplitFunction:
-            self.model_function.prune()
+            self.model_function = self.model_function.prune(to_range=prune_scalar)
 
     def _build_rmt(
         self,

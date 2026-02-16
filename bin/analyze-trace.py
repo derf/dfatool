@@ -79,8 +79,17 @@ def main():
     delta_by_name = bm.delta_by_name
     delta_param_by_name = bm.delta_param_by_name
 
+    def format_eq(equality):
+        if equality == "<=":
+            return "≤"
+        if equality == "==":
+            return "="
+        if equality == ">=":
+            return "≥"
+        return equality
+
     def format_guard(guard):
-        return "∧".join(map(lambda kv: f"{kv[0]}={kv[1]}", guard))
+        return "∧".join(map(lambda kv: f"{kv[0]}{format_eq(kv[1])}{kv[2]}", guard))
 
     for name in sorted(delta_by_name.keys()):
         for t_from, t_to_set in delta_by_name[name].items():

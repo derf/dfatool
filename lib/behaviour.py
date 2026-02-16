@@ -77,8 +77,17 @@ class SDKBehaviourModel:
                     ma = ModelAttribute(
                         name, t_from, dmt_y, dmt_X, self.am_tt_param_names
                     )
-                    ma.build_rmt(with_function_leaves=False, threshold=0, prune=True)
-                    if type(ma.model_function) is df.SplitFunction:
+                    ma.build_rmt(
+                        with_function_leaves=False,
+                        threshold=0,
+                        prune=True,
+                        prune_scalar=True,
+                    )
+
+                    if type(ma.model_function) in (
+                        df.SplitFunction,
+                        df.ScalarSplitFunction,
+                    ):
                         flat_model = ma.model_function.flatten()
                     else:
                         flat_model = list()
@@ -115,7 +124,7 @@ class SDKBehaviourModel:
                 for candidate in next_states:
                     for condition in self.transition_guard[current_state][candidate]:
                         valid = True
-                        for key, value in condition:
+                        for key, equality, value in condition:
                             if param_dict[key] != value:
                                 valid = False
                                 break
