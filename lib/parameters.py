@@ -1068,6 +1068,7 @@ class ModelAttribute:
         with_gplearn_symreg=None,
         loss_ignore_scalar=None,
         threshold=100,
+        prune=False,
     ):
         """
         Build a Decision Tree on `param` / `data` for kconfig models.
@@ -1081,6 +1082,11 @@ class ModelAttribute:
 
         :returns: SplitFunction or StaticFunction
         """
+
+        if with_function_leaves and prune:
+            raise RuntimeError(
+                "with_function_leaves=True and prune=True are mutually exclusive"
+            )
 
         if with_function_leaves is None:
             if os.getenv("DFATOOL_RMT_SUBMODEL", "uls") == "static":
@@ -1117,6 +1123,9 @@ class ModelAttribute:
             max_depth=max_depth,
             threshold=threshold,
         )
+
+        if prune and type(self.model_function) is df.SplitFunction:
+            self.model_function.prune()
 
     def _build_rmt(
         self,

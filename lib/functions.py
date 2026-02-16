@@ -385,6 +385,11 @@ class SplitFunction(ModelFunction):
         param_value = param_list[self.param_index]
         if param_value in self.child:
             return self.child[param_value].is_predictable(param_list)
+
+        for key in self.child.keys():
+            if type(key) is tuple and param_value in key:
+                return self.child[key].is_predictable(param_list)
+
         return all(
             map(lambda child: child.is_predictable(param_list), self.child.values())
         )
@@ -393,6 +398,11 @@ class SplitFunction(ModelFunction):
         param_value = param_list[self.param_index]
         if param_value in self.child:
             return self.child[param_value].eval(param_list)
+
+        for key in self.child.keys():
+            if type(key) is tuple and param_value in key:
+                return self.child[key].eval(param_list)
+
         if self.use_weighted_avg:
             return np.average(
                 list(map(lambda child: child.eval(param_list), self.child.values())),
@@ -402,6 +412,29 @@ class SplitFunction(ModelFunction):
             list(map(lambda child: child.eval(param_list), self.child.values()))
         )
 
+    def prune(self):
+        for child in self.child.values():
+            if type(child) is SplitFunction:
+                child.prune()
+
+        equalities = list()
+        for key1 in sorted(self.child.keys()):
+            for key2 in sorted(self.child.keys()):
+                if key1 != key2 and self.child[key1] == self.child[key2]:
+                    found = False
+                    for eq in equalities:
+                        if key1 in eq or key2 in eq:
+                            eq.add(key1)
+                            eq.add(key2)
+                            found = True
+                    if not found:
+                        equalities.append(set((key1, key2)))
+        for eq_set in equalities:
+            eq_keys = tuple(sorted(eq_set))
+            self.child[eq_keys] = self.child[eq_keys[0]]
+            for eq_key in eq_keys:
+                self.child.pop(eq_key)
+
     def webconf_function_map(self):
         ret = list()
         for child in self.child.values():
@@ -409,6 +442,7 @@ class SplitFunction(ModelFunction):
         return ret
 
     def to_json(self, **kwargs):
+        # TODO does not suppert grouped splits (self.child[tuple(...)]) yet
         ret = super().to_json(**kwargs)
         update = {
             "type": "split",
@@ -491,6 +525,7 @@ class SplitFunction(ModelFunction):
 
     @classmethod
     def from_json(cls, data):
+        # TODO does not suppert grouped splits (self.child[tuple(...)]) yet
         assert data["type"] == "split"
         self = cls(data["value"], data["paramIndex"], data["paramName"], dict())
 

@@ -77,7 +77,7 @@ class SDKBehaviourModel:
                     ma = ModelAttribute(
                         name, t_from, dmt_y, dmt_X, self.am_tt_param_names
                     )
-                    ma.build_rmt(with_function_leaves=False, threshold=0)
+                    ma.build_rmt(with_function_leaves=False, threshold=0, prune=True)
                     if type(ma.model_function) is df.SplitFunction:
                         flat_model = ma.model_function.flatten()
                     else:
