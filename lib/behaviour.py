@@ -84,6 +84,20 @@ class SDKBehaviourModel:
                         prune_scalar=True,
                     )
 
+                    for i, t_to in enumerate(sorted(t_to_set)):
+                        for param in self.delta_param_by_name[name][(t_from, t_to)]:
+                            actual_target = i
+                            predicted_target = ma.model_function.eval(
+                                utils.param_dict_to_list(
+                                    utils.param_str_to_dict(param),
+                                    self.am_tt_param_names,
+                                )
+                            )
+                            if actual_target != predicted_target:
+                                logger.warning(
+                                    f"""Model for {name} {t_from}: prediction for {param} is {i_to_transition.get(predicted_target, f"Invalid<{predicted_target}>")}, should be {i_to_transition[actual_target]}"""
+                                )
+
                     if type(ma.model_function) in (
                         df.SplitFunction,
                         df.ScalarSplitFunction,
