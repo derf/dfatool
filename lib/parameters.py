@@ -536,6 +536,12 @@ class ModelAttribute:
     - a static model (`mean`, `median`) as lower bound of model accuracy
     - a LUT model (`by_param`) as upper bound of model accuracy
     - a fitted model (`model_function`, a `ModelFunction` instance)
+
+    It can be used standalone to fit training data using specific modelling methods such as CART or RMT.
+    In that case, `name` and `attr` are largely irrelevant descriptive strings, and can be set to any sensible value (or empty strings).
+    `data` holds the observations: `[obs1, obs2, obS3, ...]`
+    `param_values` holds the corresponding configurations: `[conf1, conf2, conf3, ...]` where each conf is `[value1, value2, value3, ...]`.
+    `param_names` assigns an identifier to each configuration parameter: `[name1, name2, name3, ...]`.
     """
 
     def __init__(
