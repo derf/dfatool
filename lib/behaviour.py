@@ -31,6 +31,7 @@ class SDKBehaviourModel:
                 am_tt_param_names = sorted(annotation.start.param.keys())
             else:
                 am_tt_param_names = sorted(annotation.end.param.keys())
+            am_tt_param_names = sorted(am_tt_param_names + ["#"])
             if annotation.name not in delta_by_name:
                 delta_by_name[annotation.name] = dict()
                 delta_param_by_name[annotation.name] = dict()
@@ -188,7 +189,8 @@ class SDKBehaviourModel:
             param_dict = annotation.start.param
         else:
             param_dict = annotation.end.param
-        param_str = utils.param_dict_to_str(param_dict)
+
+        param_dict["#"] = 1
 
         if annotation.kernels:
             # ggf. als dict of tuples, für den Fall dass Schleifen verschieden iterieren können?
@@ -213,6 +215,8 @@ class SDKBehaviourModel:
 
                 if not (prev, this) in delta_param:
                     delta_param[(prev, this)] = set()
+                param_dict["#"] = n_seen[this]
+                param_str = utils.param_dict_to_str(param_dict)
                 delta_param[(prev, this)].add(param_str)
 
                 prev = this
@@ -254,6 +258,8 @@ class SDKBehaviourModel:
 
                 if not (prev, this) in delta_param:
                     delta_param[(prev, this)] = set()
+                param_dict["#"] = n_seen_kernel[this]
+                param_str = utils.param_dict_to_str(param_dict)
                 delta_param[(prev, this)].add(param_str)
 
                 # The last iteration (next block) contains a single kernel,
@@ -305,6 +311,8 @@ class SDKBehaviourModel:
 
             if not (prev, this) in delta_param:
                 delta_param[(prev, this)] = set()
+            param_dict["#"] = n_seen[this]
+            param_str = utils.param_dict_to_str(param_dict)
             delta_param[(prev, this)].add(param_str)
 
             total_latency_us += observations[i]["attribute"].get("latency_us", 0)
@@ -329,6 +337,8 @@ class SDKBehaviourModel:
         delta[prev].add("__end__")
         if not (prev, "__end__") in delta_param:
             delta_param[(prev, "__end__")] = set()
+        param_dict["#"] = 0
+        param_str = utils.param_dict_to_str(param_dict)
         delta_param[(prev, "__end__")].add(param_str)
 
         for transition, count in n_seen.items():
