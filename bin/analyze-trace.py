@@ -96,21 +96,29 @@ def main():
             i_to_transition = dict()
             delta_param_sets = list()
             to_names = list()
-            transition_guard = dict()
 
             for t_to in sorted(t_to_set):
                 delta_params = delta_param_by_name[name][(t_from, t_to)]
                 delta_param_sets.append(delta_params)
                 to_names.append(t_to)
                 n_confs = len(delta_params)
+                symbol = " "
                 if is_loop.get(t_from, False) and is_loop.get(t_to, False):
-                    print(f"{name}  {t_from}  →  {t_to}  ⟳")
+                    symbol = "⟳"
                 elif is_loop.get(t_from, False):
-                    print(f"{name}  {t_from}  →  {t_to}  →")
+                    symbol = "→"
+                if bm.transition_guard[t_from] is None:
+                    # invalid model
+                    guard = "?"
+                elif t_to not in bm.transition_guard[t_from]:
+                    guard = "⊥"
+                elif not bm.transition_guard[t_from][t_to]:
+                    guard = "⊤"
                 else:
-                    print(
-                        f"{name}  {t_from}  →  {t_to}  ({' ∨ '.join(map(format_guard, bm.transition_guard[t_from].get(t_to, list()))) or '⊤'})"
+                    guard = " ∨ ".join(
+                        map(format_guard, bm.transition_guard[t_from][t_to])
                     )
+                print(f"{name}  {t_from}  →  {t_to}  {symbol}  ({guard})")
 
             for i in range(len(delta_param_sets)):
                 for j in range(i + 1, len(delta_param_sets)):

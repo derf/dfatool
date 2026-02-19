@@ -34,7 +34,7 @@ class SDKBehaviourModel:
             if annotation.name not in delta_by_name:
                 delta_by_name[annotation.name] = dict()
                 delta_param_by_name[annotation.name] = dict()
-            _, _, meta_obs, _is_loop = self.learn_pta(
+            meta_obs, _is_loop = self.learn_pta(
                 observations,
                 annotation,
                 delta_by_name[annotation.name],
@@ -60,7 +60,10 @@ class SDKBehaviourModel:
                 to_names = list()
                 transition_guard = dict()
 
-                if len(t_to_set) > 1:
+                if len(t_to_set) == 1:
+                    (t_to,) = list(t_to_set)
+                    transition_guard[t_to] = list()
+                elif len(t_to_set) > 1:
                     dmt_X = list()
                     dmt_y = list()
                     for i, t_to in enumerate(sorted(t_to_set)):
@@ -102,8 +105,17 @@ class SDKBehaviourModel:
                         df.SplitFunction,
                         df.ScalarSplitFunction,
                     ):
+                        # print(name, t_from, ma.model_function, ma.model_function.flatten())
                         flat_model = ma.model_function.flatten()
+                    elif type(ma.model_function) is df.StaticFunction:
+                        transition_name = i_to_transition[int(ma.model_function.value)]
+                        transition_guard[transition_name] = list()
+                        flat_model = list()
+                        logger.warning(
+                            f"Model for {name} {t_from} is {ma.model_function}, expected SplitFunction"
+                        )
                     else:
+                        transition_guard = None
                         flat_model = list()
                         logger.warning(
                             f"Model for {name} {t_from} is {ma.model_function}, expected SplitFunction"
@@ -341,7 +353,7 @@ class SDKBehaviourModel:
             map(lambda kv: (kv[0], True), filter(lambda kv: kv[1] > 1, n_seen.items()))
         )
 
-        return delta, delta_param, meta_observations, is_loop
+        return meta_observations, is_loop
 
 
 class EventSequenceModel:
