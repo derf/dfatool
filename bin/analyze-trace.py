@@ -88,8 +88,16 @@ def main():
             return "≥"
         return equality
 
+    def format_condition(key, eq, value):
+        if type(value) is tuple:
+            if len(value) == 2:
+                return f"{key}∈({value[0]},{value[1]})"
+            if value[0] < value[-1] and value[-1] - value[0] == len(value) - 1:
+                return f"{key}∈({value[0]},…,{value[-1]})"
+        return f"{key}{format_eq(eq)}{value}"
+
     def format_guard(guard):
-        return "∧".join(map(lambda kv: f"{kv[0]}{format_eq(kv[1])}{kv[2]}", guard))
+        return "∧".join(map(lambda kv: format_condition(*kv), guard))
 
     for name in sorted(delta_by_name.keys()):
         for t_from, t_to_set in delta_by_name[name].items():
