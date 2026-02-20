@@ -94,6 +94,21 @@ def main():
                 return f"{key}∈({value[0]},{value[1]})"
             if value[0] < value[-1] and value[-1] - value[0] == len(value) - 1:
                 return f"{key}∈({value[0]},…,{value[-1]})"
+            for i, entry in enumerate(value):
+                if i == 0:
+                    buf = str(value[0])
+                elif entry - 1 != value[i - 1]:
+                    if (
+                        i >= 3
+                        and value[i - 1] == value[i - 2] + 1
+                        and value[i - 1] == value[i - 3] + 2
+                    ):
+                        buf += f",…,{value[i-1]}"
+                    elif value[i - 1] == value[i - 2] + 1:
+                        buf += f",{value[i-1]}"
+                    buf += f",{entry}"
+            buf += f",{value[-1]}"
+            return f"{key}∈({buf})"
         return f"{key}{format_eq(eq)}{value}"
 
     def format_guard(guard):
