@@ -784,7 +784,7 @@ class ScalarSplitFunction(ModelFunction):
             data["paramName"],
             data["threshold"],
             left,
-            data["condition"],
+            data.get("condition", "≤"),
             right,
         )
 
@@ -1210,6 +1210,7 @@ class CARTFunction(SKLearnRegressionFunction):
                 )
 
             sub_data["threshold"] = tree.threshold[node_id]
+            sub_data["condition"] = "≤"
             sub_data["type"] = "scalarSplit"
 
         # child value
