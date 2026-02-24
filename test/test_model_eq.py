@@ -52,12 +52,12 @@ class TestModelEquality(unittest.TestCase):
         s4a = df.StaticFunction(25.0, n_samples=600)
         s4b = df.StaticFunction(26.0, n_samples=200)
 
-        t1 = df.ScalarSplitFunction(23.25, 1, "foo", 10, s1a, s1b)
-        t2 = df.ScalarSplitFunction(23.75, 1, "foo", 10, s2a, s2b)
-        t2e = df.ScalarSplitFunction(23.75, 1, "foo", 10, s2b, s2a)
-        t2n = df.ScalarSplitFunction(23.75, 1, "foo", 11, s2a, s2b)
-        t3 = df.ScalarSplitFunction(23.25, 2, "bar", 10, s3a, s3b)
-        t4 = df.ScalarSplitFunction(23.25, 1, "foo", 10, s4a, s4b)
+        t1 = df.ScalarSplitFunction(23.25, 1, "foo", 10, s1a, "≤", s1b)
+        t2 = df.ScalarSplitFunction(23.75, 1, "foo", 10, s2a, "≤", s2b)
+        t2e = df.ScalarSplitFunction(23.75, 1, "foo", 10, s2b, "≤", s2a)
+        t2n = df.ScalarSplitFunction(23.75, 1, "foo", 11, s2a, "≤", s2b)
+        t3 = df.ScalarSplitFunction(23.25, 2, "bar", 10, s3a, "≤", s3b)
+        t4 = df.ScalarSplitFunction(23.25, 1, "foo", 10, s4a, "≤", s4b)
 
         self.assertEqual(t1, t2, "ScalarSplitFunction equality")
         self.assertNotEqual(t1, t2e, "ScalarSplitFunction child value equality")

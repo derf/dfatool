@@ -461,6 +461,7 @@ class SplitFunction(ModelFunction):
                         self.param_name,
                         max(equalities[0]),
                         self.child[equalities[0][0]],
+                        "≤",
                         self.child[equalities[1][0]],
                     )
                 if is_larger:
@@ -470,6 +471,7 @@ class SplitFunction(ModelFunction):
                         self.param_name,
                         max(equalities[1]),
                         self.child[equalities[1][0]],
+                        "≤",
                         self.child[equalities[0][0]],
                     )
 
@@ -489,6 +491,7 @@ class SplitFunction(ModelFunction):
                         self.param_name,
                         max(equalities[0]),
                         self.child[equalities[0][0]],
+                        "≤",
                         self.child[single_key],
                     )
                 if is_larger:
@@ -498,6 +501,7 @@ class SplitFunction(ModelFunction):
                         self.param_name,
                         single_key,
                         self.child[single_key],
+                        "≤",
                         self.child[equalities[0][0]],
                     )
 
@@ -514,6 +518,7 @@ class SplitFunction(ModelFunction):
                     self.param_name,
                     low_key,
                     self.child[low_key],
+                    "≤",
                     self.child[high_key],
                 )
 
@@ -642,14 +647,32 @@ class SplitFunction(ModelFunction):
 
 class ScalarSplitFunction(ModelFunction):
     def __init__(
-        self, value, param_index, param_name, threshold, child_le, child_gt, **kwargs
+        self,
+        value,
+        param_index,
+        param_name,
+        threshold,
+        child_left,
+        condition,
+        child_right,
+        **kwargs,
     ):
         super().__init__(value, **kwargs)
         self.param_index = param_index
         self.param_name = param_name
         self.threshold = threshold
-        self.child_le = child_le
-        self.child_gt = child_gt
+        self.condition = condition
+        self.child_left = child_left
+        self.child_right = child_right
+
+        if condition == "<":
+            self.cond_le = False
+            self.cond_lt = True
+        elif condition == "<=" or condition == "≤":
+            self.cond_le = True
+            self.cond_lt = False
+        else:
+            raise ValueError(f"condition must be '<' or '<=' / '≤', is '{condition}")
 
     def is_predictable(self, param_list):
         """
@@ -659,13 +682,18 @@ class ScalarSplitFunction(ModelFunction):
 
     def eval(self, param_list):
         param_value = param_list[self.param_index]
-        if param_value <= self.threshold:
-            return self.child_le.eval(param_list)
-        return self.child_gt.eval(param_list)
+        if (
+            param_value < self.threshold
+            or self.cond_le
+            and param_value <= self.threshold
+        ):
+            return self.child_left.eval(param_list)
+        return self.child_right.eval(param_list)
 
     def webconf_function_map(self):
         return (
-            self.child_le.webconf_function_map() + self.child_gt.webconf_function_map()
+            self.child_left.webconf_function_map()
+            + self.child_right.webconf_function_map()
         )
 
     def to_json(self, **kwargs):
@@ -675,15 +703,16 @@ class ScalarSplitFunction(ModelFunction):
             "paramIndex": self.param_index,
             "paramName": self.param_name,
             "threshold": self.threshold,
-            "left": self.child_le.to_json(**kwargs),
-            "right": self.child_gt.to_json(**kwargs),
+            "condition": self.condition,
+            "left": self.child_left.to_json(**kwargs),
+            "right": self.child_right.to_json(**kwargs),
         }
         ret.update(update)
         return ret
 
     def get_number_of_nodes(self):
         ret = 1
-        for v in (self.child_le, self.child_gt):
+        for v in (self.child_left, self.child_right):
             if type(v) in (SplitFunction, ScalarSplitFunction):
                 ret += v.get_number_of_nodes()
             else:
@@ -692,14 +721,14 @@ class ScalarSplitFunction(ModelFunction):
 
     def get_max_depth(self):
         ret = [0]
-        for v in (self.child_le, self.child_gt):
+        for v in (self.child_left, self.child_right):
             if type(v) in (SplitFunction, ScalarSplitFunction):
                 ret.append(v.get_max_depth())
         return 1 + max(ret)
 
     def get_number_of_leaves(self):
         ret = 0
-        for v in (self.child_le, self.child_gt):
+        for v in (self.child_left, self.child_right):
             if type(v) in (SplitFunction, ScalarSplitFunction):
                 ret += v.get_number_of_leaves()
             else:
@@ -708,13 +737,17 @@ class ScalarSplitFunction(ModelFunction):
 
     def get_complexity_score(self):
         ret = 1
-        for v in (self.child_le, self.child_gt):
+        for v in (self.child_left, self.child_right):
             ret += v.get_complexity_score()
         return ret
 
     def flatten(self):
         paths = list()
-        for equality, subtree in (("<=", self.child_le), (">", self.child_gt)):
+        if self.cond_le:
+            subtrees = (("<=", self.child_left), (">", self.child_right))
+        else:
+            subtrees = (("<", self.child_left), (">=", self.child_right))
+        for equality, subtree in subtrees:
             if type(subtree) is SplitFunction or type(subtree) is ScalarSplitFunction:
                 for path, value in subtree.flatten():
                     path = [(self.param_name, equality, self.threshold)] + path
@@ -749,6 +782,7 @@ class ScalarSplitFunction(ModelFunction):
             data["paramName"],
             data["threshold"],
             left,
+            data["condition"],
             right,
         )
 
@@ -762,9 +796,14 @@ class ScalarSplitFunction(ModelFunction):
             return False
         if self.param_name != other.param_name or self.param_index != other.param_index:
             return False
+        if self.cond_le != other.cond_le:
+            return False
         if self.threshold != other.threshold:
             return False
-        return self.child_le == other.child_le and self.child_gt == other.child_gt
+        return (
+            self.child_left == other.child_left
+            and self.child_right == other.child_right
+        )
 
 
 class SubstateFunction(ModelFunction):
