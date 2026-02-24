@@ -807,12 +807,17 @@ class ScalarSplitFunction(ModelFunction):
             and self.child_right == other.child_right
         )
 
+    def round(self, ndigits):
+        self.child_left.round(ndigits)
+        self.child_right.round(ndigits)
+
 
 class EnsembleFunction(ModelFunction):
-    def __init__(self, value, aggregation, models, **kwargs):
+    def __init__(self, value, aggregation, models, intercept=0, **kwargs):
         super().__init__(value, **kwargs)
         self.aggregation = aggregation
         self.models = models
+        self.intercept = intercept
 
         if aggregation == "sum":
             self.aggregate = sum
@@ -825,20 +830,20 @@ class EnsembleFunction(ModelFunction):
         return all(map(lambda model: model.is_predictable(param_list), self.models))
 
     def eval(self, param_list):
-        return self.aggregate(
+        return self.intercept + self.aggregate(
             list(map(lambda model: model.eval(param_list), self.models))
         )
 
     def __repr__(self):
-        return (
-            f"EnsembleFunction<{self.value}, {self.aggregation}, n={len(self.models)}>"
-        )
+        return f"EnsembleFunction<{self.value}, {self.aggregation}, intercept={self.intercept}, n={len(self.models)}>"
 
     @classmethod
     def from_json(cls, data):
         assert data["type"] == "ensemble"
         models = list(map(lambda model: ModelFunction.from_json(model), data["models"]))
-        return cls(data.get("value", 0), data["aggregate"], models)
+        return cls(
+            data.get("value", 0), data["aggregate"], models, data.get("intercept", 0)
+        )
 
 
 class SubstateFunction(ModelFunction):
@@ -1672,6 +1677,7 @@ class XGBoostFunction(SKLearnRegressionFunction):
         return {
             "type": "ensemble",
             "aggregate": "sum",
+            "intercept": self.regressor.intercept_[0],
             "value": self.value,
             "models": trees,
         }
@@ -1693,7 +1699,7 @@ class XGBoostFunction(SKLearnRegressionFunction):
         else:
             return {
                 "type": "static",
-                "value": self.regressor.intercept_[0] + tree["leaf"],
+                "value": tree["leaf"],
             }
 
     def get_number_of_nodes(self):
