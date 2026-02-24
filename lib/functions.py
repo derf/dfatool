@@ -283,6 +283,8 @@ class ModelFunction:
             mf = ScalarSplitFunction.from_json(data)
         elif data["type"] == "analytic":
             mf = AnalyticFunction.from_json(data)
+        elif data["type"] == "ensemble":
+            mf = EnsembleFunction.from_json(data)
         else:
             raise ValueError("Unknown ModelFunction type: " + data["type"])
 
@@ -804,6 +806,39 @@ class ScalarSplitFunction(ModelFunction):
             self.child_left == other.child_left
             and self.child_right == other.child_right
         )
+
+
+class EnsembleFunction(ModelFunction):
+    def __init__(self, value, aggregation, models, **kwargs):
+        super().__init__(value, **kwargs)
+        self.aggregation = aggregation
+        self.models = models
+
+        if aggregation == "sum":
+            self.aggregate = sum
+        elif aggregation == "mean":
+            self.aggregate = np.mean
+        else:
+            raise ValueError(f"Unsupported aggregation method: '{aggregation}'")
+
+    def is_predictable(self, param_list):
+        return all(map(lambda model: model.is_predictable(param_list), self.models))
+
+    def eval(self, param_list):
+        return self.aggregate(
+            list(map(lambda model: model.eval(param_list), self.models))
+        )
+
+    def __repr__(self):
+        return (
+            f"EnsembleFunction<{self.value}, {self.aggregation}, n={len(self.models)}>"
+        )
+
+    @classmethod
+    def from_json(cls, data):
+        assert data["type"] == "ensemble"
+        models = list(map(lambda model: ModelFunction.from_json(model), data["models"]))
+        return cls(data.get("value", 0), data["aggregate"], models)
 
 
 class SubstateFunction(ModelFunction):
@@ -1626,15 +1661,24 @@ class XGBoostFunction(SKLearnRegressionFunction):
         if internal:
             return data
 
-        return list(
+        assert len(self.regressor.intercept_ == 1)
+
+        trees = list(
             map(
                 lambda tree: self.tree_to_webconf_json(tree, **kwargs),
                 data,
             )
         )
+        return {
+            "type": "ensemble",
+            "aggregate": "sum",
+            "value": self.value,
+            "models": trees,
+        }
 
     def tree_to_webconf_json(self, tree, **kwargs):
         ret = dict()
+        # TODO kconfig-webconf still assumes that this function returns a list
         if "children" in tree:
             split_param = self.feature_names[int(tree["split"][1])]
             return {
