@@ -1636,18 +1636,20 @@ class XGBoostFunction(SKLearnRegressionFunction):
     def tree_to_webconf_json(self, tree, **kwargs):
         ret = dict()
         if "children" in tree:
+            split_param = self.feature_names[int(tree["split"][1])]
             return {
                 "type": "scalarSplit",
-                "paramName": self.feature_names[int(tree["split"][1:])],
+                "paramIndex": self.param_names.index(split_param),
+                "paramName": split_param,
                 "threshold": tree["split_condition"],
-                "value": None,
+                "condition": "<",
                 "left": self.tree_to_webconf_json(tree["children"][0], **kwargs),
                 "right": self.tree_to_webconf_json(tree["children"][1], **kwargs),
             }
         else:
             return {
                 "type": "static",
-                "value": tree["leaf"],
+                "value": self.regressor.intercept_[0] + tree["leaf"],
             }
 
     def get_number_of_nodes(self):
