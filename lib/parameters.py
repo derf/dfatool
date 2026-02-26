@@ -1090,6 +1090,13 @@ class ModelAttribute:
         :returns: SplitFunction or StaticFunction
         """
 
+        if with_function_leaves is None:
+            with_function_leaves = bool(
+                int(os.getenv("DFATOOL_RMT_FUNCTION_LEAVES", "1"))
+            )
+        if prune is None:
+            prune = bool(int(os.getenv("DFATOOL_RMT_PRUNE", "0")))
+
         if with_function_leaves and prune:
             raise RuntimeError(
                 "with_function_leaves=True and prune=True are mutually exclusive"
