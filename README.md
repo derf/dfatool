@@ -107,58 +107,67 @@ black --check $(git diff --cached --name-only --diff-filter=ACM $against | grep 
 
 The following variables may be set to alter the behaviour of dfatool components.
 
+### General Operation
+
 | Flag  | Range | Description |
 | :--- | :---: | :--- |
-| `DFATOOL_KCONF_WITH_CHOICE_NODES` | 0, **1** | Treat kconfig choices (e.g. "choice Model → MobileNet / ResNet / Inception") as enum parameters. If enabled, the corresponding boolean kconfig variables (e.g. "Model\_MobileNet") are not converted to parameters. If disabled, all (and only) boolean kconfig variables are treated as parameters. Mostly relevant for analyze-kconfig, eval-kconfig |
 | `DFATOOL_COMPENSATE_DRIFT` | **0**, 1 | Perform drift compensation for loaders without sync input (e.g. EnergyTrace or Keysight) |
-| `DFATOOL_DRIFT_COMPENSATION_PENALTY` | 0 .. 100 (default: majority vote over several penalties) | Specify penalty for ruptures.py PELT changepoint petection |
+| `DFATOOL_CSV_IGNORE` | *str1,str2,...* | Ignore the listed fields when loading CSV log files. |
+| `DFATOOL_CSV_OBSERVATIONS` | *str1,str2,...* | Treat the listed fields as observations rather than features. |
+| `DFATOOL_KCONF_IGNORE_NUMERIC` | **0**, 1 | Ignore numeric (int/hex) configuration options. Useful for comparison with CART/DECART. |
+| `DFATOOL_KCONF_IGNORE_STRING` | 0, **1** | Ignore string configuration options. These often hold compiler paths and other not really helpful information. |
+| `DFATOOL_KCONF_WITH_CHOICE_NODES` | 0, **1** | Treat kconfig choices (e.g. "choice Model → MobileNet / ResNet / Inception") as enum parameters. If enabled, the corresponding boolean kconfig variables (e.g. "Model\_MobileNet") are not converted to parameters. If disabled, all (and only) boolean kconfig variables are treated as parameters. Mostly relevant for analyze-kconfig, eval-kconfig |
 | `DFATOOL_MODEL` | cart, decart, fol, lgbm, lmt, **rmt**, symreg, uls, xgb | Modelling method. See below for method-specific configuration options. |
-| `DFATOOL_RMT_MAX_DEPTH` | **0** .. *n* | Maximum depth for RMT. Default (0): unlimited. |
-| `DFATOOL_RMT_SUBMODEL` | cart, fol, static, symreg, **uls** | Modelling method for RMT leaf functions. |
+| `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR` | **0**, 1 | Some models (e.g. FOL, sklearn CART, XGBoost) do not support categorical parameters. Ignore them (0) or convert them to scalar indexes (1). Conversion uses lexical order. |
+| `DFATOOL_PARAM_RELEVANCE_THRESHOLD` | 0 .. **0.5** .. 1 | Threshold for relevant parameter detection: parameter *i* is relevant if mean standard deviation (data partitioned by all parameters) / mean standard deviation (data partition by all parameters but *i*) is less than threshold |
 | `DFATOOL_PREPROCESSING_RELEVANCE_METHOD` | **none**, mi | Ignore parameters deemed irrelevant by the specified heuristic before passing them on to `DFATOOL_MODEL`. |
 | `DFATOOL_PREPROCESSING_RELEVANCE_THRESHOLD` | .. **0.1** .. | Threshold for relevance heuristic. |
+| `OMP_NUM_THREADS` | *number of CPU cores* | Maximum number of threads used per XGBoost learner. A limit of 4 threads appears to be ideal. Note that dfatool may spawn several XGBoost instances at the same time. |
+
+### Learner Specifics
+
+| Flag  | Range | Description |
+| :--- | :---: | :--- |
 | `DFATOOL_CART_MAX_DEPTH` | **0** .. *n* | maximum depth for sklearn CART. Default (0): unlimited. |
+| `DFATOOL_DRIFT_COMPENSATION_PENALTY` | 0 .. 100 (default: majority vote over several penalties) | Specify penalty for ruptures.py PELT changepoint petection |
+| `DFATOOL_FOL_SECOND_ORDER` | **0**, 1 | Add second-order components (interaction of feature pairs) to first-order linear function. |
 | `DFATOOL_LGBM_BOOSTER` | **gbdt**, dart, rf | Boosting type. |
-| `DFATOOL_LGBM_N_ESTIMATORS` | .., **100**, .. | Number of estimators. |
-| `DFATOOL_LGBM_MAX_DEPTH` | **-1**, .., *n* | Maximum tree depth, unlimited if ≤ 0. |
-| `DFATOOL_LGBM_NUM_LEAVES` | .., **31**, .. | Maximum number of leaves per tree. |
-| `DFATOOL_LGBM_SUBSAMPLE` | 0.0 .. **1.0** | Subsampling ration. |
 | `DFATOOL_LGBM_LEARNING_RATE` | 0 .. **0.1** .. 1 | Learning rate. |
-| `DFATOOL_LGBM_MIN_SPLIT_GAIN` | **0.0** .. 1 | Minimum loss reduction required for a split. |
+| `DFATOOL_LGBM_MAX_DEPTH` | **-1**, .., *n* | Maximum tree depth, unlimited if ≤ 0. |
 | `DFATOOL_LGBM_MIN_CHILD_SAMPLES` | .., **20**, .. | Minimum samples that each leaf of a split candidate must contain. |
+| `DFATOOL_LGBM_MIN_SPLIT_GAIN` | **0.0** .. 1 | Minimum loss reduction required for a split. |
+| `DFATOOL_LGBM_N_ESTIMATORS` | .., **100**, .. | Number of estimators. |
+| `DFATOOL_LGBM_NUM_LEAVES` | .., **31**, .. | Maximum number of leaves per tree. |
 | `DFATOOL_LGBM_REG_ALPHA` | **0.0** .. *n* | L1 regularization term on weights. |
 | `DFATOOL_LGBM_REG_LAMBDA` | **0.0** .. *n* | L2 regularization term on weights. |
-| `DFATOOL_LMT_MAX_DEPTH` | **5** .. 20 | Maximum depth for LMT. |
-| `DFATOOL_LMT_MIN_SAMPLES_SPLIT` | 0.0 .. 1.0, **6** .. *n* | Minimum samples required to still perform an LMT split. A value below 1.0 sets the specified ratio of the total number of training samples as minimum. |
-| `DFATOOL_LMT_MIN_SAMPLES_LEAF` | 0.0 .. **0.1** .. 1.0, 3 .. *n* | Minimum samples that each leaf of a split candidate must contain. A value below 1.0 specifies a ratio of the total number of training samples. A value above 1 specifies an absolute number of samples. |
-| `DFATOOL_LMT_MAX_BINS` | 10 .. **120** | Number of bins used to determine optimal split. LMT default: 25. |
+| `DFATOOL_LGBM_SUBSAMPLE` | 0.0 .. **1.0** | Subsampling ration. |
 | `DFATOOL_LMT_CRITERION` | **mse**, rmse, mae, poisson | Error metric to use when selecting best split. |
+| `DFATOOL_LMT_MAX_BINS` | 10 .. **120** | Number of bins used to determine optimal split. LMT default: 25. |
+| `DFATOOL_LMT_MAX_DEPTH` | **5** .. 20 | Maximum depth for LMT. |
+| `DFATOOL_LMT_MIN_SAMPLES_LEAF` | 0.0 .. **0.1** .. 1.0, 3 .. *n* | Minimum samples that each leaf of a split candidate must contain. A value below 1.0 specifies a ratio of the total number of training samples. A value above 1 specifies an absolute number of samples. |
+| `DFATOOL_LMT_MIN_SAMPLES_SPLIT` | 0.0 .. 1.0, **6** .. *n* | Minimum samples required to still perform an LMT split. A value below 1.0 sets the specified ratio of the total number of training samples as minimum. |
+| `DFATOOL_REGRESSION_SAFE_FUNCTIONS` | **0**, 1 | Use safe functions only (e.g. 1/x returnning 1 for x==0) |
+| `DFATOOL_RMT_LOSS_IGNORE_SCALAR` | **0**, 1 | Ignore scalar parameters when computing the loss for split node candidates. Instead of computing the loss of a single partition for each `x_i == j`, compute the loss of partitions for `x_i == j` in which non-scalar parameters vary and scalar parameters are constant. This way, scalar parameters do not affect the decision about which non-scalar parameter to use for splitting. |
+| `DFATOOL_RMT_MAX_DEPTH` | **0** .. *n* | Maximum depth for RMT. Default (0): unlimited. |
+| `DFATOOL_RMT_NONBINARY_NODES` | 0, **1** | Enable non-binary nodes (i.e., nodes with more than two children corresponding to enum variables) in decision trees |
+| `DFATOOL_RMT_PRUNE` | **0**, 1 | Prune RMT (merge identical sub-trees) after training. |
+| `DFATOOL_RMT_RELEVANCE_METHOD` | **none**, mi, std\_by\_param | Ignore parameters deemed irrelevant by the specified heuristic during regression tree generation. mi := [Mutual Information Regression](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.mutual_info_regression.html). Use with caution. |
+| `DFATOOL_RMT_RELEVANCE_THRESHOLD` | .. **0.5** .. | Threshold for relevance checks. |
+| `DFATOOL_RMT_SUBMODEL` | cart, fol, static, symreg, **uls** | Modelling method for RMT leaf functions. |
+| `DFATOOL_RMT_WEIGHTED_AVG` | **0**, 1 | When making predictions for a parameter value that is not present in a non-binary split, use the weighted average (according to the local distribution of training data) of all sub-trees rather than an unweighted average. |
 | `DFATOOL_ULS_ERROR_METRIC` | **ssr**, rmsd, **mae**, … | Error metric to use when selecting best-fitting function during unsupervised least squares (ULS) regression. By default, least squares regression minimzes root mean square deviation (rmsd), hence the equivalent (but partitioning-compatible) sum of squared residuals (ssr) is the default. If `DFATOOL_ULS_LOSS_FUNCTION` is set to another value than linear, the default is mean absolute error (mae). Supports all metrics accepted by `--error-metric`. |
 | `DFATOOL_ULS_FUNCTIONS` | a,b,… | List of function templates to use in ULS. Default: all supported functions. |
 | `DFATOOL_ULS_LOSS_FUNCTION` | **linear**', soft\_l1, … | Loss function for least squares fitting, see `scipy.optimize.least_squares#loss` documentation. |
+| `DFATOOL_ULS_MIN_BOUND` | **-∞** .. *n* | Lower bound for ULS regression variables. Setting it to 0 can often be beneficial. |
 | `DFATOOL_ULS_MIN_DISTINCT_VALUES` | 2 .. **3** .. *n* | Minimum number of unique values a parameter must take to be eligible for ULS |
 | `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK` | **0**, 1 | Do not detect and remove co-dependent features in ULS. |
-| `DFATOOL_ULS_MIN_BOUND` | **-∞** .. *n* | Lower bound for ULS regression variables. Setting it to 0 can often be beneficial. |
-| `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. |
-| `DFATOOL_XGB_MAX_DEPTH` | 2 .. **6** .. *n* | Maximum XGBoost tree depth. |
-| `DFATOOL_XGB_SUBSAMPLE` | 0.0 .. **1.0** | XGBoost subsampling ratio. |
 | `DFATOOL_XGB_ETA` | 0 .. **0.3** .. 1 | XGBoost learning rate (shrinkage). |
 | `DFATOOL_XGB_GAMMA` | **0.0** .. *n* | XGBoost minimum loss reduction required to to make a further partition on a leaf node. |
+| `DFATOOL_XGB_MAX_DEPTH` | 2 .. **6** .. *n* | Maximum XGBoost tree depth. |
+| `DFATOOL_XGB_N_ESTIMATORS` | 1 .. **100** .. *n* | Number of estimators (i.e., trees) for XGBoost. |
 | `DFATOOL_XGB_REG_ALPHA` | **0.0** .. *n* | XGBoost L1 regularization term on weights. |
 | `DFATOOL_XGB_REG_LAMBDA` | 0 .. **1** .. *n* | XGBoost L2 regularization term on weights. |
-| `OMP_NUM_THREADS` | *number of CPU cores* | Maximum number of threads used per XGBoost learner. A limit of 4 threads appears to be ideal. Note that dfatool may spawn several XGBoost instances at the same time. |
-| `DFATOOL_KCONF_IGNORE_NUMERIC` | **0**, 1 | Ignore numeric (int/hex) configuration options. Useful for comparison with CART/DECART. |
-| `DFATOOL_KCONF_IGNORE_STRING` | 0, **1** | Ignore string configuration options. These often hold compiler paths and other not really helpful information. |
-| `DFATOOL_REGRESSION_SAFE_FUNCTIONS` | **0**, 1 | Use safe functions only (e.g. 1/x returnning 1 for x==0) |
-| `DFATOOL_RMT_NONBINARY_NODES` | 0, **1** | Enable non-binary nodes (i.e., nodes with more than two children corresponding to enum variables) in decision trees |
-| `DFATOOL_RMT_RELEVANCE_METHOD` | **none**, mi, std\_by\_param | Ignore parameters deemed irrelevant by the specified heuristic during regression tree generation. mi := [Mutual Information Regression](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.mutual_info_regression.html). Use with caution. |
-| `DFATOOL_RMT_RELEVANCE_THRESHOLD` | .. **0.5** .. | Threshold for relevance checks. |
-| `DFATOOL_PARAM_RELEVANCE_THRESHOLD` | 0 .. **0.5** .. 1 | Threshold for relevant parameter detection: parameter *i* is relevant if mean standard deviation (data partitioned by all parameters) / mean standard deviation (data partition by all parameters but *i*) is less than threshold |
-| `DFATOOL_RMT_LOSS_IGNORE_SCALAR` | **0**, 1 | Ignore scalar parameters when computing the loss for split node candidates. Instead of computing the loss of a single partition for each `x_i == j`, compute the loss of partitions for `x_i == j` in which non-scalar parameters vary and scalar parameters are constant. This way, scalar parameters do not affect the decision about which non-scalar parameter to use for splitting. |
-| `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR` | **0**, 1 | Some models (e.g. FOL, sklearn CART, XGBoost) do not support categorical parameters. Ignore them (0) or convert them to scalar indexes (1). Conversion uses lexical order. |
-| `DFATOOL_FOL_SECOND_ORDER` | **0**, 1 | Add second-order components (interaction of feature pairs) to first-order linear function. |
-| `DFATOOL_CSV_IGNORE` | *str1,str2,...* | Ignore the listed fields when loading CSV log files. |
-| `DFATOOL_CSV_OBSERVATIONS` | *str1,str2,...* | Treat the listed fields as observations rather than features. |
+| `DFATOOL_XGB_SUBSAMPLE` | 0.0 .. **1.0** | XGBoost subsampling ratio. |
 
 ## Examples
 
