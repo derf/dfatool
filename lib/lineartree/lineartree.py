@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # Copyright (c) 2021 Marco Cerliani, MIT License <https://github.com/cerlymarco/linear-tree>
+# Copyright (c) 2026 Birte Kristina Friesel, MIT License
 
 import numpy as np
 
 from sklearn.base import ClassifierMixin, RegressorMixin
 
 from sklearn.utils import check_array
-from sklearn.utils.validation import check_is_fitted, _check_sample_weight
+from sklearn.utils.validation import _check_n_features, check_is_fitted, validate_data, _check_sample_weight
 
 from ._classes import _predict_branch
 from ._classes import _LinearTree, _LinearBoosting, _LinearForest
@@ -179,13 +180,13 @@ class LinearTreeRegressor(_LinearTree, RegressorMixin):
             )
 
         # Convert data (X is required to be 2d and indexable)
-        X, y = self._validate_data(
+        X, y = validate_data(
+            self,
             X,
             y,
             accept_sparse=False,
             dtype=None,
-            force_all_finite=False,
-            multi_output=True,
+            ensure_all_finite=False,
         )
         if sample_weight is not None:
             sample_weight = _check_sample_weight(sample_weight, X, dtype=None)
@@ -214,8 +215,8 @@ class LinearTreeRegressor(_LinearTree, RegressorMixin):
         """
         check_is_fitted(self, attributes="_nodes")
 
-        X = check_array(X, accept_sparse=False, dtype=None, force_all_finite=False)
-        self._check_n_features(X, reset=False)
+        X = check_array(X, accept_sparse=False, dtype=None, ensure_all_finite=False)
+        _check_n_features(self, X, reset=False)
 
         if self.n_targets_ > 1:
             pred = np.zeros((X.shape[0], self.n_targets_))
@@ -412,13 +413,13 @@ class LinearTreeClassifier(_LinearTree, ClassifierMixin):
             )
 
         # Convert data (X is required to be 2d and indexable)
-        X, y = self._validate_data(
+        X, y = validate_data(
+            self,
             X,
             y,
             accept_sparse=False,
             dtype=None,
-            force_all_finite=False,
-            multi_output=False,
+            ensure_all_finite=False,
         )
         if sample_weight is not None:
             sample_weight = _check_sample_weight(sample_weight, X, dtype=None)
@@ -443,8 +444,8 @@ class LinearTreeClassifier(_LinearTree, ClassifierMixin):
         """
         check_is_fitted(self, attributes="_nodes")
 
-        X = check_array(X, accept_sparse=False, dtype=None, force_all_finite=False)
-        self._check_n_features(X, reset=False)
+        X = check_array(X, accept_sparse=False, dtype=None, ensure_all_finite=False)
+        _check_n_features(self, X, reset=False)
 
         pred = np.empty(X.shape[0], dtype=self.classes_.dtype)
 
@@ -477,8 +478,8 @@ class LinearTreeClassifier(_LinearTree, ClassifierMixin):
         """
         check_is_fitted(self, attributes="_nodes")
 
-        X = check_array(X, accept_sparse=False, dtype=None, force_all_finite=False)
-        self._check_n_features(X, reset=False)
+        X = check_array(X, accept_sparse=False, dtype=None, ensure_all_finite=False)
+        _check_n_features(self, X, reset=False)
 
         pred = np.zeros((X.shape[0], len(self.classes_)))
 
@@ -705,8 +706,8 @@ class LinearBoostRegressor(_LinearBoosting, RegressorMixin):
             )
 
         # Convert data (X is required to be 2d and indexable)
-        X, y = self._validate_data(
-            X, y, accept_sparse=False, dtype=np.float32, multi_output=True
+        X, y = validate_data(
+            self, X, y, accept_sparse=False, dtype=np.float32
         )
         if sample_weight is not None:
             sample_weight = _check_sample_weight(sample_weight, X, dtype=None)
@@ -930,8 +931,8 @@ class LinearBoostClassifier(_LinearBoosting, ClassifierMixin):
             )
 
         # Convert data (X is required to be 2d and indexable)
-        X, y = self._validate_data(
-            X, y, accept_sparse=False, dtype=np.float32, multi_output=False
+        X, y = validate_data(
+            self, X, y, accept_sparse=False, dtype=np.float32
         )
         if sample_weight is not None:
             sample_weight = _check_sample_weight(sample_weight, X, dtype=None)
@@ -1230,8 +1231,8 @@ class LinearForestClassifier(_LinearForest, ClassifierMixin):
         self : object
         """
         # Convert data (X is required to be 2d and indexable)
-        X, y = self._validate_data(
-            X, y, accept_sparse=True, dtype=None, multi_output=False
+        X, y = validate_data(
+            self, X, y, accept_sparse=True, dtype=None
         )
         if sample_weight is not None:
             sample_weight = _check_sample_weight(sample_weight, X, dtype=None)
@@ -1268,7 +1269,7 @@ class LinearForestClassifier(_LinearForest, ClassifierMixin):
         """
         check_is_fitted(self, attributes="base_estimator_")
         X = check_array(X, dtype=None, accept_sparse=False)
-        self._check_n_features(X, reset=False)
+        _check_n_features(self, X, reset=False)
 
         linear_pred = self.base_estimator_.predict(X)
         forest_pred = self.forest_estimator_.predict(X)
@@ -1311,7 +1312,7 @@ class LinearForestClassifier(_LinearForest, ClassifierMixin):
         """
         check_is_fitted(self, attributes="base_estimator_")
         X = check_array(X, dtype=None, accept_sparse=False)
-        self._check_n_features(X, reset=False)
+        _check_n_features(self, X, reset=False)
 
         pred = self._sigmoid(self.base_estimator_.predict(X))
         proba = np.zeros((X.shape[0], 2))
@@ -1551,8 +1552,8 @@ class LinearForestRegressor(_LinearForest, RegressorMixin):
         self : object
         """
         # Convert data (X is required to be 2d and indexable)
-        X, y = self._validate_data(
-            X, y, accept_sparse=True, dtype=None, multi_output=True
+        X, y = validate_data(
+            self, X, y, accept_sparse=True, dtype=None
         )
         if sample_weight is not None:
             sample_weight = _check_sample_weight(sample_weight, X, dtype=None)
@@ -1581,7 +1582,7 @@ class LinearForestRegressor(_LinearForest, RegressorMixin):
         """
         check_is_fitted(self, attributes="base_estimator_")
         X = check_array(X, dtype=None, accept_sparse=False)
-        self._check_n_features(X, reset=False)
+        _check_n_features(self, X, reset=False)
 
         linear_pred = self.base_estimator_.predict(X)
         forest_pred = self.forest_estimator_.predict(X)
