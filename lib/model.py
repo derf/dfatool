@@ -733,7 +733,10 @@ class AnalyticModel:
             by_name = by_param_to_by_name(by_param)
             return cls(by_name, data["parameters"], by_param=by_param, from_json=data)
         else:
-            assert data["parameters"] == parameters
+            if data["parameters"] != parameters:
+                raise ValueError(
+                    f"""Parameter mismatch: JSON contents specify {data["parameters"]}, API specifies {parameters}"""
+                )
             return cls(by_name, parameters, from_json=data)
 
     def webconf_function_map(self) -> list:
