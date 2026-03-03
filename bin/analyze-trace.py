@@ -116,28 +116,23 @@ def main():
     )
 
     bm = SDKBehaviourModel(observations, annotations, unroll_loops=args.unroll_loops)
-    observations += bm.meta_observations
-    is_loop = bm.is_loop
-    am_tt_param_names = bm.am_tt_param_names
-    delta_by_name = bm.delta_by_name
-    delta_param_by_name = bm.delta_param_by_name
 
     if args.show_wfcfg:
-        for name in sorted(delta_by_name.keys()):
-            for t_from, t_to_set in delta_by_name[name].items():
+        for name in sorted(bm.delta_by_name.keys()):
+            for t_from, t_to_set in bm.delta_by_name[name].items():
                 i_to_transition = dict()
                 delta_param_sets = list()
                 to_names = list()
 
                 for t_to in sorted(t_to_set):
-                    delta_params = delta_param_by_name[name][(t_from, t_to)]
+                    delta_params = bm.delta_param_by_name[name][(t_from, t_to)]
                     delta_param_sets.append(delta_params)
                     to_names.append(t_to)
                     n_confs = len(delta_params)
                     symbol = " "
-                    if is_loop.get(t_from, False) and is_loop.get(t_to, False):
+                    if bm.is_loop.get(t_from, False) and bm.is_loop.get(t_to, False):
                         symbol = "⟳"
-                    elif is_loop.get(t_from, False):
+                    elif bm.is_loop.get(t_from, False):
                         symbol = "→"
                     if bm.transition_guard[t_from] is None:
                         # invalid model
@@ -172,9 +167,11 @@ def main():
 
                 print("")
 
-    by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
-    del observations
-
+    by_name, parameter_names = dfatool.utils.observations_to_by_name(
+        bm.meta_observations
+    )
+    del bm.meta_observations
+    model = AnalyticModel(by_name, parameter_names)
     if args.ignore_param:
         args.ignore_param = args.ignore_param.split(",")
 
@@ -207,12 +204,6 @@ def main():
         norm = dfatool.cli.parse_nfp_normalization(args.normalize_nfp)
         dfatool.utils.normalize_nfp_in_aggregate(by_name, norm)
 
-    function_override = dict()
-    if args.function_override:
-        for function_desc in args.function_override.split(";"):
-            state_or_tran, attribute, function_str = function_desc.split(":")
-            function_override[(state_or_tran, attribute)] = function_str
-
     ts = time.time()
     if args.load_json:
         with open(args.load_json, "r") as f:
@@ -223,7 +214,6 @@ def main():
             parameter_names,
             force_tree=args.force_tree,
             compute_stats=not args.skip_param_stats,
-            function_override=function_override,
         )
     timing["AnalyticModel"] = time.time() - ts
 

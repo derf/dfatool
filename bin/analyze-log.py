@@ -21,7 +21,7 @@ import sys
 import time
 
 
-def parse_logfile(filename):
+def parse_logfile(filename, is_trace=False):
     if ".csv" in filename:
         loader = CSVfile()
     else:
@@ -31,9 +31,14 @@ def parse_logfile(filename):
         import lzma
 
         with lzma.open(filename, "rt") as f:
-            return loader.load(f)
+            return loader.load(f, is_trace=is_trace)
     with open(filename, "r") as f:
-        return loader.load(f)
+        return loader.load(f, is_trace=is_trace)
+
+
+def join_annotations(ref, base, new):
+    offset = len(ref)
+    return base + list(map(lambda x: x.apply_offset(offset), new))
 
 
 def main():
@@ -42,6 +47,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
     )
     dfatool.cli.add_standard_arguments(parser)
+    parser.add_argument(
+        "--is-trace", action="store_true", help="Strip '@' suffixes from trace output"
+    )
     parser.add_argument(
         "--export-model", metavar="FILE", type=str, help="Export JSON model to FILE"
     )
@@ -70,7 +78,14 @@ def main():
             style="{",
         )
 
-    observations = reduce(lambda a, b: a + b, map(parse_logfile, args.logfiles))
+    if args.is_trace:
+        observations, annotations = reduce(
+            lambda a, b: (a[0] + b[0], join_annotations(a[0], a[1], b[1])),
+            map(lambda f: parse_logfile(f, True), args.logfiles),
+        )
+    else:
+        observations = reduce(lambda a, b: a + b, map(parse_logfile, args.logfiles))
+
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
     del observations
 
