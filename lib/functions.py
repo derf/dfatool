@@ -417,7 +417,7 @@ class SplitFunction(ModelFunction):
                 next_higher = list(filter(lambda x: x >= param_value, children))[0]
             else:
                 next_higher = None
-            if next_higher is None or next_higher is None:
+            if next_higher is None or next_lower is None:
                 x1 = children[0]
                 x2 = children[-1]
                 y2 = self.child[x2].eval(param_list)
