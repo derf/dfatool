@@ -17,7 +17,9 @@ class CSVfile:
         )
         pass
 
-    def load(self, f):
+    def load(self, f, is_trace=None):
+        if is_trace:
+            raise ValueError("is_trace is not supported by CSVfile.load")
         self.column_type = dict()
         observations = list()
         param_names = list()
