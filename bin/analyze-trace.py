@@ -40,12 +40,55 @@ def join_annotations(ref, base, new):
     return base + list(map(lambda x: x.apply_offset(offset), new))
 
 
+def format_eq(equality):
+    if equality == "<=":
+        return "≤"
+    if equality == "==":
+        return "="
+    if equality == ">=":
+        return "≥"
+    return equality
+
+
+def format_condition(key, eq, value):
+    if type(value) is tuple:
+        if len(value) == 2:
+            return f"{key}∈({value[0]},{value[1]})"
+        if value[0] < value[-1] and value[-1] - value[0] == len(value) - 1:
+            return f"{key}∈({value[0]},…,{value[-1]})"
+        for i, entry in enumerate(value):
+            if i == 0:
+                buf = str(value[0])
+            elif entry - 1 != value[i - 1]:
+                if (
+                    i >= 3
+                    and value[i - 1] == value[i - 2] + 1
+                    and value[i - 1] == value[i - 3] + 2
+                ):
+                    buf += f",…,{value[i-1]}"
+                elif value[i - 1] == value[i - 2] + 1:
+                    buf += f",{value[i-1]}"
+                buf += f",{entry}"
+        buf += f",{value[-1]}"
+        return f"{key}∈({buf})"
+    return f"{key}{format_eq(eq)}{value}"
+
+
+def format_guard(guard):
+    return "∧".join(map(lambda kv: format_condition(*kv), guard))
+
+
 def main():
     timing = dict()
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
     )
     dfatool.cli.add_standard_arguments(parser)
+    parser.add_argument(
+        "--show-wfcfg",
+        action="store_true",
+        help="Show Weighted Featured Control Flow Graph model",
+    )
     parser.add_argument("--unroll-loops", action="store_true", help="Unroll loops")
     parser.add_argument(
         "logfiles",
@@ -79,89 +122,55 @@ def main():
     delta_by_name = bm.delta_by_name
     delta_param_by_name = bm.delta_param_by_name
 
-    def format_eq(equality):
-        if equality == "<=":
-            return "≤"
-        if equality == "==":
-            return "="
-        if equality == ">=":
-            return "≥"
-        return equality
+    if args.show_wfcfg:
+        for name in sorted(delta_by_name.keys()):
+            for t_from, t_to_set in delta_by_name[name].items():
+                i_to_transition = dict()
+                delta_param_sets = list()
+                to_names = list()
 
-    def format_condition(key, eq, value):
-        if type(value) is tuple:
-            if len(value) == 2:
-                return f"{key}∈({value[0]},{value[1]})"
-            if value[0] < value[-1] and value[-1] - value[0] == len(value) - 1:
-                return f"{key}∈({value[0]},…,{value[-1]})"
-            for i, entry in enumerate(value):
-                if i == 0:
-                    buf = str(value[0])
-                elif entry - 1 != value[i - 1]:
-                    if (
-                        i >= 3
-                        and value[i - 1] == value[i - 2] + 1
-                        and value[i - 1] == value[i - 3] + 2
-                    ):
-                        buf += f",…,{value[i-1]}"
-                    elif value[i - 1] == value[i - 2] + 1:
-                        buf += f",{value[i-1]}"
-                    buf += f",{entry}"
-            buf += f",{value[-1]}"
-            return f"{key}∈({buf})"
-        return f"{key}{format_eq(eq)}{value}"
-
-    def format_guard(guard):
-        return "∧".join(map(lambda kv: format_condition(*kv), guard))
-
-    for name in sorted(delta_by_name.keys()):
-        for t_from, t_to_set in delta_by_name[name].items():
-            i_to_transition = dict()
-            delta_param_sets = list()
-            to_names = list()
-
-            for t_to in sorted(t_to_set):
-                delta_params = delta_param_by_name[name][(t_from, t_to)]
-                delta_param_sets.append(delta_params)
-                to_names.append(t_to)
-                n_confs = len(delta_params)
-                symbol = " "
-                if is_loop.get(t_from, False) and is_loop.get(t_to, False):
-                    symbol = "⟳"
-                elif is_loop.get(t_from, False):
-                    symbol = "→"
-                if bm.transition_guard[t_from] is None:
-                    # invalid model
-                    guard = "?"
-                elif t_to not in bm.transition_guard[t_from]:
-                    guard = "⊥"
-                elif not bm.transition_guard[t_from][t_to]:
-                    guard = "⊤"
-                else:
-                    guard = " ∨ ".join(
-                        map(format_guard, bm.transition_guard[t_from][t_to])
-                    )
-                print(f"{name}  {t_from}  →  {t_to}  {symbol}  ({guard})")
-
-            for i in range(len(delta_param_sets)):
-                for j in range(i + 1, len(delta_param_sets)):
-                    if not delta_param_sets[i].isdisjoint(delta_param_sets[j]):
-                        intersection = delta_param_sets[i].intersection(
-                            delta_param_sets[j]
+                for t_to in sorted(t_to_set):
+                    delta_params = delta_param_by_name[name][(t_from, t_to)]
+                    delta_param_sets.append(delta_params)
+                    to_names.append(t_to)
+                    n_confs = len(delta_params)
+                    symbol = " "
+                    if is_loop.get(t_from, False) and is_loop.get(t_to, False):
+                        symbol = "⟳"
+                    elif is_loop.get(t_from, False):
+                        symbol = "→"
+                    if bm.transition_guard[t_from] is None:
+                        # invalid model
+                        guard = "?"
+                    elif t_to not in bm.transition_guard[t_from]:
+                        guard = "⊥"
+                    elif not bm.transition_guard[t_from][t_to]:
+                        guard = "⊤"
+                    else:
+                        guard = " ∨ ".join(
+                            map(format_guard, bm.transition_guard[t_from][t_to])
                         )
-                        if is_loop.get(t_from, False):
-                            logging.debug(
-                                f"Loop transition <{t_from}>: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
-                            )
-                        else:
-                            logging.error(
-                                f"Outbound transitions of <{t_from}> are not deterministic: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
-                            )
-                            raise RuntimeError(
-                                f"Outbound transitions of <{t_from}> are not deterministic"
-                            )
+                    print(f"{name}  {t_from}  →  {t_to}  {symbol}  ({guard})")
 
-            print("")
+                for i in range(len(delta_param_sets)):
+                    for j in range(i + 1, len(delta_param_sets)):
+                        if not delta_param_sets[i].isdisjoint(delta_param_sets[j]):
+                            intersection = delta_param_sets[i].intersection(
+                                delta_param_sets[j]
+                            )
+                            if is_loop.get(t_from, False):
+                                logging.debug(
+                                    f"Loop transition <{t_from}>: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
+                                )
+                            else:
+                                logging.error(
+                                    f"Outbound transitions of <{t_from}> are not deterministic: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
+                                )
+                                raise RuntimeError(
+                                    f"Outbound transitions of <{t_from}> are not deterministic"
+                                )
+
+                print("")
 
     by_name, parameter_names = dfatool.utils.observations_to_by_name(observations)
     del observations
