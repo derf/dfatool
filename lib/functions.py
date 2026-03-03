@@ -405,6 +405,38 @@ class SplitFunction(ModelFunction):
             if type(key) is tuple and param_value in key:
                 return self.child[key].eval(param_list)
 
+        if type(param_value) in (float, int) and all(
+            map(lambda x: type(x) is int, self.child.keys())
+        ):
+            children = sorted(self.child.keys())
+            if any(filter(lambda x: x <= param_value, children)):
+                next_lower = list(filter(lambda x: x <= param_value, children))[-1]
+            else:
+                next_lower = None
+            if any(filter(lambda x: x >= param_value, children)):
+                next_higher = list(filter(lambda x: x >= param_value, children))[0]
+            else:
+                next_higher = None
+            if next_higher is None or next_higher is None:
+                x1 = children[0]
+                x2 = children[-1]
+                y2 = self.child[x2].eval(param_list)
+                y1 = self.child[x1].eval(param_list)
+                slope = (y2 - y1) / (x2 - x1)
+                offset = y1 - x1 * slope
+                return offset + slope * param_value
+            span = next_higher - next_lower
+            return np.average(
+                (
+                    self.child[next_lower].eval(param_list),
+                    self.child[next_higher].eval(param_list),
+                ),
+                weights=(
+                    span - abs(param_value - next_lower),
+                    span - abs(param_value - next_higher),
+                ),
+            )
+
         if self.use_weighted_avg:
             return np.average(
                 list(map(lambda child: child.eval(param_list), self.child.values())),
