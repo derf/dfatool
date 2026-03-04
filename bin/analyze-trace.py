@@ -130,10 +130,6 @@ def main():
                     to_names.append(t_to)
                     n_confs = len(delta_params)
                     symbol = " "
-                    if bm.is_loop.get(t_from, False) and bm.is_loop.get(t_to, False):
-                        symbol = "⟳"
-                    elif bm.is_loop.get(t_from, False):
-                        symbol = "→"
                     if bm.transition_guard[t_from] is None:
                         # invalid model
                         guard = "?"
@@ -153,17 +149,12 @@ def main():
                             intersection = delta_param_sets[i].intersection(
                                 delta_param_sets[j]
                             )
-                            if is_loop.get(t_from, False):
-                                logging.debug(
-                                    f"Loop transition <{t_from}>: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
-                                )
-                            else:
-                                logging.error(
-                                    f"Outbound transitions of <{t_from}> are not deterministic: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
-                                )
-                                raise RuntimeError(
-                                    f"Outbound transitions of <{t_from}> are not deterministic"
-                                )
+                            logging.error(
+                                f"Outbound transitions of <{t_from}> are not deterministic: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
+                            )
+                            raise RuntimeError(
+                                f"Outbound transitions of <{t_from}> are not deterministic"
+                            )
 
                 print("")
 

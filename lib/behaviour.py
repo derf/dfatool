@@ -18,7 +18,6 @@ class SDKBehaviourModel:
         meta_observations = list()
         delta_by_name = dict()
         delta_param_by_name = dict()
-        is_loop = dict()
 
         for annotation in annotations:
             # annotation.start.param may be incomplete, for instance in cases
@@ -36,20 +35,18 @@ class SDKBehaviourModel:
             if annotation.name not in delta_by_name:
                 delta_by_name[annotation.name] = dict()
                 delta_param_by_name[annotation.name] = dict()
-            meta_obs, _is_loop = self.learn_pta(
+            meta_obs = self.learn_pta(
                 observations,
                 annotation,
                 delta_by_name[annotation.name],
                 delta_param_by_name[annotation.name],
             )
             meta_observations += meta_obs
-            is_loop.update(_is_loop)
 
         self.am_tt_param_names = am_tt_param_names
         self.delta_by_name = delta_by_name
         self.delta_param_by_name = delta_param_by_name
         self.meta_observations = meta_observations
-        self.is_loop = is_loop
 
         self.build_transition_guards()
 
@@ -375,15 +372,6 @@ class SDKBehaviourModel:
         param_str = utils.param_dict_to_str(param_dict)
         delta_param[(prev, "__end__")].add(param_str)
 
-        for transition, count in n_seen.items():
-            meta_observations.append(
-                {
-                    "name": f"__loop__ {transition}",
-                    "param": param_dict,
-                    "attribute": {"n_iterations": count},
-                }
-            )
-
         if total_latency_us:
             meta_observations.append(
                 {
@@ -393,11 +381,7 @@ class SDKBehaviourModel:
                 }
             )
 
-        is_loop = dict(
-            map(lambda kv: (kv[0], True), filter(lambda kv: kv[1] > 1, n_seen.items()))
-        )
-
-        return meta_observations, is_loop
+        return meta_observations
 
 
 class EventSequenceModel:
