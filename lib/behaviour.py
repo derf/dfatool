@@ -369,11 +369,12 @@ class SDKBehaviourModel:
         delta[prev].add("__end__")
         if not (prev, "__end__") in delta_param:
             delta_param[(prev, "__end__")] = set()
-        param_dict["#"] = 0
+        param_dict["#"] = 1
         param_str = utils.param_dict_to_str(param_dict)
         delta_param[(prev, "__end__")].add(param_str)
 
         if total_latency_us:
+            param_dict.pop("#")
             meta_observations.append(
                 {
                     "name": annotation.start.name,
