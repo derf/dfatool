@@ -21,7 +21,7 @@ class SDKBehaviourModel:
 
         for annotation in annotations:
             # annotation.start.param may be incomplete, for instance in cases
-            # where DPUs are allocated before the input file is loadeed (and
+            # where DPUs are allocated before the input file is loaded (and
             # thus before the problem size is known).
             # However, annotation.end.param may also differ from annotation.start.param (it should not, but that's how some benchmarks roll).
             # So, we use annotation.start.param if it has the same keys as annotation.end.param, and annotation.end.param otherwise
@@ -106,7 +106,6 @@ class SDKBehaviourModel:
                         df.SplitFunction,
                         df.ScalarSplitFunction,
                     ):
-                        # print(name, t_from, ma.model_function, ma.model_function.flatten())
                         flat_model = ma.model_function.flatten()
                     elif type(ma.model_function) is df.StaticFunction:
                         transition_name = i_to_transition[int(ma.model_function.value)]
@@ -135,6 +134,7 @@ class SDKBehaviourModel:
         current_state = "__init__"
         trace = [current_state]
         states_seen = set()
+        param_dict["#"] = 1
         while current_state != "__end__":
             next_states = delta[current_state]
 
@@ -215,7 +215,7 @@ class SDKBehaviourModel:
 
                 if not (prev, this) in delta_param:
                     delta_param[(prev, this)] = set()
-                param_dict["#"] = n_seen[this]
+                param_dict["#"] = n_seen.get(prev, 1)
                 param_str = utils.param_dict_to_str(param_dict)
                 delta_param[(prev, this)].add(param_str)
 
@@ -227,7 +227,7 @@ class SDKBehaviourModel:
                 meta_observations.append(
                     {
                         "name": f"__trace__ {this}",
-                        "param": param_dict,
+                        "param": param_dict.copy(),
                         "attribute": dict(
                             filter(
                                 lambda kv: not kv[0].startswith("e_"),
@@ -258,7 +258,7 @@ class SDKBehaviourModel:
 
                 if not (prev, this) in delta_param:
                     delta_param[(prev, this)] = set()
-                param_dict["#"] = n_seen_kernel[this]
+                param_dict["#"] = n_seen_kernel.get(prev, n_seen.get(prev))
                 param_str = utils.param_dict_to_str(param_dict)
                 delta_param[(prev, this)].add(param_str)
 
@@ -278,7 +278,7 @@ class SDKBehaviourModel:
                 meta_observations.append(
                     {
                         "name": f"__trace__ {this}",
-                        "param": param_dict,
+                        "param": param_dict.copy(),
                         "attribute": dict(
                             filter(
                                 lambda kv: not kv[0].startswith("e_"),
@@ -311,7 +311,7 @@ class SDKBehaviourModel:
 
             if not (prev, this) in delta_param:
                 delta_param[(prev, this)] = set()
-            param_dict["#"] = n_seen[this]
+            param_dict["#"] = n_seen[prev]
             param_str = utils.param_dict_to_str(param_dict)
             delta_param[(prev, this)].add(param_str)
 
@@ -322,7 +322,7 @@ class SDKBehaviourModel:
             meta_observations.append(
                 {
                     "name": f"__trace__ {this}",
-                    "param": param_dict,
+                    "param": param_dict.copy(),
                     "attribute": dict(
                         filter(
                             lambda kv: not kv[0].startswith("e_"),
