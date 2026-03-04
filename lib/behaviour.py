@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+import numpy as np
 from . import utils
 from .model import ModelAttribute
 from . import functions as df
@@ -108,6 +109,10 @@ class SDKBehaviourModel:
                     ):
                         flat_model = ma.model_function.flatten()
                     elif type(ma.model_function) is df.StaticFunction:
+                        if ma.model_function.value != int(ma.model_function.value):
+                            logger.warning(
+                                f"Raw feature guard for for {name} {t_from} is {ma.model_function.value}, so either {i_to_transition[int(np.floor(ma.model_function.value))]} or {i_to_transition[int(np.ceil(ma.model_function.value))]}"
+                            )
                         transition_name = i_to_transition[int(ma.model_function.value)]
                         transition_guard[transition_name] = list()
                         flat_model = list()
@@ -122,6 +127,10 @@ class SDKBehaviourModel:
                         )
 
                     for prefix, output in flat_model:
+                        if output != int(output):
+                            logger.warning(
+                                f"Raw feature guard for for {name} {t_from} {prefix} is {output}, so either {i_to_transition[int(np.floor(output))]} or {i_to_transition[int(np.ceil(output))]}"
+                            )
                         transition_name = i_to_transition[int(output)]
                         if transition_name not in transition_guard:
                             transition_guard[transition_name] = list()
