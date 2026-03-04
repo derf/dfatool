@@ -160,7 +160,30 @@ class SDKBehaviourModel:
                     for condition in self.transition_guard[current_state][candidate]:
                         valid = True
                         for key, equality, value in condition:
-                            if param_dict[key] != value:
+                            if equality == "<" and not param_dict[key] < value:
+                                valid = False
+                                break
+                            if equality == "<=" and not param_dict[key] <= value:
+                                valid = False
+                                break
+                            if (
+                                equality == "=="
+                                and type(value) in (float, int)
+                                and not param_dict[key] == value
+                            ):
+                                valid = False
+                                break
+                            if (
+                                equality == "=="
+                                and type(value) is tuple
+                                and not param_dict[key] in value
+                            ):
+                                valid = False
+                                break
+                            if equality == ">=" and not param_dict[key] >= value:
+                                valid = False
+                                break
+                            if equality == ">" and not param_dict[key] > value:
                                 valid = False
                                 break
                         if valid:
