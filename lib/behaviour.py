@@ -138,21 +138,20 @@ class SDKBehaviourModel:
 
                 self.transition_guard[t_from] = transition_guard
 
-    def get_trace(self, name, param_dict):
+    def get_trace(self, name, in_param_dict):
         delta = self.delta_by_name[name]
+        param_dict = in_param_dict.copy()
         current_state = "__init__"
         trace = [current_state]
-        states_seen = set()
-        param_dict["#"] = 1
+        seen = dict()
         while current_state != "__end__":
             next_states = delta[current_state]
 
-            states_seen.add(current_state)
-            next_states = list(filter(lambda q: q not in states_seen, next_states))
+            param_dict["#"] = seen[current_state] = seen.get(current_state, 0) + 1
 
             if len(next_states) == 0:
                 raise RuntimeError(
-                    f"get_trace({name}, {param_dict}): found infinite loop at {trace}"
+                    f"get_trace({name}, {in_param_dict}): no outbound edges at {trace}"
                 )
 
             if len(next_states) > 1 and self.transition_guard[current_state]:
