@@ -69,10 +69,10 @@ class SDKBehaviourModel:
                     dmt_X = list()
                     dmt_y = list()
                     for i, t_to in enumerate(sorted(t_to_set)):
-                        for param in self.delta_param_by_name[name][(t_from, t_to)]:
+                        for param_str in self.delta_param_by_name[name][(t_from, t_to)]:
                             dmt_X.append(
                                 utils.param_dict_to_list(
-                                    utils.param_str_to_dict(param),
+                                    utils.param_str_to_dict(param_str),
                                     self.am_tt_param_names,
                                 )
                             )
@@ -90,11 +90,11 @@ class SDKBehaviourModel:
                     )
 
                     for i, t_to in enumerate(sorted(t_to_set)):
-                        for param in self.delta_param_by_name[name][(t_from, t_to)]:
+                        for param_str in self.delta_param_by_name[name][(t_from, t_to)]:
                             actual_target = i
                             predicted_target = ma.model_function.eval(
                                 utils.param_dict_to_list(
-                                    utils.param_str_to_dict(param),
+                                    utils.param_str_to_dict(param_str),
                                     self.am_tt_param_names,
                                 )
                             )
@@ -190,7 +190,7 @@ class SDKBehaviourModel:
         prev = "__init__"
         prev_non_kernel = prev
         meta_observations = list()
-        n_seen = dict()
+        n_seen = {"__init__": 1}
 
         total_latency_us = 0
 
@@ -206,6 +206,25 @@ class SDKBehaviourModel:
             for i in range(prev_i, annotation.kernels[0].offset):
                 this = observations[i]["name"] + " @ " + observations[i]["place"]
 
+                if self.unroll_loops:
+                    this = this + " #" + str(n_seen.get(this, 0))
+
+                if not prev in delta:
+                    delta[prev] = set()
+                delta[prev].add(this)
+
+                if not (prev, this) in delta_param:
+                    delta_param[(prev, this)] = set()
+                param_dict["#"] = n_seen[prev]
+                param_str = utils.param_dict_to_str(param_dict)
+                delta_param[(prev, this)].add(param_str)
+
+                prev = this
+                prev_i = i + 1
+
+                total_latency_us += observations[i]["attribute"].get("latency_us", 0)
+
+                # must happen after setting param_dict["#"] in case this == prev
                 if this in n_seen:
                     if n_seen[this] == 1:
                         logger.debug(
@@ -214,24 +233,6 @@ class SDKBehaviourModel:
                     n_seen[this] += 1
                 else:
                     n_seen[this] = 1
-
-                if self.unroll_loops:
-                    this = this + " #" + str(n_seen[this])
-
-                if not prev in delta:
-                    delta[prev] = set()
-                delta[prev].add(this)
-
-                if not (prev, this) in delta_param:
-                    delta_param[(prev, this)] = set()
-                param_dict["#"] = n_seen.get(prev, 1)
-                param_str = utils.param_dict_to_str(param_dict)
-                delta_param[(prev, this)].add(param_str)
-
-                prev = this
-                prev_i = i + 1
-
-                total_latency_us += observations[i]["attribute"].get("latency_us", 0)
 
                 meta_observations.append(
                     {
@@ -253,13 +254,8 @@ class SDKBehaviourModel:
             for i in range(prev_i, kernel.offset):
                 this = observations[i]["name"] + " @ " + observations[i]["place"]
 
-                if this in n_seen_kernel:
-                    n_seen_kernel[this] += 1
-                else:
-                    n_seen_kernel[this] = 1
-
                 if self.unroll_loops:
-                    this = this + " #" + str(n_seen_kernel[this])
+                    this = this + " #" + str(n_seen_kernel.get(this, 0) + 1)
 
                 if not prev in delta:
                     delta[prev] = set()
@@ -270,6 +266,12 @@ class SDKBehaviourModel:
                 param_dict["#"] = n_seen_kernel.get(prev, n_seen.get(prev))
                 param_str = utils.param_dict_to_str(param_dict)
                 delta_param[(prev, this)].add(param_str)
+
+                # must happen after setting param_dict["#"] in case this == prev
+                if this in n_seen_kernel:
+                    n_seen_kernel[this] += 1
+                else:
+                    n_seen_kernel[this] = 1
 
                 # The last iteration (next block) contains a single kernel,
                 # so we do not increase total_latency_us here.
@@ -302,17 +304,8 @@ class SDKBehaviourModel:
         for i in range(prev_i, annotation.end.offset):
             this = observations[i]["name"] + " @ " + observations[i]["place"]
 
-            if this in n_seen:
-                if n_seen[this] == 1:
-                    logger.debug(
-                        f"Loop found in {annotation.start.name} {param_dict}: {this} ⟳"
-                    )
-                n_seen[this] += 1
-            else:
-                n_seen[this] = 1
-
             if self.unroll_loops:
-                this = this + " #" + str(n_seen[this])
+                this = this + " #" + str(n_seen.get(this, 0) + 1)
 
             if not prev in delta:
                 delta[prev] = set()
@@ -325,6 +318,16 @@ class SDKBehaviourModel:
             delta_param[(prev, this)].add(param_str)
 
             total_latency_us += observations[i]["attribute"].get("latency_us", 0)
+
+            # must happen after setting param_dict["#"] in case this == prev
+            if this in n_seen:
+                if n_seen[this] == 1:
+                    logger.debug(
+                        f"Loop found in {annotation.start.name} {param_dict}: {this} ⟳"
+                    )
+                n_seen[this] += 1
+            else:
+                n_seen[this] = 1
 
             prev = this
 
