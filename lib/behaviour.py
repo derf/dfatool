@@ -138,8 +138,9 @@ class SDKBehaviourModel:
     def get_trace(self, name, in_param_dict):
         delta = self.delta_by_name[name]
         param_dict = in_param_dict.copy()
+        param_dict["#"] = 1
         current_state = "__init__"
-        trace = [current_state]
+        trace = [(current_state, param_dict.copy())]
         seen = dict()
         while current_state != "__end__":
             next_states = delta[current_state]
@@ -199,7 +200,7 @@ class SDKBehaviourModel:
 
             (next_state,) = next_states
 
-            trace.append(next_state)
+            trace.append((next_state, param_dict.copy()))
             current_state = next_state
 
         return trace
