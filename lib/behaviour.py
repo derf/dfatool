@@ -256,7 +256,7 @@ class SDKBehaviourModel:
 
                 meta_observations.append(
                     {
-                        "name": f"__trace__ {this}",
+                        "name": this,
                         "param": param_dict.copy(),
                         "attribute": dict(
                             filter(
@@ -308,7 +308,7 @@ class SDKBehaviourModel:
 
                 meta_observations.append(
                     {
-                        "name": f"__trace__ {this}",
+                        "name": this,
                         "param": param_dict.copy(),
                         "attribute": dict(
                             filter(
@@ -353,7 +353,7 @@ class SDKBehaviourModel:
 
             meta_observations.append(
                 {
-                    "name": f"__trace__ {this}",
+                    "name": this,
                     "param": param_dict.copy(),
                     "attribute": dict(
                         filter(
