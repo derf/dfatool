@@ -451,6 +451,11 @@ class AnalyticModel:
             if "param" in kwargs and model_function.is_predictable(kwargs["param"]):
                 return model_function.eval(kwargs["param"])
 
+            if "param" in kwargs and type(kwargs["param"]) not in (list, tuple):
+                raise ValueError(
+                    f"""'param' type must be list or tuple, is {type(kwargs["param"])}"""
+                )
+
             if "params" in kwargs:
                 if model_function.has_eval_arr and (
                     model_function.always_predictable
