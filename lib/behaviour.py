@@ -166,7 +166,7 @@ class SDKBehaviourModel:
                                 break
                             if (
                                 equality == "=="
-                                and type(value) in (float, int)
+                                and type(value) in (float, int, str)
                                 and not param_dict[key] == value
                             ):
                                 valid = False
@@ -258,12 +258,7 @@ class SDKBehaviourModel:
                     {
                         "name": this,
                         "param": param_dict.copy(),
-                        "attribute": dict(
-                            filter(
-                                lambda kv: not kv[0].startswith("e_"),
-                                observations[i]["param"].items(),
-                            )
-                        ),
+                        "attribute": observations[i]["param"],
                     }
                 )
             prev_non_kernel = prev
@@ -310,12 +305,7 @@ class SDKBehaviourModel:
                     {
                         "name": this,
                         "param": param_dict.copy(),
-                        "attribute": dict(
-                            filter(
-                                lambda kv: not kv[0].startswith("e_"),
-                                observations[i]["param"].items(),
-                            )
-                        ),
+                        "attribute": observations[i]["param"],
                     }
                 )
 
@@ -355,12 +345,7 @@ class SDKBehaviourModel:
                 {
                     "name": this,
                     "param": param_dict.copy(),
-                    "attribute": dict(
-                        filter(
-                            lambda kv: not kv[0].startswith("e_"),
-                            observations[i]["param"].items(),
-                        )
-                    ),
+                    "attribute": observations[i]["param"],
                 }
             )
 
