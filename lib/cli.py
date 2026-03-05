@@ -180,7 +180,7 @@ def print_splitinfo(info, prefix=""):
 
 def print_model(prefix, info, num_format=".2f"):
     if type(info) is df.StaticFunction:
-        print_staticinfo(prefix, info, num_format=fnum_ormat)
+        print_staticinfo(prefix, info, num_format=num_format)
     elif type(info) is df.AnalyticFunction:
         print_analyticinfo(prefix, info, num_format=num_format)
     elif type(info) is df.FOLFunction:
