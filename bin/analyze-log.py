@@ -129,8 +129,14 @@ def main():
 
     ts = time.time()
     if args.load_json:
-        with open(args.load_json, "r") as f:
-            model = AnalyticModel.from_json(json.load(f), by_name, parameter_names)
+        if args.load_json.endswith(".xz"):
+            import lzma
+
+            with lzma.open(args.load_json, "rt") as f:
+                model = AnalyticModel.from_json(json.load(f), by_name, parameter_names)
+        else:
+            with open(args.load_json, "r") as f:
+                model = AnalyticModel.from_json(json.load(f), by_name, parameter_names)
     else:
         model = AnalyticModel(
             by_name,
@@ -311,10 +317,18 @@ def main():
     if args.export_model:
         print(f"Exporting model to {args.export_model}")
         json_model = model.to_json(with_by_param=args.export_model_with_lut)
-        with open(args.export_model, "w") as f:
-            json.dump(
-                json_model, f, indent=2, sort_keys=True, cls=dfatool.utils.NpEncoder
-            )
+        if args.export_model.endswith(".xz"):
+            import lzma
+
+            with lzma.open(args.export_model, "wt") as f:
+                json.dump(
+                    json_model, f, indent=2, sort_keys=True, cls=dfatool.utils.NpEncoder
+                )
+        else:
+            with open(args.export_model, "w") as f:
+                json.dump(
+                    json_model, f, indent=2, sort_keys=True, cls=dfatool.utils.NpEncoder
+                )
 
     if args.export_dot:
         dfatool.cli.export_dot(model, args.export_dot)
