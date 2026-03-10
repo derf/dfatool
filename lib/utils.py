@@ -770,15 +770,15 @@ def regression_measures(predicted: np.ndarray, ground_truth: np.ndarray):
     else:
         measures["mape"] = np.nan
 
-    if np.all(np.abs(predicted) + np.abs(ground_truth) != 0):
-        measures["smape"] = (
-            np.mean(
-                np.abs(deviations) / ((np.abs(predicted) + np.abs(ground_truth)) / 2)
-            )
-            * 100
-        )
-    else:
-        measures["smape"] = np.nan
+    if np.any(np.abs(predicted) + np.abs(ground_truth) == 0):
+        for i in range(len(predicted)):
+            if predicted[i] == 0 and ground_truth[i] == 0:
+                predicted[i] = ground_truth[i] = 1
+
+    measures["smape"] = (
+        np.mean(np.abs(deviations) / ((np.abs(predicted) + np.abs(ground_truth)) / 2))
+        * 100
+    )
 
     return measures
 
