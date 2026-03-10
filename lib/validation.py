@@ -228,6 +228,7 @@ class CrossValidator:
             else:
                 title = "Model XV"
             bar = Bar(title, max=len(training_and_validation_sets))
+            bar.start()
 
         for name in self.names:
             ret[name] = dict()
@@ -238,8 +239,6 @@ class CrossValidator:
                 }
 
         for training_and_validation_by_name in training_and_validation_sets:
-            if self.show_progress:
-                bar.next()
             model, (res, raw) = self._single_xv(
                 model_getter, training_and_validation_by_name, static=static
             )
@@ -252,6 +251,8 @@ class CrossValidator:
                     ret[name][attribute]["modelOutput"].extend(
                         raw[name]["attribute"][attribute]["modelOutput"]
                     )
+            if self.show_progress:
+                bar.next()
         if self.show_progress:
             bar.finish()
 
