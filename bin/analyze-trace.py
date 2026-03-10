@@ -14,7 +14,7 @@ import dfatool.functions as df
 from dfatool.behaviour import SDKBehaviourModel
 from dfatool.loader import Logfile
 from dfatool.model import AnalyticModel
-from dfatool.validation import CrossValidator
+from dfatool.validation import CrossValidator, _xv_partitions_kfold
 from functools import reduce
 import logging
 import json
@@ -23,16 +23,24 @@ import sys
 import time
 
 
-def parse_logfile(filename):
+def parse_trace(filename):
+    return _parse_logfile(filename, is_trace=True)
+
+
+def parse_log(filename):
+    return _parse_logfile(filename, is_trace=False)
+
+
+def _parse_logfile(filename, is_trace):
     loader = Logfile()
 
     if filename.endswith("xz"):
         import lzma
 
         with lzma.open(filename, "rt") as f:
-            return loader.load(f, is_trace=True)
+            return loader.load(f, is_trace=is_trace)
     with open(filename, "r") as f:
-        return loader.load(f, is_trace=True)
+        return loader.load(f, is_trace=is_trace)
 
 
 def join_annotations(ref, base, new):
@@ -78,12 +86,73 @@ def format_guard(guard):
     return "∧".join(map(lambda kv: format_condition(*kv), guard))
 
 
+def get_expected_trace(bm, observations, annotation):
+    if annotation.kernels:
+        expected_trace = (
+            observations[annotation.start.offset : annotation.kernels[0].offset]
+            + observations[annotation.kernels[-1].offset : annotation.end.offset]
+        )
+    else:
+        expected_trace = observations[annotation.start.offset : annotation.end.offset]
+    return expected_trace
+
+
+def assess_trace(bm, observations, annotation):
+    predicted_trace = bm.get_trace(annotation.start.name, annotation.end.param)
+    predicted_trace = list(map(lambda edge_param: edge_param[0], predicted_trace))
+    expected_trace = get_expected_trace(bm, observations, annotation)
+    expected_trace = (
+        ["__init__"]
+        + list(
+            map(
+                lambda entry: f"""{entry["name"]} @ {entry["place"]}""",
+                expected_trace,
+            )
+        )
+        + ["__end__"]
+    )
+    return expected_trace == predicted_trace
+
+
+def assess_trace_args(
+    bm,
+    wfcfg_model,
+    function_model,
+    observations,
+    annotation,
+    bm_param_names,
+    fun_param_names,
+):
+    predicted_trace = bm.get_trace(annotation.start.name, annotation.end.param)
+    expected_trace = ["__init__"] + get_expected_trace(bm, observations, annotation)
+    predicted_args = list()
+    expected_args = list()
+    for i, (callsite, param) in enumerate(predicted_trace):
+        if not " @ " in callsite:
+            continue
+        call, _ = callsite.split(" @ ")
+        workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
+        for arg_name, expected_value in expected_trace[i]["param"].items():
+            predicted_value = round(
+                wfcfg_model(callsite, arg_name, param=workload_tuple)
+            )
+            predicted_args.append(predicted_value)
+            expected_args.append(expected_value)
+
+    return predicted_args, expected_args
+
+
 def main():
     timing = dict()
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
     )
     dfatool.cli.add_standard_arguments(parser)
+    parser.add_argument(
+        "--with-function-models",
+        action="store_true",
+        help="Learn and evaluate function-level prediction models as well",
+    )
     parser.add_argument(
         "--show-wfcfg",
         action="store_true",
@@ -99,6 +168,15 @@ def main():
     args = parser.parse_args()
     dfatool.cli.sanity_check(args)
 
+    if args.ignore_param:
+        args.ignore_param = args.ignore_param.split(",")
+    else:
+        args.ignore_param = list()
+
+    def pprint(msg):
+        if args.progress:
+            print(f"{msg} ...")
+
     if args.log_level:
         numeric_level = getattr(logging, args.log_level.upper(), None)
         if not isinstance(numeric_level, int):
@@ -110,11 +188,33 @@ def main():
             style="{",
         )
 
+    #
+    # Model for function call arguments → latency
+    #
+
+    if args.with_function_models:
+        pprint("Loading traces for per-function performance models")
+        observations = reduce(
+            lambda a, b: a + b,
+            map(parse_log, args.logfiles),
+        )
+        pprint("Parsing traces for per-function performance models")
+        function_by_name, function_parameter_names = (
+            dfatool.utils.observations_to_by_name(observations)
+        )
+
+    pprint("Loading traces for behaviour model")
     observations, annotations = reduce(
         lambda a, b: (a[0] + b[0], join_annotations(a[0], a[1], b[1])),
-        map(parse_logfile, args.logfiles),
+        map(parse_trace, args.logfiles),
     )
 
+    if args.ignore_param:
+        for observation in observations:
+            for arg in args.ignore_param:
+                observation["param"].pop(arg, None)
+
+    pprint("Building FCFG (states, edges, feature guards)")
     bm = SDKBehaviourModel(observations, annotations, unroll_loops=args.unroll_loops)
 
     if args.show_wfcfg:
@@ -158,42 +258,57 @@ def main():
 
                 print("")
 
+    #
+    # Model for workload → function call arguments
+    #
+
+    pprint("Parsing traces for behaviour model")
     by_name, parameter_names = dfatool.utils.observations_to_by_name(
         bm.meta_observations
     )
-    del bm.meta_observations
+    bm.cleanup()
+    pprint("Building WFCFG (argument prediction)")
     model = AnalyticModel(by_name, parameter_names)
-    if args.ignore_param:
-        args.ignore_param = args.ignore_param.split(",")
 
-    if args.filter_observation:
-        args.filter_observation = list(
-            map(lambda x: tuple(x.split(":")), args.filter_observation.split(","))
+    if args.with_function_models:
+        pprint("Building CART for function performance prediction")
+        dfatool.utils.ignore_param(
+            function_by_name, function_parameter_names, args.ignore_param
         )
-
-    if args.filter_param:
-        args.filter_param = list(
-            map(
-                lambda entry: dfatool.cli.parse_filter_string(
-                    entry, parameter_names=parameter_names
-                ),
-                args.filter_param.split(";"),
-            )
+        function_model = AnalyticModel(
+            function_by_name, function_parameter_names, model_type="cart"
         )
-    else:
-        args.filter_param = list()
+        function_cart, _ = function_model.get_fitted()
 
-    dfatool.utils.filter_aggregate_by_param(by_name, parameter_names, args.filter_param)
-    dfatool.utils.filter_aggregate_by_observation(by_name, args.filter_observation)
-    dfatool.utils.ignore_param(by_name, parameter_names, args.ignore_param)
+    # BM-specific
+    n_correct = 0
+    n_wrong = 0
+    for annotation in annotations:
+        if assess_trace(bm, observations, annotation):
+            n_correct += 1
+        else:
+            n_wrong += 1
+    print(
+        f"{n_correct / (n_correct + n_wrong) * 100 :.1f}% of training traces predicted correctly"
+    )
 
-    if args.param_shift:
-        param_shift = dfatool.cli.parse_param_shift(args.param_shift)
-        dfatool.utils.shift_param_in_aggregate(by_name, parameter_names, param_shift)
-
-    if args.normalize_nfp:
-        norm = dfatool.cli.parse_nfp_normalization(args.normalize_nfp)
-        dfatool.utils.normalize_nfp_in_aggregate(by_name, norm)
+    n_correct = 0
+    n_wrong = 0
+    for training, validation in _xv_partitions_kfold(len(annotations)):
+        training_annotations = list(map(lambda i: annotations[i], training))
+        validation_annotations = list(map(lambda i: annotations[i], validation))
+        bm_xv = SDKBehaviourModel(observations, training_annotations)
+        bm_xv.cleanup()
+        for annotation in validation_annotations:
+            if assess_trace(bm_xv, observations, annotation):
+                n_correct += 1
+            else:
+                n_wrong += 1
+        del bm_xv
+    print(
+        f"{n_correct / (n_correct + n_wrong) * 100 :.1f}% of validation traces predicted correctly"
+    )
+    # /BM-specific
 
     ts = time.time()
     if args.load_json:
@@ -297,6 +412,20 @@ def main():
     ts = time.time()
     param_model, param_info = model.get_fitted()
     timing["get model"] = time.time() - ts
+
+    if args.with_function_models:
+        pred_args, exp_args = assess_trace_args(
+            bm,
+            param_model,
+            function_cart,
+            observations,
+            annotations[0],
+            parameter_names,
+            function_parameter_names,
+        )
+        arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
+        smape = arg_err["smape"]
+        print(f"{smape:.1f}% training callsite argument prediction error")
 
     ts = time.time()
     if xv_method == "montecarlo":
