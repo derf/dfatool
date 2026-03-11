@@ -28,7 +28,7 @@ def parse_trace(filename):
 
 
 def parse_log(filename):
-    return _parse_logfile(filename, is_trace=False)
+    return _parse_logfile(filename, is_trace=True)[0]
 
 
 def _parse_logfile(filename, is_trace):
@@ -140,6 +140,57 @@ def assess_trace_args(
             expected_args.append(expected_value)
 
     return predicted_args, expected_args
+
+
+def assess_trace_nfps(
+    bm,
+    wfcfg_model,
+    function_model,
+    observations,
+    annotation,
+    bm_param_names,
+    fun_param_names,
+):
+    predicted_trace = bm.get_trace(annotation.start.name, annotation.end.param)
+    expected_trace = ["__init__"] + get_expected_trace(bm, observations, annotation)
+
+    # Baseline: NFP value predicted using function_model and expected_trace[i]["param"][arg_name]
+    base_attr = dict()
+
+    # Prediction: NFP value predicted using function_model and wfcfg_model
+    pred_attr = dict()
+
+    # Expectation: NFP value observed in ground truth
+    exp_attr = dict()
+    for i, (callsite, param) in enumerate(predicted_trace):
+        if not " @ " in callsite:
+            continue
+        call, _ = callsite.split(" @ ")
+        workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
+        base_param = dict()
+        call_param = dict()
+        for arg_name, arg_value in expected_trace[i]["param"].items():
+            base_param[arg_name] = arg_value
+            call_param[arg_name] = round(
+                wfcfg_model(callsite, arg_name, param=workload_tuple)
+            )
+        base_param_tuple = tuple(
+            dfatool.utils.param_dict_to_list(base_param, fun_param_names)
+        )
+        pred_param_tuple = tuple(
+            dfatool.utils.param_dict_to_list(call_param, fun_param_names)
+        )
+        for attr_name, expected_value in expected_trace[i]["attribute"].items():
+            baseline_value = function_model(call, attr_name, param=base_param_tuple)
+            predicted_value = function_model(call, attr_name, param=pred_param_tuple)
+            if attr_name not in pred_attr:
+                base_attr[attr_name] = list()
+                pred_attr[attr_name] = list()
+                exp_attr[attr_name] = list()
+            base_attr[attr_name].append(baseline_value)
+            pred_attr[attr_name].append(predicted_value)
+            exp_attr[attr_name].append(expected_value)
+    return base_attr, pred_attr, exp_attr
 
 
 def main():
@@ -454,6 +505,39 @@ def main():
         arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
         smape = arg_err["smape"]
         print(f"{smape:.1f}% validation callsite argument prediction error")
+
+        base_attr = dict()
+        pred_attr = dict()
+        exp_attr = dict()
+        for annotation in annotations:
+            a_base_attr, a_pred_attr, a_exp_attr = assess_trace_nfps(
+                bm,
+                param_model,
+                function_cart,
+                observations,
+                annotation,
+                parameter_names,
+                function_parameter_names,
+            )
+            for attr_name in a_pred_attr.keys():
+                if attr_name not in pred_attr:
+                    base_attr[attr_name] = list()
+                    pred_attr[attr_name] = list()
+                    exp_attr[attr_name] = list()
+                base_attr[attr_name] += a_base_attr[attr_name]
+                pred_attr[attr_name] += a_pred_attr[attr_name]
+                exp_attr[attr_name] += a_exp_attr[attr_name]
+        for attr_name in pred_attr.keys():
+            arg_err = dfatool.utils.regression_measures(
+                base_attr[attr_name], exp_attr[attr_name]
+            )
+            smape = arg_err["smape"]
+            print(f"{smape:.1f}% baseline {attr_name} prediction error")
+            arg_err = dfatool.utils.regression_measures(
+                pred_attr[attr_name], exp_attr[attr_name]
+            )
+            smape = arg_err["smape"]
+            print(f"{smape:.1f}% training {attr_name} prediction error")
 
     ts = time.time()
     if xv_method == "montecarlo":
