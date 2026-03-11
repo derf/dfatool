@@ -127,9 +127,13 @@ def assess_trace_args(
     expected_trace = ["__init__"] + get_expected_trace(bm, observations, annotation)
     predicted_args = list()
     expected_args = list()
+    reliable = True
     for i, (callsite, param) in enumerate(predicted_trace):
         if not " @ " in callsite:
             continue
+        if i >= len(expected_trace):
+            reliable = False
+            break
         call, _ = callsite.split(" @ ")
         workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
         for arg_name, expected_value in expected_trace[i]["param"].items():
@@ -139,7 +143,7 @@ def assess_trace_args(
             predicted_args.append(predicted_value)
             expected_args.append(expected_value)
 
-    return predicted_args, expected_args
+    return predicted_args, expected_args, reliable
 
 
 def assess_trace_nfps(
@@ -153,6 +157,7 @@ def assess_trace_nfps(
 ):
     predicted_trace = bm.get_trace(annotation.start.name, annotation.end.param)
     expected_trace = ["__init__"] + get_expected_trace(bm, observations, annotation)
+    reliable = True
 
     # Baseline: NFP value predicted using function_model and expected_trace[i]["param"][arg_name]
     base_attr = dict()
@@ -165,6 +170,9 @@ def assess_trace_nfps(
     for i, (callsite, param) in enumerate(predicted_trace):
         if not " @ " in callsite:
             continue
+        if i >= len(expected_trace):
+            reliable = False
+            break
         call, _ = callsite.split(" @ ")
         workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
         base_param = dict()
@@ -190,7 +198,7 @@ def assess_trace_nfps(
             base_attr[attr_name].append(baseline_value)
             pred_attr[attr_name].append(predicted_value)
             exp_attr[attr_name].append(expected_value)
-    return base_attr, pred_attr, exp_attr
+    return base_attr, pred_attr, exp_attr, reliable
 
 
 def main():
@@ -467,8 +475,9 @@ def main():
     if args.with_function_models:
         exp_args = list()
         pred_args = list()
+        ok = True
         for annotation in annotations:
-            pred, exp = assess_trace_args(
+            pred, exp, ok = assess_trace_args(
                 bm,
                 param_model,
                 function_cart,
@@ -479,19 +488,23 @@ def main():
             )
             pred_args += pred
             exp_args += exp
+            if not ok:
+                ok = False
         arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
         smape = arg_err["smape"]
-        print(f"{smape:.1f}% training callsite argument prediction error")
+        annot = "(reliable)" if ok else "(UNRELIABLE)"
+        print(f"{smape:.1f}% training callsite argument prediction error {annot}")
 
         pred_args = list()
         exp_args = list()
+        ok = True
         for training, validation in _xv_partitions_kfold(len(annotations)):
             training_annotations = list(map(lambda i: annotations[i], training))
             validation_annotations = list(map(lambda i: annotations[i], validation))
             bm_xv = SDKBehaviourModel(observations, training_annotations)
             bm_xv.cleanup()
             for annotation in validation_annotations:
-                pred, exp = assess_trace_args(
+                pred, exp, ok = assess_trace_args(
                     bm_xv,
                     param_model,
                     function_cart,
@@ -502,15 +515,22 @@ def main():
                 )
                 pred_args += pred
                 exp_args += exp
+                if not ok:
+                    ok = False
         arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
         smape = arg_err["smape"]
-        print(f"{smape:.1f}% validation callsite argument prediction error")
+        annot = "(reliable)" if ok else "(UNRELIABLE)"
+        print(f"{smape:.1f}% validation callsite argument prediction error {annot}")
 
         base_attr = dict()
         pred_attr = dict()
         exp_attr = dict()
+        val_pred_attr = dict()
+        val_exp_attr = dict()
+        t_ok = True
+        v_ok = True
         for annotation in annotations:
-            a_base_attr, a_pred_attr, a_exp_attr = assess_trace_nfps(
+            a_base_attr, a_pred_attr, a_exp_attr, ok = assess_trace_nfps(
                 bm,
                 param_model,
                 function_cart,
@@ -519,6 +539,8 @@ def main():
                 parameter_names,
                 function_parameter_names,
             )
+            if not ok:
+                t_ok = False
             for attr_name in a_pred_attr.keys():
                 if attr_name not in pred_attr:
                     base_attr[attr_name] = list()
@@ -527,17 +549,51 @@ def main():
                 base_attr[attr_name] += a_base_attr[attr_name]
                 pred_attr[attr_name] += a_pred_attr[attr_name]
                 exp_attr[attr_name] += a_exp_attr[attr_name]
+
+        for training, validation in _xv_partitions_kfold(len(annotations)):
+            training_annotations = list(map(lambda i: annotations[i], training))
+            validation_annotations = list(map(lambda i: annotations[i], validation))
+            bm_xv = SDKBehaviourModel(observations, training_annotations)
+            bm_xv.cleanup()
+            for annotation in validation_annotations:
+                _, a_pred_attr, a_exp_attr, ok = assess_trace_nfps(
+                    bm_xv,
+                    param_model,
+                    function_cart,
+                    observations,
+                    annotation,
+                    parameter_names,
+                    function_parameter_names,
+                )
+                if not ok:
+                    v_ok = False
+                for attr_name in a_pred_attr.keys():
+                    if attr_name not in val_pred_attr:
+                        val_pred_attr[attr_name] = list()
+                        val_exp_attr[attr_name] = list()
+                    val_pred_attr[attr_name] += a_pred_attr[attr_name]
+                    val_exp_attr[attr_name] += a_exp_attr[attr_name]
+
         for attr_name in pred_attr.keys():
+            print()
             arg_err = dfatool.utils.regression_measures(
                 base_attr[attr_name], exp_attr[attr_name]
             )
             smape = arg_err["smape"]
-            print(f"{smape:.1f}% baseline {attr_name} prediction error")
+            print(f"{smape:5.1f}%   baseline {attr_name} prediction error")
             arg_err = dfatool.utils.regression_measures(
                 pred_attr[attr_name], exp_attr[attr_name]
             )
             smape = arg_err["smape"]
-            print(f"{smape:.1f}% training {attr_name} prediction error")
+            annot = "(reliable)" if t_ok else "(UNRELIABLE)"
+            print(f"{smape:5.1f}%   training {attr_name} prediction error {annot}")
+            arg_err = dfatool.utils.regression_measures(
+                val_pred_attr[attr_name], val_exp_attr[attr_name]
+            )
+            smape = arg_err["smape"]
+            annot = "(reliable)" if v_ok else "(UNRELIABLE)"
+            print(f"{smape:5.1f}% validation {attr_name} prediction error {annot}")
+        print()
 
     ts = time.time()
     if xv_method == "montecarlo":
