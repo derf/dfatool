@@ -200,14 +200,16 @@ class SDKBehaviourModel:
                 logger.error(f"    trace = {trace}")
                 for candidate in self.transition_guard[current_state]:
                     logger.error(f"    candidate {candidate}")
-                raise RuntimeError("found no valid outbound transitions")
+                # raise RuntimeError("found no valid outbound transitions")
+                next_states = ["__end__"]
             if len(next_states) > 1:
                 logger.error(
                     f"get_trace({name}, {param_dict}): found non-deterministic outbound transitions"
                 )
                 logger.error(f"    trace = {trace}")
                 logger.error(f"    candidates = {next_states}")
-                raise RuntimeError("found non-deterministic outbound transitions")
+                #  raise RuntimeError("found non-deterministic outbound transitions")
+                next_states = ["__end__"]
 
             (next_state,) = next_states
 
