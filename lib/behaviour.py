@@ -152,6 +152,10 @@ class SDKBehaviourModel:
                     f"get_trace({name}, {in_param_dict}): no outbound edges at {trace}"
                 )
 
+            # self.transition_guard[current_state] = φ₁ ∨ φ₂ ∨ … (disjunction)
+            # Each condition ∈ self.transition_guard[current_state] = φ₁ ∧ φ₂ ∧ … (conjunction)
+            # → as soon as we have found a valid condition, we're good (and can short-circuit)
+
             if len(next_states) > 1 and self.transition_guard[current_state]:
                 matching_next_states = list()
                 for candidate in next_states:
