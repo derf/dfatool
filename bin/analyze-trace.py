@@ -414,18 +414,46 @@ def main():
     timing["get model"] = time.time() - ts
 
     if args.with_function_models:
-        pred_args, exp_args = assess_trace_args(
-            bm,
-            param_model,
-            function_cart,
-            observations,
-            annotations[0],
-            parameter_names,
-            function_parameter_names,
-        )
+        exp_args = list()
+        pred_args = list()
+        for annotation in annotations:
+            pred, exp = assess_trace_args(
+                bm,
+                param_model,
+                function_cart,
+                observations,
+                annotation,
+                parameter_names,
+                function_parameter_names,
+            )
+            pred_args += pred
+            exp_args += exp
         arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
         smape = arg_err["smape"]
         print(f"{smape:.1f}% training callsite argument prediction error")
+
+        pred_args = list()
+        exp_args = list()
+        for training, validation in _xv_partitions_kfold(len(annotations)):
+            training_annotations = list(map(lambda i: annotations[i], training))
+            validation_annotations = list(map(lambda i: annotations[i], validation))
+            bm_xv = SDKBehaviourModel(observations, training_annotations)
+            bm_xv.cleanup()
+            for annotation in validation_annotations:
+                pred, exp = assess_trace_args(
+                    bm_xv,
+                    param_model,
+                    function_cart,
+                    observations,
+                    annotation,
+                    parameter_names,
+                    function_parameter_names,
+                )
+                pred_args += pred
+                exp_args += exp
+        arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
+        smape = arg_err["smape"]
+        print(f"{smape:.1f}% validation callsite argument prediction error")
 
     ts = time.time()
     if xv_method == "montecarlo":
