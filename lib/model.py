@@ -88,6 +88,7 @@ class AnalyticModel:
         max_std=None,
         by_param=None,
         from_json=None,
+        model_type="rmt",
     ):
         """
         Create a new AnalyticModel and compute parameter statistics.
@@ -130,6 +131,7 @@ class AnalyticModel:
         self.attr_by_name = dict()
         self.names = sorted(by_name.keys())
         self.parameters = sorted(parameters)
+        self.model_type = model_type
 
         if from_json:
             self.function_override = dict()
@@ -327,7 +329,7 @@ class AnalyticModel:
 
     def build_fitted(self, safe_functions_enabled=False, rmt_threshold=None):
 
-        model_type = os.getenv("DFATOOL_MODEL", "rmt")
+        model_type = os.getenv("DFATOOL_MODEL", self.model_type)
 
         if model_type != "rmt" and model_type != "uls":
             for name in self.names:
