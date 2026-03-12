@@ -502,7 +502,7 @@ def main():
         arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
         smape = arg_err["smape"]
         annot = "(reliable)" if ok else "(UNRELIABLE)"
-        trace_dref["callsite-arg/accuracy/training"] = smape
+        trace_dref["callsite-arg/error/training/smape"] = smape
         print(f"{smape:.1f}% training callsite argument prediction error {annot}")
 
         pred_args = list()
@@ -530,7 +530,7 @@ def main():
         arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
         smape = arg_err["smape"]
         annot = "(reliable)" if ok else "(UNRELIABLE)"
-        trace_dref["callsite-arg/accuracy/validation"] = smape
+        trace_dref["callsite-arg/error/validation/smape"] = smape
         print(f"{smape:.1f}% validation callsite argument prediction error {annot}")
 
         base_attr = dict()
@@ -587,25 +587,34 @@ def main():
 
         for attr_name in pred_attr.keys():
             print()
+
             arg_err = dfatool.utils.regression_measures(
                 base_attr[attr_name], exp_attr[attr_name]
             )
-            smape = arg_err["smape"]
-            trace_dref[f"nfp/error/{attr_name}/baseline"] = smape
-            print(f"{smape:5.1f}%   baseline {attr_name} prediction error")
+            smape_base = arg_err["smape"]
+            trace_dref[f"nfp/error/{attr_name}/baseline/smape"] = smape_base
+            print(f"{smape_base:5.1f}%   baseline {attr_name} prediction error")
+
             arg_err = dfatool.utils.regression_measures(
                 pred_attr[attr_name], exp_attr[attr_name]
             )
             smape = arg_err["smape"]
             annot = "(reliable)" if t_ok else "(UNRELIABLE)"
-            trace_dref[f"nfp/error/{attr_name}/training"] = smape
+            trace_dref[f"nfp/error/{attr_name}/training/smape"] = smape
+            trace_dref[f"nfp/error/{attr_name}/trainingOverBaseline/smape"] = (
+                smape - smape_base
+            )
             print(f"{smape:5.1f}%   training {attr_name} prediction error {annot}")
+
             arg_err = dfatool.utils.regression_measures(
                 val_pred_attr[attr_name], val_exp_attr[attr_name]
             )
             smape = arg_err["smape"]
             annot = "(reliable)" if v_ok else "(UNRELIABLE)"
-            trace_dref[f"nfp/error/{attr_name}/validation"] = smape
+            trace_dref[f"nfp/error/{attr_name}/validation/smape"] = smape
+            trace_dref[f"nfp/error/{attr_name}/validationOverBaseline/smape"] = (
+                smape - smape_base
+            )
             print(f"{smape:5.1f}% validation {attr_name} prediction error {annot}")
         print()
 
