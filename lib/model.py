@@ -853,7 +853,7 @@ class PTAModel(AnalyticModel):
         )
         self.states_and_transitions = self.states + self.transitions
         self.dtree_max_std = dtree_max_std
-        sefl.model_type = model_type
+        self.model_type = model_type
 
         self._parameter_names = sorted(parameters)
         self.parameters = sorted(parameters)
