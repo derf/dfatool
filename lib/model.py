@@ -808,6 +808,7 @@ class PTAModel(AnalyticModel):
         compute_stats=True,
         dtree_max_std=None,
         force_tree=False,
+        model_type="rmt",
     ):
         """
         Prepare a new PTA energy model.
@@ -852,6 +853,7 @@ class PTAModel(AnalyticModel):
         )
         self.states_and_transitions = self.states + self.transitions
         self.dtree_max_std = dtree_max_std
+        sefl.model_type = model_type
 
         self._parameter_names = sorted(parameters)
         self.parameters = sorted(parameters)
