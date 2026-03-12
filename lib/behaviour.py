@@ -50,6 +50,12 @@ class SDKBehaviourModel:
 
         self.build_transition_guards()
 
+    def cleanup(self):
+        # del self.am_tt_param_names
+        # del self.delta_by_name
+        # del self.delta_param_by_name
+        del self.meta_observations
+
     def build_transition_guards(self):
         self.transition_guard = dict()
         for name in sorted(self.delta_by_name.keys()):
