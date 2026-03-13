@@ -281,7 +281,12 @@ def main():
                 observation["param"].pop(arg, None)
 
     pprint("Building FCFG (states, edges, feature guards)")
-    bm = SDKBehaviourModel(observations, annotations, unroll_loops=args.unroll_loops)
+    bm = SDKBehaviourModel(
+        observations,
+        annotations,
+        unroll_loops=args.unroll_loops,
+        show_progress=args.progress,
+    )
 
     if args.show_wfcfg:
         for name in sorted(bm.delta_by_name.keys()):
@@ -368,7 +373,9 @@ def main():
     for training, validation in _xv_partitions_kfold(len(annotations)):
         training_annotations = list(map(lambda i: annotations[i], training))
         validation_annotations = list(map(lambda i: annotations[i], validation))
-        bm_xv = SDKBehaviourModel(observations, training_annotations)
+        bm_xv = SDKBehaviourModel(
+            observations, training_annotations, show_progress=args.progress
+        )
         bm_xv.cleanup()
         for annotation in validation_annotations:
             if assess_trace(bm_xv, observations, annotation):
@@ -518,7 +525,9 @@ def main():
         for training, validation in _xv_partitions_kfold(len(annotations)):
             training_annotations = list(map(lambda i: annotations[i], training))
             validation_annotations = list(map(lambda i: annotations[i], validation))
-            bm_xv = SDKBehaviourModel(observations, training_annotations)
+            bm_xv = SDKBehaviourModel(
+                observations, training_annotations, show_progress=args.progress
+            )
             bm_xv.cleanup()
             for annotation in validation_annotations:
                 pred, exp, ok = assess_trace_args(
@@ -585,7 +594,9 @@ def main():
         for training, validation in _xv_partitions_kfold(len(annotations)):
             training_annotations = list(map(lambda i: annotations[i], training))
             validation_annotations = list(map(lambda i: annotations[i], validation))
-            bm_xv = SDKBehaviourModel(observations, training_annotations)
+            bm_xv = SDKBehaviourModel(
+                observations, training_annotations, show_progress=args.progress
+            )
             bm_xv.cleanup()
             for annotation in validation_annotations:
                 _, a_pred_attr, a_exp_attr, ok = assess_trace_nfps(

@@ -11,13 +11,22 @@ logger = logging.getLogger(__name__)
 
 class SDKBehaviourModel:
 
-    def __init__(self, observations, annotations, unroll_loops=False):
+    def __init__(
+        self, observations, annotations, unroll_loops=False, show_progress=False
+    ):
 
         self.unroll_loops = unroll_loops
+        self.show_progress = show_progress
 
         meta_observations = list()
         delta_by_name = dict()
         delta_param_by_name = dict()
+
+        if show_progress:
+            from progress.bar import Bar
+
+            bar = Bar("Build CFG", max=len(annotations))
+            bar.start()
 
         for annotation in annotations:
             # annotation.start.param may be incomplete, for instance in cases
@@ -42,6 +51,10 @@ class SDKBehaviourModel:
                 delta_param_by_name[annotation.name],
             )
             meta_observations += meta_obs
+            if self.show_progress:
+                bar.next()
+        if self.show_progress:
+            bar.finish()
 
         self.am_tt_param_names = am_tt_param_names
         self.delta_by_name = delta_by_name
@@ -58,6 +71,15 @@ class SDKBehaviourModel:
 
     def build_transition_guards(self):
         self.transition_guard = dict()
+
+        if self.show_progress:
+            from progress.bar import Bar
+
+            bar = Bar(
+                "Learn Feature Guards",
+                max=sum(map(lambda x: len(x.keys()), self.delta_by_name.values())),
+            )
+            bar.start()
         for name in sorted(self.delta_by_name.keys()):
             for t_from, t_to_set in self.delta_by_name[name].items():
                 i_to_transition = dict()
@@ -140,6 +162,10 @@ class SDKBehaviourModel:
                         transition_guard[transition_name].append(prefix)
 
                 self.transition_guard[t_from] = transition_guard
+                if self.show_progress:
+                    bar.next()
+        if self.show_progress:
+            bar.finish()
 
     def get_trace(self, name, in_param_dict):
         delta = self.delta_by_name[name]
