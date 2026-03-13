@@ -392,19 +392,6 @@ def main():
     )
     # /BM-specific
 
-    ts = time.time()
-    if args.load_json:
-        with open(args.load_json, "r") as f:
-            model = AnalyticModel.from_json(json.load(f), by_name, parameter_names)
-    else:
-        model = AnalyticModel(
-            by_name,
-            parameter_names,
-            force_tree=args.force_tree,
-            compute_stats=not args.skip_param_stats,
-        )
-    timing["AnalyticModel"] = time.time() - ts
-
     if args.info:
         dfatool.cli.print_info_by_name(model, by_name)
 
