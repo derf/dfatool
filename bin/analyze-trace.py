@@ -338,6 +338,17 @@ def main():
         bm.meta_observations
     )
     bm.cleanup()
+
+    if args.filter_observation:
+        args.filter_observation = list(
+            map(lambda x: tuple(x.split(":")), args.filter_observation.split(","))
+        )
+        dfatool.utils.filter_aggregate_by_observation(by_name, args.filter_observation)
+        if args.with_function_models:
+            logging.error(
+                "--with-function-models and --filter-observation are mutually exclusive"
+            )
+
     pprint("Building WFCFG (argument prediction)")
     model = AnalyticModel(by_name, parameter_names)
 
