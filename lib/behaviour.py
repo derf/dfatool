@@ -258,6 +258,7 @@ class SDKBehaviourModel:
         n_seen = {"__init__": 1}
 
         total_latency_us = 0
+        total_latency_ms = 0
 
         if sorted(annotation.start.param.keys()) == sorted(annotation.end.param.keys()):
             param_dict = annotation.start.param
@@ -288,6 +289,7 @@ class SDKBehaviourModel:
                 prev_i = i + 1
 
                 total_latency_us += observations[i]["attribute"].get("latency_us", 0)
+                total_latency_ms += observations[i]["attribute"].get("latency_ms", 0)
 
                 # must happen after setting param_dict["#"] in case this == prev
                 if this in n_seen:
@@ -373,6 +375,7 @@ class SDKBehaviourModel:
             delta_param[(prev, this)].add(param_str)
 
             total_latency_us += observations[i]["attribute"].get("latency_us", 0)
+            total_latency_ms += observations[i]["attribute"].get("latency_ms", 0)
 
             # must happen after setting param_dict["#"] in case this == prev
             if this in n_seen:
@@ -410,6 +413,15 @@ class SDKBehaviourModel:
                     "name": annotation.start.name,
                     "param": param_dict,
                     "attribute": {"latency_us": total_latency_us},
+                }
+            )
+        elif total_latency_ms:
+            param_dict.pop("#")
+            meta_observations.append(
+                {
+                    "name": annotation.start.name,
+                    "param": param_dict,
+                    "attribute": {"latency_ms": total_latency_ms},
                 }
             )
 
