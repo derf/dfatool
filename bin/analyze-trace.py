@@ -448,13 +448,13 @@ def main():
     timing["get model"] = time.time() - ts
 
     # BM
+    trace_dref = dict()
     if not args.filter_observation:
         n_correct = 0
         n_wrong = 0
         exp_args = list()
         pred_args = list()
         ok = True
-        trace_dref = dict()
         for annotation in annotations:
             is_correct, pred, exp, ok = assess_trace(
                 bm, param_model, observations, annotation, parameter_names
