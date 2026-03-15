@@ -103,7 +103,6 @@ def assess_trace(
     observations,
     annotation,
     bm_param_names,
-    fun_param_names,
 ):
     predicted_trace = bm.get_trace(annotation.start.name, annotation.end.param)
     expected_trace = get_expected_trace(bm, observations, annotation)
@@ -458,12 +457,7 @@ def main():
     trace_dref = dict()
     for annotation in annotations:
         is_correct, pred, exp, ok = assess_trace(
-            bm,
-            param_model,
-            observations,
-            annotation,
-            parameter_names,
-            function_parameter_names,
+            bm, param_model, observations, annotation, parameter_names
         )
         if is_correct:
             n_correct += 1
@@ -500,12 +494,7 @@ def main():
         bm_xv.cleanup()
         for annotation in validation_annotations:
             is_correct, pred, exp, ok = assess_trace(
-                bm_xv,
-                param_model,
-                observations,
-                annotation,
-                parameter_names,
-                function_parameter_names,
+                bm_xv, param_model, observations, annotation, parameter_names
             )
             if is_correct:
                 n_correct += 1
