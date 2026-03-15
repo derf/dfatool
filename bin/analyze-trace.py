@@ -97,11 +97,19 @@ def get_expected_trace(bm, observations, annotation):
     return expected_trace
 
 
-def assess_trace(bm, observations, annotation):
+def assess_trace(
+    bm,
+    wfcfg_model,
+    observations,
+    annotation,
+    bm_param_names,
+    fun_param_names,
+):
     predicted_trace = bm.get_trace(annotation.start.name, annotation.end.param)
-    predicted_trace = list(map(lambda edge_param: edge_param[0], predicted_trace))
     expected_trace = get_expected_trace(bm, observations, annotation)
-    expected_trace = (
+
+    predicted_calls = list(map(lambda edge_param: edge_param[0], predicted_trace))
+    expected_calls = (
         ["__init__"]
         + list(
             map(
@@ -111,39 +119,28 @@ def assess_trace(bm, observations, annotation):
         )
         + ["__end__"]
     )
-    return expected_trace == predicted_trace
 
+    is_correct = predicted_calls == expected_calls
 
-def assess_trace_args(
-    bm,
-    wfcfg_model,
-    function_model,
-    observations,
-    annotation,
-    bm_param_names,
-    fun_param_names,
-):
-    predicted_trace = bm.get_trace(annotation.start.name, annotation.end.param)
-    expected_trace = ["__init__"] + get_expected_trace(bm, observations, annotation)
     predicted_args = list()
     expected_args = list()
     reliable = True
     for i, (callsite, param) in enumerate(predicted_trace):
         if not " @ " in callsite:
             continue
-        if i >= len(expected_trace):
+        if i >= len(expected_trace) + 1:
             reliable = False
             break
         call, _ = callsite.split(" @ ")
         workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
-        for arg_name, expected_value in expected_trace[i]["param"].items():
+        for arg_name, expected_value in expected_trace[i - 1]["param"].items():
             predicted_value = round(
                 wfcfg_model(callsite, arg_name, param=workload_tuple)
             )
             predicted_args.append(predicted_value)
             expected_args.append(expected_value)
 
-    return predicted_args, expected_args, reliable
+    return is_correct, predicted_args, expected_args, reliable
 
 
 def assess_trace_nfps(
@@ -362,47 +359,6 @@ def main():
         )
         function_cart, _ = function_model.get_fitted()
 
-    # BM-specific
-    trace_dref = dict()
-    n_correct = 0
-    n_wrong = 0
-    for annotation in annotations:
-        if assess_trace(bm, observations, annotation):
-            n_correct += 1
-        else:
-            n_wrong += 1
-    trace_dref["trace/accuracy/training"] = (
-        n_correct / (n_correct + n_wrong) * 100,
-        r"\percent",
-    )
-    print(
-        f"{n_correct / (n_correct + n_wrong) * 100 :.1f}% of training traces predicted correctly"
-    )
-
-    n_correct = 0
-    n_wrong = 0
-    for training, validation in _xv_partitions_kfold(len(annotations)):
-        training_annotations = list(map(lambda i: annotations[i], training))
-        validation_annotations = list(map(lambda i: annotations[i], validation))
-        bm_xv = SDKBehaviourModel(
-            observations, training_annotations, show_progress=args.progress
-        )
-        bm_xv.cleanup()
-        for annotation in validation_annotations:
-            if assess_trace(bm_xv, observations, annotation):
-                n_correct += 1
-            else:
-                n_wrong += 1
-        del bm_xv
-    trace_dref["trace/accuracy/validation"] = (
-        n_correct / (n_correct + n_wrong) * 100,
-        r"\percent",
-    )
-    print(
-        f"{n_correct / (n_correct + n_wrong) * 100 :.1f}% of validation traces predicted correctly"
-    )
-    # /BM-specific
-
     if args.info:
         dfatool.cli.print_info_by_name(model, by_name)
 
@@ -493,60 +449,87 @@ def main():
     param_model, param_info = model.get_fitted()
     timing["get model"] = time.time() - ts
 
-    if args.with_function_models:
-        exp_args = list()
-        pred_args = list()
-        ok = True
-        for annotation in annotations:
-            pred, exp, ok = assess_trace_args(
-                bm,
+    # BM
+    n_correct = 0
+    n_wrong = 0
+    exp_args = list()
+    pred_args = list()
+    ok = True
+    trace_dref = dict()
+    for annotation in annotations:
+        is_correct, pred, exp, ok = assess_trace(
+            bm,
+            param_model,
+            observations,
+            annotation,
+            parameter_names,
+            function_parameter_names,
+        )
+        if is_correct:
+            n_correct += 1
+        else:
+            n_wrong += 1
+        pred_args += pred
+        exp_args += exp
+        if not ok:
+            ok = False
+    trace_dref["trace/accuracy/training"] = (
+        n_correct / (n_correct + n_wrong) * 100,
+        r"\percent",
+    )
+    print(
+        f"{n_correct / (n_correct + n_wrong) * 100 :5.1f}% of training traces predicted correctly"
+    )
+    arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
+    smape = arg_err["smape"]
+    annot = "" if ok else " (UNRELIABLE)"
+    trace_dref["callsite-arg/error/training/smape"] = smape
+    print(f"{smape:5.1f}% training callsite argument prediction error{annot}")
+
+    n_correct = 0
+    n_wrong = 0
+    pred_args = list()
+    exp_args = list()
+    ok = True
+    for training, validation in _xv_partitions_kfold(len(annotations)):
+        training_annotations = list(map(lambda i: annotations[i], training))
+        validation_annotations = list(map(lambda i: annotations[i], validation))
+        bm_xv = SDKBehaviourModel(
+            observations, training_annotations, show_progress=args.progress
+        )
+        bm_xv.cleanup()
+        for annotation in validation_annotations:
+            is_correct, pred, exp, ok = assess_trace(
+                bm_xv,
                 param_model,
-                function_cart,
                 observations,
                 annotation,
                 parameter_names,
                 function_parameter_names,
             )
+            if is_correct:
+                n_correct += 1
+            else:
+                n_wrong += 1
             pred_args += pred
             exp_args += exp
             if not ok:
                 ok = False
-        arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
-        smape = arg_err["smape"]
-        annot = "" if ok else " (UNRELIABLE)"
-        trace_dref["callsite-arg/error/training/smape"] = smape
-        print(f"{smape:.1f}% training callsite argument prediction error{annot}")
+    trace_dref["trace/accuracy/validation"] = (
+        n_correct / (n_correct + n_wrong) * 100,
+        r"\percent",
+    )
+    print(
+        f"{n_correct / (n_correct + n_wrong) * 100 :5.1f}% of validation traces predicted correctly"
+    )
+    arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
+    smape = arg_err["smape"]
+    annot = "" if ok else " (UNRELIABLE)"
+    trace_dref["callsite-arg/error/validation/smape"] = smape
+    print(f"{smape:5.1f}% validation callsite argument prediction error{annot}")
+    # /BM
 
-        pred_args = list()
-        exp_args = list()
-        ok = True
-        for training, validation in _xv_partitions_kfold(len(annotations)):
-            training_annotations = list(map(lambda i: annotations[i], training))
-            validation_annotations = list(map(lambda i: annotations[i], validation))
-            bm_xv = SDKBehaviourModel(
-                observations, training_annotations, show_progress=args.progress
-            )
-            bm_xv.cleanup()
-            for annotation in validation_annotations:
-                pred, exp, ok = assess_trace_args(
-                    bm_xv,
-                    param_model,
-                    function_cart,
-                    observations,
-                    annotation,
-                    parameter_names,
-                    function_parameter_names,
-                )
-                pred_args += pred
-                exp_args += exp
-                if not ok:
-                    ok = False
-        arg_err = dfatool.utils.regression_measures(pred_args, exp_args)
-        smape = arg_err["smape"]
-        annot = "" if ok else " (UNRELIABLE)"
-        trace_dref["callsite-arg/error/validation/smape"] = smape
-        print(f"{smape:.1f}% validation callsite argument prediction error{annot}")
-
+    if args.with_function_models:
         base_attr = dict()
         pred_attr = dict()
         exp_attr = dict()
