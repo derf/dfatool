@@ -441,8 +441,12 @@ class AnalyticModel:
                 static_model[name][k] = v.get_static(use_mean=use_mean)
 
         def model_getter(name, key, **kwargs):
-            model_function = self.attr_by_name[name][key].model_function
-            model_info = self.attr_by_name[name][key].model_function
+            try:
+                model_function = self.attr_by_name[name][key].model_function
+                model_info = self.attr_by_name[name][key].model_function
+            except KeyError:
+                logger.error(f"Did not find a model function for {name} {key}")
+                raise
 
             # shortcut
             if type(model_info) is df.StaticFunction:
