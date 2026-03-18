@@ -131,12 +131,15 @@ def assess_trace(
             reliable = False
             break
         workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
-        for arg_name, expected_value in expected_trace[i - 1]["param"].items():
-            predicted_value = round(
-                wfcfg_model(callsite, arg_name, param=workload_tuple)
-            )
-            predicted_args.append(predicted_value)
-            expected_args.append(expected_value)
+        if predicted_calls[i] == expected_calls[i]:
+            for arg_name, expected_value in expected_trace[i - 1]["param"].items():
+                predicted_value = round(
+                    wfcfg_model(callsite, arg_name, param=workload_tuple)
+                )
+                predicted_args.append(predicted_value)
+                expected_args.append(expected_value)
+        else:
+            reliable = False
 
     return is_correct, predicted_args, expected_args, reliable
 
@@ -168,7 +171,13 @@ def assess_trace_nfps(
         if i >= len(expected_trace):
             reliable = False
             break
+
+        if callsite != expected_trace[i]["name"] + " @ " + expected_trace[i]["place"]:
+            reliable = False
+            break
+
         call, _ = callsite.split(" @ ")
+
         workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
         base_param = dict()
         call_param = dict()
