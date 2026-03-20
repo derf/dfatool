@@ -155,7 +155,9 @@ def assess_trace_nfps(
     bm_param_names,
     fun_param_names,
 ):
+    # with __init__ / __end__
     predicted_trace = bm.get_trace(annotation.start.name, annotation.end.param)
+    # without __init__ / __end__
     expected_trace = get_expected_trace(bm, observations, annotation)
     reliable = True
 
@@ -193,10 +195,9 @@ def assess_trace_nfps(
         if not " @ " in callsite:
             continue
 
-        if i >= len(expected_trace) + 1:
+        if i - 1 >= len(expected_trace):
             reliable = False
-
-        if (
+        elif (
             callsite
             != expected_trace[i - 1]["name"] + " @ " + expected_trace[i - 1]["place"]
         ):
@@ -567,9 +568,14 @@ def main():
                     base_attr[attr_name] = {"all": list(), "by_call": dict()}
                     pred_attr[attr_name] = {"all": list(), "by_call": dict()}
                     exp_attr[attr_name] = {"all": list(), "by_call": dict()}
-                base_attr[attr_name]["all"] += a_base_attr[attr_name]["all"]
-                pred_attr[attr_name]["all"] += a_pred_attr[attr_name]["all"]
-                exp_attr[attr_name]["all"] += a_exp_attr[attr_name]["all"]
+                if attr_name.startswith("latency"):
+                    base_attr[attr_name]["all"].append(
+                        sum(a_base_attr[attr_name]["all"])
+                    )
+                    pred_attr[attr_name]["all"].append(
+                        sum(a_pred_attr[attr_name]["all"])
+                    )
+                    exp_attr[attr_name]["all"].append(sum(a_exp_attr[attr_name]["all"]))
                 for call in a_base_attr[attr_name]["by_call"].keys():
                     if call not in base_attr[attr_name]["by_call"]:
                         base_attr[attr_name]["by_call"][call] = list()
@@ -613,7 +619,10 @@ def main():
                 for attr_name in a_pred_attr.keys():
                     if attr_name not in val_pred_attr:
                         val_pred_attr[attr_name] = {"all": list(), "by_call": dict()}
-                    val_pred_attr[attr_name]["all"] += a_pred_attr[attr_name]["all"]
+                    if attr_name.startswith("latency"):
+                        val_pred_attr[attr_name]["all"].append(
+                            sum(a_pred_attr[attr_name]["all"])
+                        )
                     for call in a_pred_attr[attr_name]["by_call"].keys():
                         if call not in val_pred_attr[attr_name]["by_call"]:
                             val_pred_attr[attr_name]["by_call"][call] = list()
@@ -623,7 +632,10 @@ def main():
                 for attr_name in a_exp_attr.keys():
                     if attr_name not in val_exp_attr:
                         val_exp_attr[attr_name] = {"all": list(), "by_call": dict()}
-                    val_exp_attr[attr_name]["all"] += a_exp_attr[attr_name]["all"]
+                    if attr_name.startswith("latency"):
+                        val_exp_attr[attr_name]["all"].append(
+                            sum(a_exp_attr[attr_name]["all"])
+                        )
                     for call in a_exp_attr[attr_name]["by_call"].keys():
                         if call not in val_exp_attr[attr_name]["by_call"]:
                             val_exp_attr[attr_name]["by_call"][call] = list()
@@ -632,6 +644,9 @@ def main():
                         ]["by_call"][call]
 
         for attr_name in pred_attr.keys():
+            if not len(base_attr[attr_name]["all"]):
+                continue
+
             print()
 
             arg_err = dfatool.utils.regression_measures(
