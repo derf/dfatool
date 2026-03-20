@@ -146,7 +146,9 @@ def assess_trace(
 
 def assess_trace_nfps(
     bm,
+    wfcfg_info,
     wfcfg_model,
+    function_info,
     function_model,
     observations,
     annotation,
@@ -154,7 +156,7 @@ def assess_trace_nfps(
     fun_param_names,
 ):
     predicted_trace = bm.get_trace(annotation.start.name, annotation.end.param)
-    expected_trace = ["__init__"] + get_expected_trace(bm, observations, annotation)
+    expected_trace = get_expected_trace(bm, observations, annotation)
     reliable = True
 
     # Baseline: NFP value predicted using function_model and expected_trace[i]["param"][arg_name]
@@ -165,50 +167,61 @@ def assess_trace_nfps(
 
     # Expectation: NFP value observed in ground truth
     exp_attr = dict()
+
+    for event in expected_trace:
+        call = event["name"]
+        base_param = dict()
+        for arg_name, arg_value in event["param"].items():
+            base_param[arg_name] = arg_value
+        base_param_tuple = tuple(
+            dfatool.utils.param_dict_to_list(base_param, fun_param_names)
+        )
+        for attr_name, expected_value in event["attribute"].items():
+            baseline_value = function_model(call, attr_name, param=base_param_tuple)
+            if attr_name not in exp_attr:
+                base_attr[attr_name] = {"all": list(), "by_call": dict()}
+                exp_attr[attr_name] = {"all": list(), "by_call": dict()}
+            base_attr[attr_name]["all"].append(baseline_value)
+            exp_attr[attr_name]["all"].append(expected_value)
+            if call not in base_attr[attr_name]["by_call"]:
+                base_attr[attr_name]["by_call"][call] = list()
+                exp_attr[attr_name]["by_call"][call] = list()
+            base_attr[attr_name]["by_call"][call].append(baseline_value)
+            exp_attr[attr_name]["by_call"][call].append(expected_value)
+
     for i, (callsite, param) in enumerate(predicted_trace):
         if not " @ " in callsite:
             continue
-        if i >= len(expected_trace):
-            reliable = False
-            break
 
-        if callsite != expected_trace[i]["name"] + " @ " + expected_trace[i]["place"]:
+        if i >= len(expected_trace) + 1:
             reliable = False
-            break
+
+        if (
+            callsite
+            != expected_trace[i - 1]["name"] + " @ " + expected_trace[i - 1]["place"]
+        ):
+            reliable = False
 
         call, _ = callsite.split(" @ ")
 
         workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
-        base_param = dict()
         call_param = dict()
-        for arg_name, arg_value in expected_trace[i]["param"].items():
-            base_param[arg_name] = arg_value
-            call_param[arg_name] = round(
-                wfcfg_model(callsite, arg_name, param=workload_tuple)
-            )
-        base_param_tuple = tuple(
-            dfatool.utils.param_dict_to_list(base_param, fun_param_names)
-        )
+        for arg_name in fun_param_names:
+            if arg_name in wfcfg_info.attr_by_name[callsite]:
+                call_param[arg_name] = round(
+                    wfcfg_model(callsite, arg_name, param=workload_tuple)
+                )
         pred_param_tuple = tuple(
             dfatool.utils.param_dict_to_list(call_param, fun_param_names)
         )
-        for attr_name, expected_value in expected_trace[i]["attribute"].items():
-            baseline_value = function_model(call, attr_name, param=base_param_tuple)
+        for attr_name in function_info.attributes(call):
             predicted_value = function_model(call, attr_name, param=pred_param_tuple)
             if attr_name not in pred_attr:
-                base_attr[attr_name] = {"all": list(), "by_call": dict()}
                 pred_attr[attr_name] = {"all": list(), "by_call": dict()}
-                exp_attr[attr_name] = {"all": list(), "by_call": dict()}
-            base_attr[attr_name]["all"].append(baseline_value)
             pred_attr[attr_name]["all"].append(predicted_value)
-            exp_attr[attr_name]["all"].append(expected_value)
-            if call not in base_attr[attr_name]["by_call"]:
-                base_attr[attr_name]["by_call"][call] = list()
+            if call not in pred_attr[attr_name]["by_call"]:
                 pred_attr[attr_name]["by_call"][call] = list()
-                exp_attr[attr_name]["by_call"][call] = list()
-            base_attr[attr_name]["by_call"][call].append(baseline_value)
             pred_attr[attr_name]["by_call"][call].append(predicted_value)
-            exp_attr[attr_name]["by_call"][call].append(expected_value)
     return base_attr, pred_attr, exp_attr, reliable
 
 
@@ -538,7 +551,9 @@ def main():
         for annotation in annotations:
             a_base_attr, a_pred_attr, a_exp_attr, ok = assess_trace_nfps(
                 bm,
+                model,
                 param_model,
+                function_model,
                 function_cart,
                 observations,
                 annotation,
@@ -576,11 +591,17 @@ def main():
             bm_xv = SDKBehaviourModel(
                 observations, training_annotations, show_progress=args.progress
             )
+            xv_by_name, xv_parameter_names = dfatool.utils.observations_to_by_name(
+                bm_xv.meta_observations
+            )
             bm_xv.cleanup()
+            xv_model = AnalyticModel(xv_by_name, xv_parameter_names)
             for annotation in validation_annotations:
                 _, a_pred_attr, a_exp_attr, ok = assess_trace_nfps(
                     bm_xv,
+                    xv_model,
                     param_model,
+                    function_model,
                     function_cart,
                     observations,
                     annotation,
@@ -592,16 +613,20 @@ def main():
                 for attr_name in a_pred_attr.keys():
                     if attr_name not in val_pred_attr:
                         val_pred_attr[attr_name] = {"all": list(), "by_call": dict()}
-                        val_exp_attr[attr_name] = {"all": list(), "by_call": dict()}
                     val_pred_attr[attr_name]["all"] += a_pred_attr[attr_name]["all"]
-                    val_exp_attr[attr_name]["all"] += a_exp_attr[attr_name]["all"]
                     for call in a_pred_attr[attr_name]["by_call"].keys():
                         if call not in val_pred_attr[attr_name]["by_call"]:
                             val_pred_attr[attr_name]["by_call"][call] = list()
-                            val_exp_attr[attr_name]["by_call"][call] = list()
                         val_pred_attr[attr_name]["by_call"][call] += a_pred_attr[
                             attr_name
                         ]["by_call"][call]
+                for attr_name in a_exp_attr.keys():
+                    if attr_name not in val_exp_attr:
+                        val_exp_attr[attr_name] = {"all": list(), "by_call": dict()}
+                    val_exp_attr[attr_name]["all"] += a_exp_attr[attr_name]["all"]
+                    for call in a_exp_attr[attr_name]["by_call"].keys():
+                        if call not in val_exp_attr[attr_name]["by_call"]:
+                            val_exp_attr[attr_name]["by_call"][call] = list()
                         val_exp_attr[attr_name]["by_call"][call] += a_exp_attr[
                             attr_name
                         ]["by_call"][call]
