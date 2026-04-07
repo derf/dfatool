@@ -140,7 +140,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_LGBM_NUM_LEAVES` | .., **31**, .. | Maximum number of leaves per tree. |
 | `DFATOOL_LGBM_REG_ALPHA` | **0.0** .. *n* | L1 regularization term on weights. |
 | `DFATOOL_LGBM_REG_LAMBDA` | **0.0** .. *n* | L2 regularization term on weights. |
-| `DFATOOL_LGBM_SUBSAMPLE` | 0.0 .. **1.0** | Subsampling ration. |
+| `DFATOOL_LGBM_SUBSAMPLE` | 0.0 .. **1.0** | Subsampling ratio. |
 | `DFATOOL_LMT_CRITERION` | **mse**, rmse, mae, poisson | Error metric to use when selecting best split. |
 | `DFATOOL_LMT_MAX_BINS` | 10 .. **120** | Number of bins used to determine optimal split. LMT default: 25. |
 | `DFATOOL_LMT_MAX_DEPTH` | **5** .. 20 | Maximum depth for LMT. |
