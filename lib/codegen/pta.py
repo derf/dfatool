@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Code generators for multipass dummy drivers for online model evaluation."""
 
-from .automata import PTA, Transition
-from .modular_arithmetic import simulate_int_type
+from ..automata import PTA, Transition
+from ..modular_arithmetic import simulate_int_type
 
 header_template = """
 #ifndef DFATOOL_{name}_H

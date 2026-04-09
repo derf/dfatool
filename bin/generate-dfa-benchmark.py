@@ -105,7 +105,7 @@ import yaml
 from dfatool import runner
 from dfatool.aspectc import Repo
 from dfatool.automata import PTA
-from dfatool.codegen import get_accountingmethod, MultipassDriver
+from dfatool.codegen.pta import get_accountingmethod, MultipassDriver
 from dfatool.harness import OnboardTimerHarness, TransitionHarness
 from dfatool.utils import flatten
 

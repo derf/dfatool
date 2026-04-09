@@ -27,7 +27,7 @@ import sys
 import itertools
 import yaml
 from dfatool.automata import PTA
-from dfatool.codegen import get_simulated_accountingmethod
+from dfatool.codegen.pta import get_simulated_accountingmethod
 from dfatool.model import regression_measures
 import numpy as np
 
@@ -162,9 +162,9 @@ if __name__ == "__main__":
     print("SMAPE {:.0f}%, MAE {}".format(measures["smape"], measures["mae"]))
 
     timer_freqs = [1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6, 2e6, 5e6]
-    timer_types = (
-        timestamp_types
-    ) = power_types = energy_types = "uint8_t uint16_t uint32_t uint64_t".split()
+    timer_types = timestamp_types = power_types = energy_types = (
+        "uint8_t uint16_t uint32_t uint64_t".split()
+    )
 
     def config_weight(timer_freq, timer_type, ts_type, power_type, energy_type):
         base_weight = 0

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from dfatool.aspectc import Repo
-from dfatool.codegen import MultipassDriver
+from dfatool.codegen.pta import MultipassDriver
 from dfatool.automata import PTA
 import yaml
 
