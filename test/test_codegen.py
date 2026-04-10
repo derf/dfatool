@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from dfatool.automata import PTA
-from dfatool.codegen import get_simulated_accountingmethod
+from dfatool.codegen.pta import get_simulated_accountingmethod
 import unittest
 
 example_json_1 = {
