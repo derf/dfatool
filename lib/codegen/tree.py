@@ -14,9 +14,14 @@ class TreeImplementation:
     is_forest = False
     num_trees = 1
     n_features = None
+    split_cond = None
+    split_le = False
+    split_lt = False
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
+        if self.model.model_type == "forest":
+            self.is_forest = True
 
     def __repr__(self):
         return f"{type(self).__name__}<id={self.id_type}, feat={self.feature_type}, ret={self.return_type}, K={self.num_trees}, n={self.n_features}>"
@@ -166,18 +171,34 @@ class TreeImplementation:
 
         return ret
 
-    def to_c(self, node=None):
-        if node is None:
-            lines = ["#include <stdint.h>"]
-            lines += self.struct_node()
+    def to_c(self):
+        lines = ["#include <stdint.h>"]
+        lines += self.struct_node()
+        if self.is_forest:
+            for i, tree in enumerate(self.model.trees):
+                lines += [
+                    f"{self.section_prefix} struct node tree{i:03d}[{tree.max_id + 1}] = "
+                    + "{"
+                ]
+                lines += self._node_to_c(tree.tree)
+                lines += ["};"]
+            lines.append(
+                self.section_prefix
+                + " struct node * const forest[] = {\n"
+                + ",\n".join(
+                    map(lambda i: f"tree{i:03d}", range(len(self.model.trees)))
+                )
+                + "};"
+            )
+        else:
             lines += [
                 f"{self.section_prefix} struct node tree[{self.model.max_id + 1}] = "
                 + "{"
             ]
             lines += self._node_to_c(self.model.tree)
             lines += ["};"]
-            lines += self.traversal_function()
-            return lines
+        lines += self.traversal_function()
+        return lines
 
     def _node_to_c(self, node):
         if node["type"] == "static":
@@ -189,7 +210,17 @@ class TreeImplementation:
         elif node["type"] == "scalarSplit":
             node_id = node["id"]
             feat = node["paramIndex"]
-            assert node["condition"] == "≤"
+            if not self.split_le and not self.split_lt:
+                if node["condition"] == "<":
+                    self.split_lt = True
+                    self.split_cond = "<"
+                elif node["condition"] == "≤":
+                    self.split_le = True
+                    self.split_cond = "<="
+            if self.split_le:
+                assert node["condition"] == "≤"
+            elif self.split_lt:
+                assert node["condition"] == "<"
             threshold = node["threshold"]
             right_child = node["right"]["id"]
             lines = (
@@ -231,7 +262,7 @@ class PlainTree(TreeImplementation):
                 f"        const struct node *tree = forest[i];",
                 f"        {self.id_type} index = 0;",
                 "        while (tree[index].feat != 255) {",
-                "            bool cmp = features[tree[index].feat] < tree[index].threshold;",
+                f"            bool cmp = features[tree[index].feat] {self.split_cond} tree[index].threshold;",
                 "            index = cmp * (index + 1) + !cmp * tree[index].rightChild;",
                 "        }",
                 "        ret += tree[index].threshold;",
@@ -245,7 +276,7 @@ class PlainTree(TreeImplementation):
                 "{",
                 f"    {self.id_type} index = 0;",
                 "    while (tree[index].feat != 255) {",
-                "        bool cmp = features[tree[index].feat] < tree[index].threshold;",
+                f"        bool cmp = features[tree[index].feat] {self.split_cond} tree[index].threshold;",
                 "        index = cmp * (index + 1) + !cmp * tree[index].rightChild;",
                 "    }",
                 "    return tree[index].threshold;",
@@ -254,9 +285,6 @@ class PlainTree(TreeImplementation):
 
     def feature_vector(self):
         return [f"{self.feature_type} param_vec[{self.n_features:d}];"]
-
-    def get_result(self):
-        return ["result = traverse(param_vec);"]
 
 
 class ConstTree(PlainTree):
@@ -274,7 +302,7 @@ class ConstTree(PlainTree):
             "    if (feat == 255) {",
             "        return threshold;",
             "    }",
-            "    if (features[feat] < threshold) {",
+            f"    if (features[feat] {self.split_cond} threshold) " + "{",
             "        return (this+1)->traverse(tree, features);",
             "    }",
             "    return tree[rightChild].traverse(tree, features);",
@@ -307,12 +335,6 @@ class ConstTree(PlainTree):
                 "}",
             ]
 
-    def get_result(self):
-        if self.is_forest:
-            return ["result = traverse(param_vec);"]
-        else:
-            return ["result = tree[0].traverse(tree, param_vec);"]
-
 
 class TemplateTree(PlainTree):
     name = "template"
@@ -333,7 +355,8 @@ class TemplateTree(PlainTree):
                 "    if (forest[findex][index].feat == 255) {",
                 "        return forest[findex][index].threshold;",
                 "    }",
-                "    if (features[forest[findex][index].feat] < forest[findex][index].threshold) {",
+                f"    if (features[forest[findex][index].feat] {self.split_cond} forest[findex][index].threshold) "
+                + "{",
                 "        return traverseTree<findex, index+1>(features);",
                 "    }",
                 "    return traverseTree<findex, forest[findex][index].rightChild>(features);",
@@ -358,6 +381,11 @@ class TemplateTree(PlainTree):
                     "    (void)features;",
                     "    return 0;",
                     "}",
+                    "",
+                    f"{self.return_type} traverse({self.feature_type} *features)",
+                    "{",
+                    "    return traverseForest<0>(features);",
+                    "}",
                 ]
             return ret
         else:
@@ -367,7 +395,8 @@ class TemplateTree(PlainTree):
                 "    if (tree[index].feat == 255) {",
                 "        return tree[index].threshold;",
                 "    }",
-                "    if (features[tree[index].feat] < tree[index].threshold) {",
+                f"    if (features[tree[index].feat] {self.split_cond} tree[index].threshold) "
+                + "{",
                 "        return traverseTree<index+1>(features);",
                 "    }",
                 "    return traverseTree<tree[index].rightChild>(features);",
@@ -384,12 +413,6 @@ class TemplateTree(PlainTree):
                 "    return traverseTree<0>(features);",
                 "}",
             ]
-
-    def get_result(self):
-        if self.is_forest:
-            return ["result = traverseForest<0>(param_vec);"]
-        else:
-            return ["result = traverseTree<0>(param_vec);"]
 
 
 class TreeData:

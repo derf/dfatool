@@ -25,6 +25,17 @@ class SerializedTree:
         return n
 
 
+class SerializedForest:
+    model_type = "forest"
+
+    def __init__(self, data):
+        assert data["type"] == "ensemble"
+        self.aggregate = data["aggregate"]
+        self.intercept = data["intercept"]
+        self.trees = list(map(SerializedTree, data["models"]))
+        self.max_id = max(map(lambda tree: tree.max_id, self.trees))
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -41,6 +52,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--implementation", choices=("plain", "const", "template"), default="plain"
     )
+    parser.add_argument("--model", choices=("CART", "XGB"), default="CART")
     parser.add_argument(
         "--multipass-base", type=str, default="../../../projects/multipass"
     )
@@ -56,11 +68,16 @@ if __name__ == "__main__":
 
     param_names = list(map(lambda x: f"feat{x+1:02d}", range(args.dataset_n_features)))
 
-    cart = df.CARTFunction(np.mean(y), param_names=param_names, arg_count=0)
-    cart.fit(X, y)
-
-    data = cart.to_json()
-    ser = SerializedTree(data)
+    if args.model == "CART":
+        cart = df.CARTFunction(np.mean(y), param_names=param_names, arg_count=0)
+        cart.fit(X, y)
+        data = cart.to_json()
+        ser = SerializedTree(data)
+    elif args.model == "XGB":
+        cart = df.XGBoostFunction(np.mean(y), param_names=param_names, arg_count=0)
+        cart.fit(X, y)
+        data = cart.to_json()
+        ser = SerializedForest(data)
 
     if args.implementation == "plain":
         impl = cg.PlainTree(model=ser)
