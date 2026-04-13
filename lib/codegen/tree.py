@@ -111,7 +111,7 @@ class TreeImplementation:
             param_values.append(this_values)
 
         ret.append(
-            f"static const {self.feature_type} param_values[{len(param_values)}][{steps}] = {{"
+            f"const {self.feature_type} param_values[{len(param_values)}][{steps}] = {{"
         )
         for param_value in param_values:
             ret.append("{" + ",".join(map(str, param_value)) + "},")
@@ -149,14 +149,19 @@ class TreeImplementation:
 
     def to_c(self, node=None):
         if node is None:
-            lines = self.struct_node()
+            lines = ["#include <stdint.h>"]
+            lines += self.struct_node()
             lines += [
-                f"{self.section_prefix} struct node[{self.model.max_id}] = " + "{"
+                f"{self.section_prefix} struct node tree[{self.model.max_id + 1}] = "
+                + "{"
             ]
-            lines += self.to_c(self.model.tree)
+            lines += self._node_to_c(self.model.tree)
             lines += ["};"]
+            lines += self.traversal_function()
             return lines
-        elif node["type"] == "static":
+
+    def _node_to_c(self, node):
+        if node["type"] == "static":
             node_id = node["id"]
             value = node["value"]
             return [
@@ -172,8 +177,8 @@ class TreeImplementation:
                 [
                     f"{{.threshold = {threshold:15.10f}, .rightChild = {right_child:5d}, .feat = {feat:3d}}}, // {node_id:5d}"
                 ]
-                + self.to_c(node["left"])
-                + self.to_c(node["right"])
+                + self._node_to_c(node["left"])
+                + self._node_to_c(node["right"])
             )
             return lines
         else:
@@ -182,7 +187,7 @@ class TreeImplementation:
 
 class PlainTree(TreeImplementation):
     name = "plain"
-    section_prefix = "static const"
+    section_prefix = "const"
 
     def struct_node(self):
         return [
@@ -237,7 +242,7 @@ class PlainTree(TreeImplementation):
 
 class ConstTree(PlainTree):
     name = "const"
-    section_prefix = "static const"
+    section_prefix = "const"
 
     def struct_node(self):
         return [
@@ -275,7 +280,13 @@ class ConstTree(PlainTree):
                 "}",
             ]
         else:
-            return list()
+            return [
+                "",
+                f"{self.return_type} traverse({self.feature_type} *features)",
+                "{",
+                "    return tree[0].traverse(tree, features);",
+                "}",
+            ]
 
     def get_result(self):
         if self.is_forest:
@@ -286,7 +297,7 @@ class ConstTree(PlainTree):
 
 class TemplateTree(PlainTree):
     name = "template"
-    section_prefix = "static constexpr const"
+    section_prefix = "constexpr const"
 
     def get_helpers(self, tree_lines):
         ret = super().get_helpers(tree_lines)
@@ -316,6 +327,7 @@ class TemplateTree(PlainTree):
                 "",
                 f"template <> {self.return_type} traverseForest<{self.num_trees}> ({self.feature_type} *features)",
                 "{",
+                "(void)features;",
                 "    return 0;",
                 "}",
             ]
@@ -324,6 +336,7 @@ class TemplateTree(PlainTree):
                     "",
                     f"template <> {self.return_type} traverseTree<{i}, sizeof(tree{i:03d})/sizeof(node)> ({self.feature_type} *features)",
                     "{",
+                    "(void)features;",
                     "    return 0;",
                     "}",
                 ]
@@ -343,7 +356,13 @@ class TemplateTree(PlainTree):
                 "",
                 f"template <> {self.return_type} traverseTree<sizeof(tree)/sizeof(node)> ({self.feature_type} *features)",
                 "{",
+                "(void)features;",
                 "    return 0;",
+                "}",
+                "",
+                f"{self.return_type} traverse({self.feature_type} *features)",
+                "{",
+                "    return traverseTree<0>(features);",
                 "}",
             ]
 

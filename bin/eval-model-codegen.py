@@ -2,7 +2,7 @@
 # vim:tabstop=4 softtabstop=4 shiftwidth=4 textwidth=160 smarttab expandtab colorcolumn=160
 
 import argparse
-from dfatool.codegen.tree import PlainTree
+import dfatool.codegen.tree as cg
 import dfatool.functions as df
 import numpy as np
 import sklearn.datasets
@@ -38,6 +38,9 @@ if __name__ == "__main__":
     parser.add_argument("--dataset-n-samples", type=int, default=1000)
     parser.add_argument("--dataset-n-features", type=int, default=20)
     parser.add_argument("--dataset-n-informative", type=int, default=10)
+    parser.add_argument(
+        "--implementation", choices=("plain", "const", "template"), default="plain"
+    )
 
     args = parser.parse_args()
 
@@ -55,7 +58,15 @@ if __name__ == "__main__":
     data = cart.to_json()
     ser = SerializedTree(data)
 
-    impl = PlainTree(model=ser)
+    if args.implementation == "plain":
+        impl = cg.PlainTree(model=ser)
+    elif args.implementation == "const":
+        impl = cg.ConstTree(model=ser)
+    elif args.implementation == "template":
+        impl = cg.TemplateTree(model=ser)
+    else:
+        raise RuntimeError(f"Invalid argument: --implementation={impl}")
+
     impl.id_type = (
         "uint8_t"
         if ser.max_id < 256
