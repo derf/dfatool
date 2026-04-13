@@ -54,39 +54,6 @@ class TreeImplementation:
             "n_features": self.n_features,
         }
 
-    def get_helpers(self, tree_lines):
-        lines = self.struct_node()
-        if type(tree_lines[0]) is list:
-            self.is_forest = True
-            self.num_trees = len(tree_lines)
-            for i, f_tree_lines in enumerate(tree_lines):
-                lines.append(
-                    self.section_prefix
-                    + f" struct node tree{i:03d}["
-                    + str(len(f_tree_lines))
-                    + "] = {"
-                )
-                lines.append(",\n".join(f_tree_lines) + "};")
-            trees = list()
-            for i, _ in enumerate(tree_lines):
-                trees.append(f"tree{i:03d}")
-            lines.append(
-                self.section_prefix
-                + " struct node * const forest[] = {\n"
-                + ",\n".join(trees)
-                + "};"
-            )
-        else:
-            lines.append(
-                self.section_prefix
-                + " struct node tree["
-                + str(len(tree_lines))
-                + "] = {"
-            )
-            lines.append(",\n".join(tree_lines) + "};")
-        lines += self.feature_vector() + self.traversal_function()
-        return "\n".join(lines) + "\n"
-
     def struct_node(self):
         raise NotImplementedError
 
@@ -339,13 +306,6 @@ class ConstTree(PlainTree):
 class TemplateTree(PlainTree):
     name = "template"
     section_prefix = "constexpr const"
-
-    def get_helpers(self, tree_lines):
-        ret = super().get_helpers(tree_lines)
-        if self.is_forest:
-            return ret.replace("struct node *forest", "struct node const *forest")
-        else:
-            return ret
 
     def traversal_function(self):
         if self.is_forest:
