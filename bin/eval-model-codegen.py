@@ -41,6 +41,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--implementation", choices=("plain", "const", "template"), default="plain"
     )
+    parser.add_argument(
+        "--multipass-base", type=str, default="../../../projects/multipass"
+    )
+    parser.add_argument("--multipass-app", type=str, default="treebench")
 
     args = parser.parse_args()
 
@@ -77,4 +81,8 @@ if __name__ == "__main__":
     impl.set_feature_index_type("uint8_t")
     impl.set_num_features(len(X[0]))
 
-    print("\n".join(impl.to_c()))
+    with open(f"{args.multipass_base}/src/app/{args.multipass_app}/tree.cc", "w") as f:
+        f.write("\n".join(impl.to_c()) + "\n")
+
+    with open(f"{args.multipass_base}/src/app/{args.multipass_app}/main.cc", "w") as f:
+        f.write("\n".join(impl.get_benchmark(X, y)) + "\n")

@@ -91,11 +91,17 @@ class TreeImplementation:
     def feature_vector(self):
         raise NotImplementedError
 
-    def get_result(self):
-        raise NotImplementedError
-
     def get_benchmark(self, X, y, debug=False, steps=5):
-        ret = list()
+        ret = [
+            '#include "arch.h"',
+            '#include "driver/gpio.h"',
+            '#include "driver/stdout.h"',
+            '#include "driver/uptime.h"',
+            '#include "driver/counter.h"',
+            "#include <stdlib.h>",
+            f"{self.return_type} traverse({self.feature_type} *param_vec);",
+            f"{self.feature_type} param_vec[{self.n_features}];",
+        ]
 
         if len(X):
             assert len(X[0]) == self.n_features
@@ -129,7 +135,7 @@ class TreeImplementation:
             ret.append(f"for (uint8_t pv{i} = 0; pv{i} < {steps}; pv{i}++) {{")
             ret.append(f"param_vec[{i}] = param_values[{i}][pv{i}];")
         ret.append("counter.start();")
-        ret += self.get_result()
+        ret.append("result = traverse(param_vec);")
         ret.append("counter.stop();")
         if debug:
             for i in range(self.n_features):
@@ -145,7 +151,20 @@ class TreeImplementation:
         ret.append("""kout << "done" << endl;""")
         ret.append("}")
 
-        return "\n".join(ret) + "\n"
+        ret += [
+            "int main(void)",
+            "{",
+            "    arch.setup();",
+            "    gpio.setup();",
+            "    kout.setup();",
+            "    while (1) {",
+            "        run_benchmark();",
+            "    }",
+            "    return 0;",
+            "}",
+        ]
+
+        return ret
 
     def to_c(self, node=None):
         if node is None:
@@ -327,7 +346,7 @@ class TemplateTree(PlainTree):
                 "",
                 f"template <> {self.return_type} traverseForest<{self.num_trees}> ({self.feature_type} *features)",
                 "{",
-                "(void)features;",
+                "    (void)features;",
                 "    return 0;",
                 "}",
             ]
@@ -336,7 +355,7 @@ class TemplateTree(PlainTree):
                     "",
                     f"template <> {self.return_type} traverseTree<{i}, sizeof(tree{i:03d})/sizeof(node)> ({self.feature_type} *features)",
                     "{",
-                    "(void)features;",
+                    "    (void)features;",
                     "    return 0;",
                     "}",
                 ]
@@ -356,7 +375,7 @@ class TemplateTree(PlainTree):
                 "",
                 f"template <> {self.return_type} traverseTree<sizeof(tree)/sizeof(node)> ({self.feature_type} *features)",
                 "{",
-                "(void)features;",
+                "    (void)features;",
                 "    return 0;",
                 "}",
                 "",
