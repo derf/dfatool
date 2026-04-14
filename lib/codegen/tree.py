@@ -139,8 +139,8 @@ class TreeImplementation:
         return ret
 
     def to_c(self):
-        lines = ["#include <stdint.h>"]
-        lines += self.struct_node()
+        header = ["#include <stdint.h>"]
+        lines = []
         if self.is_forest:
             for i, tree in enumerate(self.model.trees):
                 lines += [
@@ -165,7 +165,8 @@ class TreeImplementation:
             lines += self._node_to_c(self.model.tree)
             lines += ["};"]
         lines += self.traversal_function()
-        return lines
+        header += self.struct_node()
+        return header + lines
 
     def _node_to_c(self, node):
         if node["type"] == "static":
