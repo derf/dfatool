@@ -82,6 +82,9 @@ if __name__ == "__main__":
         "--multipass-base", type=str, default="../../../projects/multipass"
     )
     parser.add_argument("--multipass-app", type=str, default="treebench")
+    parser.add_argument(
+        "--type", choices="int8_t int16_t int32_t float double".split(), default="float"
+    )
 
     args = parser.parse_args()
 
@@ -103,6 +106,32 @@ if __name__ == "__main__":
             n_features=args.dataset_n_features,
             n_informative=args.dataset_n_features,
         )
+        if "int" in args.type:
+            X_min, X_max = np.min(X), np.max(X)
+            y_min, y_max = np.min(y), np.max(y)
+            if args.type == "int8_t":
+                range_min, range_max = -128, 127
+            elif args.type == "int16_t":
+                range_min, range_max = -32768, 32767
+            elif args.type == "int32_t":
+                range_min, range_max = -2147483648, 2147483647
+
+            if X_min < 0:
+                X_add = 0
+                X_mul = range_max / max(X_max, -X_min)
+            else:
+                X_add = -X_min
+                X_mul = (range_max - range_min) / abs(X_max - X_min)
+            X = ((X + X_add) * X_mul).astype(int)
+
+            if y_min < 0:
+                y_add = 0
+                y_mul = range_max / max(y_max, -y_min)
+            else:
+                y_add = -y_min
+                y_mul = (range_max - range_min) / abs(y_max - y_min)
+            y = ((y + y_add) * y_mul).astype(int)
+
         param_names = list(
             map(lambda x: f"feat{x+1:02d}", range(args.dataset_n_features))
         )
@@ -170,8 +199,8 @@ if __name__ == "__main__":
         if ser.max_id < 256
         else ("uint16_t" if ser.max_id < 65536 else "uint32_t")
     )
-    impl.set_feature_type("float")
-    impl.set_leaf_type("float")
+    impl.set_feature_type(args.type)
+    impl.set_leaf_type(args.type)
     impl.set_feature_index_type("uint8_t")
     impl.set_num_features(len(X[0]))
 

@@ -8,7 +8,7 @@ class TreeImplementation:
     name = None
     id_type = "uint16_t"
     feature_type = "float"
-    return_type = "float"
+    leaf_type = "float"
     feature_index_type = "uint8_t"
     section_prefix = str()
     is_forest = False
@@ -20,11 +20,12 @@ class TreeImplementation:
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
+        assert self.feature_type == self.leaf_type
         if self.model.model_type == "forest":
             self.is_forest = True
 
     def __repr__(self):
-        return f"{type(self).__name__}<id={self.id_type}, feat={self.feature_type}, ret={self.return_type}, K={self.num_trees}, n={self.n_features}>"
+        return f"{type(self).__name__}<id={self.id_type}, feat={self.feature_type}, ret={self.leaf_type}, K={self.num_trees}, n={self.n_features}>"
 
     def set_feature_type(self, feature_type):
         self.feature_type = feature_type
@@ -35,6 +36,7 @@ class TreeImplementation:
 
     def set_leaf_type(self, leaf_type):
         self.leaf_type = leaf_type
+        assert self.leaf_type == self.feature_type
         if "int" in leaf_type:
             self.leaf_format = "5.0f"
         else:
@@ -50,7 +52,7 @@ class TreeImplementation:
         return {
             "implementation": self.name,
             "input_type": self.feature_type,
-            "output_type": self.return_type,
+            "output_type": self.leaf_type,
             "n_features": self.n_features,
         }
 
@@ -71,7 +73,7 @@ class TreeImplementation:
             '#include "driver/uptime.h"',
             '#include "driver/counter.h"',
             "#include <stdlib.h>",
-            f"{self.return_type} traverse({self.feature_type} *param_vec);",
+            f"{self.leaf_type} traverse({self.feature_type} *param_vec);",
             f"{self.feature_type} param_vec[{self.n_features}];",
         ]
 
@@ -96,7 +98,7 @@ class TreeImplementation:
         ret.append("};")
 
         ret += [
-            f"volatile {self.return_type} result;",
+            f"volatile {self.leaf_type} result;",
             "void run_benchmark() {",
             "arch.delay_ms(4000);",
             "counter.start();",
@@ -173,7 +175,7 @@ class TreeImplementation:
             node_id = node["id"]
             value = node["value"]
             return [
-                f"{{.threshold = {value:15.10f}, .rightChild =     0, .feat = 255}}, // {node_id:5d}"
+                f"{{.threshold = {value:{self.leaf_format}}, .rightChild =     0, .feat = 255}}, // {node_id:5d}"
             ]
         elif node["type"] == "scalarSplit":
             node_id = node["id"]
@@ -193,7 +195,7 @@ class TreeImplementation:
             right_child = node["right"]["id"]
             lines = (
                 [
-                    f"{{.threshold = {threshold:15.10f}, .rightChild = {right_child:5d}, .feat = {feat:3d}}}, // {node_id:5d}"
+                    f"{{.threshold = {threshold:{self.feature_format}}, .rightChild = {right_child:5d}, .feat = {feat:3d}}}, // {node_id:5d}"
                 ]
                 + self._node_to_c(node["left"])
                 + self._node_to_c(node["right"])
@@ -223,9 +225,9 @@ class PlainTree(TreeImplementation):
             else:
                 tt = "uint8_t"
             return [
-                f"{self.return_type} traverse({self.feature_type} *features)",
+                f"{self.leaf_type} traverse({self.feature_type} *features)",
                 "{",
-                f"    {self.return_type} ret = 0;",
+                f"    {self.leaf_type} ret = 0;",
                 f"    for ({tt} i = 0; i < {self.num_trees}; i++) {{",
                 f"        const struct node *tree = forest[i];",
                 f"        {self.id_type} index = 0;",
@@ -240,7 +242,7 @@ class PlainTree(TreeImplementation):
             ]
         else:
             return [
-                f"{self.return_type} traverse({self.feature_type} *features)",
+                f"{self.leaf_type} traverse({self.feature_type} *features)",
                 "{",
                 f"    {self.id_type} index = 0;",
                 "    while (tree[index].feat != 255) {",
@@ -265,7 +267,7 @@ class ConstTree(PlainTree):
             f"{self.feature_type} threshold;",
             f"{self.id_type} rightChild;",
             f"{self.feature_index_type} feat;",
-            f"{self.return_type} traverse(const node *tree, {self.feature_type} *features) const",
+            f"{self.leaf_type} traverse(const node *tree, {self.feature_type} *features) const",
             "{",
             "    if (feat == 255) {",
             "        return threshold;",
@@ -285,9 +287,9 @@ class ConstTree(PlainTree):
             else:
                 tt = "uint8_t"
             return [
-                f"{self.return_type} traverse({self.feature_type} *features)",
+                f"{self.leaf_type} traverse({self.feature_type} *features)",
                 "{",
-                f"    {self.return_type} ret = 0;",
+                f"    {self.leaf_type} ret = 0;",
                 f"    for ({tt} i = 0; i < {self.num_trees}; i++) {{",
                 f"        ret += forest[i][0].traverse(forest[i], features);",
                 "    }",
@@ -297,7 +299,7 @@ class ConstTree(PlainTree):
         else:
             return [
                 "",
-                f"{self.return_type} traverse({self.feature_type} *features)",
+                f"{self.leaf_type} traverse({self.feature_type} *features)",
                 "{",
                 "    return tree[0].traverse(tree, features);",
                 "}",
@@ -311,7 +313,7 @@ class TemplateTree(PlainTree):
     def traversal_function(self):
         if self.is_forest:
             ret = [
-                f"template <int findex, int index> {self.return_type} traverseTree({self.feature_type} *features)",
+                f"template <int findex, int index> {self.leaf_type} traverseTree({self.feature_type} *features)",
                 "{",
                 "    if (forest[findex][index].feat == 255) {",
                 "        return forest[findex][index].threshold;",
@@ -323,12 +325,12 @@ class TemplateTree(PlainTree):
                 "    return traverseTree<findex, forest[findex][index].rightChild>(features);",
                 "}",
                 "",
-                f"template <int findex> {self.return_type} traverseForest({self.feature_type} *features)",
+                f"template <int findex> {self.leaf_type} traverseForest({self.feature_type} *features)",
                 "{",
                 "    return traverseTree<findex, 0>(features) + traverseForest<findex + 1>(features);",
                 "}",
                 "",
-                f"template <> {self.return_type} traverseForest<{self.num_trees}> ({self.feature_type} *features)",
+                f"template <> {self.leaf_type} traverseForest<{self.num_trees}> ({self.feature_type} *features)",
                 "{",
                 "    (void)features;",
                 "    return 0;",
@@ -337,13 +339,13 @@ class TemplateTree(PlainTree):
             for i in range(self.num_trees):
                 ret += [
                     "",
-                    f"template <> {self.return_type} traverseTree<{i}, sizeof(tree{i:03d})/sizeof(node)> ({self.feature_type} *features)",
+                    f"template <> {self.leaf_type} traverseTree<{i}, sizeof(tree{i:03d})/sizeof(node)> ({self.feature_type} *features)",
                     "{",
                     "    (void)features;",
                     "    return 0;",
                     "}",
                     "",
-                    f"{self.return_type} traverse({self.feature_type} *features)",
+                    f"{self.leaf_type} traverse({self.feature_type} *features)",
                     "{",
                     "    return traverseForest<0>(features);",
                     "}",
@@ -351,7 +353,7 @@ class TemplateTree(PlainTree):
             return ret
         else:
             return [
-                f"template <int index> {self.return_type} traverseTree({self.feature_type} *features)",
+                f"template <int index> {self.leaf_type} traverseTree({self.feature_type} *features)",
                 "{",
                 "    if (tree[index].feat == 255) {",
                 "        return tree[index].threshold;",
@@ -363,13 +365,13 @@ class TemplateTree(PlainTree):
                 "    return traverseTree<tree[index].rightChild>(features);",
                 "}",
                 "",
-                f"template <> {self.return_type} traverseTree<sizeof(tree)/sizeof(node)> ({self.feature_type} *features)",
+                f"template <> {self.leaf_type} traverseTree<sizeof(tree)/sizeof(node)> ({self.feature_type} *features)",
                 "{",
                 "    (void)features;",
                 "    return 0;",
                 "}",
                 "",
-                f"{self.return_type} traverse({self.feature_type} *features)",
+                f"{self.leaf_type} traverse({self.feature_type} *features)",
                 "{",
                 "    return traverseTree<0>(features);",
                 "}",
@@ -396,7 +398,7 @@ class TreeData:
 
     def _tree_to_c(self, impl, node):
         feature_type = impl.feature_type
-        result_type = impl.return_type
+        result_type = impl.leaf_type
         if "int" in feature_type:
             feature_format = ".0f"
         else:
