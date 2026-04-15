@@ -66,7 +66,7 @@ class TreeImplementation:
     def feature_vector(self):
         raise NotImplementedError
 
-    def get_benchmark(self, X, y, debug=False, steps=5):
+    def get_benchmark(self, X, y, verify=False, steps=5):
         ret = [
             '#include "arch.h"',
             '#include "driver/gpio.h"',
@@ -106,16 +106,19 @@ class TreeImplementation:
             "counter.stop();",
             """kout << "nop=" << counter.value << "/" << counter.overflow << endl;""",
         ]
+        if verify:
+            ret.append("kout.setDigits(6);")
         for i in range(self.n_features):
             ret.append(f"for (uint8_t pv{i} = 0; pv{i} < {steps}; pv{i}++) {{")
             ret.append(f"param_vec[{i}] = param_values[{i}][pv{i}];")
         ret.append("counter.start();")
         ret.append("result = traverse(param_vec);")
         ret.append("counter.stop();")
-        if debug:
+        if verify:
+            ret.append("""kout << "prediction=";""")
             for i in range(self.n_features):
                 ret.append(f"""kout << param_vec[{i}] << ";";""")
-            ret.append("""kout << " = " << result << " @ ";""")
+            ret.append("""kout << result << endl;""")
         ret.append(
             """kout << "cycles=" << counter.value << "/" << counter.overflow << endl;"""
         )

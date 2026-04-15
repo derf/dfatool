@@ -7,6 +7,7 @@ import dfatool.functions as df
 import dfatool.runner
 from dfatool.utils import NpEncoder
 import json
+import logging
 import numpy as np
 import sklearn.datasets
 import sys
@@ -80,6 +81,11 @@ if __name__ == "__main__":
     parser.add_argument("--multipass-app", type=str, default="treebench")
     parser.add_argument(
         "--type", choices="int8_t int16_t int32_t float double".split(), default="float"
+    )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Verify C/C++ traversal results (very slow)",
     )
 
     args = parser.parse_args()
@@ -203,7 +209,7 @@ if __name__ == "__main__":
         with open(
             f"{args.multipass_base}/src/app/{args.multipass_app}/main.cc", "w"
         ) as f:
-            f.write("\n".join(impl.get_benchmark(X, y)) + "\n")
+            f.write("\n".join(impl.get_benchmark(X, y, verify=args.verify)) + "\n")
 
         nfp_file = f"src/app/{args.multipass_app}/tree.o"
         # template impl stores trees in .text._Z12traverseTreeILi… and uses .rodata.cst4 → include those
@@ -225,6 +231,17 @@ if __name__ == "__main__":
                 # for POSIX, the "overflow" part is always 0 and thus safe to ignore
                 # Timer values are returned in ns.
                 latencies.append(int(raw_latency.split("/")[0]))
+            if line.startswith("prediction="):
+                param_values = list(
+                    map(float, line.removeprefix("prediction=").split(";"))
+                )
+                codegen_prediction = float(param_values.pop())
+                model_prediction = model.eval(param_values, cast=float)
+                if abs(codegen_prediction - model_prediction) > 0.1:
+                    logging.error(
+                        f"param={param_values}: expected {model_prediction}, got {codegen_prediction}"
+                    )
+                    sys.exit(1)
         percentiles = np.percentile(latencies, range(0, 101))
         str_percentiles = " ".join(
             map(lambda kv: f"p{kv[0]:03d}={kv[1]}", zip(range(0, 101), percentiles))
