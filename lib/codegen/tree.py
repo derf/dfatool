@@ -95,7 +95,11 @@ class TreeImplementation:
             f"const {self.feature_type} param_values[{len(param_values)}][{steps}] = {{"
         )
         for param_value in param_values:
-            ret.append("{" + ",".join(map(str, param_value)) + "},")
+            ret.append(
+                "{"
+                + ",".join(map(lambda v: f"{v:{self.feature_format}}", param_value))
+                + "},"
+            )
         ret.append("};")
 
         ret += [

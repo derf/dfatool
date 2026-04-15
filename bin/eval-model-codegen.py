@@ -167,11 +167,15 @@ if __name__ == "__main__":
     elif args.model == "CART":
         model = df.CARTFunction(np.mean(y), param_names=param_names, arg_count=0)
         model.fit(X, y)
+        if "int" in args.type:
+            model.cast(lambda x: round(x, 0))
         data = model.to_json()
         ser = SerializedTree(data)
     elif args.model == "XGB":
         model = df.XGBoostFunction(np.mean(y), param_names=param_names, arg_count=0)
         model.fit(X, y)
+        if "int" in args.type:
+            model.cast(lambda x: round(x, 0))
         data = model.to_json()
         ser = SerializedForest(data)
 
@@ -236,7 +240,9 @@ if __name__ == "__main__":
                     map(float, line.removeprefix("prediction=").split(";"))
                 )
                 codegen_prediction = float(param_values.pop())
-                model_prediction = model.eval(param_values, cast=float)
+                model_prediction = model.eval(
+                    param_values, cast=int if "int" in args.type else float
+                )
                 if abs(codegen_prediction - model_prediction) > 0.1:
                     logging.error(
                         f"param={param_values}: expected {model_prediction}, got {codegen_prediction}"

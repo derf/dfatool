@@ -1040,7 +1040,7 @@ class SKLearnRegressionFunction(ModelFunction):
     def is_predictable(self, param_list=None):
         return self.fit_success
 
-    def eval(self, param_list=None):
+    def eval(self, param_list=None, cast=int):
         """
         Evaluate model function with specified param/arg values.
 
@@ -1063,7 +1063,7 @@ class SKLearnRegressionFunction(ModelFunction):
                             max(self.categorical_to_index[i].values()) + 1
                         )
                 else:
-                    actual_param_list.append(int(param))
+                    actual_param_list.append(cast(param))
         predictions = self.regressor.predict(np.array([actual_param_list]))
         if predictions.shape == (1,):
             return predictions[0]
@@ -1199,6 +1199,13 @@ class CARTFunction(SKLearnRegressionFunction):
             }
         )
         return hyper
+
+    def cast(self, cast):
+        # We cannot change .threshold / .value directly: AttributeError: attribute 'threshold' of 'sklearn.tree._tree.Tree' objects is not writable, etc.
+        for i in range(len(self.regressor.tree_.threshold)):
+            self.regressor.tree_.threshold[i] = cast(self.regressor.tree_.threshold[i])
+        for i in range(len(self.regressor.tree_.value)):
+            self.regressor.tree_.value[i] = cast(self.regressor.tree_.value[i][0][0])
 
     # recursive function for all nodes:
     def recurse_(self, tree, node_id, depth=0):
