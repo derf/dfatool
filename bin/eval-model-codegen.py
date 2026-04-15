@@ -4,6 +4,7 @@
 import argparse
 import dfatool.codegen.tree as cg
 import dfatool.functions as df
+import dfatool.runner
 from dfatool.utils import NpEncoder
 import json
 import numpy as np
@@ -78,9 +79,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", choices=("CART", "XGB"), default="CART")
     parser.add_argument("--model-load", metavar="model.json[.xz]", type=str)
     parser.add_argument("--model-save", metavar="model.json[.xz]", type=str)
-    parser.add_argument(
-        "--multipass-base", type=str, default="../../../projects/multipass"
-    )
+    parser.add_argument("--multipass-base", type=str, default="../multipass")
     parser.add_argument("--multipass-app", type=str, default="treebench")
     parser.add_argument(
         "--type", choices="int8_t int16_t int32_t float double".split(), default="float"
@@ -162,14 +161,14 @@ if __name__ == "__main__":
             ser = SerializedTree(data)
         n_features = ser.get_n_features()
     elif args.model == "CART":
-        cart = df.CARTFunction(np.mean(y), param_names=param_names, arg_count=0)
-        cart.fit(X, y)
-        data = cart.to_json()
+        model = df.CARTFunction(np.mean(y), param_names=param_names, arg_count=0)
+        model.fit(X, y)
+        data = model.to_json()
         ser = SerializedTree(data)
     elif args.model == "XGB":
-        cart = df.XGBoostFunction(np.mean(y), param_names=param_names, arg_count=0)
-        cart.fit(X, y)
-        data = cart.to_json()
+        model = df.XGBoostFunction(np.mean(y), param_names=param_names, arg_count=0)
+        model.fit(X, y)
+        data = model.to_json()
         ser = SerializedForest(data)
 
     if args.model_save:
@@ -209,3 +208,39 @@ if __name__ == "__main__":
 
     with open(f"{args.multipass_base}/src/app/{args.multipass_app}/main.cc", "w") as f:
         f.write("\n".join(impl.get_benchmark(X, y)) + "\n")
+
+    nfp_file = f"src/app/{args.multipass_app}/tree.o"
+    nfp_benchmark = dfatool.runner.ShellMonitor(
+        f"script/nfpvalues.py size text,rodata data,bss {nfp_file}".split(),
+        cwd=args.multipass_base,
+    )
+    latency_benchmark = dfatool.runner.ShellMonitor("./mpm", cwd=args.multipass_base)
+
+    stdout, stderr = latency_benchmark.run(timeout=600)
+    latencies = list()
+    for line in stdout:
+        if line.startswith("cycles="):
+            raw_latency = line.split("=")[1]
+            # for POSIX, the "overflow" part is always 0 and thus safe to ignore
+            # Timer values are returned in ns.
+            latencies.append(int(raw_latency.split("/")[0]))
+    percentiles = np.percentile(latencies, range(0, 101))
+    str_percentiles = " ".join(
+        map(lambda kv: f"p{kv[0]:03d}={kv[1]}", zip(range(0, 101), percentiles))
+    )
+
+    stdout, stderr = nfp_benchmark.run()
+    data = json.loads(stdout[0])
+    rom = data[nfp_file]["ROM"]
+    ram = data[nfp_file]["RAM"]
+
+    hyper_str = " ".join(
+        map(
+            lambda kv: kv[0].split("/")[1].replace(" ", "_") + f"={kv[1]}",
+            model.hyper_to_dref().items(),
+        )
+    )
+    print(
+        f"[::] {args.model} | n_features={len(param_names)} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
+        + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | rom_B={rom} ram_B={ram} {str_percentiles}"
+    )

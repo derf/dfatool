@@ -117,7 +117,7 @@ class TreeImplementation:
                 ret.append(f"""kout << param_vec[{i}] << ";";""")
             ret.append("""kout << " = " << result << " @ ";""")
         ret.append(
-            """kout << counter.value << "/" << counter.overflow << " cycles" << endl;"""
+            """kout << "cycles=" << counter.value << "/" << counter.overflow << endl;"""
         )
         ret.append("gpio.led_toggle();")
         for i in range(self.n_features):
@@ -132,9 +132,7 @@ class TreeImplementation:
             "    arch.setup();",
             "    gpio.setup();",
             "    kout.setup();",
-            "    while (1) {",
             "        run_benchmark();",
-            "    }",
             "    return 0;",
             "}",
         ]
