@@ -23,6 +23,7 @@ class TreeImplementation:
         assert self.feature_type == self.leaf_type
         if self.model.model_type == "forest":
             self.is_forest = True
+            self.num_trees = len(self.model.trees)
 
     def __repr__(self):
         return f"{type(self).__name__}<id={self.id_type}, feat={self.feature_type}, ret={self.leaf_type}, K={self.num_trees}, n={self.n_features}>"
