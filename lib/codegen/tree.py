@@ -343,12 +343,14 @@ class TemplateTree(PlainTree):
                     "    (void)features;",
                     "    return 0;",
                     "}",
-                    "",
-                    f"{self.leaf_type} traverse({self.feature_type} *features)",
-                    "{",
-                    "    return traverseForest<0>(features);",
-                    "}",
                 ]
+            ret += [
+                "",
+                f"{self.leaf_type} traverse({self.feature_type} *features)",
+                "{",
+                "    return traverseForest<0>(features);",
+                "}",
+            ]
             return ret
         else:
             return [
