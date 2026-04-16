@@ -5,6 +5,7 @@ Utilities for analytic description of parameter-dependent model attributes.
 This module provides classes and helper functions useful for least-squares
 regression and general handling of model functions.
 """
+
 from itertools import chain, combinations
 import logging
 import numpy as np
@@ -1690,6 +1691,9 @@ class XGBoostFunction(SKLearnRegressionFunction):
                 output_filename, dump_format="json", with_stats=True
             )
         return self
+
+    def cast(self, cast):
+        self.regressor.intercept_[0] = cast(self.regressor.intercept_[0])
 
     def to_json(self, internal=False, **kwargs):
         import json
