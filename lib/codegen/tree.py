@@ -10,6 +10,7 @@ class TreeImplementation:
     feature_type = "float"
     leaf_type = "float"
     feature_index_type = "uint8_t"
+    intercept = 0
     section_prefix = str()
     is_forest = False
     num_trees = 1
@@ -24,6 +25,8 @@ class TreeImplementation:
         if self.model.model_type == "forest":
             self.is_forest = True
             self.num_trees = len(self.model.trees)
+            self.aggregate = self.model.aggregate
+            self.intercept = self.model.intercept
 
     def __repr__(self):
         return f"{type(self).__name__}<id={self.id_type}, feat={self.feature_type}, ret={self.leaf_type}, K={self.num_trees}, n={self.n_features}>"
@@ -243,7 +246,7 @@ class PlainTree(TreeImplementation):
                 "        }",
                 "        ret += tree[index].threshold;",
                 "    }",
-                "    return ret;",
+                f"    return {self.intercept:{self.leaf_format}} + ret;",
                 "}",
             ]
         else:
@@ -299,7 +302,7 @@ class ConstTree(PlainTree):
                 f"    for ({tt} i = 0; i < {self.num_trees}; i++) {{",
                 f"        ret += forest[i][0].traverse(forest[i], features);",
                 "    }",
-                "    return ret;",
+                f"    return {self.intercept:{self.leaf_format}} + ret;",
                 "}",
             ]
         else:
@@ -355,7 +358,7 @@ class TemplateTree(PlainTree):
                 "",
                 f"{self.leaf_type} traverse({self.feature_type} *features)",
                 "{",
-                "    return traverseForest<0>(features);",
+                f"    return {self.intercept:{self.leaf_format}} + traverseForest<0>(features);",
                 "}",
             ]
             return ret

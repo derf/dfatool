@@ -192,6 +192,8 @@ if __name__ == "__main__":
 
     del data
 
+    # print(json.dumps(list(map(lambda t: t.tree, ser.trees)), indent=2))
+
     for impl_cls in (cg.PlainTree, cg.ConstTree, cg.TemplateTree):
         impl = impl_cls(model=ser)
 
@@ -243,7 +245,16 @@ if __name__ == "__main__":
                 model_prediction = model.eval(
                     param_values, cast=int if "int" in args.type else float
                 )
-                if abs(codegen_prediction - model_prediction) > 0.1:
+                if args.model == "XGB":
+                    if "int" in args.type:
+                        # XGBoost does not support (easy) casting of tree leaf weights to int, so each leaf may introduce an error of up to .5
+                        max_err = model.regressor.n_estimators * 0.5
+                    else:
+                        # rounding errors, so many (potential) rounding errors
+                        max_err = model.regressor.n_estimators * 0.05
+                else:
+                    max_err = 0.1
+                if abs(codegen_prediction - model_prediction) > max_err:
                     logging.error(
                         f"param={param_values}: expected {model_prediction}, got {codegen_prediction}"
                     )
