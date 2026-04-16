@@ -4,11 +4,12 @@ oldpwd="$(dirname "$(realpath "$0")")"
 
 run_cart() {
 	export "$@"
-	set -e
 	multipass=$(mktemp -d)
 	rsync -a ~/var/projects/multipass/ ${multipass}/
 	bin/eval-model-codegen.py --multipass-base ${multipass} --verify --model CART --dataset-load "/tmp/regression-${n_features}.json.xz" --type ${type}
+	ret=$?
 	rm -rf ${multipass}
+	return $ret
 }
 
 run_xgb() {
@@ -18,11 +19,12 @@ run_xgb() {
 	# Empirically, with more than four threads, the synchronization overhead is so high that it actually slows down the application.
 	export OMP_NUM_THREADS=4
 
-	set -e
 	multipass=$(mktemp -d)
 	rsync -a ~/var/projects/multipass/ ${multipass}/
 	bin/eval-model-codegen.py --multipass-base ${multipass} --verify --model XGB --dataset-load "/tmp/regression-${n_features}.json.xz" --type ${type}
+	ret=$?
 	rm -rf ${multipass}
+	return $ret
 }
 
 export -f run_cart run_xgb
