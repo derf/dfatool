@@ -29,7 +29,7 @@ run_xgb() {
 
 export -f run_cart run_xgb
 
-parallel --eta --header : \
+nice parallel --eta --header : \
 	bin/eval-model-codegen.py --dataset-n-features {n_features} --dataset-n-samples 10000 --dataset-save /tmp/regression-{n_features}.json.xz \
 	::: n_features $(seq 2 6)
 
@@ -37,7 +37,7 @@ echo
 echo CART
 echo
 
-parallel --eta --joblog /tmp/cart.joblog --header : \
+nice parallel --eta --joblog /tmp/cart.joblog --header : \
 	run_cart DFATOOL_CART_MAX_DEPTH={max_depth} n_features={n_features} type={type} \
 	::: max_depth 4 6 8 10 12 14 16 \
 	::: n_features 3 4 5 \
@@ -47,7 +47,7 @@ echo
 echo XGB
 echo
 
-parallel --eta --joblog /tmp/xgb.joblog --header : \
+nice parallel --eta --joblog /tmp/xgb.joblog --header : \
 	run_xgb DFATOOL_XGB_MAX_DEPTH={max_depth} DFATOOL_XGB_N_ESTIMATORS={n_estimators} n_features={n_features} type={type} \
 	::: max_depth 4 6 8 10 12 \
 	::: n_estimators 1 5 10 15 20 25 30 40 50 60 70 80 90 100 120 140 160 180 200 \
