@@ -302,7 +302,10 @@ if __name__ == "__main__":
         start = time.monotonic()
         model.eval(param_tuple, cast=int if "int" in args.type else float)
         stop = time.monotonic()
-        latencies.append((stop - start) * 1e9)
+        nop = time.monotonic()
+        # time.monotonic() has an overhead of a few hundred ns; remove it.
+        # rdtsc overhead is on the order of tens of ns and therefore less critical, hence it is not calibrated out above.
+        latencies.append(((stop - start) - (nop - stop)) * 1e9)
     percentiles = np.percentile(latencies, range(0, 101))
     str_percentiles = " ".join(
         map(lambda kv: f"p{kv[0]:03d}_ns={kv[1]}", zip(range(0, 101), percentiles))
