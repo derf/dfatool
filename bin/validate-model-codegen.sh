@@ -17,7 +17,7 @@ run_xgb() {
 
 	# XGB uses multiple threads for training and inference.
 	# Empirically, with more than four threads, the synchronization overhead is so high that it actually slows down the application.
-	export OMP_NUM_THREADS=4
+	export OMP_NUM_THREADS=1
 
 	multipass=$(mktemp -d)
 	rsync -a ~/var/projects/multipass/ ${multipass}/
