@@ -84,7 +84,7 @@ class TreeImplementation:
         if len(X):
             assert len(X[0]) == self.n_features
 
-        param_values = list()
+        self.param_values = list()
         for i in range(self.n_features):
             sorted_values = sorted(X[:, i])
             this_values = list()
@@ -92,12 +92,12 @@ class TreeImplementation:
                 this_values.append(
                     sorted_values[int(((j + 0.5) / steps) * len(sorted_values))]
                 )
-            param_values.append(this_values)
+            self.param_values.append(this_values)
 
         ret.append(
-            f"const {self.feature_type} param_values[{len(param_values)}][{steps}] = {{"
+            f"const {self.feature_type} param_values[{len(self.param_values)}][{steps}] = {{"
         )
-        for param_value in param_values:
+        for param_value in self.param_values:
             ret.append(
                 "{"
                 + ",".join(map(lambda v: f"{v:{self.feature_format}}", param_value))
