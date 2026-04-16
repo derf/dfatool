@@ -6,11 +6,14 @@ import dfatool.codegen.tree as cg
 import dfatool.functions as df
 import dfatool.runner
 from dfatool.utils import NpEncoder
+import itertools
 import json
 import logging
 import numpy as np
+import platform
 import sklearn.datasets
 import sys
+import time
 
 
 class SerializedTree:
@@ -61,6 +64,13 @@ class SerializedForest:
 
 
 if __name__ == "__main__":
+
+    hostname = platform.node()
+
+    if hostname == "kalamos":
+        tsc_to_ns = 1 / 2.6
+    elif hostname == "ios":
+        tsc_to_ns = 1 / 2.095
 
     parser = argparse.ArgumentParser()
 
@@ -194,6 +204,8 @@ if __name__ == "__main__":
 
     # print(json.dumps(list(map(lambda t: t.tree, ser.trees)), indent=2))
 
+    # Impl: Plain, Const, Template
+
     for impl_cls in (cg.PlainTree, cg.ConstTree, cg.TemplateTree):
         impl = impl_cls(model=ser)
 
@@ -236,7 +248,7 @@ if __name__ == "__main__":
                 raw_latency = line.split("=")[1]
                 # for POSIX, the "overflow" part is always 0 and thus safe to ignore
                 # Timer values are returned in ns.
-                latencies.append(int(raw_latency.split("/")[0]))
+                latencies.append(int(raw_latency.split("/")[0]) * tsc_to_ns)
             if line.startswith("prediction="):
                 param_values = list(
                     map(float, line.removeprefix("prediction=").split(";"))
@@ -261,7 +273,7 @@ if __name__ == "__main__":
                     sys.exit(1)
         percentiles = np.percentile(latencies, range(0, 101))
         str_percentiles = " ".join(
-            map(lambda kv: f"p{kv[0]:03d}={kv[1]}", zip(range(0, 101), percentiles))
+            map(lambda kv: f"p{kv[0]:03d}_ns={kv[1]}", zip(range(0, 101), percentiles))
         )
 
         stdout, stderr = nfp_benchmark.run()
