@@ -315,7 +315,7 @@ class MIMOSAMonitor(SerialMonitor):
 class ShellMonitor:
     """SerialMonitor runs a program and captures its output for a specific amount of time."""
 
-    def __init__(self, script: str, callback=None):
+    def __init__(self, script, callback=None, cwd=None):
         """
         Create a new ShellMonitor object.
 
@@ -323,25 +323,27 @@ class ShellMonitor:
         """
         self.script = script
         self.callback = callback
+        self.cwd = cwd
 
-    def run(self, timeout: int = 4) -> list:
+    def run(self, timeout=4, cwd=None) -> list:
         """
         Run program for timeout seconds and return a list of its stdout lines.
 
         stderr and return status are discarded at the moment.
         """
-        if type(timeout) != int:
-            raise ValueError("timeout argument must be int")
         res = subprocess.run(
-            ["timeout", "{:d}s".format(timeout), self.script],
+            self.script,
+            check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
+            cwd=self.cwd or cwd,
+            timeout=timeout,
         )
         if self.callback:
             for line in res.stdout.split("\n"):
                 self.callback(line)
-        return res.stdout.split("\n")
+        return res.stdout.split("\n"), res.stderr.split("\n")
 
     def monitor(self):
         raise NotImplementedError
