@@ -6,8 +6,6 @@ COPY bin/ /dfatool/bin/
 COPY lib/ /dfatool/lib/
 COPY ext/ /dfatool/ext/
 
-RUN sed -i 's/charset is "C"/charset == "C"/' /dfatool/bin/dfatool/pubcode/code128.py
-
 FROM debian:bullseye
 
 ARG DEBIAN_FRONTEND=noninteractive
