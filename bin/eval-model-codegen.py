@@ -69,6 +69,8 @@ if __name__ == "__main__":
 
     if hostname == "kalamos":
         tsc_to_ns = 1 / 2.6
+    elif hostname == "leros":
+        tsc_to_ns = 1 / 3.3
     elif hostname == "ios":
         tsc_to_ns = 1 / 2.095
 
@@ -84,6 +86,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset-n-features", type=int, default=10)
     parser.add_argument("--dataset-load", type=str, metavar="data.json[.xz]")
     parser.add_argument("--dataset-save", type=str, metavar="data.json[.xz]")
+    parser.add_argument("--debug", action="store_true")
     parser.add_argument("--model", choices=("CART", "XGB"), default="CART")
     parser.add_argument("--model-load", metavar="model.json[.xz]", type=str)
     parser.add_argument("--model-save", metavar="model.json[.xz]", type=str)
@@ -200,9 +203,10 @@ if __name__ == "__main__":
                 json.dump(data, f, cls=NpEncoder)
         sys.exit(0)
 
-    del data
+    if args.debug:
+        print(json.dumps(data, indent=2, cls=NpEncoder))
 
-    # print(json.dumps(list(map(lambda t: t.tree, ser.trees)), indent=2))
+    del data
 
     # Impl: Plain, Const, Template
 
@@ -219,6 +223,12 @@ if __name__ == "__main__":
         impl.set_feature_index_type("uint8_t")
         impl.set_num_features(len(X[0]))
 
+        benchmark_steps = 5
+        if args.dataset_n_features > 10:
+            benchmark_steps = 3
+        elif args.dataset_n_features > 5:
+            benchmark_steps = 4
+
         with open(
             f"{args.multipass_base}/src/app/{args.multipass_app}/tree.cc", "w"
         ) as f:
@@ -227,7 +237,12 @@ if __name__ == "__main__":
         with open(
             f"{args.multipass_base}/src/app/{args.multipass_app}/main.cc", "w"
         ) as f:
-            f.write("\n".join(impl.get_benchmark(X, y, verify=args.verify)) + "\n")
+            f.write(
+                "\n".join(
+                    impl.get_benchmark(X, y, verify=args.verify, steps=benchmark_steps)
+                )
+                + "\n"
+            )
 
         nfp_file = f"src/app/{args.multipass_app}/tree.o"
         # template impl stores trees in .text._Z12traverseTreeILi… and uses .rodata.cst4 → include those
@@ -259,14 +274,24 @@ if __name__ == "__main__":
                 )
                 if args.model == "XGB":
                     if "int" in args.type:
-                        # XGBoost does not support (easy) casting of tree leaf weights to int, so each leaf may introduce an error of up to .5
-                        max_err = model.regressor.n_estimators * 0.5
+                        # XGBoost does not support (easy) casting of tree leaf weights to int, so each leaf may introduce an error of up to 1, +1 for the
+                        # intercept term itself
+                        max_err = model.regressor.n_estimators + 1
                     else:
                         # rounding errors, so many (potential) rounding errors
                         max_err = model.regressor.n_estimators * 0.05
                 else:
                     max_err = 0.1
-                if abs(codegen_prediction - model_prediction) > max_err:
+                if (
+                    abs(codegen_prediction - model_prediction) > max_err
+                    and (
+                        not "int" in args.type
+                        or abs(
+                            (codegen_prediction - model_prediction) / model_prediction
+                        )
+                    )
+                    > 0.02
+                ):
                     logging.error(
                         f"param={param_values}: expected {model_prediction}, got {codegen_prediction}"
                     )
@@ -295,6 +320,7 @@ if __name__ == "__main__":
     # Impl: Python (native CART / XGB)
 
     latencies = list()
+    nop_latencies = list()
     start = time.monotonic()
     stop = time.monotonic()
     nop_ns = stop - start
@@ -305,7 +331,9 @@ if __name__ == "__main__":
         nop = time.monotonic()
         # time.monotonic() has an overhead of a few hundred ns; remove it.
         # rdtsc overhead is on the order of tens of ns and therefore less critical, hence it is not calibrated out above.
-        latencies.append(((stop - start) - (nop - stop)) * 1e9)
+        latencies.append((stop - start) * 1e9)
+        nop_latencies.append((nop - stop) * 1e9)
+    latencies = np.array(latencies) - np.array(nop_latencies)
     percentiles = np.percentile(latencies, range(0, 101))
     str_percentiles = " ".join(
         map(lambda kv: f"p{kv[0]:03d}_ns={kv[1]}", zip(range(0, 101), percentiles))

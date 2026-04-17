@@ -37,7 +37,9 @@ echo
 echo CART
 echo
 
-nice parallel --eta --joblog /tmp/cart.joblog --header : \
+rm -f /tmp/cart-validation.joblog
+
+nice parallel --eta --joblog /tmp/cart-validation.joblog --header : \
 	run_cart DFATOOL_CART_MAX_DEPTH={max_depth} n_features={n_features} type={type} \
 	::: max_depth 4 6 8 10 12 14 16 \
 	::: n_features 3 4 5 \
@@ -47,7 +49,9 @@ echo
 echo XGB
 echo
 
-nice parallel --eta --joblog /tmp/xgb.joblog --header : \
+rm -f /tmp/xgb-validation.joblog
+
+nice parallel --eta --joblog /tmp/xgb-validation.joblog --header : \
 	run_xgb DFATOOL_XGB_MAX_DEPTH={max_depth} DFATOOL_XGB_N_ESTIMATORS={n_estimators} n_features={n_features} type={type} \
 	::: max_depth 4 6 8 10 12 \
 	::: n_estimators 1 5 10 15 20 25 30 40 50 60 70 80 90 100 120 140 160 180 200 \
