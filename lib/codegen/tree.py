@@ -18,6 +18,7 @@ class TreeImplementation:
     split_cond = None
     split_le = False
     split_lt = False
+    header = ["#include <stdint.h>"]
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -67,7 +68,7 @@ class TreeImplementation:
         raise NotImplementedError
 
     def feature_vector(self):
-        raise NotImplementedError
+        return [f"{self.feature_type} param_vec[{self.n_features:d}];"]
 
     def get_benchmark(self, X, y, verify=False, steps=5):
         ret = [
@@ -150,7 +151,6 @@ class TreeImplementation:
         return ret
 
     def to_c(self):
-        header = ["#include <stdint.h>"]
         lines = []
         if self.is_forest:
             for i, tree in enumerate(self.model.trees):
@@ -176,8 +176,7 @@ class TreeImplementation:
             lines += self._node_to_c(self.model.tree)
             lines += ["};"]
         lines += self.traversal_function()
-        header += self.struct_node()
-        return header + lines
+        return self.header + self.struct_node() + lines
 
     def _node_to_c(self, node):
         if node["type"] == "static":
@@ -261,9 +260,6 @@ class PlainTree(TreeImplementation):
                 "    return tree[index].threshold;",
                 "}",
             ]
-
-    def feature_vector(self):
-        return [f"{self.feature_type} param_vec[{self.n_features:d}];"]
 
 
 class ConstTree(PlainTree):
