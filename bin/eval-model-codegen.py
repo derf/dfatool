@@ -87,6 +87,13 @@ if __name__ == "__main__":
     parser.add_argument("--dataset-load", type=str, metavar="data.json[.xz]")
     parser.add_argument("--dataset-save", type=str, metavar="data.json[.xz]")
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument(
+        "--log-level",
+        metavar="LEVEL",
+        choices=["debug", "info", "warning", "error"],
+        default="warning",
+        help="Set log level",
+    )
     parser.add_argument("--model", choices=("CART", "XGB"), default="CART")
     parser.add_argument("--model-load", metavar="model.json[.xz]", type=str)
     parser.add_argument("--model-save", metavar="model.json[.xz]", type=str)
@@ -102,6 +109,17 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    if args.log_level:
+        numeric_level = getattr(logging, args.log_level.upper(), None)
+        if not isinstance(numeric_level, int):
+            print(f"Invalid log level: {args.log_level}", file=sys.stderr)
+            sys.exit(1)
+        logging.basicConfig(
+            level=numeric_level,
+            format="{asctime} {levelname}:{name}:{message}",
+            style="{",
+        )
 
     if args.dataset_load:
         if args.dataset_load.endswith(".xz"):
