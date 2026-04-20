@@ -224,7 +224,9 @@ if __name__ == "__main__":
         impl.set_num_features(len(X[0]))
 
         benchmark_steps = 5
-        if args.dataset_n_features > 10:
+        if args.dataset_n_features > 9:
+            benchmark_steps = 2
+        elif args.dataset_n_features > 7:
             benchmark_steps = 3
         elif args.dataset_n_features > 5:
             benchmark_steps = 4
