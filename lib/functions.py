@@ -328,7 +328,7 @@ class StaticFunction(ModelFunction):
         """
         return True
 
-    def eval(self, param_list=None):
+    def eval(self, param_list=None, cast=None):
         """
         Evaluate model function with specified param/arg values.
 
@@ -339,6 +339,15 @@ class StaticFunction(ModelFunction):
 
     def eval_arr(self, params):
         return [self.value for p in params]
+
+    def get_number_of_nodes(self):
+        return 1
+
+    def get_number_of_leaves(self):
+        return 1
+
+    def get_max_depth(self):
+        return 1
 
     def get_complexity_score(self):
         return 1
