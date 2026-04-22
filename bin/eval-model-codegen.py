@@ -5,6 +5,7 @@ import argparse
 import dfatool.codegen.tree as cg
 import dfatool.functions as df
 import dfatool.runner
+from dfatool.parameters import ModelAttribute, ParamType
 from dfatool.utils import NpEncoder
 import itertools
 import json
@@ -94,7 +95,7 @@ if __name__ == "__main__":
         default="warning",
         help="Set log level",
     )
-    parser.add_argument("--model", choices=("CART", "XGB"), default="CART")
+    parser.add_argument("--model", choices=("CART", "RMT", "XGB"), default="CART")
     parser.add_argument("--model-load", metavar="model.json[.xz]", type=str)
     parser.add_argument("--model-save", metavar="model.json[.xz]", type=str)
     parser.add_argument("--multipass-base", type=str, default="../multipass")
@@ -133,6 +134,7 @@ if __name__ == "__main__":
         X = np.array(dataset["X"])
         y = np.array(dataset["y"])
         param_names = list(map(lambda x: f"feat{x+1:02d}", range(len(X[0]))))
+        param_type = dict(map(lambda k: (k, ParamType.SCALAR), range(len(X[0]))))
     else:
         X, y = sklearn.datasets.make_regression(
             n_samples=args.dataset_n_samples,
@@ -142,6 +144,9 @@ if __name__ == "__main__":
 
         param_names = list(
             map(lambda x: f"feat{x+1:02d}", range(args.dataset_n_features))
+        )
+        param_type = dict(
+            map(lambda k: (k, ParamType.SCALAR), range(args.dataset_n_features))
         )
 
     if args.dataset_save:
@@ -202,6 +207,13 @@ if __name__ == "__main__":
             model.cast(lambda x: round(x, 0))
         data = model.to_json()
         ser = SerializedTree(data)
+    elif args.model == "RMT":
+        # TODO handle categorical features
+        attr = ModelAttribute("", "", y, X, param_names, param_type=param_type)
+        attr.build_rmt(threshold=0)
+        model = attr.model_function
+        data = model.to_json(expand_regression_args=True)
+        ser = SerializedTree(data)
     elif args.model == "XGB":
         model = df.XGBoostFunction(np.mean(y), param_names=param_names, arg_count=0)
         model.fit(X, y)
@@ -228,7 +240,12 @@ if __name__ == "__main__":
 
     # Impl: Plain, Const, Template
 
-    for impl_cls in (cg.PlainTree, cg.ConstTree, cg.TemplateTree):
+    if args.model == "RMT":
+        implementations = (cg.PlainRMT,)
+    else:
+        implementations = (cg.PlainTree, cg.ConstTree, cg.TemplateTree)
+
+    for impl_cls in implementations:
         impl = impl_cls(model=ser)
 
         impl.id_type = (
@@ -237,7 +254,8 @@ if __name__ == "__main__":
             else ("uint16_t" if ser.max_id < 65536 else "uint32_t")
         )
         impl.set_feature_type(args.type)
-        impl.set_leaf_type(args.type)
+        if args.model != "RMT":
+            impl.set_leaf_type(args.type)
         impl.set_feature_index_type("uint8_t")
         impl.set_num_features(len(X[0]))
 

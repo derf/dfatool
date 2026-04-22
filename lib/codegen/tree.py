@@ -22,7 +22,6 @@ class TreeImplementation:
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
-        assert self.feature_type == self.leaf_type
         if self.model.model_type == "forest":
             self.is_forest = True
             self.num_trees = len(self.model.trees)
@@ -41,7 +40,6 @@ class TreeImplementation:
 
     def set_leaf_type(self, leaf_type):
         self.leaf_type = leaf_type
-        assert self.leaf_type == self.feature_type
         if "int" in leaf_type:
             self.leaf_format = "5.0f"
         else:
@@ -213,9 +211,139 @@ class TreeImplementation:
             raise NotImplementedError(f"""node type {node["type"]} not supported yet""")
 
 
+class PlainRMT(TreeImplementation):
+    name = "rmt-plain"
+    section_prefix = "const"
+    feature_type = "uint32_t"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.header += [
+            "#include <stdio.h>",
+            "#include <stdlib.h>",
+            "#include <cstddef>",
+        ]
+
+    def struct_node(self):
+        return [
+            "struct node {",
+            f"    {self.feature_index_type} const feat;",
+            "    uint8_t n_keys;",
+            f"    {self.feature_type} const * const keys;",
+            f"    {self.id_type} const * const children;",
+            f"    {self.leaf_type} (* leaf)({self.feature_type} *);",
+            "};",
+        ]
+
+    def traversal_function(self):
+        return [
+            f"{self.leaf_type} traverse({self.feature_type} *features)",
+            "{",
+            f"    {self.id_type} i = 0;",
+            "    while (tree[i].leaf == NULL) {",
+            "        bool found = false;",
+            "        for (uint8_t j = 0; j < tree[i].n_keys; j++) {",
+            "            if (features[tree[i].feat] == tree[i].keys[j]) {",
+            "                i = tree[i].children[j];",
+            "                found = true;",
+            "                break;",
+            "            }",
+            "        }",
+            "        if (!found) {",
+            # TODO calculate mean instead
+            """            printf("tree[%u]: did not find a child for features[%u] == %u\\n", i, tree[i].feat, features[tree[i].feat]);""",
+            "            exit(1);",
+            "        }",
+            "    }",
+            "    return tree[i].leaf(features);",
+            "}",
+        ]
+
+    def to_c(self):
+        lines = []
+        self.key_arrays = list()
+        self.child_arrays = list()
+        self.leaves = list()
+        tree_lines = self._node_to_c(self.model.tree)
+        lines += self.key_arrays
+        lines += self.child_arrays
+        lines += self.leaves
+        lines += [
+            f"{self.section_prefix} struct node tree[{self.model.max_id + 1}] = " + "{"
+        ]
+        lines += tree_lines
+        lines += ["};"]
+        lines += self.traversal_function()
+        return self.header + self.struct_node() + lines
+
+    def _node_to_c(self, node):
+        # {.feat = 0, .n_keys = 3, .keys = keys000, .children = children000, .leaf = NULL}, // 000
+        if node["type"] == "split":
+            node_id = node["id"]
+            feature = node["paramIndex"]
+            n_children = length(node["child"])
+            keys = sorted(node["child"].keys())
+            children = list(map(lambda k: node["child"][k], keys))
+            child_ids = list(map(lambda child: child["id"], children))
+            self.key_arrays.append(f"keys{node_id:05d} = [" + ", ".join(keys) + "];")
+            self.child_arrays.append(
+                f"children{node_id:05d} = [" + ", ".join(child_ids) + "];"
+            )
+            return [
+                f"{{.feat = {feature:2d}, .n_keys = {n_children:2d}, .keys = keys{node_id:05d}, .children = children{node_id:05d}, .leaf = NULL}}, // {node_id:5d}"
+            ]
+        elif node["type"] == "static":
+            node_id = node["id"]
+            value = node["value"]
+            self.leaves.extend(
+                [
+                    f"{self.leaf_type} leaf{node_id:05d}({self.feature_type} * feat)",
+                    "{",
+                    "    (void)feat;",
+                    f"    return {value};",
+                    "}",
+                ]
+            )
+            return [
+                f"{{.feat = 0, .n_keys = 0, .keys = NULL, .children = NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
+            ]
+        elif node["type"] == "analytic":
+            node_id = node["id"]
+            function = node["functionStr"]
+            for i in range(self.n_features):
+                function = function.replace(f"parameter(feat{i+1:02d})", f"feat[{i:d}]")
+            print(function)
+            self.leaves.extend(
+                [
+                    f"{self.leaf_type} leaf{node_id:05d}({self.feature_type} * feat)",
+                    "{",
+                    f"    return {function};",
+                    "}",
+                ]
+            )
+            return [
+                f"{{.feat = 0, .n_keys = 0, .keys = NULL, .children = NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
+            ]
+        else:
+            raise NotImplementedError(f"""node type {node["type"]} not supported yet""")
+
+
+class OOPTree(TreeImplementation):
+    name = "oop"
+    section_prefix = "const"
+
+
 class PlainTree(TreeImplementation):
     name = "plain"
     section_prefix = "const"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        assert self.feature_type == self.leaf_type
+
+    def set_leaf_type(self, leaf_type):
+        super().set_leaf_type(leaf_type)
+        assert self.leaf_type == self.feature_type
 
     def struct_node(self):
         return [

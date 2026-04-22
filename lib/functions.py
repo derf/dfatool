@@ -2304,7 +2304,7 @@ class AnalyticFunction(ModelFunction):
                 return False
         return True
 
-    def eval(self, param_list):
+    def eval(self, param_list, cast=None):
         """
         Evaluate model function with specified param/arg values.
 
@@ -2312,6 +2312,8 @@ class AnalyticFunction(ModelFunction):
             corresponds to lexically first parameter, etc.
         :param arg_list: argument values (list of float), if arguments are used.
         """
+        if cast is not None:
+            param_list = list(map(cast, param_list))
         try:
             return self._function(self.model_args, param_list)
         except FloatingPointError as e:
@@ -2322,6 +2324,15 @@ class AnalyticFunction(ModelFunction):
 
     def get_complexity_score(self):
         return len(self.model_args)
+
+    def get_number_of_nodes(self):
+        return 1
+
+    def get_number_of_leaves(self):
+        return 1
+
+    def get_max_depth(self):
+        return 1
 
     def webconf_function_map(self):
         js_buf = self.model_function
@@ -2338,10 +2349,16 @@ class AnalyticFunction(ModelFunction):
 
     def to_json(self, **kwargs):
         ret = super().to_json(**kwargs)
+        model_function = self.model_function
+        if kwargs.get("expand_regression_args", False):
+            for i, arg in enumerate(self.model_args):
+                model_function = model_function.replace(
+                    f"regression_arg({i})", f"{arg:.12f}"
+                )
         ret.update(
             {
                 "type": "analytic",
-                "functionStr": self.model_function,
+                "functionStr": model_function,
                 "argCount": self._num_args,
                 "parameterNames": self._parameter_names,
                 "regressionModel": list(self.model_args),
