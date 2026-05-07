@@ -406,7 +406,8 @@ class SplitFunction(ModelFunction):
             map(lambda child: child.is_predictable(param_list), self.child.values())
         )
 
-    def eval(self, param_list):
+    # cast is only for compatibility with CART etc., it is not used here
+    def eval(self, param_list, cast=None):
         param_value = param_list[self.param_index]
         if param_value in self.child:
             return self.child[param_value].eval(param_list)

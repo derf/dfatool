@@ -29,7 +29,9 @@ class SerializedTree:
         if "left" in node:
             n = self._set_max_id(node["left"], n + 1)
             n = self._set_max_id(node["right"], n + 1)
-        # TODO deal with RMT (node["children"])
+        elif "child" in node:
+            for child in node["child"].values():
+                n = self._set_max_id(child, n + 1)
 
         return n
 
@@ -48,6 +50,19 @@ class SerializedTree:
             )
 
         return 0
+
+    def for_json(self, node=None):
+        if node is None:
+            return self.for_json(self.tree)
+
+        if "child" in node:
+            copy_node = node.copy()
+            copy_node["child"] = dict()
+            for key, value in node["child"].items():
+                copy_node["child"][str(key)] = self.for_json(value)
+            return copy_node
+
+        return node
 
 
 class SerializedForest:
@@ -84,7 +99,9 @@ if __name__ == "__main__":
         default="synthetic",
     )
     parser.add_argument("--dataset-n-samples", type=int, default=1000)
-    parser.add_argument("--dataset-n-features", type=int, default=10)
+    parser.add_argument("--dataset-n-categorical", type=int, default=0)
+    parser.add_argument("--dataset-n-categories", type=int, default=3)
+    parser.add_argument("--dataset-n-numeric", type=int, default=10)
     parser.add_argument("--dataset-load", type=str, metavar="data.json[.xz]")
     parser.add_argument("--dataset-save", type=str, metavar="data.json[.xz]")
     parser.add_argument("--debug", action="store_true")
@@ -138,27 +155,24 @@ if __name__ == "__main__":
     else:
         X, y = sklearn.datasets.make_regression(
             n_samples=args.dataset_n_samples,
-            n_features=args.dataset_n_features,
-            n_informative=args.dataset_n_features,
+            n_features=args.dataset_n_numeric,
+            n_informative=args.dataset_n_numeric,
         )
 
         param_names = list(
-            map(lambda x: f"feat{x+1:02d}", range(args.dataset_n_features))
-        )
+            map(lambda x: f"feat{x+1:02d}", range(args.dataset_n_numeric))
+        ) + list(map(lambda x: f"x{x+1:02d}", range(args.dataset_n_categorical)))
         param_type = dict(
-            map(lambda k: (k, ParamType.SCALAR), range(args.dataset_n_features))
+            map(lambda k: (k, ParamType.SCALAR), range(args.dataset_n_numeric))
         )
-
-    if args.dataset_save:
-        if args.dataset_save.endswith(".xz"):
-            import lzma
-
-            with lzma.open(args.dataset_save, "wt") as f:
-                json.dump({"X": X, "y": y}, f, cls=NpEncoder)
-        else:
-            with open(args.dataset_save, "w") as f:
-                json.dump({"X": X, "y": y}, f, cls=NpEncoder)
-        sys.exit(0)
+        param_type.update(
+            dict(
+                map(
+                    lambda k: (args.dataset_n_numeric + k, ParamType.ENUM),
+                    range(args.dataset_n_categorical),
+                )
+            )
+        )
 
     if "int" in args.type:
         X_min, X_max = np.min(X), np.max(X)
@@ -185,6 +199,25 @@ if __name__ == "__main__":
             y_add = -y_min
             y_mul = (range_max - range_min) / abs(y_max - y_min)
         y = ((y + y_add) * y_mul).astype(int)
+
+    # categorical features must not be quantized, so they must be added afterwards.
+    if args.dataset_n_categorical and not args.dataset_load:
+        X = list(map(list, X))
+        for i in range(args.dataset_n_categorical):
+            for sample in X:
+                sample.append(np.random.choice(list(range(args.dataset_n_categories))))
+        X = np.array(X)
+
+    if args.dataset_save:
+        if args.dataset_save.endswith(".xz"):
+            import lzma
+
+            with lzma.open(args.dataset_save, "wt") as f:
+                json.dump({"X": X, "y": y}, f, cls=NpEncoder)
+        else:
+            with open(args.dataset_save, "w") as f:
+                json.dump({"X": X, "y": y}, f, cls=NpEncoder)
+        sys.exit(0)
 
     if args.model_load:
         if args.model_load.endswith(".xz"):
@@ -234,6 +267,8 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.debug:
+        if args.model == "RMT":
+            data = ser.for_json()
         print(json.dumps(data, indent=2, cls=NpEncoder))
 
     del data
@@ -254,17 +289,21 @@ if __name__ == "__main__":
             else ("uint16_t" if ser.max_id < 65536 else "uint32_t")
         )
         impl.set_feature_type(args.type)
+        if args.model == "RMT":
+            impl.set_num_categorical(
+                args.dataset_n_categorical, args.dataset_n_categories
+            )
         if args.model != "RMT":
             impl.set_leaf_type(args.type)
         impl.set_feature_index_type("uint8_t")
-        impl.set_num_features(len(X[0]))
+        impl.set_num_features(args.dataset_n_numeric)
 
         benchmark_steps = 5
-        if args.dataset_n_features > 9:
+        if args.dataset_n_numeric > 9:
             benchmark_steps = 2
-        elif args.dataset_n_features > 7:
+        elif args.dataset_n_numeric > 7:
             benchmark_steps = 3
-        elif args.dataset_n_features > 5:
+        elif args.dataset_n_numeric > 5:
             benchmark_steps = 4
 
         with open(
@@ -351,7 +390,7 @@ if __name__ == "__main__":
             )
         )
         print(
-            f"[::] {args.model} | e_type={args.type} e_impl={impl.name} n_features={len(param_names)} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
+            f"[::] {args.model} | e_type={args.type} e_impl={impl.name} n_numeric={args.dataset_n_numeric} n_categorical={args.dataset_n_categorical} n_categories={args.dataset_n_categories} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
             + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | rom_B={rom} ram_B={ram} {str_percentiles}"
         )
 
@@ -383,6 +422,6 @@ if __name__ == "__main__":
         )
     )
     print(
-        f"[::] {args.model} | e_type={args.type} e_impl=python n_features={len(param_names)} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
+        f"[::] {args.model} | e_type={args.type} e_impl=python n_numeric={args.dataset_n_numeric} n_categorical={args.dataset_n_categorical} n_categories={args.dataset_n_categories} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
         + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | rom_B=0 ram_B=0 {str_percentiles}"
     )

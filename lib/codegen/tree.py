@@ -214,7 +214,6 @@ class TreeImplementation:
 class PlainRMT(TreeImplementation):
     name = "rmt-plain"
     section_prefix = "const"
-    feature_type = "uint32_t"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -224,12 +223,19 @@ class PlainRMT(TreeImplementation):
             "#include <cstddef>",
         ]
 
+    def set_num_categorical(self, n_categorical, n_categories):
+        self.n_categorical = n_categorical
+        self.n_categories = n_categories
+
     def struct_node(self):
         return [
+            "struct params {",
+            f"    uint8_t categorical[{self.n_categorical}];",
+            f"    {self.feature_type} numeric[{self.n_features}];",
+            "};",
             "struct node {",
             f"    {self.feature_index_type} const feat;",
             "    uint8_t n_keys;",
-            f"    {self.feature_type} const * const keys;",
             f"    {self.id_type} const * const children;",
             f"    {self.leaf_type} (* leaf)({self.feature_type} *);",
             "};",
@@ -237,35 +243,35 @@ class PlainRMT(TreeImplementation):
 
     def traversal_function(self):
         return [
-            f"{self.leaf_type} traverse({self.feature_type} *features)",
+            f"{self.leaf_type} traverse(struct params *features)",
             "{",
             f"    {self.id_type} i = 0;",
             "    while (tree[i].leaf == NULL) {",
             "        bool found = false;",
             "        for (uint8_t j = 0; j < tree[i].n_keys; j++) {",
-            "            if (features[tree[i].feat] == tree[i].keys[j]) {",
+            "            if (features->categorical[tree[i].feat] == j) {",
             "                i = tree[i].children[j];",
             "                found = true;",
             "                break;",
             "            }",
             "        }",
-            "        if (!found) {",
+            "        if (!i || !found) {",
             # TODO calculate mean instead
-            """            printf("tree[%u]: did not find a child for features[%u] == %u\\n", i, tree[i].feat, features[tree[i].feat]);""",
+            """            printf("tree[%u]: did not find a child for features.categorical[%u] == %u\\n", i, tree[i].feat, features->categorical[tree[i].feat]);""",
             "            exit(1);",
             "        }",
             "    }",
-            "    return tree[i].leaf(features);",
+            "    return tree[i].leaf(features->numeric);",
             "}",
         ]
 
     def to_c(self):
         lines = []
-        self.key_arrays = list()
+        # self.key_arrays = list()
         self.child_arrays = list()
         self.leaves = list()
         tree_lines = self._node_to_c(self.model.tree)
-        lines += self.key_arrays
+        # lines += self.key_arrays
         lines += self.child_arrays
         lines += self.leaves
         lines += [
@@ -277,21 +283,34 @@ class PlainRMT(TreeImplementation):
         return self.header + self.struct_node() + lines
 
     def _node_to_c(self, node):
-        # {.feat = 0, .n_keys = 3, .keys = keys000, .children = children000, .leaf = NULL}, // 000
+        # {.feat = 0, .n_keys = 3, .children = children000, .leaf = NULL}, // 000
         if node["type"] == "split":
             node_id = node["id"]
             feature = node["paramIndex"]
-            n_children = length(node["child"])
-            keys = sorted(node["child"].keys())
-            children = list(map(lambda k: node["child"][k], keys))
-            child_ids = list(map(lambda child: child["id"], children))
-            self.key_arrays.append(f"keys{node_id:05d} = [" + ", ".join(keys) + "];")
+            n_children = len(node["child"])
+            keys = list(range(0, max(map(int, node["child"].keys())) + 1))
+            child_ids = list()
+            for child_key in keys:
+                if child_key in node["child"]:
+                    child_ids.append(node["child"][child_key]["id"])
+                else:
+                    child_ids.append(0)
+
+            # Convention: categorical keys are always uint8
             self.child_arrays.append(
-                f"children{node_id:05d} = [" + ", ".join(child_ids) + "];"
+                f"{self.id_type} children{node_id:05d}[] = "
+                + "{"
+                + ", ".join(map(str, child_ids))
+                + "};"
             )
-            return [
-                f"{{.feat = {feature:2d}, .n_keys = {n_children:2d}, .keys = keys{node_id:05d}, .children = children{node_id:05d}, .leaf = NULL}}, // {node_id:5d}"
+
+            # We only support splits on categorical features
+            ret = [
+                f"{{.feat = {feature - self.n_features:2d}, .n_keys = {n_children:2d}, .children = children{node_id:05d}, .leaf = NULL}}, // {node_id:5d}"
             ]
+            for child_key in sorted(node["child"].keys()):
+                ret += self._node_to_c(node["child"][child_key])
+            return ret
         elif node["type"] == "static":
             node_id = node["id"]
             value = node["value"]
@@ -305,14 +324,13 @@ class PlainRMT(TreeImplementation):
                 ]
             )
             return [
-                f"{{.feat = 0, .n_keys = 0, .keys = NULL, .children = NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
+                f"{{.feat = 0, .n_keys = 0, .children = NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
             ]
         elif node["type"] == "analytic":
             node_id = node["id"]
             function = node["functionStr"]
             for i in range(self.n_features):
                 function = function.replace(f"parameter(feat{i+1:02d})", f"feat[{i:d}]")
-            print(function)
             self.leaves.extend(
                 [
                     f"{self.leaf_type} leaf{node_id:05d}({self.feature_type} * feat)",
@@ -322,10 +340,105 @@ class PlainRMT(TreeImplementation):
                 ]
             )
             return [
-                f"{{.feat = 0, .n_keys = 0, .keys = NULL, .children = NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
+                f"{{.feat = 0, .n_keys = 0, .children = NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
             ]
         else:
             raise NotImplementedError(f"""node type {node["type"]} not supported yet""")
+
+    def get_benchmark(self, X, y, verify=False, steps=5):
+        ret = [
+            '#include "arch.h"',
+            '#include "driver/gpio.h"',
+            '#include "driver/stdout.h"',
+            '#include "driver/uptime.h"',
+            '#include "driver/counter.h"',
+            "#include <stdlib.h>",
+            "struct params {",
+            f"    uint8_t categorical[{self.n_categorical}];",
+            f"    {self.feature_type} numeric[{self.n_features}];",
+            "};",
+            f"{self.leaf_type} traverse(struct params *param_vec);",
+            f"struct params param_vec;",
+        ]
+
+        if len(X):
+            assert len(X[0]) == self.n_features + self.n_categorical
+
+        self.param_values = list()
+        for i in range(self.n_features):
+            sorted_values = sorted(X[:, i])
+            this_values = list()
+            for j in range(steps):
+                this_values.append(
+                    sorted_values[int(((j + 0.5) / steps) * len(sorted_values))]
+                )
+            self.param_values.append(this_values)
+
+        ret.append(
+            f"const {self.feature_type} param_values[{self.n_features}][{steps}] = {{"
+        )
+        for param_value in self.param_values:
+            ret.append(
+                "{"
+                + ",".join(map(lambda v: f"{v:{self.feature_format}}", param_value))
+                + "},"
+            )
+        ret.append("};")
+
+        # needed for Python3 latency benchmark in eval-model-codegen.py
+        for i in range(self.n_categorical):
+            self.param_values.append(list(range(self.n_categories)))
+
+        ret += [
+            f"volatile {self.leaf_type} result;",
+            "void run_benchmark() {",
+            "arch.delay_ms(4000);",
+            "counter.start();",
+            "counter.stop();",
+            """kout << "nop=" << counter.value << "/" << counter.overflow << endl;""",
+        ]
+        if verify:
+            ret.append("kout.setDigits(6);")
+        for i in range(self.n_features):
+            ret.append(f"for (uint8_t pv{i} = 0; pv{i} < {steps}; pv{i}++) {{")
+            ret.append(f"param_vec.numeric[{i}] = param_values[{i}][pv{i}];")
+        for i in range(self.n_categorical):
+            ret.append(
+                f"for (uint8_t cat{i} = 0; cat{i} < {self.n_categories}; cat{i}++) {{"
+            )
+            ret.append(f"param_vec.categorical[{i}] = cat{i};")
+        ret.append("counter.start();")
+        ret.append("result = traverse(&param_vec);")
+        ret.append("counter.stop();")
+        if verify:
+            ret.append("""kout << "prediction=";""")
+            for i in range(self.n_features):
+                ret.append(f"""kout << param_vec.numeric[{i}] << ";";""")
+            for i in range(self.n_categorical):
+                ret.append(f"""kout << param_vec.categorical[{i}] << ";";""")
+            ret.append("""kout << result << endl;""")
+        ret.append(
+            """kout << "cycles=" << counter.value << "/" << counter.overflow << endl;"""
+        )
+        ret.append("gpio.led_toggle();")
+        for i in range(self.n_features + self.n_categorical):
+            ret.append("}")
+        ret.append("""kout << "done" << endl;""")
+        ret.append("""kout << "done" << endl;""")
+        ret.append("}")
+
+        ret += [
+            "int main(void)",
+            "{",
+            "    arch.setup();",
+            "    gpio.setup();",
+            "    kout.setup();",
+            "        run_benchmark();",
+            "    return 0;",
+            "}",
+        ]
+
+        return ret
 
 
 class OOPTree(TreeImplementation):
