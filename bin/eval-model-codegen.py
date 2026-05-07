@@ -153,11 +153,26 @@ if __name__ == "__main__":
         param_names = list(map(lambda x: f"feat{x+1:02d}", range(len(X[0]))))
         param_type = dict(map(lambda k: (k, ParamType.SCALAR), range(len(X[0]))))
     else:
-        X, y = sklearn.datasets.make_regression(
-            n_samples=args.dataset_n_samples,
-            n_features=args.dataset_n_numeric,
-            n_informative=args.dataset_n_numeric,
-        )
+        if args.model == "RMT":
+            list_of_lists = list()
+            for i in range(args.dataset_n_numeric):
+                list_of_lists.append(
+                    list(
+                        range(
+                            10 + args.dataset_n_categorical * args.dataset_n_categories
+                        )
+                    )
+                )
+            X = np.array(list(itertools.product(*list_of_lists)))
+            y = X[:, 0]
+            for i in range(1, args.dataset_n_numeric):
+                y = y + (i + 1) * X[:, i]
+        else:
+            X, y = sklearn.datasets.make_regression(
+                n_samples=args.dataset_n_samples,
+                n_features=args.dataset_n_numeric,
+                n_informative=args.dataset_n_numeric,
+            )
 
         param_names = list(
             map(lambda x: f"feat{x+1:02d}", range(args.dataset_n_numeric))
