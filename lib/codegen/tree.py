@@ -441,9 +441,45 @@ class PlainRMT(TreeImplementation):
         return ret
 
 
-class OOPTree(TreeImplementation):
-    name = "oop"
-    section_prefix = "const"
+class ConstRMT(PlainRMT):
+    name = "const"
+
+    def struct_node(self):
+        return [
+            "struct params {",
+            f"    uint8_t categorical[{self.n_categorical}];",
+            f"    {self.feature_type} numeric[{self.n_features}];",
+            "};",
+            "struct node {",
+            f"    {self.feature_index_type} const feat;",
+            "    uint8_t n_keys;",
+            f"    {self.id_type} const * const children;",
+            f"    {self.leaf_type} (* leaf)({self.feature_type} *);",
+            f"    {self.leaf_type} traverse(const node *tree, struct params *features) const",
+            "    {",
+            "        if (this->leaf == NULL) {",
+            "            for (uint8_t j = 0; j < this->n_keys; j++) {",
+            "                if (features->categorical[this->feat] == j) {",
+            "                    return tree[this->children[j]].traverse(tree, features);",
+            "                }",
+            "            }",
+            # TODO calculate mean instead
+            """           printf("tree: did not find a child for features.categorical[%u] == %u\\n", this->feat, features->categorical[this->feat]);""",
+            "            exit(1);",
+            "        }",
+            "        return this->leaf(features->numeric);",
+            "    }",
+            "};",
+        ]
+
+    def traversal_function(self):
+        return [
+            "",
+            f"{self.leaf_type} traverse(struct params *features)",
+            "{",
+            "    return tree[0].traverse(tree, features);",
+            "}",
+        ]
 
 
 class PlainTree(TreeImplementation):
