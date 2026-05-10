@@ -161,6 +161,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_ULS_MIN_BOUND` | **-∞** .. *n* | Lower bound for ULS regression variables. Setting it to 0 can often be beneficial. |
 | `DFATOOL_ULS_MIN_DISTINCT_VALUES` | 2 .. **3** .. *n* | Minimum number of unique values a parameter must take to be eligible for ULS |
 | `DFATOOL_ULS_SKIP_CODEPENDENT_CHECK` | **0**, 1 | Do not detect and remove co-dependent features in ULS. |
+| `DFATOOL_ULS_USE_POWERSET` | 0, **1** | Consider arbitrary combinations of features (`a * x1 + b * x2 + c * x 1 * x2 >`) rather than only using independent features (`a * x1 + b * x2 + c * x3 …`) |
 | `DFATOOL_XGB_ETA` | 0 .. **0.3** .. 1 | XGBoost learning rate (shrinkage). |
 | `DFATOOL_XGB_GAMMA` | **0.0** .. *n* | XGBoost minimum loss reduction required to to make a further partition on a leaf node. |
 | `DFATOOL_XGB_MAX_DEPTH` | 2 .. **6** .. *n* | Maximum XGBoost tree depth. |

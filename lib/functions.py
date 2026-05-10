@@ -31,6 +31,8 @@ dfatool_rmt_relevance_threshold = float(
 dfatool_uls_loss_fun = os.getenv("DFATOOL_ULS_LOSS_FUNCTION", "linear")
 dfatool_uls_min_bound = float(os.getenv("DFATOOL_ULS_MIN_BOUND", -np.inf))
 
+dfatool_uls_use_powerset = bool(int(os.getenv("DFATOOL_ULS_USE_POWERSET", "1")))
+
 if dfatool_preproc_relevance_method == "mi":
     import sklearn.feature_selection
 
@@ -2625,7 +2627,11 @@ class analytic:
         buf = "0"
         arg_idx = 0
         bounds = dict()
-        for combination in powerset(fit_results.items()):
+        if dfatool_uls_use_powerset:
+            combinations = powerset(fit_results.items())
+        else:
+            combinations = [tuple()] + list(map(lambda x: (x,), fit_results.items()))
+        for combination in combinations:
             buf += " + regression_arg({:d})".format(arg_idx)
             arg_idx += 1
             for function_item in combination:
