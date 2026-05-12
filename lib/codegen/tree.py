@@ -362,7 +362,10 @@ class PlainRMT(TreeImplementation):
         ]
 
         if len(X):
-            assert len(X[0]) == self.n_features + self.n_categorical
+            if len(X[0]) != self.n_features + self.n_categorical:
+                raise ValueError(
+                    f"Got {len(X[0])} features, expected {self.n_features + self.n_categorical} == {self.n_features} + {self.n_categorical}"
+                )
 
         self.param_values = list()
         for i in range(self.n_features):
