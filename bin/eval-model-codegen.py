@@ -151,7 +151,6 @@ if __name__ == "__main__":
         X = np.array(dataset["X"])
         y = np.array(dataset["y"])
         param_names = list(map(lambda x: f"feat{x+1:02d}", range(len(X[0]))))
-        param_type = dict(map(lambda k: (k, ParamType.SCALAR), range(len(X[0]))))
     else:
         if args.model == "RMT":
             list_of_lists = list()
@@ -177,6 +176,8 @@ if __name__ == "__main__":
         param_names = list(
             map(lambda x: f"feat{x+1:02d}", range(args.dataset_n_numeric))
         ) + list(map(lambda x: f"x{x+1:02d}", range(args.dataset_n_categorical)))
+
+    if args.model == "RMT":
         param_type = dict(
             map(lambda k: (k, ParamType.SCALAR), range(args.dataset_n_numeric))
         )
@@ -188,6 +189,8 @@ if __name__ == "__main__":
                 )
             )
         )
+    else:
+        param_type = dict(map(lambda k: (k, ParamType.SCALAR), range(len(X[0]))))
 
     if "int" in args.type:
         X_min, X_max = np.min(X), np.max(X)
@@ -247,7 +250,6 @@ if __name__ == "__main__":
             ser = SerializedForest(data)
         else:
             ser = SerializedTree(data)
-        n_features = ser.get_n_features()
     elif args.model == "CART":
         model = df.CARTFunction(np.mean(y), param_names=param_names, arg_count=0)
         model.fit(X, y)
@@ -320,6 +322,12 @@ if __name__ == "__main__":
             benchmark_steps = 3
         elif args.dataset_n_numeric > 5:
             benchmark_steps = 4
+
+        if args.model == "RMT":
+            # numeric features do not affect the tree structure;
+            # categorical features do not respect benchmark_steps
+            # → 2 steps are always sufficient
+            benchmark_steps = 2
 
         with open(
             f"{args.multipass_base}/src/app/{args.multipass_app}/tree.cc", "w"
