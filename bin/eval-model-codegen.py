@@ -161,6 +161,7 @@ if __name__ == "__main__":
                         )
                     )
                 )
+            # categorical features (if any) are added after quantization
             X = np.array(list(itertools.product(*list_of_lists)))
             y = X[:, 0]
             for i in range(1, args.dataset_n_numeric):
@@ -221,8 +222,8 @@ if __name__ == "__main__":
     if args.dataset_n_categorical and not args.dataset_load:
         X = list(map(list, X))
         for i in range(args.dataset_n_categorical):
-            for sample in X:
-                sample.append(np.random.choice(list(range(args.dataset_n_categories))))
+            for j, sample in enumerate(X):
+                sample.append(j % args.dataset_n_categories)
         X = np.array(X)
 
     if args.dataset_save:
