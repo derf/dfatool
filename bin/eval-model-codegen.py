@@ -150,7 +150,6 @@ if __name__ == "__main__":
                 dataset = json.load(f)
         X = np.array(dataset["X"])
         y = np.array(dataset["y"])
-        param_names = list(map(lambda x: f"feat{x+1:02d}", range(len(X[0]))))
     else:
         if args.model == "RMT":
             list_of_lists = list()
@@ -173,9 +172,9 @@ if __name__ == "__main__":
                 n_informative=args.dataset_n_numeric,
             )
 
-        param_names = list(
-            map(lambda x: f"feat{x+1:02d}", range(args.dataset_n_numeric))
-        ) + list(map(lambda x: f"x{x+1:02d}", range(args.dataset_n_categorical)))
+    param_names = list(
+        map(lambda x: f"feat{x+1:02d}", range(args.dataset_n_numeric))
+    ) + list(map(lambda x: f"x{x+1:02d}", range(args.dataset_n_categorical)))
 
     if args.model == "RMT":
         param_type = dict(
@@ -192,7 +191,7 @@ if __name__ == "__main__":
     else:
         param_type = dict(map(lambda k: (k, ParamType.SCALAR), range(len(X[0]))))
 
-    if "int" in args.type:
+    if "int" in args.type and not args.dataset_load:
         X_min, X_max = np.min(X), np.max(X)
         y_min, y_max = np.min(y), np.max(y)
         if args.type == "int8_t":
