@@ -206,7 +206,7 @@ if __name__ == "__main__":
             X_mul = range_max / max(X_max, -X_min)
         else:
             X_add = -X_min
-            X_mul = (range_max - range_min) / abs(X_max - X_min)
+            X_mul = range_max / abs(X_max - X_min)
         X = ((X + X_add) * X_mul).astype(int)
 
         if y_min < 0:
