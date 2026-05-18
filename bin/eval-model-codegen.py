@@ -293,7 +293,7 @@ if __name__ == "__main__":
     # Impl: Plain, Const, Template
 
     if args.model == "RMT":
-        implementations = (cg.PlainRMT, cg.ConstRMT)
+        implementations = (cg.PlainRMT, cg.ConstRMT, cg.TemplateRMT)
     else:
         implementations = (cg.PlainTree, cg.ConstTree, cg.TemplateTree)
 

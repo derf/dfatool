@@ -479,6 +479,43 @@ class ConstRMT(PlainRMT):
         ]
 
 
+class TemplateRMT(PlainRMT):
+    name = "template"
+    section_prefix = "constexpr const"
+
+    def traversal_function(self):
+        ret = [
+            f"template <int index> {self.leaf_type} traverseTree(struct params *features)",
+            "{",
+            "    if (tree[index].leaf == NULL) {",
+        ]
+        for category in range(self.n_categories):
+            ret += [
+                f"        if (features->categorical[tree[index].feat] == {category}) "
+                + "{",
+                f"            return traverseTree<tree[index].children[{category}]>(features);",
+                "        }",
+            ]
+        ret += [
+            "        exit(1);",
+            "    }",
+            "    return tree[index].leaf(features->numeric);",
+            "}",
+            f"template <> {self.leaf_type} traverseTree<sizeof(tree)/sizeof(node)> (struct params *features)",
+            "{",
+            "    (void)features;",
+            "    return 0;",
+            "}",
+            "",
+            f"{self.leaf_type} traverse(struct params *features)",
+            "{",
+            "    return traverseTree<0>(features);",
+            "}",
+        ]
+
+        return ret
+
+
 class PlainTree(TreeImplementation):
     name = "plain"
     section_prefix = "const"
