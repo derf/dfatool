@@ -89,6 +89,8 @@ if __name__ == "__main__":
         tsc_to_ns = 1 / 3.3
     elif hostname == "ios":
         tsc_to_ns = 1 / 2.095
+    elif hostname.startswith("ess-labor"):
+        tsc_to_ns = 1 / 2.112
 
     parser = argparse.ArgumentParser()
 
