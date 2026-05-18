@@ -212,7 +212,7 @@ class TreeImplementation:
 
 
 class PlainRMT(TreeImplementation):
-    name = "rmt-plain"
+    name = "plain"
     section_prefix = "const"
 
     def __init__(self, **kwargs):
@@ -283,7 +283,7 @@ class PlainRMT(TreeImplementation):
         return self.header + self.struct_node() + lines
 
     def _node_to_c(self, node):
-        # {.feat = 0, .n_keys = 3, .children = children000, .leaf = NULL}, // 000
+        # {.feat = 0, .n_keys = 3, .children = children000, .leaf =      NULL}, // 000
         if node["type"] == "split":
             node_id = node["id"]
             feature = node["paramIndex"]
@@ -298,7 +298,7 @@ class PlainRMT(TreeImplementation):
 
             # Convention: categorical keys are always uint8
             self.child_arrays.append(
-                f"{self.id_type} children{node_id:05d}[] = "
+                f"{self.id_type} const children{node_id:05d}[] = "
                 + "{"
                 + ", ".join(map(str, child_ids))
                 + "};"
@@ -306,7 +306,7 @@ class PlainRMT(TreeImplementation):
 
             # We only support splits on categorical features
             ret = [
-                f"{{.feat = {feature - self.n_features:2d}, .n_keys = {n_children:2d}, .children = children{node_id:05d}, .leaf = NULL}}, // {node_id:5d}"
+                f"{{.feat = {feature - self.n_features:2d}, .n_keys = {n_children:2d}, .children = children{node_id:05d}, .leaf =      NULL}}, // {node_id:5d}"
             ]
             for child_key in sorted(node["child"].keys()):
                 ret += self._node_to_c(node["child"][child_key])
@@ -324,7 +324,7 @@ class PlainRMT(TreeImplementation):
                 ]
             )
             return [
-                f"{{.feat = 0, .n_keys = 0, .children = NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
+                f"{{.feat =  0, .n_keys =  0, .children =          NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
             ]
         elif node["type"] == "analytic":
             node_id = node["id"]
