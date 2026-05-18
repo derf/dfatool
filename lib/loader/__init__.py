@@ -26,6 +26,21 @@ from .mimosa import MIMOSA
 logger = logging.getLogger(__name__)
 
 
+def logfile_to_observations(filename, is_trace=False):
+    if ".csv" in filename:
+        loader = CSVfile()
+    else:
+        loader = Logfile()
+
+    if filename.endswith("xz"):
+        import lzma
+
+        with lzma.open(filename, "rt") as f:
+            return loader.load(f, is_trace=is_trace)
+    with open(filename, "r") as f:
+        return loader.load(f, is_trace=is_trace)
+
+
 def _preprocess_mimosa(measurement):
     setup = measurement["setup"]
     mim = MIMOSA(
