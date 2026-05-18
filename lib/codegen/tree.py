@@ -239,7 +239,7 @@ class PlainRMT(TreeImplementation):
             f"    {self.feature_index_type} const feat;",
             "    uint8_t n_keys;",
             f"    {self.id_type} const children[{self.n_categories}];",
-            f"    {self.leaf_type} (* leaf)({self.feature_type} *);",
+            f"    {self.leaf_type} (* const leaf)({self.feature_type} *);",
             "};",
         ]
 
@@ -451,7 +451,7 @@ class ConstRMT(PlainRMT):
             f"    {self.feature_index_type} const feat;",
             "    uint8_t n_keys;",
             f"    {self.id_type} const children[{self.n_categories}];",
-            f"    {self.leaf_type} (* leaf)({self.feature_type} *);",
+            f"    {self.leaf_type} (* const leaf)({self.feature_type} *);",
             f"    {self.leaf_type} traverse(const node *tree, struct params *features) const",
             "    {",
             "        if (this->leaf == NULL) {",
