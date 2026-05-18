@@ -227,6 +227,8 @@ class PlainRMT(TreeImplementation):
         self.n_categorical = n_categorical
         self.n_categories = n_categories
 
+        self.empty_child = "{" + ", ".join(["  0" for i in range(n_categories)]) + "}"
+
     def struct_node(self):
         return [
             "struct params {",
@@ -236,7 +238,7 @@ class PlainRMT(TreeImplementation):
             "struct node {",
             f"    {self.feature_index_type} const feat;",
             "    uint8_t n_keys;",
-            f"    {self.id_type} const * const children;",
+            f"    {self.id_type} const children[{self.n_categories}];",
             f"    {self.leaf_type} (* leaf)({self.feature_type} *);",
             "};",
         ]
@@ -267,12 +269,8 @@ class PlainRMT(TreeImplementation):
 
     def to_c(self):
         lines = []
-        # self.key_arrays = list()
-        self.child_arrays = list()
         self.leaves = list()
         tree_lines = self._node_to_c(self.model.tree)
-        # lines += self.key_arrays
-        lines += self.child_arrays
         lines += self.leaves
         lines += [
             f"{self.section_prefix} struct node tree[{self.model.max_id + 1}] = " + "{"
@@ -296,17 +294,13 @@ class PlainRMT(TreeImplementation):
                 else:
                     child_ids.append(0)
 
-            # Convention: categorical keys are always uint8
-            self.child_arrays.append(
-                f"{self.id_type} const children{node_id:05d}[] = "
-                + "{"
-                + ", ".join(map(str, child_ids))
-                + "};"
+            child_array = (
+                "{" + ", ".join(map(lambda child_id: f"{child_id:3d}", child_ids)) + "}"
             )
 
             # We only support splits on categorical features
             ret = [
-                f"{{.feat = {feature - self.n_features:2d}, .n_keys = {n_children:2d}, .children = children{node_id:05d}, .leaf =      NULL}}, // {node_id:5d}"
+                f"{{.feat = {feature - self.n_features:2d}, .n_keys = {n_children:2d}, .children = {child_array}, .leaf =      NULL}}, // {node_id:5d}"
             ]
             for child_key in sorted(node["child"].keys()):
                 ret += self._node_to_c(node["child"][child_key])
@@ -324,7 +318,7 @@ class PlainRMT(TreeImplementation):
                 ]
             )
             return [
-                f"{{.feat =  0, .n_keys =  0, .children =          NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
+                f"{{.feat =   0, .n_keys =  0, .children =          NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
             ]
         elif node["type"] == "analytic":
             node_id = node["id"]
@@ -340,7 +334,7 @@ class PlainRMT(TreeImplementation):
                 ]
             )
             return [
-                f"{{.feat = 0, .n_keys = 0, .children = NULL, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
+                f"{{.feat =  0, .n_keys =  0, .children = {self.empty_child}, .leaf = leaf{node_id:05d}}}, // {node_id:5d}"
             ]
         else:
             raise NotImplementedError(f"""node type {node["type"]} not supported yet""")
@@ -456,7 +450,7 @@ class ConstRMT(PlainRMT):
             "struct node {",
             f"    {self.feature_index_type} const feat;",
             "    uint8_t n_keys;",
-            f"    {self.id_type} const * const children;",
+            f"    {self.id_type} const children[{self.n_categories}];",
             f"    {self.leaf_type} (* leaf)({self.feature_type} *);",
             f"    {self.leaf_type} traverse(const node *tree, struct params *features) const",
             "    {",
