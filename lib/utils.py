@@ -765,18 +765,22 @@ def regression_measures(predicted: np.ndarray, ground_truth: np.ndarray):
     }
 
     if np.all(ground_truth != 0):
-        # MAPE is generalle considered to be a bad metric
+        # MAPE is generally considered to be a bad metric
         measures["mape"] = np.mean(np.abs(deviations / ground_truth)) * 100
     else:
         measures["mape"] = np.nan
 
+    nan_hotfix = np.zeros(deviations.shape)
     if np.any(np.abs(predicted) + np.abs(ground_truth) == 0):
         for i in range(len(predicted)):
             if predicted[i] == 0 and ground_truth[i] == 0:
-                predicted[i] = ground_truth[i] = 1
+                nan_hotfix[i] = 1
 
     measures["smape"] = (
-        np.mean(np.abs(deviations) / ((np.abs(predicted) + np.abs(ground_truth)) / 2))
+        np.mean(
+            np.abs(deviations)
+            / ((np.abs(predicted) + np.abs(ground_truth) + nan_hotfix) / 2)
+        )
         * 100
     )
 
