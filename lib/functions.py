@@ -1229,7 +1229,7 @@ class CARTFunction(SKLearnRegressionFunction):
         # conversion because of numpy
         sub_data = {
             "type": "static",
-            "value": float(tree.value[node_id]),
+            "value": float(tree.value[node_id][0][0]),
             "valueError": float(tree.impurity[node_id]),
             # "samples": int(tree.n_node_samples[node_id])
         }
