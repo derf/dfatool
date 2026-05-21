@@ -531,9 +531,9 @@ class PlainTree(TreeImplementation):
     def struct_node(self):
         return [
             "struct node {",
-            f"{self.feature_type} threshold;",
-            f"{self.id_type} rightChild;",
-            f"{self.feature_index_type} feat;",
+            f"const {self.feature_type} threshold;",
+            f"const {self.id_type} rightChild;",
+            f"const {self.feature_index_type} feat;",
             "};",
         ]
 
@@ -580,9 +580,9 @@ class ConstTree(PlainTree):
     def struct_node(self):
         return [
             "struct node {",
-            f"{self.feature_type} threshold;",
-            f"{self.id_type} rightChild;",
-            f"{self.feature_index_type} feat;",
+            f"const {self.feature_type} threshold;",
+            f"const {self.id_type} rightChild;",
+            f"const {self.feature_index_type} feat;",
             f"{self.leaf_type} traverse(const node *tree, {self.feature_type} *features) const",
             "{",
             "    if (feat == 255) {",
@@ -676,6 +676,7 @@ class TemplateTree(PlainTree):
                 "    if (tree[index].feat == 255) {",
                 "        return tree[index].threshold;",
                 "    }",
+                # Hier kann man nicht den "bool cmp"-Trick fahren, denn features ist keine constexpr
                 f"    if (features[tree[index].feat] {self.split_cond} tree[index].threshold) "
                 + "{",
                 "        return traverseTree<index+1>(features);",
@@ -683,6 +684,10 @@ class TemplateTree(PlainTree):
                 "    return traverseTree<tree[index].rightChild>(features);",
                 "}",
                 "",
+                "/*",
+                " * This function will never be called as the corresponding template instance is unreachable.",
+                " * However, the compiler does not know that (yet), so we must provided it to terminate template instantiation.",
+                " */",
                 f"template <> {self.leaf_type} traverseTree<sizeof(tree)/sizeof(node)> ({self.feature_type} *features)",
                 "{",
                 "    (void)features;",
