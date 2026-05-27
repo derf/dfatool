@@ -181,7 +181,7 @@ class TreeImplementation:
             node_id = node["id"]
             value = node["value"]
             return [
-                f"{{.threshold = {value:{self.leaf_format}}, .rightChild =     0, .feat = 255}}, // {node_id:5d}"
+                f"{{.rightChild =     0, .feat = 255, .threshold = {value:{self.leaf_format}}}}, // {node_id:5d}"
             ]
         elif node["type"] == "scalarSplit":
             node_id = node["id"]
@@ -201,7 +201,7 @@ class TreeImplementation:
             right_child = node["right"]["id"]
             lines = (
                 [
-                    f"{{.threshold = {threshold:{self.feature_format}}, .rightChild = {right_child:5d}, .feat = {feat:3d}}}, // {node_id:5d}"
+                    f"{{.rightChild = {right_child:5d}, .feat = {feat:3d}, .threshold = {threshold:{self.feature_format}}}}, // {node_id:5d}"
                 ]
                 + self._node_to_c(node["left"])
                 + self._node_to_c(node["right"])
@@ -531,9 +531,9 @@ class PlainTree(TreeImplementation):
     def struct_node(self):
         return [
             "struct node {",
-            f"const {self.feature_type} threshold;",
             f"const {self.id_type} rightChild;",
             f"const {self.feature_index_type} feat;",
+            f"const {self.feature_type} threshold;",
             "};",
         ]
 
@@ -575,14 +575,16 @@ class PlainTree(TreeImplementation):
 
 class ConstTree(PlainTree):
     name = "const"
+
+    # hier ginge auch "constexpr const", das erzeugt aber identischen Maschinencode. Also lassen wir es.
     section_prefix = "const"
 
     def struct_node(self):
         return [
             "struct node {",
-            f"const {self.feature_type} threshold;",
             f"const {self.id_type} rightChild;",
             f"const {self.feature_index_type} feat;",
+            f"const {self.feature_type} threshold;",
             f"{self.leaf_type} traverse(const node *tree, {self.feature_type} *features) const",
             "{",
             "    if (feat == 255) {",
