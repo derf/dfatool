@@ -77,7 +77,6 @@ Python 3.7 or newer with the following modules:
 * scipy
 * scikit-learn
 * yaml
-* zbar
 
 On Debian Bullseye, all required modules are available as Debian packages.
 
