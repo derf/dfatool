@@ -94,6 +94,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--architecture", type=str, default="posix")
     parser.add_argument(
         "--dataset-source",
         type=str,
@@ -336,12 +337,23 @@ if __name__ == "__main__":
         ) as f:
             f.write("\n".join(impl.to_c()) + "\n")
 
+        if args.architecture == "posix":
+            counter_key = "cycles"
+        else:
+            counter_key = "latency_us"
+
         with open(
             f"{args.multipass_base}/src/app/{args.multipass_app}/main.cc", "w"
         ) as f:
             f.write(
                 "\n".join(
-                    impl.get_benchmark(X, y, verify=args.verify, steps=benchmark_steps)
+                    impl.get_benchmark(
+                        X,
+                        y,
+                        verify=args.verify,
+                        steps=benchmark_steps,
+                        counter_key=counter_key,
+                    )
                 )
                 + "\n"
             )
@@ -354,11 +366,19 @@ if __name__ == "__main__":
             f"script/nfpvalues.py size text*,rodata* data,bss {nfp_file}".split(),
             cwd=args.multipass_base,
         )
-        latency_benchmark = dfatool.runner.ShellMonitor(
-            "./mpm", cwd=args.multipass_base
-        )
 
-        stdout, stderr = latency_benchmark.run(timeout=600)
+        if args.architecture == "posix":
+            latency_benchmark = dfatool.runner.ShellMonitor(
+                ["./mpm"], cwd=args.multipass_base
+            )
+        else:
+            flasher = dfatool.runner.ShellMonitor(["./mp"], cwd=args.multipass_base)
+            flasher.run(timeout=60)
+            latency_benchmark = dfatool.runner.ShellMonitor(
+                "make cat".split(), cwd=args.multipass_base
+            )
+
+        stdout, stderr = latency_benchmark.run(timeout=3600)
         latencies = list()
         for line in stdout:
             if line.startswith("cycles="):
@@ -366,6 +386,8 @@ if __name__ == "__main__":
                 # for POSIX, the "overflow" part is always 0 and thus safe to ignore
                 # Timer values are returned in ns.
                 latencies.append(int(raw_latency.split("/")[0]) * tsc_to_ns)
+            elif line.startswith("latency_us="):
+                latencies.append(float(line.split("=")[1]) * 1e3)
             if line.startswith("prediction="):
                 param_values = list(
                     map(float, line.removeprefix("prediction=").split(";"))

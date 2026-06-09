@@ -68,7 +68,7 @@ class TreeImplementation:
     def feature_vector(self):
         return [f"{self.feature_type} param_vec[{self.n_features:d}];"]
 
-    def get_benchmark(self, X, y, verify=False, steps=5):
+    def get_benchmark(self, X, y, verify=False, steps=5, counter_key="cycles"):
         ret = [
             '#include "arch.h"',
             '#include "driver/gpio.h"',
@@ -127,7 +127,7 @@ class TreeImplementation:
                 ret.append(f"""kout << param_vec[{i}] << ";";""")
             ret.append("""kout << result << endl;""")
         ret.append(
-            """kout << "cycles=" << counter.value << "/" << counter.overflow << endl;"""
+            f"""kout << "{counter_key}=" << counter.value << "/" << counter.overflow << endl;"""
         )
         ret.append("gpio.led_off(0);")
         for i in range(self.n_features):
