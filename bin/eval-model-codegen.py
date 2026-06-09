@@ -339,8 +339,10 @@ if __name__ == "__main__":
 
         if args.architecture == "posix":
             counter_key = "cycles"
+            size_executable = "size"
         else:
             counter_key = "latency_us"
+            size_executable = "arm-none-eabi-size"
 
         with open(
             f"{args.multipass_base}/src/app/{args.multipass_app}/main.cc", "w"
@@ -363,7 +365,13 @@ if __name__ == "__main__":
         # We do _not_ include .eh_frame for exception handlers
         # We do not include .group (used for template instance deduplications; not part of the linked binary)
         nfp_benchmark = dfatool.runner.ShellMonitor(
-            f"script/nfpvalues.py size text*,rodata* data,bss {nfp_file}".split(),
+            [
+                "script/nfpvalues.py",
+                size_executable,
+                "text*,rodata*",
+                "data,bss",
+                nfp_file,
+            ],
             cwd=args.multipass_base,
         )
 
