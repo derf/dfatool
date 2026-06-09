@@ -107,7 +107,7 @@ class TreeImplementation:
         ret += [
             f"volatile {self.leaf_type} result;",
             "void run_benchmark() {",
-            "arch.delay_ms(4000);",
+            "arch.delay_ms(1000);",
             "counter.start();",
             "counter.stop();",
             """kout << "nop=" << counter.value << "/" << counter.overflow << endl;""",
@@ -120,6 +120,7 @@ class TreeImplementation:
         ret.append("counter.start();")
         ret.append("result = traverse(param_vec);")
         ret.append("counter.stop();")
+        ret.append("gpio.led_on(0);")
         if verify:
             ret.append("""kout << "prediction=";""")
             for i in range(self.n_features):
@@ -128,7 +129,7 @@ class TreeImplementation:
         ret.append(
             """kout << "cycles=" << counter.value << "/" << counter.overflow << endl;"""
         )
-        ret.append("gpio.led_toggle();")
+        ret.append("gpio.led_off(0);")
         for i in range(self.n_features):
             ret.append("}")
         ret.append("""kout << "done" << endl;""")
@@ -389,7 +390,7 @@ class PlainRMT(TreeImplementation):
         ret += [
             f"volatile {self.leaf_type} result;",
             "void run_benchmark() {",
-            "arch.delay_ms(4000);",
+            "arch.delay_ms(1000);",
             "counter.start();",
             "counter.stop();",
             """kout << "nop=" << counter.value << "/" << counter.overflow << endl;""",
@@ -430,7 +431,10 @@ class PlainRMT(TreeImplementation):
             "    arch.setup();",
             "    gpio.setup();",
             "    kout.setup();",
-            "        run_benchmark();",
+            "    gpio.led_on(1);",
+            "    run_benchmark();",
+            "    gpio.led_off(1);",
+            "    gpio.led_on(2);",
             "    return 0;",
             "}",
         ]
