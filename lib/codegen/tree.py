@@ -142,7 +142,10 @@ class TreeImplementation:
             "    arch.setup();",
             "    gpio.setup();",
             "    kout.setup();",
-            "        run_benchmark();",
+            "    gpio.led_on(1);",
+            "    run_benchmark();",
+            "    gpio.led_off(1);",
+            "    gpio.led_on(2);",
             "    return 0;",
             "}",
         ]
