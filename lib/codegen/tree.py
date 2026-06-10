@@ -343,7 +343,7 @@ class PlainRMT(TreeImplementation):
         else:
             raise NotImplementedError(f"""node type {node["type"]} not supported yet""")
 
-    def get_benchmark(self, X, y, verify=False, steps=5):
+    def get_benchmark(self, X, y, verify=False, steps=5, counter_key="cycles"):
         ret = [
             '#include "arch.h"',
             '#include "driver/gpio.h"',
@@ -419,7 +419,7 @@ class PlainRMT(TreeImplementation):
                 ret.append(f"""kout << param_vec.categorical[{i}] << ";";""")
             ret.append("""kout << result << endl;""")
         ret.append(
-            """kout << "cycles=" << counter.value << "/" << counter.overflow << endl;"""
+            f"""kout << "{counter_key}=" << counter.value << "/" << counter.overflow << endl;"""
         )
         ret.append("gpio.led_toggle();")
         for i in range(self.n_features + self.n_categorical):
