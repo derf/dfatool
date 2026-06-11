@@ -381,7 +381,7 @@ if __name__ == "__main__":
             )
         else:
             flasher = dfatool.runner.ShellMonitor(["./mp"], cwd=args.multipass_base)
-            flasher.run(timeout=60)
+            flasher.run(timeout=300)
             latency_benchmark = dfatool.runner.ShellMonitor(
                 "make cat".split(), cwd=args.multipass_base
             )
