@@ -450,33 +450,33 @@ if __name__ == "__main__":
         )
 
     # Impl: Python (native CART / XGB)
-
-    latencies = list()
-    nop_latencies = list()
-    start = time.monotonic()
-    stop = time.monotonic()
-    nop_ns = stop - start
-    for param_tuple in itertools.product(*impl.param_values):
+    if args.architecture == "posix":
+        latencies = list()
+        nop_latencies = list()
         start = time.monotonic()
-        model.eval(param_tuple, cast=int if "int" in args.type else float)
         stop = time.monotonic()
-        nop = time.monotonic()
-        # time.monotonic() has an overhead of a few hundred ns; remove it.
-        # rdtsc overhead is on the order of tens of ns and therefore less critical, hence it is not calibrated out above.
-        latencies.append((stop - start) * 1e9)
-        nop_latencies.append((nop - stop) * 1e9)
-    latencies = np.array(latencies) - np.array(nop_latencies)
-    percentiles = np.percentile(latencies, range(0, 101))
-    str_percentiles = " ".join(
-        map(lambda kv: f"p{kv[0]:03d}_ns={kv[1]}", zip(range(0, 101), percentiles))
-    )
-    hyper_str = " ".join(
-        map(
-            lambda kv: kv[0].split("/")[1].replace(" ", "_") + f"={kv[1]}",
-            model.hyper_to_dref().items(),
+        nop_ns = stop - start
+        for param_tuple in itertools.product(*impl.param_values):
+            start = time.monotonic()
+            model.eval(param_tuple, cast=int if "int" in args.type else float)
+            stop = time.monotonic()
+            nop = time.monotonic()
+            # time.monotonic() has an overhead of a few hundred ns; remove it.
+            # rdtsc overhead is on the order of tens of ns and therefore less critical, hence it is not calibrated out above.
+            latencies.append((stop - start) * 1e9)
+            nop_latencies.append((nop - stop) * 1e9)
+        latencies = np.array(latencies) - np.array(nop_latencies)
+        percentiles = np.percentile(latencies, range(0, 101))
+        str_percentiles = " ".join(
+            map(lambda kv: f"p{kv[0]:03d}_ns={kv[1]}", zip(range(0, 101), percentiles))
         )
-    )
-    print(
-        f"[::] {args.model} | e_type={args.type} e_impl=python n_numeric={args.dataset_n_numeric} n_categorical={args.dataset_n_categorical} n_categories={args.dataset_n_categories} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
-        + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | rom_B=0 ram_B=0 {str_percentiles}"
-    )
+        hyper_str = " ".join(
+            map(
+                lambda kv: kv[0].split("/")[1].replace(" ", "_") + f"={kv[1]}",
+                model.hyper_to_dref().items(),
+            )
+        )
+        print(
+            f"[::] {args.model} | e_type={args.type} e_impl=python n_numeric={args.dataset_n_numeric} n_categorical={args.dataset_n_categorical} n_categories={args.dataset_n_categories} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
+            + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | rom_B=0 ram_B=0 {str_percentiles}"
+        )
