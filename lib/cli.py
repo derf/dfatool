@@ -52,7 +52,7 @@ def print_info_by_name(model, by_name):
     for name in model.names:
         attr = list(model.attributes(name))[0]
         print(f"{name}:")
-        print(f"""    Number of Measurements: {len(by_name[name][attr])}""")
+        print(f"""    Number of Samples: {len(by_name[name][attr])}""")
         for param in model.parameters:
             print(
                 "    Parameter {} ∈ {}".format(
@@ -607,7 +607,7 @@ def add_standard_arguments(parser):
     parser.add_argument(
         "--info",
         action="store_true",
-        help="Show benchmark information (number of measurements, parameter values, ...)",
+        help="Show benchmark information (number of samples, parameter values, ...)",
     )
     parser.add_argument(
         "--information-gain",
