@@ -471,6 +471,16 @@ def observations_to_by_name(observations):
     return by_name, parameter_names
 
 
+def observations_to_stdout(observations):
+    for observation in observations:
+        name = observation["name"]
+        param = observation["param"]
+        attr = observation["attribute"]
+        param_str = " ".join(map(lambda k: f"{k}={param[k]}", sorted(param.keys())))
+        attr_str = " ".join(map(lambda k: f"{k}={attr[k]}", sorted(attr.keys())))
+        print(f"[::] {name} | {param_str} | {attr_str}")
+
+
 def by_name_to_by_param(by_name: dict):
     """
     Convert aggregation by name to aggregation by name and parameter values.
