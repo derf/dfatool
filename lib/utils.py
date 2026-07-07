@@ -308,7 +308,7 @@ def param_to_ndarray(
     return np.asarray(ret_tuples), category_to_scalar, ignore_index
 
 
-def param_dict_to_list(param_dict, parameter_names, default=None):
+def param_dict_to_list(param_dict, parameter_names):
     """
     Convert {"foo": 1, "bar": 2}, ["bar", "foo", "quux"] to [2, 1, None]
     """
