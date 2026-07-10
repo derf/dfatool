@@ -1354,6 +1354,8 @@ class LGBMRegressor(_LGBMRegressorBase, LGBMModel):
             min_child_samples=min_child_samples,
             subsample=subsample,
             subsample_freq=subsample_freq,
+            feature_fraction=subsample,
+            feature_freq=subsample_freq,
             colsample_bytree=colsample_bytree,
             reg_alpha=reg_alpha,
             reg_lambda=reg_lambda,
