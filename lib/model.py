@@ -305,10 +305,28 @@ class AnalyticModel:
                         )
                         values = list(map(lambda p: lut_model[name][key][p], keys))
                         if not values:
+                            logger.error(
+                                "cannot find LUT entries for "
+                                + " ".join(
+                                    map(
+                                        lambda kv: f"{kv[0]}={kv[1]}",
+                                        zip(self.parameters, param),
+                                    )
+                                )
+                            )
                             raise
                         return np.mean(values)
                     elif fallback:
                         return static_model[name][key]
+                    logger.error(
+                        "cannot find LUT entry for "
+                        + " ".join(
+                            map(
+                                lambda kv: f"{kv[0]}={kv[1]}",
+                                zip(self.parameters, param),
+                            )
+                        )
+                    )
                     raise
             params = kwargs["params"]
             if fallback:
