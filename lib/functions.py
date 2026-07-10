@@ -1457,7 +1457,7 @@ class LightGBMFunction(SKLearnRegressionFunction):
 
         # subsample : float, optional (default=1.)
         #     Subsample ratio of the training instance.
-        subsample = float(os.getenv("DFATOOL_LGBM_SUBSAMPLE", "1."))
+        subsample = float(os.getenv("DFATOOL_LGBM_SUBSAMPLE", "0.3"))
 
         # learning_rate : float, optional (default=0.1)
         #     Boosting learning rate.
