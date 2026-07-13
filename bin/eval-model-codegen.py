@@ -120,6 +120,7 @@ if __name__ == "__main__":
     parser.add_argument("--model-save", metavar="model.json[.xz]", type=str)
     parser.add_argument("--multipass-base", type=str, default="../multipass")
     parser.add_argument("--multipass-app", type=str, default="treebench")
+    parser.add_argument("--codegen-only", action="store_true")
     parser.add_argument(
         "--type", choices="int8_t int16_t int32_t float double".split(), default="float"
     )
@@ -318,6 +319,12 @@ if __name__ == "__main__":
         impl.set_feature_index_type("uint8_t")
         impl.set_num_features(args.dataset_n_numeric)
 
+        if args.codegen_only:
+            print(f"Writing tree.{impl.name}.cc")
+            with open(f"tree.{impl.name}.cc", "w") as f:
+                f.write("\n".join(impl.to_c()) + "\n")
+            continue
+
         benchmark_steps = 5
         if args.dataset_n_numeric > 9:
             benchmark_steps = 2
@@ -448,6 +455,9 @@ if __name__ == "__main__":
             f"[::] {args.model} | e_type={args.type} e_impl={impl.name} n_numeric={args.dataset_n_numeric} n_categorical={args.dataset_n_categorical} n_categories={args.dataset_n_categories} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
             + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | rom_B={rom} ram_B={ram} {str_percentiles}"
         )
+
+    if args.codegen_only:
+        sys.exit(0)
 
     # Impl: Python (native CART / XGB)
     if args.architecture == "posix":
