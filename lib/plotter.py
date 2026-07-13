@@ -128,16 +128,38 @@ def plot_y(Y, **kwargs):
 
 
 def plot_xy(
-    X, Y, xlabel=None, ylabel=None, title=None, output=None, family=False, show=True
+    X,
+    Y,
+    xlabel=None,
+    ylabel=None,
+    title=None,
+    with_grid=True,
+    output=None,
+    family=False,
+    show=True,
+    legend=None,
 ):
+
     fig, ax1 = plt.subplots(figsize=(10, 6))
+
     if title is not None:
         ax1.set_title(title)
     if xlabel is not None:
         ax1.set_xlabel(xlabel)
     if ylabel is not None:
         ax1.set_ylabel(ylabel)
+
+    if with_grid:
+        ax1.xaxis.grid(
+            True, linestyle="--", which="major", color="lightgrey", alpha=0.6
+        )
+        ax1.yaxis.grid(
+            True, linestyle="--", which="major", color="lightgrey", alpha=0.6
+        )
+
     plt.subplots_adjust(left=0.1, bottom=0.1, right=0.99, top=0.99)
+    handles = list()
+
     if family:
         cm = plt.get_cmap("brg", len(Y))
         for i, YY in enumerate(Y):
@@ -145,9 +167,18 @@ def plot_xy(
                 XX = X[i]
             else:
                 XX = np.arange(len(YY))
-            plt.plot(XX, YY, "-", markersize=2, color=cm(i))
+            if legend:
+                label = legend[i]
+            else:
+                label = None
+            (handle,) = plt.plot(XX, YY, "-", markersize=2, color=cm(i), label=label)
+            handles.append(handle)
     else:
         plt.plot(X, Y, "bo", markersize=2)
+
+    if legend:
+        plt.legend(handles=handles)
+
     if output:
         plt.savefig(output)
         logger.info(f"XY plot saved to {output}")
