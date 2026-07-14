@@ -713,7 +713,7 @@ def aggregate_measures(predicted: float, ground_truth: list) -> dict:
     return regression_measures(predicted_array, np.array(ground_truth))
 
 
-def regression_measures(predicted: np.ndarray, ground_truth: np.ndarray):
+def regression_measures(predicted: np.ndarray, ground_truth: np.ndarray, ret=None):
     """
     Calculate error measures by comparing predicted values to ground truth.
 
@@ -793,6 +793,9 @@ def regression_measures(predicted: np.ndarray, ground_truth: np.ndarray):
         )
         * 100
     )
+
+    if ret is not None:
+        return measures[ret]
 
     return measures
 
