@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 dfatool_uls_loss_fun = os.getenv("DFATOOL_ULS_LOSS_FUNCTION", "linear")
 dfatool_uls_min_bound = float(os.getenv("DFATOOL_ULS_MIN_BOUND", -np.inf))
 
+dfatool_uls_improvement_threshold = float(
+    os.getenv("DFATOOL_ULS_IMPROVEMENT_THRESHOLD", 0.8)
+)
+
 if dfatool_uls_loss_fun == "linear":
     best_fit_metric = os.getenv("DFATOOL_ULS_ERROR_METRIC", "ssr")
 else:
@@ -99,7 +103,7 @@ class ParamFit:
                         )
                     )
                 # See notes on depends_on_param
-                elif this_result["best_err"] >= 0.8 * min(
+                elif this_result["best_err"] >= dfatool_uls_improvement_threshold * min(
                     this_result["mean_err"], this_result["median_err"]
                 ):
                     logger.debug(
