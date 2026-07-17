@@ -130,6 +130,7 @@ def plot_y(Y, **kwargs):
 def plot_xy(
     X,
     Y,
+    fmt="-",
     xlabel=None,
     ylabel=None,
     title=None,
@@ -171,7 +172,7 @@ def plot_xy(
                 label = legend[i]
             else:
                 label = None
-            (handle,) = plt.plot(XX, YY, "-", markersize=2, color=cm(i), label=label)
+            (handle,) = plt.plot(XX, YY, fmt, markersize=2, color=cm(i), label=label)
             handles.append(handle)
     else:
         plt.plot(X, Y, "bo", markersize=2)
