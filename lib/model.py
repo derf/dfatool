@@ -360,6 +360,8 @@ class AnalyticModel:
                         self.attr_by_name[name][attr].build_fol()
                     elif model_type == "lmt":
                         self.attr_by_name[name][attr].build_lmt()
+                    elif model_type == "mlp":
+                        self.attr_by_name[name][attr].build_mlp()
                     elif model_type == "symreg":
                         self.attr_by_name[name][attr].build_symreg()
                     elif model_type == "lgbm":

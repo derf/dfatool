@@ -914,6 +914,23 @@ class ModelAttribute:
             if x.fit_success:
                 self.model_function = x
 
+    def build_mlp(self):
+        mf = df.MLPFunction(
+            np.mean(self.data),
+            n_samples=len(self.data),
+            param_names=self.param_names,
+            arg_count=self.arg_count,
+        ).fit(self.param_values, self.data)
+        if mf.fit_success:
+            self.model_function = mf
+            return True
+        else:
+            logger.warning(f"{self.name}:{self.attr}:MLP failed")
+            self.model_function = df.StaticFunction(
+                np.mean(self.data), n_samples=len(self.data)
+            )
+            return False
+
     def build_cart(self):
         mf = df.CARTFunction(
             np.mean(self.data),

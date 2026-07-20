@@ -1130,6 +1130,41 @@ class SKLearnRegressionFunction(ModelFunction):
         return ret
 
 
+class MLPFunction(SKLearnRegressionFunction):
+    def fit(self, param_values, data):
+        fit_parameters, self.categorical_to_index, self.ignore_index = param_to_ndarray(
+            param_values,
+            with_nan=False,
+            categorical_to_scalar=self.categorical_to_scalar,
+        )
+
+        if not self._check_fit_param(fit_parameters, "MLP", "param_to_ndarray"):
+            return self
+
+        fit_parameters = self._preprocess_parameters(fit_parameters, data)
+
+        if not self._check_fit_param(fit_parameters, "MLP", "preprocessing"):
+            return self
+
+        hidden_layer_config = os.getenv("DFATOOL_MLP_HIDDEN_LAYERS", "100").split(",")
+        hidden_layer_sizes = tuple(map(lambda x: int(x), hidden_layer_config))
+        activation = os.getenv("DFATOOL_MLP_ACTIVATION", "relu")
+        solver = os.getenv("DFATOOL_MLP_SOLVER", "adam")
+        max_iter = int(os.getenv("DFATOOL_MLP_MAX_ITER", "200"))
+
+        from sklearn.neural_network import MLPRegressor
+
+        self.regressor = MLPRegressor(
+            hidden_layer_sizes=hidden_layer_sizes,
+            activation=activation,
+            solver=solver,
+            max_iter=max_iter,
+        )
+        self.regressor.fit(fit_parameters, data)
+        self.fit_success = True
+        return self
+
+
 class CARTFunction(SKLearnRegressionFunction):
     def __init__(self, value, decart=False, **kwargs):
         self.decart = decart

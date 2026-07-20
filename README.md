@@ -116,7 +116,7 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_KCONF_IGNORE_NUMERIC` | **0**, 1 | Ignore numeric (int/hex) configuration options. Useful for comparison with CART/DECART. |
 | `DFATOOL_KCONF_IGNORE_STRING` | 0, **1** | Ignore string configuration options. These often hold compiler paths and other not really helpful information. |
 | `DFATOOL_KCONF_WITH_CHOICE_NODES` | 0, **1** | Treat kconfig choices (e.g. "choice Model → MobileNet / ResNet / Inception") as enum parameters. If enabled, the corresponding boolean kconfig variables (e.g. "Model\_MobileNet") are not converted to parameters. If disabled, all (and only) boolean kconfig variables are treated as parameters. Mostly relevant for analyze-kconfig, eval-kconfig |
-| `DFATOOL_MODEL` | cart, decart, fol, lgbm, lmt, **rmt**, symreg, uls, xgb | Modelling method. See below for method-specific configuration options. |
+| `DFATOOL_MODEL` | cart, decart, fol, lgbm, lmt, mlp, **rmt**, symreg, uls, xgb | Modelling method. See below for method-specific configuration options. |
 | `DFATOOL_PARAM_CATEGORICAL_TO_SCALAR` | **0**, 1 | Some models (e.g. FOL, sklearn CART, XGBoost) do not support categorical parameters. Ignore them (0) or convert them to scalar indexes (1). Conversion uses lexical order. |
 | `DFATOOL_PARAM_RELEVANCE_THRESHOLD` | 0 .. **0.5** .. 1 | Threshold for relevant parameter detection: parameter *i* is relevant if mean standard deviation (data partitioned by all parameters) / mean standard deviation (data partition by all parameters but *i*) is less than threshold |
 | `DFATOOL_PREPROCESSING_RELEVANCE_METHOD` | **none**, mi | Ignore parameters deemed irrelevant by the specified heuristic before passing them on to `DFATOOL_MODEL`. |
@@ -145,6 +145,10 @@ The following variables may be set to alter the behaviour of dfatool components.
 | `DFATOOL_LMT_MAX_DEPTH` | **5** .. 20 | Maximum depth for LMT. |
 | `DFATOOL_LMT_MIN_SAMPLES_LEAF` | 0.0 .. **0.1** .. 1.0, 3 .. *n* | Minimum samples that each leaf of a split candidate must contain. A value below 1.0 specifies a ratio of the total number of training samples. A value above 1 specifies an absolute number of samples. |
 | `DFATOOL_LMT_MIN_SAMPLES_SPLIT` | 0.0 .. 1.0, **6** .. *n* | Minimum samples required to still perform an LMT split. A value below 1.0 sets the specified ratio of the total number of training samples as minimum. |
+| `DFATOOL_MLP_HIDDEN_LAYERS` | *n1*,*n2*,… | Number of neurons in first, seconds, … hidden layer (default: single hidden layer with 100 neurons) |
+| `DFATOOL_MLP_ACTIVATION` | identity, logistic, tanh, **relu** | Activation function for the hidden layer(s) |
+| `DFATOOL_MLP_SOLVER` | lbfgs, sgd, **adam** | Solver for weight optimization |
+| `DFATOOL_MLP_MAX_ITER` | .., **100**, .. | Maximum number of solver iterations |
 | `DFATOOL_REGRESSION_SAFE_FUNCTIONS` | **0**, 1 | Use safe functions only (e.g. 1/x returnning 1 for x==0) |
 | `DFATOOL_RMT_LOSS_IGNORE_SCALAR` | **0**, 1 | Ignore scalar parameters when computing the loss for split node candidates. Instead of computing the loss of a single partition for each `x_i == j`, compute the loss of partitions for `x_i == j` in which non-scalar parameters vary and scalar parameters are constant. This way, scalar parameters do not affect the decision about which non-scalar parameter to use for splitting. |
 | `DFATOOL_RMT_MAX_DEPTH` | **0** .. *n* | Maximum depth for RMT. Default (0): unlimited. |
