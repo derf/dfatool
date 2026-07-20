@@ -158,7 +158,6 @@ def plot_xy(
             True, linestyle="--", which="major", color="lightgrey", alpha=0.6
         )
 
-    plt.subplots_adjust(left=0.1, bottom=0.1, right=0.99, top=0.99)
     handles = list()
 
     if family:
@@ -179,6 +178,8 @@ def plot_xy(
 
     if legend:
         plt.legend(handles=handles)
+
+    plt.tight_layout()
 
     if output:
         plt.savefig(output)
