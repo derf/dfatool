@@ -1194,6 +1194,10 @@ class CARTFunction(SKLearnRegressionFunction):
                 )
             )
 
+        random_seed = os.getenv("DFATOOL_RANDOM_SEED", None)
+        if random_seed is not None:
+            random_seed = int(random_seed)
+
         if not self._check_fit_param(fit_parameters, "CART", "param_to_ndarray"):
             return self
 
@@ -1202,12 +1206,14 @@ class CARTFunction(SKLearnRegressionFunction):
         if not self._check_fit_param(fit_parameters, "CART", "preprocessing"):
             return self
 
-        logger.debug("Fitting sklearn CART ...")
+        logger.debug(f"Fitting CART(d={max_depth}) ...")
         from sklearn.tree import DecisionTreeRegressor
 
-        self.regressor = DecisionTreeRegressor(max_depth=max_depth)
+        self.regressor = DecisionTreeRegressor(
+            max_depth=max_depth, random_state=random_seed
+        )
         self.regressor.fit(fit_parameters, data)
-        logger.debug("Fitted sklearn CART")
+        logger.debug("FItted CART")
 
         self.fit_success = True
         self._build_feature_names()
@@ -1703,6 +1709,10 @@ class XGBoostFunction(SKLearnRegressionFunction):
         # range: [0, ∞]
         reg_lambda = float(os.getenv("DFATOOL_XGB_REG_LAMBDA", "1"))
 
+        random_seed = os.getenv("DFATOOL_RANDOM_SEED", None)
+        if random_seed is not None:
+            random_seed = int(random_seed)
+
         fit_parameters, self.categorical_to_index, self.ignore_index = param_to_ndarray(
             param_values,
             with_nan=False,
@@ -1728,6 +1738,7 @@ class XGBoostFunction(SKLearnRegressionFunction):
             gamma=gamma,
             reg_alpha=reg_alpha,
             reg_lambda=reg_lambda,
+            random_state=random_seed,
         )
         xgb.fit(fit_parameters, np.reshape(data, (-1, 1)))
         self.fit_success = True
