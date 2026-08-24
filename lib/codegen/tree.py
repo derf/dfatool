@@ -68,7 +68,9 @@ class TreeImplementation:
     def feature_vector(self):
         return [f"{self.feature_type} param_vec[{self.n_features:d}];"]
 
-    def get_benchmark(self, X, y, verify=False, steps=5, counter_key="cycles"):
+    def get_benchmark(
+        self, X, y, verify=False, steps=5, counter_key="cycles", mode="latency"
+    ):
         ret = [
             '#include "arch.h"',
             '#include "driver/gpio.h"',
@@ -82,6 +84,8 @@ class TreeImplementation:
 
         if len(X):
             assert len(X[0]) == self.n_features
+
+        assert mode in ("latency", "power")
 
         self.param_values = list()
         for i in range(self.n_features):
@@ -107,33 +111,42 @@ class TreeImplementation:
         ret += [
             f"volatile {self.leaf_type} result;",
             "void run_benchmark() {",
-            "arch.delay_ms(1000);",
-            "counter.start();",
-            "counter.stop();",
-            """kout << "nop=" << counter.value << "/" << counter.overflow << endl;""",
         ]
+        if mode == "latency":
+            ret += [
+                "arch.delay_ms(1000);",
+                "counter.start();",
+                "counter.stop();",
+                """kout << "nop=" << counter.value << "/" << counter.overflow << endl;""",
+            ]
         if verify:
             ret.append("kout.setDigits(6);")
         for i in range(self.n_features):
             ret.append(f"for (uint8_t pv{i} = 0; pv{i} < {steps}; pv{i}++) {{")
             ret.append(f"param_vec[{i}] = param_values[{i}][pv{i}];")
-        ret.append("counter.start();")
+        if mode == "latency":
+            ret.append("counter.start();")
         ret.append("result = traverse(param_vec);")
-        ret.append("counter.stop();")
-        ret.append("gpio.led_on(0);")
+        if mode == "latency":
+            ret.append("counter.stop();")
+        if mode != "power":
+            ret.append("gpio.led_on(0);")
         if verify:
             ret.append("""kout << "prediction=";""")
             for i in range(self.n_features):
                 ret.append(f"""kout << param_vec[{i}] << ";";""")
             ret.append("""kout << result << endl;""")
-        ret.append(
-            f"""kout << "{counter_key}=" << counter.value << "/" << counter.overflow << endl;"""
-        )
-        ret.append("gpio.led_off(0);")
+        if mode == "latency":
+            ret.append(
+                f"""kout << "{counter_key}=" << counter.value << "/" << counter.overflow << endl;"""
+            )
+        if mode != "power":
+            ret.append("gpio.led_off(0);")
         for i in range(self.n_features):
             ret.append("}")
-        ret.append("""kout << "done" << endl;""")
-        ret.append("""kout << "done" << endl;""")
+        if mode != "power":
+            ret.append("""kout << "done" << endl;""")
+            ret.append("""kout << "done" << endl;""")
         ret.append("}")
 
         ret += [
@@ -142,10 +155,23 @@ class TreeImplementation:
             "    arch.setup();",
             "    gpio.setup();",
             "    kout.setup();",
-            "    gpio.led_on(1);",
-            "    run_benchmark();",
-            "    gpio.led_off(1);",
-            "    gpio.led_on(2);",
+        ]
+        if mode != "power":
+            ret.append("    gpio.led_on(1);")
+        if mode == "power":
+            ret += [
+                "    while (1) {",
+                "        run_benchmark();",
+                "    }",
+            ]
+        else:
+            ret.append("    run_benchmark();")
+        if mode != "power":
+            ret += [
+                "    gpio.led_off(1);",
+                "    gpio.led_on(2);",
+            ]
+        ret += [
             "    return 0;",
             "}",
         ]
@@ -343,7 +369,9 @@ class PlainRMT(TreeImplementation):
         else:
             raise NotImplementedError(f"""node type {node["type"]} not supported yet""")
 
-    def get_benchmark(self, X, y, verify=False, steps=5, counter_key="cycles"):
+    def get_benchmark(
+        self, X, y, verify=False, steps=5, counter_key="cycles", mode="latency"
+    ):
         ret = [
             '#include "arch.h"',
             '#include "driver/gpio.h"',
@@ -364,6 +392,8 @@ class PlainRMT(TreeImplementation):
                 raise ValueError(
                     f"Got {len(X[0])} features, expected {self.n_features + self.n_categorical} == {self.n_features} + {self.n_categorical}"
                 )
+
+        assert mode in ("latency", "power")
 
         self.param_values = list()
         for i in range(self.n_features):
@@ -393,11 +423,14 @@ class PlainRMT(TreeImplementation):
         ret += [
             f"volatile {self.leaf_type} result;",
             "void run_benchmark() {",
-            "arch.delay_ms(1000);",
-            "counter.start();",
-            "counter.stop();",
-            """kout << "nop=" << counter.value << "/" << counter.overflow << endl;""",
         ]
+        if mode == "latency":
+            ret += [
+                "arch.delay_ms(1000);",
+                "counter.start();",
+                "counter.stop();",
+                """kout << "nop=" << counter.value << "/" << counter.overflow << endl;""",
+            ]
         if verify:
             ret.append("kout.setDigits(6);")
         for i in range(self.n_features):
@@ -408,9 +441,11 @@ class PlainRMT(TreeImplementation):
                 f"for (uint8_t cat{i} = 0; cat{i} < {self.n_categories}; cat{i}++) {{"
             )
             ret.append(f"param_vec.categorical[{i}] = cat{i};")
-        ret.append("counter.start();")
+        if mode == "latency":
+            ret.append("counter.start();")
         ret.append("result = traverse(&param_vec);")
-        ret.append("counter.stop();")
+        if mode == "latency":
+            ret.append("counter.stop();")
         if verify:
             ret.append("""kout << "prediction=";""")
             for i in range(self.n_features):
@@ -418,14 +453,17 @@ class PlainRMT(TreeImplementation):
             for i in range(self.n_categorical):
                 ret.append(f"""kout << param_vec.categorical[{i}] << ";";""")
             ret.append("""kout << result << endl;""")
-        ret.append(
-            f"""kout << "{counter_key}=" << counter.value << "/" << counter.overflow << endl;"""
-        )
-        ret.append("gpio.led_toggle();")
+        if mode == "latency":
+            ret.append(
+                f"""kout << "{counter_key}=" << counter.value << "/" << counter.overflow << endl;"""
+            )
+        if mode != "power":
+            ret.append("gpio.led_toggle();")
         for i in range(self.n_features + self.n_categorical):
             ret.append("}")
-        ret.append("""kout << "done" << endl;""")
-        ret.append("""kout << "done" << endl;""")
+        if mode != "power":
+            ret.append("""kout << "done" << endl;""")
+            ret.append("""kout << "done" << endl;""")
         ret.append("}")
 
         ret += [
@@ -434,10 +472,23 @@ class PlainRMT(TreeImplementation):
             "    arch.setup();",
             "    gpio.setup();",
             "    kout.setup();",
-            "    gpio.led_on(1);",
-            "    run_benchmark();",
-            "    gpio.led_off(1);",
-            "    gpio.led_on(2);",
+        ]
+        if mode != "power":
+            ret.append("    gpio.led_on(1);")
+        if mode == "power":
+            ret += [
+                "    while (1) {",
+                "        run_benchmark();",
+                "    }",
+            ]
+        else:
+            ret.append("    run_benchmark();")
+        if mode != "power":
+            ret += [
+                "    gpio.led_off(1);",
+                "    gpio.led_on(2);",
+            ]
+        ret += [
             "    return 0;",
             "}",
         ]

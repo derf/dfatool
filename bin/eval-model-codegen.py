@@ -11,8 +11,10 @@ import itertools
 import json
 import logging
 import numpy as np
+import os
 import platform
 import sklearn.datasets
+import subprocess
 import sys
 import time
 
@@ -96,6 +98,9 @@ if __name__ == "__main__":
 
     parser.add_argument("--architecture", type=str, default="posix")
     parser.add_argument(
+        "--benchmark", choices="latency power".split(), default="latency"
+    )
+    parser.add_argument(
         "--dataset-source",
         type=str,
         choices=("diabetes", "synthetic"),
@@ -120,6 +125,11 @@ if __name__ == "__main__":
     parser.add_argument("--model-save", metavar="model.json[.xz]", type=str)
     parser.add_argument("--multipass-base", type=str, default="../multipass")
     parser.add_argument("--multipass-app", type=str, default="treebench")
+    parser.add_argument(
+        "--n6705b-logger",
+        type=str,
+        default="/home/derf/var/projects/n6705b-logger/bin/n6705b.py --channel 3",
+    )
     parser.add_argument("--codegen-only", action="store_true")
     parser.add_argument(
         "--type", choices="int8_t int16_t int32_t float double".split(), default="float"
@@ -362,6 +372,7 @@ if __name__ == "__main__":
                         verify=args.verify,
                         steps=benchmark_steps,
                         counter_key=counter_key,
+                        mode=args.benchmark,
                     )
                 )
                 + "\n"
@@ -382,111 +393,168 @@ if __name__ == "__main__":
             cwd=args.multipass_base,
         )
 
-        if args.architecture == "posix":
-            latency_benchmark = dfatool.runner.ShellMonitor(
-                ["./mpm"], cwd=args.multipass_base
+        if args.benchmark == "latency":
+
+            if args.architecture == "posix":
+                latency_benchmark = dfatool.runner.ShellMonitor(
+                    ["./mpm"], cwd=args.multipass_base
+                )
+            else:
+                flasher = dfatool.runner.ShellMonitor(["./mp"], cwd=args.multipass_base)
+                flasher.run(timeout=300)
+                latency_benchmark = dfatool.runner.ShellMonitor(
+                    "make cat".split(), cwd=args.multipass_base
+                )
+
+            stdout, stderr = latency_benchmark.run(timeout=3600)
+            latencies = list()
+            for line in stdout:
+                if line.startswith("cycles="):
+                    raw_latency = line.split("=")[1]
+                    # for POSIX, the "overflow" part is always 0 and thus safe to ignore
+                    # Timer values are returned in ns.
+                    latencies.append(int(raw_latency.split("/")[0]) * tsc_to_ns)
+                elif line.startswith("latency_us="):
+                    latencies.append(float(line.split("=")[1]) * 1e3)
+                if line.startswith("prediction="):
+                    param_values = list(
+                        map(float, line.removeprefix("prediction=").split(";"))
+                    )
+                    codegen_prediction = float(param_values.pop())
+                    model_prediction = model.eval(
+                        param_values, cast=int if "int" in args.type else float
+                    )
+                    if args.model == "XGB":
+                        if "int" in args.type:
+                            # XGBoost does not support (easy) casting of tree leaf weights to int, so each leaf may introduce an error of up to 1, +1 for the
+                            # intercept term itself
+                            max_err = model.regressor.n_estimators + 1
+                        else:
+                            # rounding errors, so many (potential) rounding errors
+                            max_err = model.regressor.n_estimators * 0.05
+                    else:
+                        max_err = 0.1
+                    if (
+                        abs(codegen_prediction - model_prediction) > max_err
+                        and (
+                            not "int" in args.type
+                            or abs(
+                                (codegen_prediction - model_prediction)
+                                / model_prediction
+                            )
+                        )
+                        > 0.02
+                    ):
+                        logging.error(
+                            f"param={param_values}: expected {model_prediction}, got {codegen_prediction}"
+                        )
+                        sys.exit(1)
+            percentiles = np.percentile(latencies, range(0, 101))
+            str_percentiles = " ".join(
+                map(
+                    lambda kv: f"p{kv[0]:03d}_ns={kv[1]}",
+                    zip(range(0, 101), percentiles),
+                )
             )
-        else:
+
+            stdout, stderr = nfp_benchmark.run()
+            data = json.loads(stdout[0])
+            rom = data[nfp_file]["ROM"]
+            ram = data[nfp_file]["RAM"]
+
+            hyper_str = " ".join(
+                map(
+                    lambda kv: kv[0].split("/")[1].replace(" ", "_") + f"={kv[1]}",
+                    model.hyper_to_dref().items(),
+                )
+            )
+            print(
+                f"[::] {args.model} | e_type={args.type} e_impl={impl.name} n_numeric={args.dataset_n_numeric} n_categorical={args.dataset_n_categorical} n_categories={args.dataset_n_categories} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
+                + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | rom_B={rom} ram_B={ram} {str_percentiles}"
+            )
+
+        if args.codegen_only:
+            sys.exit(0)
+
+        # Impl: Python (native CART / XGB)
+        if args.architecture == "posix":
+            latencies = list()
+            nop_latencies = list()
+            start = time.monotonic()
+            stop = time.monotonic()
+            nop_ns = stop - start
+            for param_tuple in itertools.product(*impl.param_values):
+                start = time.monotonic()
+                model.eval(param_tuple, cast=int if "int" in args.type else float)
+                stop = time.monotonic()
+                nop = time.monotonic()
+                # time.monotonic() has an overhead of a few hundred ns; remove it.
+                # rdtsc overhead is on the order of tens of ns and therefore less critical, hence it is not calibrated out above.
+                latencies.append((stop - start) * 1e9)
+                nop_latencies.append((nop - stop) * 1e9)
+            latencies = np.array(latencies) - np.array(nop_latencies)
+            percentiles = np.percentile(latencies, range(0, 101))
+            str_percentiles = " ".join(
+                map(
+                    lambda kv: f"p{kv[0]:03d}_ns={kv[1]}",
+                    zip(range(0, 101), percentiles),
+                )
+            )
+            hyper_str = " ".join(
+                map(
+                    lambda kv: kv[0].split("/")[1].replace(" ", "_") + f"={kv[1]}",
+                    model.hyper_to_dref().items(),
+                )
+            )
+            print(
+                f"[::] {args.model} | e_type={args.type} e_impl=python n_numeric={args.dataset_n_numeric} n_categorical={args.dataset_n_categorical} n_categories={args.dataset_n_categories} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
+                + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | rom_B=0 ram_B=0 {str_percentiles}"
+            )
+
+        elif args.benchmark == "power":
             flasher = dfatool.runner.ShellMonitor(["./mp"], cwd=args.multipass_base)
             flasher.run(timeout=300)
-            latency_benchmark = dfatool.runner.ShellMonitor(
+
+            hyper_str = " ".join(
+                map(
+                    lambda kv: kv[0].split("/")[1].replace(" ", "_") + f"={kv[1]}",
+                    model.hyper_to_dref().items(),
+                )
+            )
+
+            # output will not be used
+            power_benchmark = dfatool.runner.ShellMonitor(
                 "make cat".split(), cwd=args.multipass_base
             )
 
-        stdout, stderr = latency_benchmark.run(timeout=3600)
-        latencies = list()
-        for line in stdout:
-            if line.startswith("cycles="):
-                raw_latency = line.split("=")[1]
-                # for POSIX, the "overflow" part is always 0 and thus safe to ignore
-                # Timer values are returned in ns.
-                latencies.append(int(raw_latency.split("/")[0]) * tsc_to_ns)
-            elif line.startswith("latency_us="):
-                latencies.append(float(line.split("=")[1]) * 1e3)
-            if line.startswith("prediction="):
-                param_values = list(
-                    map(float, line.removeprefix("prediction=").split(";"))
-                )
-                codegen_prediction = float(param_values.pop())
-                model_prediction = model.eval(
-                    param_values, cast=int if "int" in args.type else float
-                )
-                if args.model == "XGB":
-                    if "int" in args.type:
-                        # XGBoost does not support (easy) casting of tree leaf weights to int, so each leaf may introduce an error of up to 1, +1 for the
-                        # intercept term itself
-                        max_err = model.regressor.n_estimators + 1
-                    else:
-                        # rounding errors, so many (potential) rounding errors
-                        max_err = model.regressor.n_estimators * 0.05
-                else:
-                    max_err = 0.1
-                if (
-                    abs(codegen_prediction - model_prediction) > max_err
-                    and (
-                        not "int" in args.type
-                        or abs(
-                            (codegen_prediction - model_prediction) / model_prediction
-                        )
-                    )
-                    > 0.02
-                ):
-                    logging.error(
-                        f"param={param_values}: expected {model_prediction}, got {codegen_prediction}"
-                    )
-                    sys.exit(1)
-        percentiles = np.percentile(latencies, range(0, 101))
-        str_percentiles = " ".join(
-            map(lambda kv: f"p{kv[0]:03d}_ns={kv[1]}", zip(range(0, 101), percentiles))
-        )
-
-        stdout, stderr = nfp_benchmark.run()
-        data = json.loads(stdout[0])
-        rom = data[nfp_file]["ROM"]
-        ram = data[nfp_file]["RAM"]
-
-        hyper_str = " ".join(
-            map(
-                lambda kv: kv[0].split("/")[1].replace(" ", "_") + f"={kv[1]}",
-                model.hyper_to_dref().items(),
+            filename = f"/tmp/n6705b-{os.getpid()}.txt"
+            subprocess.Popen(
+                args.n6705b_logger.split() + ["--quiet", "--save", filename, "10"]
             )
-        )
-        print(
-            f"[::] {args.model} | e_type={args.type} e_impl={impl.name} n_numeric={args.dataset_n_numeric} n_categorical={args.dataset_n_categorical} n_categories={args.dataset_n_categories} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
-            + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | rom_B={rom} ram_B={ram} {str_percentiles}"
-        )
 
-    if args.codegen_only:
-        sys.exit(0)
+            try:
+                power_benchmark.run(timeout=12)
+            except dfatool.runner.subprocess.TimeoutExpired:
+                # We deliberately run into the timeout, so this is okay
+                pass
 
-    # Impl: Python (native CART / XGB)
-    if args.architecture == "posix":
-        latencies = list()
-        nop_latencies = list()
-        start = time.monotonic()
-        stop = time.monotonic()
-        nop_ns = stop - start
-        for param_tuple in itertools.product(*impl.param_values):
-            start = time.monotonic()
-            model.eval(param_tuple, cast=int if "int" in args.type else float)
-            stop = time.monotonic()
-            nop = time.monotonic()
-            # time.monotonic() has an overhead of a few hundred ns; remove it.
-            # rdtsc overhead is on the order of tens of ns and therefore less critical, hence it is not calibrated out above.
-            latencies.append((stop - start) * 1e9)
-            nop_latencies.append((nop - stop) * 1e9)
-        latencies = np.array(latencies) - np.array(nop_latencies)
-        percentiles = np.percentile(latencies, range(0, 101))
-        str_percentiles = " ".join(
-            map(lambda kv: f"p{kv[0]:03d}_ns={kv[1]}", zip(range(0, 101), percentiles))
-        )
-        hyper_str = " ".join(
-            map(
-                lambda kv: kv[0].split("/")[1].replace(" ", "_") + f"={kv[1]}",
-                model.hyper_to_dref().items(),
+            currents = list()
+            with open(filename, "r") as f:
+                for line in f:
+                    if line.startswith("#"):
+                        continue
+                    voltage, current = line.split()
+                    currents.append(float(current))
+
+            percentiles = np.percentile(currents, range(0, 101))
+            str_percentiles = " ".join(
+                map(
+                    lambda kv: f"p{kv[0]:03d}_A={kv[1]}",
+                    zip(range(0, 101), percentiles),
+                )
             )
-        )
-        print(
-            f"[::] {args.model} | e_type={args.type} e_impl=python n_numeric={args.dataset_n_numeric} n_categorical={args.dataset_n_categorical} n_categories={args.dataset_n_categories} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
-            + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | rom_B=0 ram_B=0 {str_percentiles}"
-        )
+
+            print(
+                f"[::] {args.model} | e_type={args.type} e_impl={impl.name} n_numeric={args.dataset_n_numeric} n_categorical={args.dataset_n_categorical} n_categories={args.dataset_n_categories} n_nodes={model.get_number_of_nodes()} n_leaves={model.get_number_of_leaves()}"
+                + f" depth={model.get_max_depth()} complexity={model.get_complexity_score()} {hyper_str} | mean_A={np.mean(currents)} {str_percentiles}"
+            )
