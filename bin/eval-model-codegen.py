@@ -533,7 +533,7 @@ if __name__ == "__main__":
             )
 
             try:
-                power_benchmark.run(timeout=12)
+                power_benchmark.run(timeout=13)
             except dfatool.runner.subprocess.TimeoutExpired:
                 # We deliberately run into the timeout, so this is okay
                 pass
