@@ -54,14 +54,17 @@ def print_info_by_name(model, by_name):
         print(f"{name}:")
         print(f"""    Number of Samples: {len(by_name[name][attr])}""")
         for param in model.parameters:
-            print(
-                "    Parameter {} ∈ {}".format(
-                    param,
-                    model.attr_by_name[name][attr].stats.distinct_values_by_param_name[
-                        param
-                    ],
+            if model.attr_by_name[name][attr].stats is None:
+                print(f"    Parameter {param} ∈ ? (no param stats available)")
+            else:
+                print(
+                    "    Parameter {} ∈ {}".format(
+                        param,
+                        model.attr_by_name[name][
+                            attr
+                        ].stats.distinct_values_by_param_name[param],
+                    )
                 )
-            )
         if name in model._num_args:
             for i in range(model._num_args[name]):
                 print(
@@ -258,6 +261,8 @@ def model_quality_table(
         xv_header = "kfold XV"
     elif xv_method == "montecarlo":
         xv_header = "MC XV"
+    elif xv_method == "loo":
+        xv_header = "LOO XV"
     elif xv_method:
         xv_header = "XV"
     elif load_model:
@@ -266,9 +271,14 @@ def model_quality_table(
         xv_header = "training"
 
     if xv_method is not None:
-        print(
-            f"Model error ({error_metric}) after cross validation ({xv_method}, {xv_count}):"
-        )
+        if xv_method == "loo":
+            print(
+                f"Model error ({error_metric}) after cross validation (leave-one-out):"
+            )
+        else:
+            print(
+                f"Model error ({error_metric}) after cross validation ({xv_method}, {xv_count}):"
+            )
     else:
         print(f"Model error ({error_metric}) on training data:")
 

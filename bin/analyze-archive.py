@@ -617,6 +617,8 @@ def main():
         static_quality, _ = xv.montecarlo(lambda m: m.get_static(), xv_count)
     elif xv_method == "kfold":
         static_quality, _ = xv.kfold(lambda m: m.get_static(), xv_count)
+    elif xv_method == "loo":
+        static_quality, _ = xv.loo(lambda m: m.get_static())
     else:
         static_quality = model.assess(static_model)
     timing["assess static"] = time.time() - ts
@@ -743,6 +745,9 @@ def main():
         analytic_quality, xv_analytic_models = xv.kfold(
             lambda m: m.get_fitted()[0], xv_count
         )
+    elif xv_method == "loo":
+        xv.export_filename = args.export_xv
+        analytic_quality, xv_analytic_models = xv.loo(lambda m: m.get_fitted()[0])
     else:
         if args.export_raw_predictions:
             analytic_quality, raw_results = model.assess(param_model, return_raw=True)

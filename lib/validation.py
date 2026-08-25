@@ -26,6 +26,19 @@ def _xv_partitions_kfold(length, k=10):
     return pairs
 
 
+def _xv_partitions_loo(length):
+    """
+    Return length pairs of training and validation sets for leave-on-out cross validation on `length` items.
+    """
+    pairs = list()
+    indexes = np.arange(length)
+    for i in range(length):
+        training = np.delete(indexes, i)
+        validation = [indexes[i]]
+        pairs.append((training, validation))
+    return pairs
+
+
 def _xv_param_partitions_kfold(param_values, k=10):
     indexes_by_param_value = dict()
     distinct_pv = list()
@@ -43,6 +56,36 @@ def _xv_param_partitions_kfold(param_values, k=10):
     for i in range(num_slices):
         training_groups = np.delete(indexes, slice(i, None, num_slices))
         validation_groups = indexes[i::num_slices]
+        training = list()
+        for group in training_groups:
+            training.extend(indexes_by_param_value[distinct_pv[group]])
+        validation = list()
+        for group in validation_groups:
+            validation.extend(indexes_by_param_value[distinct_pv[group]])
+        if not (len(training) and len(validation)):
+            return None
+        pairs.append((training, validation))
+    return pairs
+
+
+def _xv_param_partitions_loo(param_values):
+    indexes_by_param_value = dict()
+    distinct_pv = list()
+    for i, param_value in enumerate(param_values):
+        pv = tuple(param_value)
+        if pv in indexes_by_param_value:
+            indexes_by_param_value[pv].append(i)
+        else:
+            distinct_pv.append(pv)
+            indexes_by_param_value[pv] = [i]
+
+    indexes = np.arange(len(distinct_pv))
+
+    pairs = list()
+    for i in range(len(distinct_pv)):
+        training_groups = np.delete(indexes, i)
+        validation_groups = [indexes[i]]
+
         training = list()
         for group in training_groups:
             training.extend(indexes_by_param_value[distinct_pv[group]])
@@ -209,6 +252,70 @@ class CrossValidator:
             training_and_validation_sets.append(dict())
             for name in self.names:
                 training_and_validation_sets[i][name] = subsets_by_name[name][i]
+
+        return self._generic_xv(
+            model_getter, training_and_validation_sets, static=static, with_sum=with_sum
+        )
+
+    def loo(self, model_getter, static=False, with_sum=False):
+        """
+        Perform leave-one-out cross-validation and return average model quality.
+
+        arguments:
+        model_getter -- function with signature (model_object) -> model,
+            e.g. lambda m: m.get_fitted()[0] to evaluate the parameter-aware
+            model with automatic parameter detection.
+
+        return value:
+        dict of model quality measures.
+        {
+            'by_name' : {
+                for each name: {
+                    for each attribute: {
+                        'groundTruth': [...]
+                        'modelOutput': [...]
+                        see dfatool.utils.regression_measures
+                    }
+                }
+            }
+        }
+        """
+
+        # training / validation subsets for each state and transition
+        subsets_by_name = dict()
+        training_and_validation_sets = list()
+
+        n_partitions = 0
+        for name in self.names:
+            param_values = self.by_name[name]["param"]
+            n_partitions = max(n_partitions, len(param_values))
+            if self.parameter_aware:
+                subsets_by_name[name] = _xv_param_partitions_loo(param_values)
+                if subsets_by_name[name] is None:
+                    logger.warning(
+                        f"Insufficient amount of parameter combinations for {name}, falling back to parameter-unaware cross-validation"
+                    )
+                    subsets_by_name[name] = _xv_partitions_loo(len(param_values))
+                else:
+                    n_partitions = len(subsets_by_name[name])
+            else:
+                subsets_by_name[name] = _xv_partitions_loo(len(param_values))
+
+        for i in range(n_partitions):
+            training_and_validation_sets.append(dict())
+            for name in self.names:
+                # XXX dfatool's cross validation assumes that all by_name entries can be evaluated with the same number of train/test pairs.
+                # For LOO, this does not hold, as each by_name entry may have a different amount of samples (e.g., some states are more frequent than others).
+                # This workaround (i % len(...)) is NOT statistically sound in general; it is ONLY fine if all counts are multiples of each other.
+                if i == len(subsets_by_name[name]) and n_partitions % len(
+                    subsets_by_name[name]
+                ):
+                    logger.warning(
+                        f"LOO: using {n_partitions} partitions, but {name} only has {len(subsets_by_name[name])} samples. Results will NOT be statistically sound"
+                    )
+                training_and_validation_sets[i][name] = subsets_by_name[name][
+                    i % len(subsets_by_name[name])
+                ]
 
         return self._generic_xv(
             model_getter, training_and_validation_sets, static=static, with_sum=with_sum
