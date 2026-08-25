@@ -336,11 +336,11 @@ if __name__ == "__main__":
             continue
 
         benchmark_steps = 5
-        if args.dataset_n_numeric > 9:
+        if args.dataset_n_numeric > 8:
             benchmark_steps = 2
-        elif args.dataset_n_numeric > 7:
+        elif args.dataset_n_numeric > 6:
             benchmark_steps = 3
-        elif args.dataset_n_numeric > 5:
+        elif args.dataset_n_numeric > 4:
             benchmark_steps = 4
 
         if args.model == "RMT":
