@@ -522,21 +522,10 @@ if __name__ == "__main__":
                 )
             )
 
-            # output will not be used
-            power_benchmark = dfatool.runner.ShellMonitor(
-                "make cat".split(), cwd=args.multipass_base
-            )
-
             filename = f"/tmp/n6705b-{os.getpid()}.txt"
-            subprocess.Popen(
+            subprocess.run(
                 args.n6705b_logger.split() + ["--quiet", "--save", filename, "10"]
             )
-
-            try:
-                power_benchmark.run(timeout=13)
-            except dfatool.runner.subprocess.TimeoutExpired:
-                # We deliberately run into the timeout, so this is okay
-                pass
 
             currents = list()
             with open(filename, "r") as f:
