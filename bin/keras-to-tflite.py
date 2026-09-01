@@ -24,7 +24,10 @@ def main(infile, outfile):
                 * 128
             }
 
-    if outfile.endswith(".f16.tflite"):
+    if outfile.endswith(".f32.tflite"):
+        # 32-bit float weights (i.e., no quantization / optimization at all)
+        converter.optimizations = []
+    elif outfile.endswith(".f16.tflite"):
         # 16-bit float weights
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
         converter.target_spec.supported_types = [tf.float16]
@@ -39,7 +42,7 @@ def main(infile, outfile):
         converter.inference_output_type = tf.int8
         converter.representative_dataset = repr_gen
     else:
-        print("Output file suffix must match .{f16,i8,i8d}.tflite", file=sys.stderr)
+        print("Output file suffix must match .{f32,f16,i8,i8d}.tflite", file=sys.stderr)
         sys.exit(1)
 
     tflite_model = converter.convert()
@@ -50,7 +53,7 @@ def main(infile, outfile):
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print(
-            f"Usage: {sys.argv[0]} <infile>.keras outfile.f16|i8|i8d.<tflite>",
+            f"Usage: {sys.argv[0]} <infile>.keras outfile.f32.f16|i8|i8d.<tflite>",
             file=sys.stderr,
         )
         sys.exit(1)
