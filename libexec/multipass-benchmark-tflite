@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e
+
+xxd -n serialized_model -i "${2}" > "${1}"/src/app/tfmicro-test/model.h
+if test "${3}" = rom; then
+	sed -i 's/^unsigned /unsigned const /' "${1}"/src/app/tfmicro-test/model.h
+fi
+cd "${1}"
+make program
+sleep 1
+MAKE_CAT_TIMEOUT=5 make cat
