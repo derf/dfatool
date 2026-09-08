@@ -1,4 +1,4 @@
-image: derfnull/ci-dfatool:2026.09.08
+image: derfnull/ci-dfatool:2026.09.09
 
 stages:
   - test

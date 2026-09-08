@@ -11,6 +11,7 @@ RUN apt-get update \
 		make \
 		python3-dev \
 		python3-coverage \
+		python3-jedi \
 		python3-matplotlib \
 		python3-numpy \
 		python3-pytest \
