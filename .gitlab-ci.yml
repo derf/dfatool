@@ -67,7 +67,6 @@ make_model:
 
 deploy_model:
   stage: deploy
-  image: debian:bullseye
   before_script:
     - mkdir -p ~/.ssh
     - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
