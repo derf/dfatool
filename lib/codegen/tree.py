@@ -289,7 +289,7 @@ class PlainRMT(TreeImplementation):
             "        }",
             "        if (!i || !found) {",
             # TODO calculate mean instead
-            """            printf("tree[%u]: did not find a child for features.categorical[%u] == %u\\n", i, tree[i].feat, features->categorical[tree[i].feat]);""",
+            """            //printf("tree[%u]: did not find a child for features.categorical[%u] == %u\\n", i, tree[i].feat, features->categorical[tree[i].feat]);""",
             "            return 0;",
             "        }",
             "    }",
@@ -519,7 +519,7 @@ class ConstRMT(PlainRMT):
             "                }",
             "            }",
             # TODO calculate mean instead
-            """           printf("tree: did not find a child for features.categorical[%u] == %u\\n", this->feat, features->categorical[this->feat]);""",
+            """           //printf("tree: did not find a child for features.categorical[%u] == %u\\n", this->feat, features->categorical[this->feat]);""",
             "            return 0;",
             "        }",
             "        return this->leaf(features->numeric);",
