@@ -9,6 +9,7 @@ RUN apt-get update \
 		kconfig-frontends-nox \
 		lftp \
 		make \
+		openssh-client \
 		python3-dev \
 		python3-coverage \
 		python3-matplotlib \

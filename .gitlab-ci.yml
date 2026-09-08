@@ -1,4 +1,4 @@
-image: derfnull/ci-dfatool:2026.09.10
+image: derfnull/ci-dfatool:2026.09.11
 
 stages:
   - test
@@ -72,5 +72,5 @@ deploy_model:
     - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
     - chmod 600 "$STAGING_PRIVATE_KEY"
   script:
-    - lftp -e "set sftp:connect-program 'ssh -a -x -i $STAGING_PRIVATE_KEY'; mkdir -p -f /dfatool/$CI_COMMIT_REF_NAME; mput -e -O dfatool/$CI_COMMIT_REF_NAME models/*; quit" --password invalid sftp://ci-deploy@ess.cs.uos.de
+    - lftp -c "set sftp:connect-program 'ssh -a -x -i $STAGING_PRIVATE_KEY'; open -u ci-deploy,invalid sftp://ci-deploy@ess.cs.uos.de && mkdir -p -f /dfatool/$CI_COMMIT_REF_NAME && mput -e -O dfatool/$CI_COMMIT_REF_NAME models/*"
 
