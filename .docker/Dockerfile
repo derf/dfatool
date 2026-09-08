@@ -1,4 +1,4 @@
-FROM debian:bullseye
+FROM debian:trixie
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG APT_LISTCHANGES_FRONTEND=none
@@ -7,6 +7,7 @@ RUN apt-get update \
 	&& apt-get -y --no-install-recommends install \
 		ca-certificates \
 		kconfig-frontends-nox \
+		lftp \
 		make \
 		python3-dev \
 		python3-coverage \
