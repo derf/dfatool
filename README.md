@@ -193,6 +193,11 @@ The NFP values should be exactly as described by the selected configuration opti
 * [CART](https://ess.cs.uos.de/git-build/dfatool/master/x264-cart.json)
 * [RMT](https://ess.cs.uos.de/git-build/dfatool/master/x264-rmt.json)
 
+## Contributing
+
+"AI" (as in, Large Language Models / LLMs such as ChatGPT, Claude, Copilot,
+Cursor, Grok, etc.) may not be used for contributions to this project.
+
 ## References
 
 Mirrors of this repository are maintained at the following locations:
