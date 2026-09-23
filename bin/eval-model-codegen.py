@@ -309,7 +309,12 @@ if __name__ == "__main__":
     if args.model == "RMT":
         implementations = (cg.PlainRMT, cg.ConstRMT, cg.TemplateRMT)
     else:
-        implementations = (cg.PlainTree, cg.ConstTree, cg.TemplateTree)
+        implementations = (
+            cg.PlainTree,
+            cg.PlainBranchingTree,
+            cg.ConstTree,
+            cg.TemplateTree,
+        )
 
     for impl_cls in implementations:
         impl = impl_cls(model=ser)

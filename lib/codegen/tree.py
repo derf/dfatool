@@ -631,6 +631,54 @@ class PlainTree(TreeImplementation):
             ]
 
 
+# just to make sure that PlainTree's branch-less design is really better
+class PlainBranchingTree(PlainTree):
+    name = "plainb"
+
+    def traversal_function(self):
+        if self.is_forest:
+            if self.num_trees > 255:
+                tt = "uint16_t"
+            else:
+                tt = "uint8_t"
+            return [
+                f"{self.leaf_type} traverse({self.feature_type} *features)",
+                "{",
+                f"    {self.leaf_type} ret = 0;",
+                f"    for ({tt} i = 0; i < {self.num_trees}; i++) {{",
+                f"        const struct node *tree = forest[i];",
+                f"        {self.id_type} index = 0;",
+                "        while (tree[index].feat != 255) {",
+                f"            if (features[tree[index].feat] {self.split_cond} tree[index].threshold)"
+                + " {",
+                "                index += 1;",
+                "            } else {",
+                "                index = tree[index].rightChild;",
+                "            }",
+                "        }",
+                "        ret += tree[index].threshold;",
+                "    }",
+                f"    return {self.intercept:{self.leaf_format}} + ret;",
+                "}",
+            ]
+        else:
+            return [
+                f"{self.leaf_type} traverse({self.feature_type} *features)",
+                "{",
+                f"    {self.id_type} index = 0;",
+                "    while (tree[index].feat != 255) {",
+                f"        if (features[tree[index].feat] {self.split_cond} tree[index].threshold)"
+                + " {",
+                "            index += 1;",
+                "        } else {",
+                "            index = tree[index].rightChild;",
+                "        }",
+                "    }",
+                "    return tree[index].threshold;",
+                "}",
+            ]
+
+
 class ConstTree(PlainTree):
     name = "const"
 
