@@ -44,6 +44,7 @@ class SDKBehaviourModel:
             if annotation.name not in delta_by_name:
                 delta_by_name[annotation.name] = dict()
                 delta_param_by_name[annotation.name] = dict()
+            # note: learn_pta is passed all observations, but will only consider those in [annotation.start.offset, annotation.end.offset)
             meta_obs = self.learn_pta(
                 observations,
                 annotation,
@@ -368,16 +369,6 @@ class SDKBehaviourModel:
                 delta[prev] = set()
             delta[prev].add(this)
 
-            if not (prev, this) in delta_param:
-                delta_param[(prev, this)] = set()
-            param_dict["#"] = n_seen[prev]
-            param_str = utils.param_dict_to_str(param_dict)
-            delta_param[(prev, this)].add(param_str)
-
-            total_latency_us += observations[i]["attribute"].get("latency_us", 0)
-            total_latency_ms += observations[i]["attribute"].get("latency_ms", 0)
-
-            # must happen after setting param_dict["#"] in case this == prev
             if this in n_seen:
                 if n_seen[this] == 1:
                     logger.debug(
@@ -386,6 +377,15 @@ class SDKBehaviourModel:
                 n_seen[this] += 1
             else:
                 n_seen[this] = 1
+
+            if not (prev, this) in delta_param:
+                delta_param[(prev, this)] = set()
+            param_dict["#"] = n_seen[this]
+            param_str = utils.param_dict_to_str(param_dict)
+            delta_param[(prev, this)].add(param_str)
+
+            total_latency_us += observations[i]["attribute"].get("latency_us", 0)
+            total_latency_ms += observations[i]["attribute"].get("latency_ms", 0)
 
             prev = this
 
