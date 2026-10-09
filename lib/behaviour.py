@@ -266,6 +266,8 @@ class SDKBehaviourModel:
         else:
             param_dict = annotation.end.param
 
+        # Careful: # refers to how ofter prev was seen, as we are populating
+        # delta_param with prev -> this (and not this -> next)
         param_dict["#"] = 1
 
         if annotation.kernels:
@@ -282,17 +284,14 @@ class SDKBehaviourModel:
 
                 if not (prev, this) in delta_param:
                     delta_param[(prev, this)] = set()
+
+                # we're currenty annotating the edge prev -> this, so "#" must come from the repetition count of prev
                 param_dict["#"] = n_seen[prev]
                 param_str = utils.param_dict_to_str(param_dict)
                 delta_param[(prev, this)].add(param_str)
 
-                prev = this
-                prev_i = i + 1
-
-                total_latency_us += observations[i]["attribute"].get("latency_us", 0)
-                total_latency_ms += observations[i]["attribute"].get("latency_ms", 0)
-
-                # must happen after setting param_dict["#"] in case this == prev
+                # for tight loops (prev == this), we must ensure that n_seen[prev] above refers to the seen count when we were visiting prev.
+                # Hence, n_seen[this]++ must happen after "#" = n_seen[prev]
                 if this in n_seen:
                     if n_seen[this] == 1:
                         logger.debug(
@@ -301,6 +300,12 @@ class SDKBehaviourModel:
                     n_seen[this] += 1
                 else:
                     n_seen[this] = 1
+
+                prev = this
+                prev_i = i + 1
+
+                total_latency_us += observations[i]["attribute"].get("latency_us", 0)
+                total_latency_ms += observations[i]["attribute"].get("latency_ms", 0)
 
                 meta_observations.append(
                     {
@@ -326,11 +331,13 @@ class SDKBehaviourModel:
 
                 if not (prev, this) in delta_param:
                     delta_param[(prev, this)] = set()
+
+                # see above
                 param_dict["#"] = n_seen_kernel.get(prev, n_seen.get(prev))
                 param_str = utils.param_dict_to_str(param_dict)
                 delta_param[(prev, this)].add(param_str)
 
-                # must happen after setting param_dict["#"] in case this == prev
+                # see above
                 if this in n_seen_kernel:
                     n_seen_kernel[this] += 1
                 else:
@@ -358,7 +365,9 @@ class SDKBehaviourModel:
                 )
 
         # There is no kernel end signal in the underlying data, so the last iteration also contains a kernel run.
-        prev = prev_non_kernel
+        # Note that we need prev to point to the latest callsite so that we can correctly set "#" for the prev -> __end__ transition.
+        if prev_i != annotation.end.offset:
+            prev = prev_non_kernel
         for i in range(prev_i, annotation.end.offset):
             this = observations[i]["name"] + " @ " + observations[i]["place"]
 
@@ -369,6 +378,15 @@ class SDKBehaviourModel:
                 delta[prev] = set()
             delta[prev].add(this)
 
+            if not (prev, this) in delta_param:
+                delta_param[(prev, this)] = set()
+
+            # see above
+            param_dict["#"] = n_seen[prev]
+            param_str = utils.param_dict_to_str(param_dict)
+            delta_param[(prev, this)].add(param_str)
+
+            # see above
             if this in n_seen:
                 if n_seen[this] == 1:
                     logger.debug(
@@ -377,12 +395,6 @@ class SDKBehaviourModel:
                 n_seen[this] += 1
             else:
                 n_seen[this] = 1
-
-            if not (prev, this) in delta_param:
-                delta_param[(prev, this)] = set()
-            param_dict["#"] = n_seen[this]
-            param_str = utils.param_dict_to_str(param_dict)
-            delta_param[(prev, this)].add(param_str)
 
             total_latency_us += observations[i]["attribute"].get("latency_us", 0)
             total_latency_ms += observations[i]["attribute"].get("latency_ms", 0)
@@ -402,7 +414,8 @@ class SDKBehaviourModel:
         delta[prev].add("__end__")
         if not (prev, "__end__") in delta_param:
             delta_param[(prev, "__end__")] = set()
-        param_dict["#"] = 1
+
+        param_dict["#"] = n_seen[prev]
         param_str = utils.param_dict_to_str(param_dict)
         delta_param[(prev, "__end__")].add(param_str)
 
