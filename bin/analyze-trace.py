@@ -678,15 +678,21 @@ def main():
             )
             print(f"{smape:5.1f}% validation {attr_name} prediction error{annot}")
             for call in val_pred_attr[attr_name]["by_call"].keys():
-                n_measurements = len(val_pred_attr[attr_name]["by_call"][call])
-                arg_err = dfatool.utils.regression_measures(
-                    val_pred_attr[attr_name]["by_call"][call],
-                    val_exp_attr[attr_name]["by_call"][call],
-                )
-                smape = arg_err["smape"]
-                print(
-                    f"    {smape:5.1f}% validation {attr_name} prediction error for {n_measurements:3d}× {call}"
-                )
+                n_measurements_pred = len(val_pred_attr[attr_name]["by_call"][call])
+                n_measurements_exp = len(val_exp_attr[attr_name]["by_call"][call])
+                if n_measurements_pred != n_measurements_exp:
+                    print(
+                        f"    ---.-% validation {attr_name} prediction error for {n_measurements_exp:3d}× {call}  (prediction held {n_measurements_pred} calls)"
+                    )
+                else:
+                    arg_err = dfatool.utils.regression_measures(
+                        val_pred_attr[attr_name]["by_call"][call],
+                        val_exp_attr[attr_name]["by_call"][call],
+                    )
+                    smape = arg_err["smape"]
+                    print(
+                        f"    {smape:5.1f}% validation {attr_name} prediction error for {n_measurements_exp:3d}× {call}"
+                    )
         print()
 
     ts = time.time()
