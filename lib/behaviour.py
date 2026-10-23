@@ -162,6 +162,59 @@ class SDKBehaviourModel:
                             transition_guard[transition_name] = list()
                         transition_guard[transition_name].append(prefix)
 
+                for t_to, or_conds in transition_guard.items():
+                    and_pairs = list()
+                    and_singles = list()
+                    skip = False
+                    if len(or_conds) < 2:
+                        skip = True
+                    for and_conds in or_conds:
+                        if len(and_conds) == 1:
+                            and_singles.append(and_conds)
+                        elif len(and_conds) == 2:
+                            and_pairs.append(and_conds)
+                        else:
+                            # TODO distinguish between generalizable and already-generalized / constant vars for len > 2
+                            # Right now, this is pessimistic, and may miss generalization opportunities
+                            skip = True
+                    if skip or len(and_pairs) < 2 or len(and_singles) > 1:
+                        continue
+                    # all pairs must be of the form # <> n ∧ var <>' n+c, with <> / <>' identical in _all_ pairs, variable n, and c also identical
+                    var1 = and_pairs[0][0][0]
+                    cmp1 = and_pairs[0][0][1]
+                    var2 = and_pairs[0][1][0]
+                    cmp2 = and_pairs[0][1][1]
+                    delta = and_pairs[0][1][2] - and_pairs[0][0][2]
+                    for (l_var1, l_cmp1, l_val1), (l_var2, l_cmp2, l_val2) in and_pairs:
+                        if (
+                            l_var1 != var1
+                            or l_cmp1 != cmp1
+                            or l_var2 != var2
+                            or l_cmp2 != cmp2
+                            or l_val2 - l_val1 != delta
+                        ):
+                            skip = True
+                    if skip:
+                        continue
+                    logger.debug(
+                        f"{t_from} → {t_to}: Found generalization candidate: {var1} {cmp1} n ∧ {var2} {cmp2} n{delta:+d} (leftover: {and_singles})"
+                    )
+                    if cmp1 == "==":
+                        logger.debug(f"→ {var2} {cmp2} {var1}{-delta:+d}")
+                        if delta:
+                            transition_guard[t_to] = [[(var2, cmp2, (var1, -delta))]]
+                        else:
+                            transition_guard[t_to] = [[(var2, cmp2, var1)]]
+                    elif cmp2 == "==":
+                        logger.debug(f"→ {var1} {cmp1} {var2}{delta:+d}")
+                        if delta:
+                            transition_guard[t_to] = [[(var1, cmp1, (var2, delta))]]
+                        else:
+                            transition_guard[t_to] = [[(var1, cmp1, var2)]]
+                    else:
+                        logger.debug("ø nope")
+                        continue
+
                 self.transition_guard[t_from] = transition_guard
                 if self.show_progress:
                     bar.next()
@@ -195,6 +248,10 @@ class SDKBehaviourModel:
                     for condition in self.transition_guard[current_state][candidate]:
                         valid = True
                         for key, equality, value in condition:
+                            if type(value) is str:
+                                value = param_dict[value]
+                            elif type(value) is tuple:
+                                value = param_dict[value[0]] + value[1]
                             if equality == "<" and not param_dict[key] < value:
                                 valid = False
                                 break
@@ -276,7 +333,7 @@ class SDKBehaviourModel:
                 this = observations[i]["name"] + " @ " + observations[i]["place"]
 
                 if self.unroll_loops:
-                    this = this + " #" + str(n_seen.get(this, 0))
+                    this = this + " #" + str(n_seen.get(this, 0) + 1)
 
                 if not prev in delta:
                     delta[prev] = set()
