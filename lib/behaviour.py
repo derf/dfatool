@@ -214,11 +214,11 @@ class SDKBehaviourModel:
                         f"{t_from} → {t_to}: Found generalization candidate: {var1} {cmp1} n ∧ {var2} {cmp2} n{delta:+d} (leftover: {and_singles})"
                     )
                     if cmp1 == "==":
-                        logger.debug(f"→ {var2} {cmp2} {var1}{-delta:+d}")
-                        transition_guard[t_to] = [[(var2, cmp2, KeyCmp(var1, -delta))]]
+                        logger.debug(f"→ {var2} {cmp2} {var1}{delta:+d}")
+                        transition_guard[t_to] = [[(var2, cmp2, KeyCmp(var1, delta))]]
                     elif cmp2 == "==":
-                        logger.debug(f"→ {var1} {cmp1} {var2}{delta:+d}")
-                        transition_guard[t_to] = [[(var1, cmp1, KeyCmp(var2, delta))]]
+                        logger.debug(f"→ {var1} {cmp1} {var2}{-delta:+d}")
+                        transition_guard[t_to] = [[(var1, cmp1, KeyCmp(var2, -delta))]]
                     else:
                         logger.debug("ø nope")
                         continue
