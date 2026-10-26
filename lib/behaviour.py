@@ -180,11 +180,13 @@ class SDKBehaviourModel:
                     if skip or len(and_pairs) < 2 or len(and_singles) > 1:
                         continue
                     # all pairs must be of the form # <> n ∧ var <>' n+c, with <> / <>' identical in _all_ pairs, variable n, and c also identical
-                    var1 = and_pairs[0][0][0]
-                    cmp1 = and_pairs[0][0][1]
-                    var2 = and_pairs[0][1][0]
-                    cmp2 = and_pairs[0][1][1]
-                    delta = and_pairs[0][1][2] - and_pairs[0][0][2]
+                    var1, cmp1, val1 = and_pairs[0][0]
+                    var2, cmp2, val2 = and_pairs[0][1]
+
+                    if type(val1) is str or type(val2) is str:
+                        continue
+                    delta = val2 - val1
+
                     for (l_var1, l_cmp1, l_val1), (l_var2, l_cmp2, l_val2) in and_pairs:
                         if (
                             l_var1 != var1
