@@ -9,6 +9,18 @@ from . import functions as df
 logger = logging.getLogger(__name__)
 
 
+class KeyCmp:
+    def __init__(self, key, delta=0):
+        self.key = key
+        self.delta = delta
+
+    def __repr__(self):
+        if self.delta:
+            return f"{self.key}{self.delta:+d}"
+        else:
+            return str(self.key)
+
+
 class SDKBehaviourModel:
 
     def __init__(
@@ -203,16 +215,10 @@ class SDKBehaviourModel:
                     )
                     if cmp1 == "==":
                         logger.debug(f"→ {var2} {cmp2} {var1}{-delta:+d}")
-                        if delta:
-                            transition_guard[t_to] = [[(var2, cmp2, (var1, -delta))]]
-                        else:
-                            transition_guard[t_to] = [[(var2, cmp2, var1)]]
+                        transition_guard[t_to] = [[(var2, cmp2, KeyCmp(var1, -delta))]]
                     elif cmp2 == "==":
                         logger.debug(f"→ {var1} {cmp1} {var2}{delta:+d}")
-                        if delta:
-                            transition_guard[t_to] = [[(var1, cmp1, (var2, delta))]]
-                        else:
-                            transition_guard[t_to] = [[(var1, cmp1, var2)]]
+                        transition_guard[t_to] = [[(var1, cmp1, KeyCmp(var2, delta))]]
                     else:
                         logger.debug("ø nope")
                         continue
@@ -250,10 +256,8 @@ class SDKBehaviourModel:
                     for condition in self.transition_guard[current_state][candidate]:
                         valid = True
                         for key, equality, value in condition:
-                            if type(value) is str:
-                                value = param_dict[value]
-                            elif type(value) is tuple:
-                                value = param_dict[value[0]] + value[1]
+                            if type(value) is KeyCmp:
+                                value = param_dict[value.key] + value.delta
                             if equality == "<" and not param_dict[key] < value:
                                 valid = False
                                 break
