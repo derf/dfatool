@@ -9,6 +9,13 @@ from . import functions as df
 logger = logging.getLogger(__name__)
 
 
+invert_ineq_tab = {"<": ">", "<=": ">=", ">=": "<=", ">": "<"}
+
+
+def invert_ineq(ineq):
+    return invert_ineq_tab.get(ineq, ineq)
+
+
 class KeyCmp:
     def __init__(self, key, delta=0):
         self.key = key
@@ -222,6 +229,57 @@ class SDKBehaviourModel:
                     else:
                         logger.debug("ø nope")
                         continue
+
+                    # Normalization (assumption: all parameters are str or int, *not* float)
+                    if transition_guard[t_to][0][0][2].key == "#":
+                        transition_guard[t_to][0][0][2].key = transition_guard[t_to][0][
+                            0
+                        ][0]
+                        transition_guard[t_to][0][0] = (
+                            "#",
+                            invert_ineq(transition_guard[t_to][0][0][1]),
+                            transition_guard[t_to][0][0][2],
+                        )
+                    if (
+                        transition_guard[t_to][0][0][1] == "<="
+                        and transition_guard[t_to][0][0][2].delta == -1
+                    ):
+                        transition_guard[t_to][0][0] = (
+                            transition_guard[t_to][0][0][0],
+                            "<",
+                            transition_guard[t_to][0][0][2],
+                        )
+                        transition_guard[t_to][0][0][2].delta = 0
+                    if (
+                        transition_guard[t_to][0][0][1] == ">"
+                        and transition_guard[t_to][0][0][2].delta == -1
+                    ):
+                        transition_guard[t_to][0][0] = (
+                            transition_guard[t_to][0][0][0],
+                            ">=",
+                            transition_guard[t_to][0][0][2],
+                        )
+                        transition_guard[t_to][0][0][2].delta = 0
+                    if (
+                        transition_guard[t_to][0][0][1] == ">="
+                        and transition_guard[t_to][0][0][2].delta == 1
+                    ):
+                        transition_guard[t_to][0][0] = (
+                            transition_guard[t_to][0][0][0],
+                            ">",
+                            transition_guard[t_to][0][0][2],
+                        )
+                        transition_guard[t_to][0][0][2].delta = 0
+                    if (
+                        transition_guard[t_to][0][0][1] == "<"
+                        and transition_guard[t_to][0][0][2].delta == 1
+                    ):
+                        transition_guard[t_to][0][0] = (
+                            transition_guard[t_to][0][0][0],
+                            "<=",
+                            transition_guard[t_to][0][0][2],
+                        )
+                        transition_guard[t_to][0][0][2].delta = 0
 
                 self.transition_guard[t_from] = transition_guard
                 if self.show_progress:
