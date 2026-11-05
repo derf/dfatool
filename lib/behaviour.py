@@ -202,7 +202,7 @@ class SDKBehaviourModel:
                     var1, cmp1, val1 = and_pairs[0][0]
                     var2, cmp2, val2 = and_pairs[0][1]
 
-                    if type(val1) is str or type(val2) is str:
+                    if type(val1) in (str, tuple) or type(val2) in (str, tuple):
                         continue
                     delta = val2 - val1
 
@@ -212,6 +212,8 @@ class SDKBehaviourModel:
                             or l_cmp1 != cmp1
                             or l_var2 != var2
                             or l_cmp2 != cmp2
+                            or type(l_val1) is not int
+                            or type(l_val2) is not int
                             or l_val2 - l_val1 != delta
                         ):
                             skip = True
