@@ -123,6 +123,8 @@ def assess_trace(
 
     predicted_args = list()
     expected_args = list()
+    predicted_by_callsite = dict()
+    expected_by_callsite = dict()
     reliable = True
     for i, (callsite, param) in enumerate(predicted_trace):
         if not " @ " in callsite:
@@ -130,6 +132,9 @@ def assess_trace(
         if i >= len(expected_trace) + 1:
             reliable = False
             break
+        if callsite not in predicted_by_callsite:
+            predicted_by_callsite[callsite] = list()
+            expected_by_callsite[callsite] = list()
         workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
         if predicted_calls[i] == expected_calls[i]:
             for arg_name, expected_value in expected_trace[i - 1]["param"].items():
@@ -138,10 +143,19 @@ def assess_trace(
                 )
                 predicted_args.append(predicted_value)
                 expected_args.append(expected_value)
+                predicted_by_callsite[callsite].append(predicted_value)
+                expected_by_callsite[callsite].append(expected_value)
         else:
             reliable = False
 
-    return is_correct, predicted_args, expected_args, reliable
+    return (
+        is_correct,
+        predicted_args,
+        expected_args,
+        predicted_by_callsite,
+        expected_by_callsite,
+        reliable,
+    )
 
 
 def assess_trace_nfps(
@@ -479,7 +493,7 @@ def main():
         pred_args = list()
         ok = True
         for annotation in annotations:
-            is_correct, pred, exp, ok = assess_trace(
+            is_correct, pred, exp, pred_cs, exp_cs, ok = assess_trace(
                 bm, param_model, observations, annotation, parameter_names
             )
             if is_correct:
@@ -507,8 +521,12 @@ def main():
         n_wrong = 0
         pred_args = list()
         exp_args = list()
+        pred_by_cs = dict()
+        exp_by_cs = dict()
         ok = True
-        for training, validation in _xv_partitions_kfold(len(annotations)):
+        for i, (training, validation) in enumerate(
+            _xv_partitions_kfold(len(annotations))
+        ):
             training_annotations = list(map(lambda i: annotations[i], training))
             validation_annotations = list(map(lambda i: annotations[i], validation))
             bm_xv = SDKBehaviourModel(
@@ -516,7 +534,7 @@ def main():
             )
             bm_xv.cleanup()
             for annotation in validation_annotations:
-                is_correct, pred, exp, ok = assess_trace(
+                is_correct, pred, exp, pred_cs, exp_cs, ok = assess_trace(
                     bm_xv, param_model, observations, annotation, parameter_names
                 )
                 if is_correct:
@@ -525,6 +543,12 @@ def main():
                     n_wrong += 1
                 pred_args += pred
                 exp_args += exp
+                for cs in pred_cs.keys():
+                    if cs not in pred_by_cs:
+                        pred_by_cs[cs] = list()
+                        exp_by_cs[cs] = list()
+                    pred_by_cs[cs] += pred_cs[cs]
+                    exp_by_cs[cs] += exp_cs[cs]
                 if not ok:
                     ok = False
         trace_dref["trace/accuracy/validation"] = (
@@ -539,6 +563,16 @@ def main():
         annot = "" if ok else " (UNRELIABLE)"
         trace_dref["callsite-arg/error/validation/smape"] = smape
         print(f"{smape:5.1f}% validation callsite argument prediction error{annot}")
+
+        for cs in exp_by_cs.keys():
+            arg_err = dfatool.utils.regression_measures(pred_by_cs[cs], exp_by_cs[cs])
+            smape = arg_err["smape"]
+            n_measurements_pred = len(pred_by_cs[cs])
+            n_measurements_exp = len(exp_by_cs[cs])
+            if n_measurements_exp == n_measurements_pred:
+                print(
+                    f"  {smape:5.1f}% validation callsite argument prediction error for {n_measurements_exp:3d}× {cs}"
+                )
     # /BM
 
     if args.with_function_models and not args.filter_observation:
