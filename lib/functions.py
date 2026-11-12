@@ -1697,6 +1697,12 @@ class XGBoostFunction(SKLearnRegressionFunction):
         # range: (0,1]
         subsample = float(os.getenv("DFATOOL_XGB_SUBSAMPLE", "1"))
 
+        # colsample_bytree : Optional[float] [default=1]
+        #     colsample_bytree ratio of the training instance.
+        # colsample_bytree is the subsample ratio of columns when constructing each tree. Subsampling occurs once for every tree constructed
+        # range: (0,1]
+        colsample_bytree = float(os.getenv("DFATOOL_XGB_COLSAMPLE_BYTREE", "1"))
+
         # reg_alpha : Optional[float] [default=0]
         #     L1 regularization term on weights (xgb's alpha).
         # L1 regularization term on weights. Increasing this value will make model more conservative.
@@ -1734,6 +1740,7 @@ class XGBoostFunction(SKLearnRegressionFunction):
             max_depth=max_depth,
             max_leaves=max_leaves,
             subsample=subsample,
+            colsample_bytree=colsample_bytree,
             learning_rate=learning_rate,
             gamma=gamma,
             reg_alpha=reg_alpha,
