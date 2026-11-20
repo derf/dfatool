@@ -14,10 +14,15 @@ import dfatool.functions as df
 from dfatool.behaviour import SDKBehaviourModel
 from dfatool.loader import Logfile
 from dfatool.model import AnalyticModel
-from dfatool.validation import CrossValidator, _xv_partitions_kfold
+from dfatool.validation import (
+    CrossValidator,
+    _xv_partitions_kfold,
+    _xv_param_partitions_kfold,
+)
 from functools import reduce
-import logging
 import json
+import logging
+import numpy as np
 import re
 import sys
 import time
@@ -524,9 +529,22 @@ def main():
         pred_by_cs = dict()
         exp_by_cs = dict()
         ok = True
-        for i, (training, validation) in enumerate(
-            _xv_partitions_kfold(len(annotations))
-        ):
+
+        # note: In PrIM traces, each series of kernels is repeated within a single benchmark. So. there is onle _one_ annotation for each configuration. In
+        # these cases, --parameter-aware-cross-validation has no effect: we're always doing stratified XV anyways.
+        if args.parameter_aware_cross_validation:
+            iterator = _xv_param_partitions_kfold(
+                map(
+                    lambda a: dfatool.utils.param_dict_to_list(
+                        a.end.param, parameter_names
+                    ),
+                    annotations,
+                )
+            )
+        else:
+            iterator = _xv_partitions_kfold(len(annotations))
+
+        for training, validation in iterator:
             training_annotations = list(map(lambda i: annotations[i], training))
             validation_annotations = list(map(lambda i: annotations[i], validation))
             bm_xv = SDKBehaviourModel(
@@ -625,7 +643,21 @@ def main():
                         "by_call"
                     ][call]
 
-        for training, validation in _xv_partitions_kfold(len(annotations)):
+        # note: In PrIM traces, each series of kernels is repeated within a single benchmark. So. there is onle _one_ annotation for each configuration. In
+        # these cases, --parameter-aware-cross-validation has no effect: we're always doing stratified XV anyways.
+        if args.parameter_aware_cross_validation:
+            iterator = _xv_param_partitions_kfold(
+                map(
+                    lambda a: dfatool.utils.param_dict_to_list(
+                        a.end.param, parameter_names
+                    ),
+                    annotations,
+                )
+            )
+        else:
+            iterator = _xv_partitions_kfold(len(annotations))
+
+        for training, validation in iterator:
             training_annotations = list(map(lambda i: annotations[i], training))
             validation_annotations = list(map(lambda i: annotations[i], validation))
             bm_xv = SDKBehaviourModel(
