@@ -253,6 +253,48 @@ def assess_trace_nfps(
     return base_attr, pred_attr, exp_attr, reliable
 
 
+def print_wfcfg(bm):
+    for name in sorted(bm.delta_by_name.keys()):
+        for t_from, t_to_set in bm.delta_by_name[name].items():
+            i_to_transition = dict()
+            delta_param_sets = list()
+            to_names = list()
+
+            for t_to in sorted(t_to_set):
+                delta_params = bm.delta_param_by_name[name][(t_from, t_to)]
+                delta_param_sets.append(delta_params)
+                to_names.append(t_to)
+                n_confs = len(delta_params)
+                symbol = " "
+                if bm.transition_guard[t_from] is None:
+                    # invalid model
+                    guard = "?"
+                elif t_to not in bm.transition_guard[t_from]:
+                    guard = "⊥"
+                elif not bm.transition_guard[t_from][t_to]:
+                    guard = "⊤"
+                else:
+                    guard = " ∨ ".join(
+                        map(format_guard, bm.transition_guard[t_from][t_to])
+                    )
+                print(f"{name}  {t_from}  →  {t_to}  {symbol}  ({guard})")
+
+            for i in range(len(delta_param_sets)):
+                for j in range(i + 1, len(delta_param_sets)):
+                    if not delta_param_sets[i].isdisjoint(delta_param_sets[j]):
+                        intersection = delta_param_sets[i].intersection(
+                            delta_param_sets[j]
+                        )
+                        logging.error(
+                            f"Outbound transitions of <{t_from}> are not deterministic: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
+                        )
+                        raise RuntimeError(
+                            f"Outbound transitions of <{t_from}> are not deterministic"
+                        )
+
+            print("")
+
+
 def main():
     timing = dict()
     parser = argparse.ArgumentParser(
@@ -334,45 +376,7 @@ def main():
     )
 
     if args.show_wfcfg:
-        for name in sorted(bm.delta_by_name.keys()):
-            for t_from, t_to_set in bm.delta_by_name[name].items():
-                i_to_transition = dict()
-                delta_param_sets = list()
-                to_names = list()
-
-                for t_to in sorted(t_to_set):
-                    delta_params = bm.delta_param_by_name[name][(t_from, t_to)]
-                    delta_param_sets.append(delta_params)
-                    to_names.append(t_to)
-                    n_confs = len(delta_params)
-                    symbol = " "
-                    if bm.transition_guard[t_from] is None:
-                        # invalid model
-                        guard = "?"
-                    elif t_to not in bm.transition_guard[t_from]:
-                        guard = "⊥"
-                    elif not bm.transition_guard[t_from][t_to]:
-                        guard = "⊤"
-                    else:
-                        guard = " ∨ ".join(
-                            map(format_guard, bm.transition_guard[t_from][t_to])
-                        )
-                    print(f"{name}  {t_from}  →  {t_to}  {symbol}  ({guard})")
-
-                for i in range(len(delta_param_sets)):
-                    for j in range(i + 1, len(delta_param_sets)):
-                        if not delta_param_sets[i].isdisjoint(delta_param_sets[j]):
-                            intersection = delta_param_sets[i].intersection(
-                                delta_param_sets[j]
-                            )
-                            logging.error(
-                                f"Outbound transitions of <{t_from}> are not deterministic: <{to_names[i]}> and <{to_names[j]}> are both taken for {intersection}"
-                            )
-                            raise RuntimeError(
-                                f"Outbound transitions of <{t_from}> are not deterministic"
-                            )
-
-                print("")
+        print_wfcfg(bm)
 
     #
     # Model for workload → function call arguments
@@ -559,6 +563,11 @@ def main():
                 observations, training_annotations, show_progress=args.progress
             )
             bm_xv.cleanup()
+
+            # print(f"XV #{i}:")
+            # if args.show_wfcfg:
+            #    print_wfcfg(bm_xv)
+
             for annotation in validation_annotations:
                 is_correct, pred, exp, pred_cs, exp_cs, ok = assess_trace(
                     bm_xv, param_model, observations, annotation, parameter_names
@@ -928,6 +937,17 @@ def main():
             error_metric=args.error_metric,
             load_model=args.load_json,
         )
+        # if args.with_function_models:
+        #    dfatool.cli.model_quality_table(
+        #        lut=function_lut_quality,
+        #        model=function_analytic_quality,
+        #        static=function_static_quality,
+        #        model_info=function_param_info,
+        #        xv_method=xv_method,
+        #        xv_count=xv_count,
+        #        error_metric=args.error_metric,
+        #        load_model=args.load_json,
+        #    )
 
     if args.show_model_complexity:
         dfatool.cli.print_model_complexity(model)
