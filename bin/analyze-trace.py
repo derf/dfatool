@@ -175,6 +175,8 @@ def assess_trace_nfps(
     wfcfg_model,
     function_info,
     function_model,
+    xv_function_info,
+    xv_function_model,
     observations,
     annotation,
     bm_param_names,
@@ -189,7 +191,7 @@ def assess_trace_nfps(
     # Baseline: NFP value predicted using function_model and expected_trace[i]["param"][arg_name]
     base_attr = dict()
 
-    # Prediction: NFP value predicted using function_model and wfcfg_model
+    # Prediction: NFP value predicted using xv_function_model and wfcfg_model
     pred_attr = dict()
 
     # Expectation: NFP value observed in ground truth
@@ -241,7 +243,7 @@ def assess_trace_nfps(
             dfatool.utils.param_dict_to_list(call_param, fun_param_names)
         )
         for attr_name in function_info.attributes(call):
-            predicted_value = function_model(call, attr_name, param=pred_param_tuple)
+            predicted_value = xv_function_model(call, attr_name, param=pred_param_tuple)
             if attr_name not in pred_attr:
                 pred_attr[attr_name] = {"all": list(), "by_call": dict()}
             pred_attr[attr_name]["all"].append(predicted_value)
@@ -618,6 +620,8 @@ def main():
                 param_model,
                 function_model,
                 function_cart,
+                function_model,
+                function_cart,
                 observations,
                 annotation,
                 parameter_names,
@@ -670,6 +674,24 @@ def main():
         for training, validation in iterator:
             training_annotations = list(map(lambda i: annotations[i], training))
             validation_annotations = list(map(lambda i: annotations[i], validation))
+
+            fm_observations = reduce(
+                lambda a, b: a + b,
+                map(parse_log, args.logfiles),
+            )
+            fm_observations = list(map(lambda i: fm_observations[i], training))
+            xv_function_by_name, function_parameter_names = (
+                dfatool.utils.observations_to_by_name(fm_observations)
+            )
+            del fm_observations
+            dfatool.utils.ignore_param(
+                xv_function_by_name, function_parameter_names, args.ignore_param
+            )
+            xv_function_model = AnalyticModel(
+                xv_function_by_name, function_parameter_names, model_type="cart"
+            )
+            xv_function_cart, _ = xv_function_model.get_fitted()
+
             bm_xv = SDKBehaviourModel(
                 observations, training_annotations, show_progress=args.progress
             )
@@ -685,6 +707,8 @@ def main():
                     param_model,
                     function_model,
                     function_cart,
+                    xv_function_model,
+                    xv_function_cart,
                     observations,
                     annotation,
                     parameter_names,
