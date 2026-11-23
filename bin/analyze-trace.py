@@ -142,14 +142,20 @@ def assess_trace(
             expected_by_callsite[callsite] = list()
         workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
         if predicted_calls[i] == expected_calls[i]:
-            for arg_name, expected_value in expected_trace[i - 1]["param"].items():
+            l_pred = list()
+            l_exp = list()
+            for i, (arg_name, expected_value) in enumerate(
+                expected_trace[i - 1]["param"].items()
+            ):
                 predicted_value = round(
                     wfcfg_model(callsite, arg_name, param=workload_tuple)
                 )
                 predicted_args.append(predicted_value)
                 expected_args.append(expected_value)
-                predicted_by_callsite[callsite].append(predicted_value)
-                expected_by_callsite[callsite].append(expected_value)
+                l_pred.append(predicted_value)
+                l_exp.append(expected_value)
+            expected_by_callsite[callsite].append(tuple(l_exp))
+            predicted_by_callsite[callsite].append(tuple(l_pred))
         else:
             reliable = False
 
@@ -583,14 +589,18 @@ def main():
         print(f"{smape:5.1f}% validation callsite argument prediction error{annot}")
 
         for cs in exp_by_cs.keys():
-            arg_err = dfatool.utils.regression_measures(pred_by_cs[cs], exp_by_cs[cs])
-            smape = arg_err["smape"]
-            n_measurements_pred = len(pred_by_cs[cs])
-            n_measurements_exp = len(exp_by_cs[cs])
-            if n_measurements_exp == n_measurements_pred:
-                print(
-                    f"  {smape:5.1f}% validation callsite argument prediction error for {n_measurements_exp:3d}× {cs}"
+            for i in range(len(exp_by_cs[cs][0])):
+                arg_err = dfatool.utils.regression_measures(
+                    np.array(list(map(lambda v: v[i], pred_by_cs[cs]))),
+                    np.array(list(map(lambda v: v[i], exp_by_cs[cs]))),
                 )
+                smape = arg_err["smape"]
+                n_measurements_pred = len(pred_by_cs[cs])
+                n_measurements_exp = len(exp_by_cs[cs])
+                if n_measurements_exp == n_measurements_pred:
+                    print(
+                        f"  {smape:5.1f}% validation callsite argument prediction error for {n_measurements_exp:3d}× {cs}  arg  {i}"
+                    )
     # /BM
 
     if args.with_function_models and not args.filter_observation:
@@ -747,8 +757,14 @@ def main():
                 n_measurements_pred = len(val_pred_attr[attr_name]["by_call"][call])
                 n_measurements_exp = len(val_exp_attr[attr_name]["by_call"][call])
                 if n_measurements_pred != n_measurements_exp:
+                    trunc = min(n_measurements_pred, n_measurements_exp)
+                    arg_err = dfatool.utils.regression_measures(
+                        val_pred_attr[attr_name]["by_call"][call][:trunc],
+                        val_exp_attr[attr_name]["by_call"][call][:trunc],
+                    )
+                    smape = arg_err["smape"]
                     print(
-                        f"    ---.-% validation {attr_name} prediction error for {n_measurements_exp:3d}× {call}  (prediction held {n_measurements_pred} calls)"
+                        f"   ≈{smape:5.1f}% validation {attr_name} prediction error for {n_measurements_exp:3d}× {call}  (prediction held {n_measurements_pred} calls)"
                     )
                 else:
                     arg_err = dfatool.utils.regression_measures(
