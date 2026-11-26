@@ -181,6 +181,7 @@ def assess_trace_nfps(
     annotation,
     bm_param_names,
     fun_param_names,
+    xv_fun_param_names,
 ):
     # with __init__ / __end__
     predicted_trace = bm.get_trace(annotation.start.name, annotation.end.param)
@@ -234,13 +235,13 @@ def assess_trace_nfps(
 
         workload_tuple = tuple(dfatool.utils.param_dict_to_list(param, bm_param_names))
         call_param = dict()
-        for arg_name in fun_param_names:
+        for arg_name in xv_fun_param_names:
             if arg_name in wfcfg_info.attr_by_name[callsite]:
                 call_param[arg_name] = round(
                     wfcfg_model(callsite, arg_name, param=workload_tuple)
                 )
         pred_param_tuple = tuple(
-            dfatool.utils.param_dict_to_list(call_param, fun_param_names)
+            dfatool.utils.param_dict_to_list(call_param, xv_fun_param_names)
         )
         for attr_name in function_info.attributes(call):
             predicted_value = xv_function_model(call, attr_name, param=pred_param_tuple)
@@ -553,7 +554,12 @@ def main():
                     annotations,
                 )
             )
-        else:
+            if iterator is None:
+                logger.warning(
+                    f"Insufficient amount of parameter combinations, falling back to parameter-unaware cross-validation"
+                )
+                args.parameter_aware_cross_validation = False
+        if not args.parameter_aware_cross_validation:
             iterator = _xv_partitions_kfold(len(annotations))
 
         for training, validation in iterator:
@@ -635,6 +641,7 @@ def main():
                 annotation,
                 parameter_names,
                 function_parameter_names,
+                function_parameter_names,
             )
             if not ok:
                 t_ok = False
@@ -684,20 +691,28 @@ def main():
             training_annotations = list(map(lambda i: annotations[i], training))
             validation_annotations = list(map(lambda i: annotations[i], validation))
 
-            fm_observations = reduce(
-                lambda a, b: a + b,
-                map(parse_log, args.logfiles),
+            xv_observations_pre, xv_annotations = reduce(
+                lambda a, b: (a[0] + b[0], join_annotations(a[0], a[1], b[1])),
+                map(parse_trace, args.logfiles),
             )
-            fm_observations = list(map(lambda i: fm_observations[i], training))
-            xv_function_by_name, function_parameter_names = (
-                dfatool.utils.observations_to_by_name(fm_observations)
+
+            xv_observations = list()
+            for annot in training_annotations:
+                xv_observations.extend(
+                    xv_observations_pre[annot.start.offset : annot.end.offset]
+                )
+            del xv_observations_pre, xv_annotations
+
+            xv_function_by_name, xv_function_parameter_names = (
+                dfatool.utils.observations_to_by_name(xv_observations)
             )
-            del fm_observations
+            del xv_observations
+
             dfatool.utils.ignore_param(
-                xv_function_by_name, function_parameter_names, args.ignore_param
+                xv_function_by_name, xv_function_parameter_names, args.ignore_param
             )
             xv_function_model = AnalyticModel(
-                xv_function_by_name, function_parameter_names, model_type="cart"
+                xv_function_by_name, xv_function_parameter_names, model_type="cart"
             )
             xv_function_cart, _ = xv_function_model.get_fitted()
 
@@ -722,6 +737,7 @@ def main():
                     annotation,
                     parameter_names,
                     function_parameter_names,
+                    xv_function_parameter_names,
                 )
                 if not ok:
                     v_ok = False
